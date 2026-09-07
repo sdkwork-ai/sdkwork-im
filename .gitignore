@@ -124,3 +124,8 @@ scripts/dev/_tmp-*
 
 # Workspace-level build artifacts
 /bin/
+/_tmp_*
+/NUL.*
+
+# Local build artifacts / workspace junk (auto-sync)
+.workbuddy/

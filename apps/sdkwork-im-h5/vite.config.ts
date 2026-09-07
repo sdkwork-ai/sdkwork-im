@@ -1,11 +1,6 @@
+import { resolveViteEnvironment, resolveLucideReactEntry } from '../../../sdkwork-specs/tools/vite-runtime-profile.mjs';
 import { resolveBrowserDistOutDir } from '../../../sdkwork-specs/tools/browser-dist-layout.mjs';
-function resolveViteEnvironment(mode: string | undefined, processEnv = process.env) {
-  const profileMatch = /^(standalone|cloud)\.(development|test|staging|production)$/u.exec(mode ?? '');
-  return profileMatch?.[2]
-    ?? (['development', 'test', 'staging', 'production'].includes(processEnv.SDKWORK_ENVIRONMENT ?? '')
-      ? (processEnv.SDKWORK_ENVIRONMENT ?? 'production')
-      : 'production');
-}
+
 import tailwindcss from '@tailwindcss/vite';
 import { createSdkworkCredentialEntryBootstrapVitePlugin } from '@sdkwork/iam-credential-entry/vite';
 import react from '@vitejs/plugin-react';
@@ -25,10 +20,7 @@ const appTailwindMergeEntry = path.resolve(
   'node_modules/tailwind-merge/dist/bundle-mjs.mjs',
 );
 const appZustandEntry = path.resolve(__dirname, 'node_modules/zustand/esm/index.mjs');
-const appLucideReactEntry = path.resolve(
-  __dirname,
-  'node_modules/lucide-react/dist/esm/lucide-react.js',
-);
+const appLucideReactEntry = resolveLucideReactEntry(__dirname);
 const appMotionReactEntry = path.resolve(__dirname, 'node_modules/motion/dist/es/react.mjs');
 const appReactI18nextEntry = path.resolve(
   __dirname,

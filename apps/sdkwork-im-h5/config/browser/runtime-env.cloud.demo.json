@@ -1,0 +1,53 @@
+{
+  "environment": "demo",
+  "deploymentProfile": "cloud",
+  "profileId": "cloud.demo",
+  "runtimeTarget": "browser",
+  "browserOriginMode": "cross-origin",
+  "schemaVersion": 1,
+  "kind": "sdkwork.browser-runtime-env",
+  "profile": "development",
+  "appKey": "sdkwork-im-h5",
+  "publicRuntimeConfig": {
+    "VITE_SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL": "https://im-demo.sdkwork.com",
+    "VITE_SDKWORK_IM_APPLICATION_PUBLIC_WEBSOCKET_URL": "wss://api-demo.sdkwork.com",
+    "VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL": "https://api-demo.sdkwork.com",
+    "VITE_SDKWORK_IM_API_BASE_URL": "https://api-demo.sdkwork.com",
+    "VITE_SDKWORK_AGENTS_APP_API_BASE_URL": "https://api-demo.sdkwork.com",
+    "VITE_SDKWORK_CMS_APP_API_BASE_URL": "https://api-demo.sdkwork.com",
+    "VITE_SDKWORK_DRIVE_APP_API_BASE_URL": "https://api-demo.sdkwork.com",
+    "VITE_SDKWORK_IAM_API_BASE_URL": "https://api-demo.sdkwork.com",
+    "VITE_SDKWORK_KNOWLEDGEBASE_APP_API_BASE_URL": "https://api-demo.sdkwork.com",
+    "VITE_SDKWORK_ORDER_APP_API_BASE_URL": "https://api-demo.sdkwork.com",
+    "VITE_SDKWORK_VOICE_APP_API_BASE_URL": "https://api-demo.sdkwork.com"
+  },
+  "featureFlags": {
+    "qrLoginEnabled": false,
+    "pushNotificationsEnabled": false
+  },
+  "cloudApiBaseUrls": [
+    "https://api-demo.sdkwork.com",
+    "https://api-demo.birdcoder.com",
+    "https://api-demo.noaper.com",
+    "https://api-demo.dtupay.com",
+    "https://api-demo.sdkwork.cn",
+    "https://api-demo.birdcoder.cn",
+    "https://api-demo.noaper.cn",
+    "https://api-demo.dtupay.cn",
+    "https://api-demo.skubc.com",
+    "https://api-demo.skubc.cn",
+    "https://api-demo.zowalk.com",
+    "https://api-demo.zowalk.cn",
+    "https://api-demo.offer86.com",
+    "https://api-demo.offer86.cn",
+    "https://api-demo.86offer.com",
+    "https://api-demo.86offer.cn"
+  ],
+  "appApiBaseUrl": "https://api-demo.sdkwork.com;https://api-demo.birdcoder.com;https://api-demo.noaper.com;https://api-demo.dtupay.com;https://api-demo.sdkwork.cn;https://api-demo.birdcoder.cn;https://api-demo.noaper.cn;https://api-demo.dtupay.cn;https://api-demo.skubc.com;https://api-demo.skubc.cn;https://api-demo.zowalk.com;https://api-demo.zowalk.cn;https://api-demo.offer86.com;https://api-demo.offer86.cn;https://api-demo.86offer.com;https://api-demo.86offer.cn",
+  "backendApiBaseUrl": "https://api-demo.sdkwork.com;https://api-demo.birdcoder.com;https://api-demo.noaper.com;https://api-demo.dtupay.com;https://api-demo.sdkwork.cn;https://api-demo.birdcoder.cn;https://api-demo.noaper.cn;https://api-demo.dtupay.cn;https://api-demo.skubc.com;https://api-demo.skubc.cn;https://api-demo.zowalk.com;https://api-demo.zowalk.cn;https://api-demo.offer86.com;https://api-demo.offer86.cn;https://api-demo.86offer.com;https://api-demo.86offer.cn",
+  "driveAppApiBaseUrl": "https://api-demo.sdkwork.com;https://api-demo.birdcoder.com;https://api-demo.noaper.com;https://api-demo.dtupay.com;https://api-demo.sdkwork.cn;https://api-demo.birdcoder.cn;https://api-demo.noaper.cn;https://api-demo.dtupay.cn;https://api-demo.skubc.com;https://api-demo.skubc.cn;https://api-demo.zowalk.com;https://api-demo.zowalk.cn;https://api-demo.offer86.com;https://api-demo.offer86.cn;https://api-demo.86offer.com;https://api-demo.86offer.cn",
+  "appbaseAppApiBaseUrl": "https://api-demo.sdkwork.com;https://api-demo.birdcoder.com;https://api-demo.noaper.com;https://api-demo.dtupay.com;https://api-demo.sdkwork.cn;https://api-demo.birdcoder.cn;https://api-demo.noaper.cn;https://api-demo.dtupay.cn;https://api-demo.skubc.com;https://api-demo.skubc.cn;https://api-demo.zowalk.com;https://api-demo.zowalk.cn;https://api-demo.offer86.com;https://api-demo.offer86.cn;https://api-demo.86offer.com;https://api-demo.86offer.cn",
+  "deployAppApiBaseUrl": "https://api-demo.sdkwork.com;https://api-demo.birdcoder.com;https://api-demo.noaper.com;https://api-demo.dtupay.com;https://api-demo.sdkwork.cn;https://api-demo.birdcoder.cn;https://api-demo.noaper.cn;https://api-demo.dtupay.cn;https://api-demo.skubc.com;https://api-demo.skubc.cn;https://api-demo.zowalk.com;https://api-demo.zowalk.cn;https://api-demo.offer86.com;https://api-demo.offer86.cn;https://api-demo.86offer.com;https://api-demo.86offer.cn",
+  "openApiBaseUrl": "https://api-demo.sdkwork.com;https://api-demo.birdcoder.com;https://api-demo.noaper.com;https://api-demo.dtupay.com;https://api-demo.sdkwork.cn;https://api-demo.birdcoder.cn;https://api-demo.noaper.cn;https://api-demo.dtupay.cn;https://api-demo.skubc.com;https://api-demo.skubc.cn;https://api-demo.zowalk.com;https://api-demo.zowalk.cn;https://api-demo.offer86.com;https://api-demo.offer86.cn;https://api-demo.86offer.com;https://api-demo.86offer.cn",
+  "sdkBaseUrl": "https://api-demo.sdkwork.com;https://api-demo.birdcoder.com;https://api-demo.noaper.com;https://api-demo.dtupay.com;https://api-demo.sdkwork.cn;https://api-demo.birdcoder.cn;https://api-demo.noaper.cn;https://api-demo.dtupay.cn;https://api-demo.skubc.com;https://api-demo.skubc.cn;https://api-demo.zowalk.com;https://api-demo.zowalk.cn;https://api-demo.offer86.com;https://api-demo.offer86.cn;https://api-demo.86offer.com;https://api-demo.86offer.cn"
+}

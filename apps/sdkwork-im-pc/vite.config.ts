@@ -1,11 +1,6 @@
+import { resolveViteEnvironment, resolveLucideReactEntry } from '../../../sdkwork-specs/tools/vite-runtime-profile.mjs';
 import { resolveBrowserDistOutDir } from '../../../sdkwork-specs/tools/browser-dist-layout.mjs';
-function resolveViteEnvironment(mode: string | undefined, processEnv = process.env) {
-  const profileMatch = /^(standalone|cloud)\.(development|test|staging|production)$/u.exec(mode ?? '');
-  return profileMatch?.[2]
-    ?? (['development', 'test', 'staging', 'production'].includes(processEnv.SDKWORK_ENVIRONMENT ?? '')
-      ? (processEnv.SDKWORK_ENVIRONMENT ?? 'production')
-      : 'production');
-}
+
 import tailwindcss from '@tailwindcss/vite';
 import { createSdkworkCredentialEntryBootstrapVitePlugin } from '../../../sdkwork-iam/apps/sdkwork-iam-common/packages/sdkwork-iam-credential-entry/src/vite.ts';
 import react from '@vitejs/plugin-react';
@@ -29,6 +24,10 @@ function resolveDevServerPort(): number {
 function dependencyRoot(dependencyId: string): string {
   return path.resolve(repoRoot, '..', dependencyId);
 }
+
+// Same as im-h5: pin motion/react to this app's own node_modules entry so that
+// cross-repo packages (e.g. sdkwork-agents-pc-agents) resolve it during build.
+const appMotionReactEntry = path.resolve(__dirname, 'node_modules/motion/dist/es/react.mjs');
 
 const imAppSdkEntry = path.resolve(
   __dirname,
@@ -291,6 +290,7 @@ export default defineConfig(({mode}) => {
             '../sdkwork-iam/apps/sdkwork-iam-common/packages/sdkwork-iam-credential-entry/src/vite.ts',
           ),
         },
+        { find: /^motion\/react$/, replacement: appMotionReactEntry },
         { find: '@', replacement: path.resolve(__dirname, '.') },
         { find: 'react/jsx-runtime', replacement: reactJsxRuntimeEntry },
         { find: 'react/jsx-dev-runtime', replacement: reactJsxDevRuntimeEntry },
