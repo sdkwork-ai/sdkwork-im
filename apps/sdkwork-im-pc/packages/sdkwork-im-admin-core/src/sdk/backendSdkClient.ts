@@ -1,3 +1,4 @@
+import { resolveBaseUrl } from '@sdkwork/sdk-common';
 import {
   createClient,
   type SdkworkBackendConfig,
@@ -51,26 +52,15 @@ function normalizeBackendSdkBaseUrl(value: string): string {
   }
 }
 
-function resolveLocalDevBackendApiBaseUrl(): string | undefined {
-  if (!import.meta.env.DEV) {
-    return undefined;
-  }
-  return resolveBrowserBaseUrl('http://127.0.0.1:18079');
-}
-
-function resolveSameOriginHttpBaseUrl(): string | undefined {
-  if (typeof window === 'undefined') {
-    return undefined;
-  }
-  return window.location.origin || undefined;
-}
-
 export function resolveBackendSdkBaseUrl(): string {
+  // Prefer explicit VITE overrides; otherwise resolve the shared
+  // SDKWORK_API_BASE_URL through @sdkwork/sdk-common (env + brand + protocol
+  // aware), eliminating the hardcoded 127.0.0.1:18079 dev and window.origin
+  // fallbacks.
   const baseUrl = readEnvValue('VITE_SDKWORK_IM_BACKEND_API_BASE_URL')
     ?? readEnvValue('VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL')
     ?? readEnvValue('VITE_SDKWORK_IAM_APP_API_BASE_URL')
-    ?? resolveLocalDevBackendApiBaseUrl()
-    ?? resolveSameOriginHttpBaseUrl();
+    ?? resolveBaseUrl().url;
   if (!baseUrl) {
     throw new Error(
       'Sdkwork IM backend SDK base URL is not configured. Set VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL.',
