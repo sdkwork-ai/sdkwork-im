@@ -11,24 +11,16 @@ import {
   type SdkworkAppClient as SdkworkVoiceAppClient,
   type SdkworkAppConfig,
 } from '@sdkwork/voice-app-sdk';
+import { resolveBaseUrl } from '@sdkwork/sdk-common';
 
 export type { SdkworkVoiceAppClient };
 
 let voiceAppSdkClient: SdkworkVoiceAppClient | null = null;
 
 function resolveVoiceAppBaseUrl(): string {
-  const meta = import.meta as ImportMeta & {
-    env?: Record<string, string | undefined>;
-  };
-  const fromEnv = meta.env?.SDKWORK_VOICE_APP_API_BASE_URL
-    ?? meta.env?.VITE_SDKWORK_VOICE_APP_API_BASE_URL
-    ?? meta.env?.SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL
-    ?? meta.env?.VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL
-    ?? meta.env?.SDKWORK_IM_API_BASE_URL;
-  if (typeof fromEnv === 'string' && fromEnv.trim().length > 0) {
-    return fromEnv.trim();
-  }
-  return '/';
+  // Single shared base-url key; the matching API host is chosen from the
+  // current page's environment+brand. This SDK client expects a bare origin.
+  return resolveBaseUrl({ envKey: 'SDKWORK_API_BASE_URL' }).url;
 }
 
 export function createVoiceAppSdkClientConfig(

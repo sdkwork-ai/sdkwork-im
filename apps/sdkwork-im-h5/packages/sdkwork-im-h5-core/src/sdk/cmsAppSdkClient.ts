@@ -9,7 +9,7 @@
  * client through `@sdkwork/im-h5-core/sdk`.
  */
 
-import type { AuthTokenManager } from '@sdkwork/sdk-common';
+import { resolveBaseUrl, type AuthTokenManager } from '@sdkwork/sdk-common';
 
 export type CmsFavoriteType = 'link' | 'article' | 'image' | 'file' | 'voice' | 'chat';
 
@@ -126,17 +126,10 @@ export class CmsAppSdkClient {
 let cmsAppSdkClient: CmsAppSdkClient | null = null;
 
 function resolveCmsAppBaseUrl(): string {
-  const meta = import.meta as ImportMeta & {
-    env?: Record<string, string | undefined>;
-  };
-  const fromEnv = meta.env?.SDKWORK_CMS_APP_API_BASE_URL
-    ?? meta.env?.VITE_SDKWORK_CMS_APP_API_BASE_URL
-    ?? meta.env?.SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL
-    ?? meta.env?.SDKWORK_IM_API_BASE_URL;
-  if (typeof fromEnv === 'string' && fromEnv.trim().length > 0) {
-    return fromEnv.trim();
-  }
-  return '/';
+  // Single shared base-url key; the matching API host is chosen from the
+  // current page's environment+brand. This SDK client expects a bare origin
+  // (the client appends /app/v3/api to request paths itself).
+  return resolveBaseUrl({ envKey: 'SDKWORK_API_BASE_URL' }).url;
 }
 
 export function createCmsAppSdkClientConfig(

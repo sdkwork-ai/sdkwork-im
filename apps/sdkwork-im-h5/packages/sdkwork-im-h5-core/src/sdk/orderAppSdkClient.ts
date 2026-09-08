@@ -3,22 +3,16 @@ import {
   type SdkworkAppClient,
   type SdkworkAppConfig,
 } from '@sdkwork/order-app-sdk';
+import { resolveBaseUrl } from '@sdkwork/sdk-common';
 
 export type { SdkworkAppClient };
 
 let orderAppSdkClient: SdkworkAppClient | null = null;
 
 function resolveOrderAppBaseUrl(): string {
-  const meta = import.meta as ImportMeta & {
-    env?: Record<string, string | undefined>;
-  };
-  const fromEnv = meta.env?.SDKWORK_ORDER_APP_API_BASE_URL
-    ?? meta.env?.VITE_SDKWORK_ORDER_APP_API_BASE_URL
-    ?? meta.env?.SDKWORK_IM_API_BASE_URL;
-  if (typeof fromEnv === 'string' && fromEnv.trim().length > 0) {
-    return fromEnv.trim();
-  }
-  return '/';
+  // Single shared base-url key; the matching API host is chosen from the
+  // current page's environment+brand. This SDK client expects a bare origin.
+  return resolveBaseUrl({ envKey: 'SDKWORK_API_BASE_URL' }).url;
 }
 
 export function createOrderAppSdkClientConfig(

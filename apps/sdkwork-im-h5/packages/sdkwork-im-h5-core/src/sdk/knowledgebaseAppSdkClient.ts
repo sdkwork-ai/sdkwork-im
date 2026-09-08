@@ -3,22 +3,16 @@ import {
   type SdkworkAppConfig,
   type SdkworkKnowledgebaseAppClient,
 } from '@sdkwork/knowledgebase-app-sdk';
+import { resolveBaseUrl } from '@sdkwork/sdk-common';
 
 export type { SdkworkKnowledgebaseAppClient };
 
 let knowledgebaseAppSdkClient: SdkworkKnowledgebaseAppClient | null = null;
 
 function resolveKnowledgebaseAppBaseUrl(): string {
-  const meta = import.meta as ImportMeta & {
-    env?: Record<string, string | undefined>;
-  };
-  const fromEnv = meta.env?.SDKWORK_KNOWLEDGEBASE_APP_API_BASE_URL
-    ?? meta.env?.VITE_SDKWORK_KNOWLEDGEBASE_APP_API_BASE_URL
-    ?? meta.env?.SDKWORK_IM_API_BASE_URL;
-  if (typeof fromEnv === 'string' && fromEnv.trim().length > 0) {
-    return fromEnv.trim();
-  }
-  return '/';
+  // Single shared base-url key; the matching API host is chosen from the
+  // current page's environment+brand. This SDK client expects a bare origin.
+  return resolveBaseUrl({ envKey: 'SDKWORK_API_BASE_URL' }).url;
 }
 
 export function createKnowledgebaseAppSdkClientConfig(

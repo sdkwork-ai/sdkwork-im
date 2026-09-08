@@ -3,6 +3,7 @@ import {
   type SdkworkAppClient,
   type SdkworkAppConfig,
 } from '@sdkwork/agents-app-sdk';
+import { resolveBaseUrl } from '@sdkwork/sdk-common';
 
 export type { SdkworkAppClient as SdkworkAgentsAppClient };
 
@@ -11,40 +12,12 @@ let agentsAppSdkClient: SdkworkAppClient | null = null;
 /**
  * Resolve the agents app SDK gateway root.
  *
- * The generated agents SDK rejects same-origin `"/"` as an empty base URL, so
- * this resolver produces a concrete gateway root. The final fallback is the
- * browser origin, keeping the same-origin semantics the other H5 SDKs get
- * from `"/"` while satisfying the agents SDK validation.
+ * Single shared base-url key; the matching API host is chosen from the current
+ * page's environment+brand. This SDK client expects a bare origin (the
+ * generated SDK appends /app/v3/api itself).
  */
 function resolveAgentsAppBaseUrl(): string {
-  const meta = import.meta as ImportMeta & {
-    env?: Record<string, string | undefined>;
-  };
-  const resolved = meta.env?.SDKWORK_AGENTS_APP_API_BASE_URL
-    ?? meta.env?.VITE_SDKWORK_AGENTS_APP_API_BASE_URL
-    ?? meta.env?.SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL
-    ?? meta.env?.VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL
-    ?? meta.env?.SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL
-    ?? meta.env?.VITE_SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL
-    ?? resolveBrowserOrigin();
-  if (typeof resolved !== 'string' || resolved.trim().length === 0) {
-    throw new Error(
-      'Agents App SDK requires a gateway root. Set SDKWORK_AGENTS_APP_API_BASE_URL ' +
-        '(or SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL / SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL).',
-    );
-  }
-  return resolved.trim();
-}
-
-function resolveBrowserOrigin(): string | undefined {
-  if (typeof window === 'undefined') {
-    return undefined;
-  }
-  const origin = window.location?.origin;
-  if (typeof origin === 'string' && origin.trim().length > 0 && origin !== 'null') {
-    return origin.trim();
-  }
-  return undefined;
+  return resolveBaseUrl({ envKey: 'SDKWORK_API_BASE_URL' }).url;
 }
 
 export function createAgentsAppSdkClientConfig(
