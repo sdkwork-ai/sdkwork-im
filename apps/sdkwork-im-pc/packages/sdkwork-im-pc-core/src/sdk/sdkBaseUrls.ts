@@ -1,9 +1,8 @@
 import { IM_REALTIME_WS } from '@sdkwork/im-sdk';
+import { resolveBaseUrl } from '@sdkwork/sdk-common';
 // Browser-safe mirror of sdkwork-specs/tools/browser-cloud-api-base.mjs.
-// The canonical specs tool is a Node script (node:fs/node:path + a
-// build-from-topology.mjs chain that pulls node:url/fileURLToPath); importing
-// it here crashed the browser bundle at runtime
-// (`TypeError: (0 , aa.fileURLToPath) is not a function`).
+// Kept only for normalizing explicitly authored env values; the runtime
+// default resolution below goes through @sdkwork/sdk-common resolveBaseUrl.
 import { resolveBrowserCloudSdkBaseUrl } from './browserCloudApiBase';
 import {
   DEFAULT_LOCAL_APPLICATION_PUBLIC_HTTP_URL,
@@ -15,6 +14,19 @@ import {
   VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL,
 } from './topologyEnvKeys';
 import { readDiscoveredDevGatewayHttpUrl } from './devGatewayDiscoveryCache';
+
+/**
+ * Platform-gateway origin resolved through the shared `resolveBaseUrl`
+ * contract (ENVIRONMENT_SPEC.md §6.3): the unified `SDKWORK_API_BASE_URL`
+ * candidate list (comma/semicolon separated) is matched against the current
+ * page host, environment and deployment profile; `pnpm dev` cloud pages
+ * resolve to the local cloud-gateway dev port, built cloud pages to
+ * `api[-<env>].<brand>`, and standalone pages stay same-origin. Explicit
+ * per-surface overrides keep winning before this fallback is consulted.
+ */
+function resolveSharedPlatformApiOrigin(): string | undefined {
+  return resolveBaseUrl().url || undefined;
+}
 
 const SDKWORK_APP_API_PREFIX = '/app/v3/api';
 const SDKWORK_BACKEND_API_PREFIX = '/backend/v3/api';
@@ -41,6 +53,7 @@ export function resolveBrowserBaseUrl(value: string): string {
   }
   try {
     const parsedUrl = new URL(resolved);
+    let rewritten = false;
     const currentHost = window.location.hostname;
     if (
       ['127.0.0.1', 'localhost', '0.0.0.0'].includes(parsedUrl.hostname)
@@ -48,6 +61,23 @@ export function resolveBrowserBaseUrl(value: string): string {
       && !['127.0.0.1', 'localhost', '0.0.0.0'].includes(currentHost)
     ) {
       parsedUrl.hostname = currentHost;
+      rewritten = true;
+    }
+    // The cloud edge terminates HTTP and HTTPS on the same gateway host, so
+    // the API scheme must follow the page scheme: an http:// page targets the
+    // http:// origin (a TLS-less dev edge closes https:// connections with
+    // ERR_CONNECTION_CLOSED) and an https:// page targets https:// (avoiding
+    // mixed-content blocks). Non-http(s) resolved values are left untouched.
+    const pageProtocol = window.location.protocol;
+    if (
+      (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:')
+      && (pageProtocol === 'http:' || pageProtocol === 'https:')
+      && parsedUrl.protocol !== pageProtocol
+    ) {
+      parsedUrl.protocol = pageProtocol;
+      rewritten = true;
+    }
+    if (rewritten) {
       return parsedUrl.toString().replace(/\/$/u, '');
     }
   } catch {
@@ -217,6 +247,7 @@ export function resolveAppbaseAppApiBaseUrl(): string | undefined {
     ?? readSdkBaseUrlEnvValue('VITE_SDKWORK_APPBASE_APP_API_BASE_URL')
     ?? readSdkBaseUrlEnvValue('VITE_SDKWORK_SDK_BASE_URL')
     ?? readDiscoveredDevGatewayHttpUrl()
+    ?? resolveSharedPlatformApiOrigin()
     ?? resolveLocalDevPlatformBaseUrl()
     ?? resolveSameOriginHttpBaseUrl();
 }
@@ -225,6 +256,7 @@ export function resolveProductAppApiBaseUrl(): string | undefined {
   return readSdkBaseUrlEnvValue(VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL)
     ?? readSdkBaseUrlEnvValue('VITE_SDKWORK_IM_SDK_BASE_URL')
     ?? readDiscoveredDevGatewayHttpUrl()
+    ?? resolveSharedPlatformApiOrigin()
     ?? resolveLocalDevPlatformBaseUrl()
     ?? resolveSameOriginHttpBaseUrl();
 }
@@ -275,6 +307,7 @@ export function resolveImWebSocketBaseUrlOrThrow(): string {
 export function resolveProductBackendApiBaseUrl(): string | undefined {
   return readSdkBaseUrlEnvValue('VITE_SDKWORK_IM_BACKEND_API_BASE_URL')
     ?? readSdkBaseUrlEnvValue(VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL)
+    ?? resolveSharedPlatformApiOrigin()
     ?? resolveLocalDevPlatformBaseUrl()
     ?? resolveSameOriginHttpBaseUrl();
 }
@@ -283,6 +316,7 @@ export function resolveAppbaseBackendApiBaseUrl(): string | undefined {
   return readSdkBaseUrlEnvValue('VITE_SDKWORK_IAM_BACKEND_API_BASE_URL')
     ?? readSdkBaseUrlEnvValue(VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL)
     ?? readSdkBaseUrlEnvValue('VITE_SDKWORK_APPBASE_BACKEND_API_BASE_URL')
+    ?? resolveSharedPlatformApiOrigin()
     ?? resolveLocalDevPlatformBaseUrl()
     ?? resolveSameOriginHttpBaseUrl();
 }
@@ -292,13 +326,15 @@ export function resolveImWebSocketBaseUrl(): string | undefined {
   if (explicitBaseUrl) {
     return normalizeWebSocketSdkBaseUrl(explicitBaseUrl);
   }
-  // Cloud dual-ingress: derive the WebSocket base from the platform api gateway
-  // edge first so the realtime connection shares the SDK base domain. In
-  // standalone single-ingress the platform gateway collapses onto the
-  // application edge, so this fallback stays correct there as well.
+  // Cloud dual-ingress: derive the WebSocket base from the platform api
+  // gateway edge (explicit value first, then the shared §6.3 resolved origin)
+  // so the realtime connection shares the SDK base domain. In standalone
+  // single-ingress the platform gateway collapses onto the application edge,
+  // so this fallback stays correct there as well.
   return deriveWebSocketBaseUrlFromHttpBaseUrl(
     readSdkBaseUrlEnvValue(VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL),
   )
+    ?? deriveWebSocketBaseUrlFromHttpBaseUrl(resolveSharedPlatformApiOrigin())
     ?? deriveWebSocketBaseUrlFromHttpBaseUrl(
       readSdkBaseUrlEnvValue(VITE_SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL),
     )
