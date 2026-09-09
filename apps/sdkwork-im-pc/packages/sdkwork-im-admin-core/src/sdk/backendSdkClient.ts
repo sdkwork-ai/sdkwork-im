@@ -1,10 +1,10 @@
-import { resolveBaseUrl } from '@sdkwork/sdk-common';
+import {resolveBaseUrlWithAlignProtocol} from '@sdkwork/sdk-common';
 import {
   createClient,
   type SdkworkBackendConfig,
   type SdkworkImBackendClient,
 } from '@sdkwork/im-backend-sdk';
-import type { Interceptors } from '@sdkwork/sdk-common';
+import {Interceptors} from '@sdkwork/sdk-common';
 import {
   createSdkworkChatRequestContextInterceptors,
   getSdkworkChatGlobalTokenManager,
@@ -60,7 +60,7 @@ export function resolveBackendSdkBaseUrl(): string {
   const baseUrl = readEnvValue('VITE_SDKWORK_IM_BACKEND_API_BASE_URL')
     ?? readEnvValue('VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL')
     ?? readEnvValue('VITE_SDKWORK_IAM_APP_API_BASE_URL')
-    ?? resolveBaseUrl().url;
+    ?? resolveBaseUrlWithAlignProtocol().url;
   if (!baseUrl) {
     throw new Error(
       'Sdkwork IM backend SDK base URL is not configured. Set VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL.',

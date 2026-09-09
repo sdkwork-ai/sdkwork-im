@@ -1,5 +1,5 @@
 import { IM_REALTIME_WS } from '@sdkwork/im-sdk';
-import { resolveBaseUrl } from '@sdkwork/sdk-common';
+import {resolveBaseUrlWithAlignProtocol} from '@sdkwork/sdk-common';
 // Browser-safe mirror of sdkwork-specs/tools/browser-cloud-api-base.mjs.
 // Kept only for normalizing explicitly authored env values; the runtime
 // default resolution below goes through @sdkwork/sdk-common resolveBaseUrl.
@@ -25,7 +25,7 @@ import { readDiscoveredDevGatewayHttpUrl } from './devGatewayDiscoveryCache';
  * per-surface overrides keep winning before this fallback is consulted.
  */
 function resolveSharedPlatformApiOrigin(): string | undefined {
-  return resolveBaseUrl().url || undefined;
+  return resolveBaseUrlWithAlignProtocol().url || undefined;
 }
 
 const SDKWORK_APP_API_PREFIX = '/app/v3/api';

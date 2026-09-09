@@ -11,7 +11,7 @@ import {
   type SdkworkAppClient as SdkworkVoiceAppClient,
   type SdkworkAppConfig,
 } from '@sdkwork/voice-app-sdk';
-import { resolveBaseUrl } from '@sdkwork/sdk-common';
+import {resolveBaseUrlWithAlignProtocol} from '@sdkwork/sdk-common';
 
 export type { SdkworkVoiceAppClient };
 
@@ -20,7 +20,7 @@ let voiceAppSdkClient: SdkworkVoiceAppClient | null = null;
 function resolveVoiceAppBaseUrl(): string {
   // Single shared base-url key; the matching API host is chosen from the
   // current page's environment+brand. This SDK client expects a bare origin.
-  return resolveBaseUrl({ envKey: 'SDKWORK_API_BASE_URL' }).url;
+  return resolveBaseUrlWithAlignProtocol({ envKey: 'SDKWORK_API_BASE_URL' }).url;
 }
 
 export function createVoiceAppSdkClientConfig(

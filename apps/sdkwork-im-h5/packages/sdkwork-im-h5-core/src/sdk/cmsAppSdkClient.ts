@@ -9,7 +9,7 @@
  * client through `@sdkwork/im-h5-core/sdk`.
  */
 
-import { resolveBaseUrl, type AuthTokenManager } from '@sdkwork/sdk-common';
+import {resolveBaseUrlWithAlignProtocol, type AuthTokenManager} from '@sdkwork/sdk-common';
 
 export type CmsFavoriteType = 'link' | 'article' | 'image' | 'file' | 'voice' | 'chat';
 
@@ -129,7 +129,7 @@ function resolveCmsAppBaseUrl(): string {
   // Single shared base-url key; the matching API host is chosen from the
   // current page's environment+brand. This SDK client expects a bare origin
   // (the client appends /app/v3/api to request paths itself).
-  return resolveBaseUrl({ envKey: 'SDKWORK_API_BASE_URL' }).url;
+  return resolveBaseUrlWithAlignProtocol({ envKey: 'SDKWORK_API_BASE_URL' }).url;
 }
 
 export function createCmsAppSdkClientConfig(

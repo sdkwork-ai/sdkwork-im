@@ -3,7 +3,7 @@ import {
   type SdkworkAppClient,
   type SdkworkAppConfig,
 } from '@sdkwork/agents-app-sdk';
-import { resolveBaseUrl } from '@sdkwork/sdk-common';
+import {resolveBaseUrlWithAlignProtocol} from '@sdkwork/sdk-common';
 
 export type { SdkworkAppClient as SdkworkAgentsAppClient };
 
@@ -17,7 +17,7 @@ let agentsAppSdkClient: SdkworkAppClient | null = null;
  * generated SDK appends /app/v3/api itself).
  */
 function resolveAgentsAppBaseUrl(): string {
-  return resolveBaseUrl({ envKey: 'SDKWORK_API_BASE_URL' }).url;
+  return resolveBaseUrlWithAlignProtocol({ envKey: 'SDKWORK_API_BASE_URL' }).url;
 }
 
 export function createAgentsAppSdkClientConfig(
