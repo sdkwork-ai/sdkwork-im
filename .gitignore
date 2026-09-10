@@ -132,3 +132,7 @@ scripts/dev/_tmp-*
 
 # SDKWork generated SDK outputs (regenerated locally, not committed)
 sdks/**/generated/
+
+# Generated app-level type declarations and Flutter l10n codegen
+**/types/siblings/
+**/lib/l10n/generated/
