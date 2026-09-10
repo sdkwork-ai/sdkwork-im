@@ -36,7 +36,7 @@ const REALTIME_MAX_LINK_CONNECTIONS_DEFAULT: usize = 10_000;
 const REALTIME_HANDSHAKE_TIMEOUT_SECS_ENV: &str = "SDKWORK_IM_REALTIME_HANDSHAKE_TIMEOUT_SECS";
 const REALTIME_HANDSHAKE_TIMEOUT_DEFAULT_SECS: u64 = 15;
 
-fn resolve_handshake_timeout() -> Duration {
+pub(crate) fn resolve_handshake_timeout() -> Duration {
     let secs = std::env::var(REALTIME_HANDSHAKE_TIMEOUT_SECS_ENV)
         .ok()
         .and_then(|raw| raw.parse::<u64>().ok())
@@ -238,10 +238,27 @@ impl LinkTransportRuntime {
                 .recv_from(&mut buffer)
                 .await
                 .map_err(|error| format!("udp link recv failed: {error}"))?;
+            // Bound concurrent in-flight datagram tasks with the same
+            // connection semaphore used by TCP/QUIC; an unbounded spawn
+            // per datagram would let a UDP flood exhaust task memory and
+            // the blocking pool.
+            let permit = match self.connection_semaphore.clone().try_acquire_owned() {
+                Ok(permit) => permit,
+                Err(_) => {
+                    warn!(
+                        target: "sdkwork.im",
+                        event = "im.link.udp.overload",
+                        peer = %peer_addr,
+                        "udp link at connection capacity; dropping datagram"
+                    );
+                    continue;
+                }
+            };
             let runtime = self.clone();
             let datagram = buffer[..length].to_vec();
             let reply_socket = socket.clone();
             tokio::spawn(async move {
+                let _permit = permit;
                 if let Err(error) = runtime
                     .serve_udp_datagram(reply_socket.as_ref(), peer_addr, datagram.as_slice())
                     .await

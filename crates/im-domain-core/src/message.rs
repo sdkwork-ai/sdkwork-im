@@ -818,6 +818,7 @@ pub struct MentionPart {
     pub target_kind: MentionTargetKind,
     pub target_id: String,
     pub display_text: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub assignment_generation: u64,
 }
 

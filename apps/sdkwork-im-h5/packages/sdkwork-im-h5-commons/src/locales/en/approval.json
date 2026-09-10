@@ -62,7 +62,11 @@
     "reason": "Reason",
     "duration": "Duration/Amount",
     "approvers": "Approvers",
-    "cc": "CC"
+    "cc": "CC",
+    "process": "Approval flow",
+    "initiatorBadge": "Req",
+    "initiatedRequest": "Request submitted",
+    "yourTurn": "The approval is waiting on you"
   },
   "auto_fn_2f078e83": "Operation failed",
   "auto_prop_2b29ee97": "Approval details",

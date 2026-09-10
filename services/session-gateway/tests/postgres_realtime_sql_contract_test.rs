@@ -628,6 +628,13 @@ fn test_postgres_realtime_sql_placeholders_are_contiguous() {
         8,
     );
     assert_uses_contiguous_placeholders(
+        constant_source(
+            &source,
+            "load_subscribed_device_ids_for_principal_scope_sql",
+        ),
+        9,
+    );
+    assert_uses_contiguous_placeholders(
         constant_source(&source, "load_realtime_disconnect_fence_sql"),
         5,
     );
@@ -655,7 +662,7 @@ fn test_postgres_realtime_sql_placeholders_are_contiguous() {
 #[test]
 fn test_postgres_realtime_sql_specs_define_bindings_rows_and_complete_store_method_coverage() {
     let specs = realtime_postgres_sql_contract_specs();
-    assert_eq!(specs.len(), 21);
+    assert_eq!(specs.len(), 22);
 
     for spec in specs {
         assert!(!spec.name.trim().is_empty());
@@ -742,7 +749,7 @@ fn test_postgres_realtime_sql_specs_define_bindings_rows_and_complete_store_meth
 
     let adapter_plan = realtime_postgres_adapter_plan();
     assert_eq!(adapter_plan.sql_contracts.len(), specs.len());
-    assert_eq!(adapter_plan.method_plans.len(), 21);
+    assert_eq!(adapter_plan.method_plans.len(), 22);
 
     let required_methods = [
         "RealtimeCheckpointStore::load_checkpoint",
@@ -754,6 +761,7 @@ fn test_postgres_realtime_sql_specs_define_bindings_rows_and_complete_store_meth
         "RealtimeEventWindowStore::trim_window",
         "RealtimeSubscriptionStore::load_subscriptions",
         "RealtimeSubscriptionStore::load_matching_subscriptions",
+        "RealtimeSubscriptionStore::load_subscribed_device_ids_for_principal_scope",
         "RealtimeSubscriptionStore::save_subscriptions",
         "RealtimeSubscriptionStore::clear_subscriptions",
         "RealtimeSubscriptionStore::clear_subscriptions_synced_at_or_before",

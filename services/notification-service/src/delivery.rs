@@ -4,7 +4,8 @@
 //! gateway serves to connected clients), then marks the task `dispatched` or
 //! retries/dead-letters it on failure.
 
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -270,9 +271,36 @@ pub struct DeliveryCycleSummary {
     pub failed: usize,
 }
 
+/// Upper bound for per-cycle delivery worker threads.
+const NOTIFICATION_DELIVERY_CONCURRENCY_DEFAULT: usize = 8;
+const NOTIFICATION_DELIVERY_CONCURRENCY_MAX: usize = 32;
+const NOTIFICATION_DELIVERY_CONCURRENCY_ENV: &str =
+    "SDKWORK_IM_NOTIFICATION_DELIVERY_CONCURRENCY";
+
+/// Resolves the bounded parallelism used to dispatch one claimed batch.
+/// The per-task work is several blocking PostgreSQL round trips (device
+/// lookup plus per-device window writes), so the cycle fans the batch out
+/// over a small worker pool instead of dispatching strictly serially.
+pub fn resolve_delivery_concurrency() -> usize {
+    std::env::var(NOTIFICATION_DELIVERY_CONCURRENCY_ENV)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value > 0)
+        .map(|value| value.min(NOTIFICATION_DELIVERY_CONCURRENCY_MAX))
+        .unwrap_or(NOTIFICATION_DELIVERY_CONCURRENCY_DEFAULT)
+}
+
 /// Runs one delivery cycle: claim up to `limit` tasks, dispatch each, and
 /// record dispatched/failed outcomes. Failures are retried by the store
 /// (exponential backoff, dead-letter after the attempt cap).
+///
+/// The claimed batch is dispatched with bounded parallelism
+/// (`SDKWORK_IM_NOTIFICATION_DELIVERY_CONCURRENCY`, default 8): each task
+/// costs several blocking store round trips, so strict serial dispatch caps
+/// the whole service at one task at a time. Claim leases make concurrent
+/// dispatch safe across cycles and replicas; completion bookkeeping is
+/// serialized under a mutex and the first store error is surfaced after the
+/// whole batch was attempted.
 pub fn run_delivery_cycle(
     task_store: &dyn NotificationTaskStore,
     realtime: &dyn NotificationRealtimeDelivery,
@@ -294,39 +322,97 @@ pub fn run_delivery_cycle(
         claimed = claimed.len(),
         "cross-organization notification worker claim completed"
     );
-    let mut summary = DeliveryCycleSummary {
+    let summary = Mutex::new(DeliveryCycleSummary {
         claimed: claimed.len(),
         ..DeliveryCycleSummary::default()
-    };
-    for record in claimed {
-        let dispatched_at = utc_now_rfc3339_millis();
-        match realtime.deliver(&record) {
-            Ok(_) => {
-                task_store
-                    .complete_task(
+    });
+    let first_error: Mutex<Option<NotificationError>> = Mutex::new(None);
+    let concurrency = resolve_delivery_concurrency().max(1);
+    let next_task = AtomicUsize::new(0);
+
+    std::thread::scope(|scope| {
+        for _ in 0..concurrency.min(claimed.len().max(1)) {
+            scope.spawn(|| loop {
+                let index = next_task.fetch_add(1, Ordering::Relaxed);
+                let Some(record) = claimed.get(index) else {
+                    break;
+                };
+                let dispatched_at = utc_now_rfc3339_millis();
+                // Delivery failures are per-task outcomes (the store retries
+                // with backoff); only store bookkeeping errors abort the
+                // cycle, after every claimed task was attempted.
+                let mut delivery_failed_reason = None;
+                match realtime.deliver(record) {
+                    Ok(_) => {
+                        let completed = task_store
+                            .complete_task(
+                                record.tenant_id.as_str(),
+                                record.organization_id.as_str(),
+                                record.notification_id.as_str(),
+                                dispatched_at.as_str(),
+                            )
+                            .map_err(NotificationError::notification_store);
+                        let mut summary = summary
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner());
+                        match completed {
+                            Ok(_) => {
+                                summary.dispatched = summary.dispatched.saturating_add(1);
+                                continue;
+                            }
+                            Err(error) => {
+                                let mut first = first_error
+                                    .lock()
+                                    .unwrap_or_else(|poisoned| poisoned.into_inner());
+                                if first.is_none() {
+                                    *first = Some(error);
+                                }
+                            }
+                        }
+                        summary.failed = summary.failed.saturating_add(1);
+                    }
+                    Err(delivery_error) => {
+                        delivery_failed_reason = Some(format!(
+                            "notification delivery failed: {delivery_error:?}"
+                        ));
+                    }
+                }
+                if let Some(reason) = delivery_failed_reason {
+                    let failed_at = utc_now_rfc3339_millis();
+                    if let Err(fail_error) = task_store.fail_task(
                         record.tenant_id.as_str(),
                         record.organization_id.as_str(),
                         record.notification_id.as_str(),
-                        dispatched_at.as_str(),
-                    )
-                    .map_err(NotificationError::notification_store)?;
-                summary.dispatched = summary.dispatched.saturating_add(1);
-            }
-            Err(error) => {
-                task_store
-                    .fail_task(
-                        record.tenant_id.as_str(),
-                        record.organization_id.as_str(),
-                        record.notification_id.as_str(),
-                        &format!("notification delivery failed: {error:?}"),
-                        utc_now_rfc3339_millis().as_str(),
-                    )
-                    .map_err(NotificationError::notification_store)?;
-                summary.failed = summary.failed.saturating_add(1);
-            }
+                        &reason,
+                        failed_at.as_str(),
+                    ) {
+                        let mut first = first_error
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner());
+                        if first.is_none() {
+                            *first = Some(NotificationError::notification_store(fail_error));
+                        }
+                    }
+                    let mut summary = summary
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    summary.failed = summary.failed.saturating_add(1);
+                }
+            });
         }
+    });
+
+    let mut summary = summary
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let first_error = first_error
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .take();
+    match first_error {
+        Some(error) => Err(error),
+        None => Ok(*summary),
     }
-    Ok(summary)
 }
 
 pub fn resolve_delivery_batch_limit() -> usize {

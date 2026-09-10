@@ -5,6 +5,7 @@ mod web_bootstrap;
 
 pub use manifest::{API_SURFACE, route_manifest};
 pub use paths::PREFIX;
+pub use web_bootstrap::wrap_router;
 
 use std::sync::Arc;
 

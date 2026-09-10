@@ -75,6 +75,6 @@ use im_sdk::{
 - [Auth and Client Init](/sdk/auth-and-client-init)
 - [Module Map](/sdk/module-map)
 - [Messages Module](/sdk/modules/messages)
-- [Streams](/api-reference/im/streams)
+- [Session And Realtime](/api-reference/im/session-and-realtime)
 - [Calls](/api-reference/im/calls)
 

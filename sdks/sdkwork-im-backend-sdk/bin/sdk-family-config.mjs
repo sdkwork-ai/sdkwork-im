@@ -7,6 +7,9 @@ export const sdkFamilyConfig = {
   sdkTarget: 'backend',
   sdkType: 'backend',
   apiAuthority: 'sdkwork-im.backend',
+  // TECH_ARCHITECTURE.md §4: backend-api routes are HttpRoute::dual_token only; the family
+  // verifier must not demand ApiKey alternatives for this surface.
+  authSurface: 'dual-token-only',
   generatedApiLabel: 'Sdkwork IM backend/operator API',
   legacyClient: 'SdkworkBackendClient',
   primaryClient: 'SdkworkImBackendClient',
@@ -55,10 +58,8 @@ export const sdkFamilyConfig = {
   },
   requiredPaths: [
     '/backend/v3/api/ops/health',
-    '/backend/v3/api/audit/records',
     '/backend/v3/api/automation/governance',
     '/backend/v3/api/control/protocol_registry',
-    '/backend/v3/api/admin/api_keys',
   ],
   forbiddenPathParts: [
     marker('/api', '/v1'),

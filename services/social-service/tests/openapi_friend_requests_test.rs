@@ -3,12 +3,22 @@ use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use im_app_context::{build_dual_token_headers_for_context, local_service_app_context};
 use sdkwork_im_web_bootstrap::wrap_im_service_router;
+use sdkwork_routes_im_social_backend_api as social_backend_routes;
 use social_service::friendship::AppState;
-use social_service::{SocialRuntime, build_control_domain_api_router, build_open_api_router};
+use social_service::{SocialRuntime, build_open_api_router};
 use std::sync::Arc;
 use tower::ServiceExt;
 
+fn ensure_test_environment() {
+    static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    TEST_ENVIRONMENT.get_or_init(|| {
+        // Safety: one-time bootstrap under OnceLock; process env write is single-threaded here.
+        unsafe { std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test") }
+    });
+}
+
 fn auth_headers() -> axum::http::HeaderMap {
+    ensure_test_environment();
     auth_headers_for_user("30")
 }
 
@@ -20,6 +30,7 @@ fn auth_headers_for_user(user_id: &str) -> axum::http::HeaderMap {
 }
 
 fn backend_control_auth_headers() -> axum::http::HeaderMap {
+    ensure_test_environment();
     let mut context = local_service_app_context("100001", "30", "user", Some("device_test"), ["*"]);
     context.organization_id = "org_30".into();
     build_dual_token_headers_for_context(&context, context.permission_scope.iter())
@@ -30,11 +41,17 @@ fn wrapped_open_api_app(state: AppState) -> axum::Router {
 }
 
 fn wrapped_control_api_app(state: AppState) -> axum::Router {
-    wrap_im_service_router(build_control_domain_api_router(state))
+    // Compose through the owning social-backend route crate so the
+    // interceptor pipeline receives the real backend route manifest; an
+    // empty-manifest wrap cannot resolve `/backend/v3/api/control/*` routes.
+    social_backend_routes::build_control_embedded_public_app(
+        state.social_runtime,
+    )
 }
 
 #[tokio::test]
 async fn open_api_friend_requests_list_returns_sdkwork_envelope() {
+    ensure_test_environment();
     let app = wrapped_open_api_app(AppState {
         social_runtime: Arc::new(SocialRuntime::for_test()),
         user_profile_store: None,
@@ -83,6 +100,7 @@ async fn open_api_friend_requests_list_returns_sdkwork_envelope() {
 
 #[tokio::test]
 async fn backend_control_friend_requests_list_uses_page_size_query() {
+    ensure_test_environment();
     let app = wrapped_control_api_app(AppState {
         social_runtime: Arc::new(SocialRuntime::for_test()),
         user_profile_store: None,
@@ -120,6 +138,7 @@ async fn backend_control_friend_requests_list_uses_page_size_query() {
 
 #[tokio::test]
 async fn backend_control_friend_requests_list_rejects_limit_alias() {
+    ensure_test_environment();
     let app = wrapped_control_api_app(AppState {
         social_runtime: Arc::new(SocialRuntime::for_test()),
         user_profile_store: None,
@@ -142,6 +161,7 @@ async fn backend_control_friend_requests_list_rejects_limit_alias() {
 
 #[tokio::test]
 async fn backend_control_friend_request_create_returns_created_resource_item() {
+    ensure_test_environment();
     let app = wrapped_control_api_app(AppState {
         social_runtime: Arc::new(SocialRuntime::for_test()),
         user_profile_store: None,
@@ -198,6 +218,7 @@ async fn backend_control_friend_request_create_returns_created_resource_item() {
 
 #[tokio::test]
 async fn open_api_contact_tag_create_returns_created_and_delete_returns_no_content() {
+    ensure_test_environment();
     let app = wrapped_open_api_app(AppState {
         social_runtime: Arc::new(SocialRuntime::for_test()),
         user_profile_store: None,
@@ -267,6 +288,7 @@ async fn open_api_contact_tag_create_returns_created_and_delete_returns_no_conte
 
 #[tokio::test]
 async fn open_api_friend_request_create_uses_friend_request_id_wire_field() {
+    ensure_test_environment();
     let app = wrapped_open_api_app(AppState {
         social_runtime: Arc::new(SocialRuntime::for_test()),
         user_profile_store: None,
@@ -320,6 +342,7 @@ async fn open_api_friend_request_create_uses_friend_request_id_wire_field() {
 
 #[tokio::test]
 async fn open_api_friend_request_accept_keeps_its_direct_conversation_wire_shape() {
+    ensure_test_environment();
     let app = wrapped_open_api_app(AppState {
         social_runtime: Arc::new(SocialRuntime::for_test()),
         user_profile_store: None,
@@ -406,6 +429,7 @@ async fn open_api_friend_request_accept_keeps_its_direct_conversation_wire_shape
 
 #[tokio::test]
 async fn open_api_friend_requests_list_accepts_all_direction() {
+    ensure_test_environment();
     let app = wrapped_open_api_app(AppState {
         social_runtime: Arc::new(SocialRuntime::for_test()),
         user_profile_store: None,
@@ -444,6 +468,7 @@ async fn open_api_friend_requests_list_accepts_all_direction() {
 
 #[tokio::test]
 async fn open_api_contact_tags_list_returns_sdkwork_envelope() {
+    ensure_test_environment();
     let app = wrapped_open_api_app(AppState {
         social_runtime: Arc::new(SocialRuntime::for_test()),
         user_profile_store: None,

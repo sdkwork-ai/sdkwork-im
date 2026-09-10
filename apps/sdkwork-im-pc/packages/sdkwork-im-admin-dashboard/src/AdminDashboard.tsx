@@ -142,7 +142,12 @@ export const AdminDashboard: React.FC = () => {
           </p>
 
           <div className="flex-1 flex flex-col gap-4 relative z-10">
-            {anomalies.length === 0 && !loading && (
+            {data?.anomaliesUnavailable && (
+              <p className="text-sm text-admin-text-muted" role="note">
+                Audit event feed is unavailable: the backend audit-records capability has no implemented contract.
+              </p>
+            )}
+            {!data?.anomaliesUnavailable && anomalies.length === 0 && !loading && (
               <p className="text-sm text-admin-text-muted">No recent anomalies detected.</p>
             )}
             {anomalies.map((anomaly) => (

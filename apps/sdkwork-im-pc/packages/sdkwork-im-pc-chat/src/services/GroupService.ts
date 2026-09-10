@@ -631,7 +631,8 @@ class SdkworkGroupService implements GroupService {
       throw new Error('A group must have between 1 and 10 agents');
     }
     const response = await this.client().conversations.replaceAgentAssignments(normalizedId, {
-      expectedGeneration,
+      // int64 generations cross the wire as decimal strings (API_SPEC 13.6).
+      expectedGeneration: String(expectedGeneration),
       agentAssignments: nextAssignments,
     });
     this.assertSessionGeneration(sessionGeneration);

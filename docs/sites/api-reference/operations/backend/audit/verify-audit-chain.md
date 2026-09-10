@@ -1,4 +1,4 @@
-# `POST /backend/v3/api/audit/records`
+# `GET /backend/v3/api/audit/verify`
 
 <p class="api-page-intro">
   Exact request and response contract for <strong>Audit</strong> in the <strong>Backend API</strong>.
@@ -13,35 +13,30 @@
 <section class="api-op api-op-single">
 
 <div class="api-op-header">
-  <span class="endpoint-tag endpoint-post">POST</span>
-  <code>/backend/v3/api/audit/records</code>
-  <span class="api-op-id">operationId: records.create</span>
+  <span class="endpoint-tag endpoint-get">GET</span>
+  <code>/backend/v3/api/audit/verify</code>
+  <span class="api-op-id">operationId: verify.retrieve</span>
 </div>
 
-Writes a new audit record.
+Verifies the hash chain of the current tenant's audit ledger and returns the chain head and validity result.
 
 <div class="api-meta-grid">
   <div class="api-meta-card"><strong>Security</strong><span>SDKWork dual token + resolved request context</span></div>
   <div class="api-meta-card"><strong>SDK</strong><span>`sdkwork-im-backend-sdk` / audit</span></div>
-  <div class="api-meta-card"><strong>Permission</strong><span>`audit.write`</span></div>
-  <div class="api-meta-card"><strong>Success</strong><span>`201 AuditRecord in data.item`</span></div>
+  <div class="api-meta-card"><strong>Permission</strong><span>`audit.read`</span></div>
+  <div class="api-meta-card"><strong>Success</strong><span>`200 AuditChainVerification`</span></div>
 </div>
 
-### Request Body
+### Response `200`
 
-<ApiSchemaTable schema="RecordAuditAnchor" />
-
-### Response `201`
-
-<ApiSchemaTable schema="AuditRecord" />
+<ApiSchemaTable schema="AuditChainVerification" />
 
 
 ### Error Responses
 
 | HTTP | `code` | Description |
 | --- | --- | --- |
-| `400` | `40001` | The audit anchor payload is invalid. |
 | `401` | `40101` | SDKWork authentication or request-context resolution failed. |
-| `403` | `40301` | The caller lacks `audit.write`. |
+| `403` | `40301` | The caller lacks `audit.read`. |
 
 </section>

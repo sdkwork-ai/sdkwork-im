@@ -5,6 +5,7 @@ parameters:
     required: true
     schema:
       type: string
+      format: int64
       pattern: '^[0-9]+$'
       x-sdkwork-int64-string: true
   GroupIdPath:
@@ -13,6 +14,7 @@ parameters:
     required: true
     schema:
       type: string
+      format: int64
       pattern: '^[0-9]+$'
       x-sdkwork-int64-string: true
   ChannelIdPath:
@@ -21,6 +23,7 @@ parameters:
     required: true
     schema:
       type: string
+      format: int64
       pattern: '^[0-9]+$'
       x-sdkwork-int64-string: true
   UserIdPath:
@@ -42,6 +45,7 @@ parameters:
     required: true
     schema:
       type: string
+      format: int64
       pattern: '^[0-9]+$'
       x-sdkwork-int64-string: true
 schemas:
@@ -74,6 +78,7 @@ schemas:
     properties:
       spaceId:
         type: string
+        format: int64
         pattern: '^[0-9]+$'
         x-sdkwork-int64-string: true
       spaceName:
@@ -138,12 +143,21 @@ schemas:
       description:
         type: string
         nullable: true
+  SpaceGroupTransferOwnerRequest:
+    type: object
+    additionalProperties: false
+    properties:
+      newOwnerUserId:
+        type: string
+    required:
+      - newOwnerUserId
   SpaceGroupView:
     type: object
     additionalProperties: false
     properties:
       groupId:
         type: string
+        format: int64
         pattern: '^[0-9]+$'
         x-sdkwork-int64-string: true
       groupName:
@@ -224,6 +238,7 @@ schemas:
     properties:
       channelId:
         type: string
+        format: int64
         pattern: '^[0-9]+$'
         x-sdkwork-int64-string: true
       channelName:
@@ -257,10 +272,12 @@ schemas:
     properties:
       ruleId:
         type: string
+        format: int64
         pattern: '^[0-9]+$'
         x-sdkwork-int64-string: true
       channelId:
         type: string
+        format: int64
         pattern: '^[0-9]+$'
         x-sdkwork-int64-string: true
       ruleType:
@@ -305,6 +322,7 @@ schemas:
         description: Invitation target type. Only space invitations are supported.
       targetId:
         type: string
+        format: int64
         pattern: ^[0-9]+$
         x-sdkwork-int64-string: true
         description: Invitation target id, must equal the spaceId path parameter.
@@ -333,6 +351,7 @@ schemas:
     properties:
       invitationId:
         type: string
+        format: int64
         pattern: ^[0-9]+$
         x-sdkwork-int64-string: true
         description: Invitation identifier, passed as the inviteCode path parameter.
@@ -345,6 +364,7 @@ schemas:
         type: string
       targetId:
         type: string
+        format: int64
         pattern: ^[0-9]+$
         x-sdkwork-int64-string: true
       role:

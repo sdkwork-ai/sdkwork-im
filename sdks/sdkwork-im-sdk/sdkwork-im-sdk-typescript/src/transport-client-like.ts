@@ -86,14 +86,14 @@ export interface ImCreateRoomRequest {
 export type ImConversationAgentAssignment = ConversationAgentAssignment;
 
 export type ImConversationAgentAssignmentSet = Omit<ConversationAgentAssignments, 'generation'> & {
-  generation: number;
+  generation: string;
 };
 
 export type ImReplaceConversationAgentAssignmentsRequest = Omit<
   UpdateConversationAgentsRequest,
   'expectedGeneration'
 > & {
-  expectedGeneration: number;
+  expectedGeneration: string;
 };
 
 export type ImReplaceConversationAgentAssignmentsResult = ImConversationAgentAssignmentSet;
@@ -172,7 +172,7 @@ export interface ImTransportClientLike {
         update(conversationId: string, body: UpdateConversationProfileRequest): Promise<ConversationProfileView>;
       };
       readCursor: {
-        update(conversationId: string, body: { readSeq: number }): Promise<ReadCursorView>;
+        update(conversationId: string, body: { readSeq: string }): Promise<ReadCursorView>;
       };
     };
     messages: {

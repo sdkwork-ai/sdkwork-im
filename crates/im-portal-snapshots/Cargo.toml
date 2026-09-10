@@ -1,6 +1,7 @@
 [package]
 name = "im-portal-snapshots"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 version.workspace = true
 description = "Portal snapshot builders for SDKWork IM console and workspace surfaces."

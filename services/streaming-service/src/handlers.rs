@@ -3,7 +3,7 @@ use axum::extract::{Extension, Path, Query, State};
 use axum::response::Response;
 use im_app_context::AppContext;
 use sdkwork_routes_web_framework_backend_api::response::{ApiResult, finish_api_json};
-use sdkwork_utils_rust::{MAX_LIST_PAGE_SIZE, SdkWorkCursorListQuery};
+use sdkwork_utils_rust::{DEFAULT_LIST_PAGE_SIZE, MAX_LIST_PAGE_SIZE, SdkWorkCursorListQuery};
 use sdkwork_web_core::WebRequestContext;
 
 use crate::dto::{
@@ -114,17 +114,18 @@ pub(crate) async fn list_stream_frames(
                 message: format!("page_size must be between 1 and {MAX_LIST_PAGE_SIZE}"),
             })?;
         }
-        let paging = query.resolve().map_err(|_| StreamingError {
-            status: axum::http::StatusCode::BAD_REQUEST,
-            code: "cursor_invalid",
-            message: "cursor must encode a non-negative frame sequence".into(),
-        })?;
-        let after_frame_seq = u64::try_from(paging.offset).map_err(|_| StreamingError {
-            status: axum::http::StatusCode::BAD_REQUEST,
-            code: "cursor_invalid",
-            message: "cursor must encode a non-negative frame sequence".into(),
-        })?;
-        let page_size = paging.page_size;
+        // Cursors are opaque (`sq1.<base64url(frame_seq)>`); raw numeric
+        // offset cursors are rejected per PAGINATION_SPEC §2.4/§3.
+        let after_frame_seq = match query.cursor.as_deref().map(str::trim) {
+            None | Some("") => 0,
+            Some(raw) => crate::state::decode_frame_cursor(raw).ok_or(StreamingError {
+                status: axum::http::StatusCode::BAD_REQUEST,
+                code: "cursor_invalid",
+                message: "cursor must be an opaque frame cursor token".into(),
+            })?,
+        };
+        let page_size = usize::try_from(query.page_size.unwrap_or(DEFAULT_LIST_PAGE_SIZE))
+            .unwrap_or(DEFAULT_LIST_PAGE_SIZE as usize);
         Ok(runtime.list_frames(&auth, stream_id.as_str(), after_frame_seq, page_size)?)
     })
     .await;

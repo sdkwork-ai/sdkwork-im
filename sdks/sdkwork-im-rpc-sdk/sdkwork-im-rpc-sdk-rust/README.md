@@ -143,14 +143,14 @@ SdkworkImRpc is an SDKWork RPC SDK scaffold generated from proto packages and an
   - RetrieveExternalConnection: social.externalConnections.retrieve, unary, auth=backend-admin, idempotency=none
   - CreateExternalMemberLink: social.externalMemberLinks.create, unary, auth=backend-admin, idempotency=required
   - RetrieveExternalMemberLink: social.externalMemberLinks.retrieve, unary, auth=backend-admin, idempotency=none
-  - CreateManagedFriendRequest: social.friendRequests.create, unary, auth=backend-admin, idempotency=required
+  - CreateManagedFriendRequest: social.managedFriendRequests.create, unary, auth=backend-admin, idempotency=required
   - RetrieveManagedFriendRequest: social.friendRequests.retrieve, unary, auth=backend-admin, idempotency=none
-  - AcceptManagedFriendRequest: social.friendRequests.accept, unary, auth=backend-admin, idempotency=required
-  - DeclineManagedFriendRequest: social.friendRequests.decline, unary, auth=backend-admin, idempotency=required
-  - CancelManagedFriendRequest: social.friendRequests.cancel, unary, auth=backend-admin, idempotency=required
+  - AcceptManagedFriendRequest: social.managedFriendRequests.accept, unary, auth=backend-admin, idempotency=required
+  - DeclineManagedFriendRequest: social.managedFriendRequests.decline, unary, auth=backend-admin, idempotency=required
+  - CancelManagedFriendRequest: social.managedFriendRequests.cancel, unary, auth=backend-admin, idempotency=required
   - CreateManagedFriendship: social.friendships.create, unary, auth=backend-admin, idempotency=required
   - RetrieveManagedFriendship: social.friendships.retrieve, unary, auth=backend-admin, idempotency=none
-  - RemoveManagedFriendship: social.friendships.remove, unary, auth=backend-admin, idempotency=required
+  - RemoveManagedFriendship: social.managedFriendships.remove, unary, auth=backend-admin, idempotency=required
   - CreateSharedChannelPolicy: social.sharedChannelPolicies.create, unary, auth=backend-admin, idempotency=required
   - RetrieveSharedChannelPolicy: social.sharedChannelPolicies.retrieve, unary, auth=backend-admin, idempotency=none
   - CreateUserBlock: social.userBlocks.create, unary, auth=backend-admin, idempotency=required

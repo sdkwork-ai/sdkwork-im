@@ -21,7 +21,7 @@ void main() {
 
     final page = readMessageHistoryPageFromSdkResponse(response);
 
-    expect(page.items.map((entry) => entry.messageSeq), <int>[41, 42]);
+    expect(page.items.map((entry) => entry.messageSeq), <String>['41', '42']);
     expect(page.pagination.hasMore, isTrue);
     expect(page.pagination.nextCursor, 'eyJzZWVrIjoibWVzc2FnZS00MiJ9');
   });
@@ -52,7 +52,8 @@ void main() {
   test('reads created message item from SDK command response data', () {
     final posted = PostMessageResult(
       messageId: 'm_1',
-      messageSeq: 7,
+      // int64 seqs cross the wire as decimal strings per API_SPEC 13.6.
+      messageSeq: '7',
       eventId: 'evt_1',
       deliveryStatus: 'applied',
     );
@@ -67,7 +68,7 @@ void main() {
     final item = readPostMessageResultFromSdkResponse(response);
 
     expect(item?.messageId, 'm_1');
-    expect(item?.messageSeq, 7);
+    expect(item?.messageSeq, '7');
   });
 
   test('resolves inbox titles without exposing technical conversation ids', () {
@@ -116,7 +117,8 @@ ConversationMessageEntry _messageEntry(int messageSeq) {
     tenantId: 'tenant-1',
     conversationId: 'c_1',
     messageId: 'm_$messageSeq',
-    messageSeq: messageSeq,
+    // int64 seqs cross the wire as decimal strings per API_SPEC 13.6.
+    messageSeq: '$messageSeq',
     sender: Sender(id: 'u_1', kind: 'user', displayName: 'Ada'),
     body: MessageBody(text: 'message $messageSeq', parts: <ContentPart>[]),
     messageType: 'text',
@@ -144,7 +146,8 @@ ConversationInboxEntry _inboxEntry(
           ),
     lastActivityAt: '2026-07-07T00:00:00Z',
     messageCount: 1,
-    lastMessageSeq: 7,
+    // int64 seqs cross the wire as decimal strings per API_SPEC 13.6.
+    lastMessageSeq: '7',
     unreadCount: 1,
   );
 }

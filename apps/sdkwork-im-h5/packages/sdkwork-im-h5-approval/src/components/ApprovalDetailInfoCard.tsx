@@ -1,5 +1,6 @@
 ﻿import React from "react";
 import { cn } from "@sdkwork/im-h5-commons";
+import { useTranslation } from "react-i18next";
 import { ApprovalItem } from "../services/ApprovalService";
 
 interface ApprovalDetailInfoCardProps {
@@ -7,6 +8,7 @@ interface ApprovalDetailInfoCardProps {
 }
 
 export const ApprovalDetailInfoCard: React.FC<ApprovalDetailInfoCardProps> = ({ approval }) => {
+  const { t } = useTranslation();
   return (
     <div className="bg-chat-other-bg p-5 pb-6 border-b border-border-color/30">
       <div className="flex items-center justify-between mb-4">
@@ -33,10 +35,10 @@ export const ApprovalDetailInfoCard: React.FC<ApprovalDetailInfoCardProps> = ({ 
           )}
         >
           {approval.status === "pending"
-            ? "待审批"
+            ? t("approval.status.pending")
             : approval.status === "approved"
-              ? "已同意"
-              : "已拒绝"}
+              ? t("approval.status.approved")
+              : t("approval.status.rejected")}
         </span>
       </div>
 

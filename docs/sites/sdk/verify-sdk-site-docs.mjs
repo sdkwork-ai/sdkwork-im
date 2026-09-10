@@ -135,7 +135,6 @@ export function verifySdkSiteDocs(options = {}) {
     '/app/v3/api',
     '/backend/v3/api',
     '/backend/v3/api/control/*',
-    '/backend/v3/api/admin/*',
     '[Backend SDK](/sdk/backend-sdk)',
     '[RTC SDK](/sdk/rtc-sdk)',
   ]) {
@@ -161,7 +160,6 @@ export function verifySdkSiteDocs(options = {}) {
     '/backend/v3/api',
     'SdkworkBackendClient',
     '/backend/v3/api/control/*',
-    '/backend/v3/api/admin/*',
     'Do not introduce a new admin SDK family',
   ]) {
     expectIncludes(
@@ -188,7 +186,6 @@ export function verifySdkSiteDocs(options = {}) {
     '`sdkwork-im-backend-sdk` maps to `/backend/v3/api`',
     '`sdkwork-rtc-sdk` maps to provider-runtime integration',
     '/backend/v3/api/control/*',
-    '/backend/v3/api/admin/*',
   ]) {
     expectIncludes(
       failures,
@@ -235,7 +232,6 @@ export function verifySdkSiteDocs(options = {}) {
     'sdkwork-im-backend-sdk',
     '/backend/v3/api/*',
     '/backend/v3/api/control/*',
-    '/backend/v3/api/admin/*',
   ]) {
     expectIncludes(
       failures,

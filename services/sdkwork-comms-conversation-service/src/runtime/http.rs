@@ -358,6 +358,7 @@ struct ConversationMessageEntry {
     tenant_id: String,
     conversation_id: String,
     message_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     message_seq: u64,
     summary: Option<String>,
     sender: Sender,
@@ -403,6 +404,7 @@ impl From<&im_domain_core::message::StoredMessage> for ConversationMessageEntry 
 struct ConversationMessageListResponse {
     #[serde(flatten)]
     page: SdkWorkPageData<ConversationMessageEntry>,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     high_watermark: u64,
 }
 
@@ -758,6 +760,7 @@ struct CreateConversationRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ReplaceConversationAgentsRequest {
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     expected_generation: u64,
     agent_assignments: Vec<ConversationAgentAssignment>,
 }
@@ -888,6 +891,7 @@ struct ConversationBindingResponse {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdateReadCursorRequest {
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     read_seq: u64,
     last_read_message_id: Option<String>,
 }
@@ -3513,6 +3517,19 @@ mod tests {
         runtime: Arc<ConversationRuntime<ConversationCommitJournal>>,
         principal_directory: Arc<dyn PrincipalDirectory>,
     ) -> Router {
+        // Dual-token test fixtures rely on the relaxed test posture; library
+        // code never downgrades the process environment itself. Local JWT
+        // fixtures carry no AppContext signature headers, matching the other
+        // integration test binaries that set REQUIRE_SIGNATURE=false.
+        static TEST_ENVIRONMENT: OnceLock<()> = OnceLock::new();
+        TEST_ENVIRONMENT.get_or_init(|| {
+            // Safety: one-time bootstrap under OnceLock; process env write is
+            // single-threaded here.
+            unsafe {
+                std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
+                std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
+            }
+        });
         use axum::extract::Request;
         use axum::middleware::{Next, from_fn};
 

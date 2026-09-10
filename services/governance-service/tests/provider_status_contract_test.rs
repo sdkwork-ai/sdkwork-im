@@ -129,6 +129,7 @@ async fn assert_status(app: Router, expectation: StatusExpectation<'_>) -> Strin
 
 #[tokio::test]
 async fn test_provider_control_plane_status_contract_covers_read_write_and_error_routes() {
+    ensure_test_environment();
     let runtime_app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
@@ -370,4 +371,14 @@ async fn test_provider_control_plane_status_contract_covers_read_write_and_error
         ]),
         "provider control-plane routes should expose the consolidated top-level status vocabulary"
     );
+}
+
+fn ensure_test_environment() {
+    static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    TEST_ENVIRONMENT.get_or_init(|| {
+        // Dual-token test helpers rely on the relaxed test posture; production
+        // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
+        // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        unsafe { std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test") }
+    });
 }

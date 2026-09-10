@@ -12,7 +12,7 @@ import type {
   RecallMessageRequest,
   SdkworkImConfig,
 } from '../generated/server-openapi/dist/index.js';
-import type { AuthTokenManager } from '@sdkwork/sdk-common';
+import { resolveBaseUrl, type AuthTokenManager } from '@sdkwork/sdk-common';
 import type {
   DeleteMessageFavoriteResponse,
   FavoriteMessagesResponse,
@@ -157,11 +157,15 @@ function resolveApiBaseUrl(options: ImSdkClientOptions): string {
   if (options.websocketBaseUrl) {
     return options.websocketBaseUrl.replace(/^ws/u, 'http');
   }
-  // Fall back to SDKWORK_IM_API_BASE_URL env var (browser/Vite) or throw.
-  const fromEnv =
-    (typeof import.meta !== 'undefined' &&
-      (import.meta as { env?: Record<string, string> }).env?.SDKWORK_IM_API_BASE_URL) ||
-    (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.SDKWORK_IM_API_BASE_URL;
+  // Fall back to the shared SDKWORK_IM_API_BASE_URL candidates resolved
+  // through @sdkwork/sdk-common resolveBaseUrl (ENVIRONMENT_SPEC §6.3):
+  // the comma/semicolon candidate list is matched against the current page
+  // host, environment and deployment profile; path preservation stays on so
+  // configured gateway URLs keep their suffixes.
+  const fromEnv = resolveBaseUrl({
+    envKey: 'SDKWORK_IM_API_BASE_URL',
+    preservePath: true,
+  }).url;
   if (fromEnv) {
     return fromEnv;
   }

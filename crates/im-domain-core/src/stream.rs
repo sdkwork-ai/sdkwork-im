@@ -60,12 +60,26 @@ pub struct StreamSession {
     pub ordering_scope: String,
     pub schema_ref: Option<String>,
     pub state: StreamSessionState,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub last_frame_seq: u64,
+    #[serde(
+        with = "sdkwork_utils_rust::serde_uint64::option",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub last_checkpoint_seq: Option<u64>,
     pub result_message_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        with = "sdkwork_utils_rust::serde_uint64::option",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub complete_frame_seq: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        with = "sdkwork_utils_rust::serde_uint64::option",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub abort_frame_seq: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub abort_reason: Option<String>,
@@ -82,6 +96,7 @@ pub struct StreamFrame {
     pub stream_type: String,
     pub scope_kind: String,
     pub scope_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub frame_seq: u64,
     pub frame_type: String,
     pub schema_ref: Option<String>,

@@ -15,7 +15,7 @@
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-post">POST</span>
   <code>/app/v3/api/automation/executions/{executionId}/agent_tool_calls/{toolCallId}/complete</code>
-  <span class="api-op-id">operationId: automation.agentToolCalls.complete</span>
+  <span class="api-op-id">operationId: agentToolCalls.complete</span>
 </div>
 
 Completes a pending agent tool call for a specific automation execution.

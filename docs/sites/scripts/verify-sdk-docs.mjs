@@ -259,11 +259,12 @@ for (const marker of ["Device Twin", "IoT Protocol"]) {
 
 const backendApiPath = "api-reference/backend-api.md";
 const backendApiSource = readRequired(backendApiPath);
+// `/backend/v3/api/admin/*` is intentionally not required here: this page is generated from the
+// backend authority, which currently ships no admin routes.
 for (const marker of [
   "sdkwork-im-backend-sdk",
   "/backend/v3/api/*",
   "/backend/v3/api/control/*",
-  "/backend/v3/api/admin/*",
 ]) {
   requireIncludes(backendApiSource, backendApiPath, marker, `must include ${marker}`);
 }

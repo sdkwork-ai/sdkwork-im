@@ -360,6 +360,25 @@ function pickNumber(...values: unknown[]): number | undefined {
   return undefined;
 }
 
+const SEQ_DECIMAL_STRING_PATTERN = /^\d+$/;
+
+/**
+ * Normalizes an int64 sequence from a wire boundary into the internal numeric
+ * domain. REST responses deliver decimal strings per API_SPEC 13.6
+ * (int64-as-string) while realtime frames still deliver numbers, so both forms
+ * are accepted. Values below 2^53 convert exactly through Number(); invalid,
+ * fractional, or negative input resolves to 0.
+ */
+function toSeqNumber(value: string | number | undefined): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.trunc(value));
+  }
+  if (typeof value === 'string' && SEQ_DECIMAL_STRING_PATTERN.test(value.trim())) {
+    return Number(value.trim());
+  }
+  return 0;
+}
+
 function normalizeRealtimeAgentAssignmentSnapshot(
   value: unknown,
 ): Pick<ConversationViewState, 'agentAssignments' | 'agentAssignmentGeneration'> | undefined {
@@ -438,7 +457,8 @@ function refreshAgentMentionGeneration(
     }
     return {
       ...part,
-      assignmentGeneration: generation as number,
+      // int64 generations cross the wire as decimal strings (API_SPEC 13.6).
+      assignmentGeneration: String(generation),
     };
   });
 }
@@ -1516,6 +1536,11 @@ function mapLiveEventToMessage(context: ImRealtimeEventContext): Message | undef
     return undefined;
   }
 
+  // Realtime frames still carry numeric seqs; the decoded message contract
+  // (API_SPEC 13.6) carries messageSeq as a decimal string, so stringify the
+  // picked value before re-wrapping it into the SDK message shape.
+  const liveMessageSeq = pickNumber(payload.messageSeq, payload.sequence, context.sequence);
+
   return mapLiveMessageToMessage(
     conversationId,
     {
@@ -1527,7 +1552,7 @@ function mapLiveEventToMessage(context: ImRealtimeEventContext): Message | undef
       },
       conversationId,
       messageId: pickString(payload.messageId, context.eventId),
-      messageSeq: pickNumber(payload.messageSeq, payload.sequence, context.sequence),
+      ...(liveMessageSeq === undefined ? {} : { messageSeq: String(liveMessageSeq) }),
       messageType: pickString(payload.messageType, payload.type) as ImDecodedMessage['messageType'],
       occurredAt: pickString(payload.occurredAt, context.receivedAt),
       renderHints: toRecord(payloadBody.renderHints),
@@ -2420,7 +2445,7 @@ class SdkworkChatService implements ChatService {
         }
         this.writeLatestReadSeq(entry.conversationId, Math.max(
           this.latestReadSeq.get(entry.conversationId) ?? 0,
-          entry.lastMessageSeq,
+          toSeqNumber(entry.lastMessageSeq),
         ));
         let viewState = applyInboxProjectionToViewState(
           this.conversationViewState.get(entry.conversationId),
@@ -2703,7 +2728,7 @@ class SdkworkChatService implements ChatService {
         cachedMessages.set(message.id, message);
       }
       const latestMessageSeq = response.items.reduce(
-        (latest, entry) => Math.max(latest, entry.messageSeq),
+        (latest, entry) => Math.max(latest, toSeqNumber(entry.messageSeq)),
         this.latestReadSeq.get(chatId) ?? 0,
       );
       this.writeLatestReadSeq(chatId, latestMessageSeq);
@@ -2718,7 +2743,7 @@ class SdkworkChatService implements ChatService {
       this.queuePersistOfflineMessages(
         response.items.map((entry, index) => ({
           ...mapConversationMessageEntryToMessage(entry, index, response.items.length, cachedMessages.get(entry.messageId)),
-          messageSeq: entry.messageSeq,
+          messageSeq: toSeqNumber(entry.messageSeq),
         })),
       );
       return mergedMessages;
@@ -2805,7 +2830,7 @@ class SdkworkChatService implements ChatService {
       cachedMessages,
     );
     const latestMessageSeq = response.items.reduce(
-      (latest, entry) => Math.max(latest, entry.messageSeq),
+      (latest, entry) => Math.max(latest, toSeqNumber(entry.messageSeq)),
       this.latestReadSeq.get(chatId) ?? 0,
     );
     this.writeLatestReadSeq(chatId, latestMessageSeq);
@@ -2820,7 +2845,7 @@ class SdkworkChatService implements ChatService {
     this.queuePersistOfflineMessages(
       response.items.map((entry, index) => ({
         ...mapConversationMessageEntryToMessage(entry, index, response.items.length, cachedMessages.get(entry.messageId)),
-        messageSeq: entry.messageSeq,
+        messageSeq: toSeqNumber(entry.messageSeq),
       })),
     );
     return newMessages;
@@ -2925,7 +2950,7 @@ class SdkworkChatService implements ChatService {
       const storedMessage = this.upsertLocalMessage(chatId, message, true);
       this.writeLatestReadSeq(chatId, Math.max(
         this.latestReadSeq.get(chatId) ?? 0,
-        postResult.messageSeq,
+        toSeqNumber(postResult.messageSeq),
       ));
       const subscription = this.liveSubscriptions.get(chatId);
       if (subscription) {
@@ -3182,7 +3207,10 @@ class SdkworkChatService implements ChatService {
           REALTIME_READ_CURSOR_SYNC_CONCURRENCY,
           async ([conversationId, readSeq]) => {
             try {
-              await client.conversations.updateReadCursor(conversationId, { readSeq });
+              await client.conversations.updateReadCursor(conversationId, {
+                // int64 read cursors cross the wire as decimal strings (API_SPEC 13.6).
+                readSeq: String(Math.trunc(readSeq)),
+              });
               if (!this.isAuthSessionGenerationCurrent(generation)) {
                 return;
               }
@@ -3215,7 +3243,10 @@ class SdkworkChatService implements ChatService {
     if (readSeq > 0) {
       this.beginReadCursorSync(chatId);
       try {
-        await client.conversations.updateReadCursor(chatId, { readSeq });
+        await client.conversations.updateReadCursor(chatId, {
+          // int64 read cursors cross the wire as decimal strings (API_SPEC 13.6).
+          readSeq: String(Math.trunc(readSeq)),
+        });
         if (!this.isAuthSessionGenerationCurrent(generation)) {
           return;
         }
@@ -3877,7 +3908,7 @@ class SdkworkChatService implements ChatService {
           this.setLocalMessages(item.chatId, updatedMessages);
           this.writeLatestReadSeq(
             item.chatId,
-            Math.max(this.latestReadSeq.get(item.chatId) ?? 0, postResult.messageSeq),
+            Math.max(this.latestReadSeq.get(item.chatId) ?? 0, toSeqNumber(postResult.messageSeq)),
           );
           const subscription = this.liveSubscriptions.get(item.chatId);
           if (subscription && replacedMessage) {

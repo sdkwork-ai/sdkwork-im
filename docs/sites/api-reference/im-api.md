@@ -23,8 +23,8 @@
     <p><a href="/api-reference/im/rooms">Open Room APIs</a></p>
   </div>
   <div class="api-card">
-    <h3>Media and Streams</h3>
-    <p>Media upload lifecycle, media-to-message attachment, open streams, frame append, checkpoint, complete, and abort.</p>
+    <h3>Media</h3>
+    <p>Media upload lifecycle and media-to-message attachment.</p>
     <p><a href="/api-reference/im/media">Open Media APIs</a></p>
   </div>
   <div class="api-card">
@@ -51,6 +51,5 @@
   <a href="/api-reference/im/membership-and-read-state"><code>Membership</code> Member roster operations and read-cursor updates</a>
   <a href="/api-reference/im/messages"><code>Messages</code> Message history reads, message send, edit, recall, and system-channel publish</a>
   <a href="/api-reference/im/media"><code>Media</code> Upload initiation, completion, media lookup, signed download, and attach</a>
-  <a href="/api-reference/im/streams"><code>Streams</code> Stream open, frame append, list, checkpoint, complete, and abort</a>
   <a href="/api-reference/im/calls"><code>Calls</code> IM call signaling lifecycle, credentials, and RTC media handoff</a>
 </div>

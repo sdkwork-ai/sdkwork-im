@@ -22,7 +22,8 @@ function requiredFiles() {
     'sdkwork-im-backend-sdk-flutter/composed/lib/src/audit_module.dart',
     'sdkwork-im-backend-sdk-flutter/composed/lib/src/automation_module.dart',
     'sdkwork-im-backend-sdk-flutter/composed/lib/src/control_module.dart',
-    'sdkwork-im-backend-sdk-flutter/composed/lib/src/admin_module.dart',
+    // No admin_module.dart: the backend authority currently ships no admin routes
+    // (TECH_ARCHITECTURE.md section 4 / authority alignment rounds).
   ];
 }
 
@@ -99,11 +100,7 @@ export function verifyFlutterComposedWorkspace(workspaceRoot) {
       source: sdkSource,
       pattern: /late final ImBackendControlModule control;/,
     },
-    {
-      description: 'composed sdk exposes module admin',
-      source: sdkSource,
-      pattern: /late final ImBackendAdminModule admin;/,
-    },
+    // The retired admin module expectation was removed with the pruned backend admin plane.
   ];
 
   const failures = [...missing, ...collectExpectationFailures(expectations)];

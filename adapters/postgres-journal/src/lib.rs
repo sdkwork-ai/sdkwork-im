@@ -33,7 +33,9 @@ pub use message_post_persistence::{
 };
 pub use message_store::PostgresMessageStore;
 pub use notification_task_store::PostgresNotificationTaskStore;
-pub use outbox_store::PostgresOutboxStore;
+pub use outbox_store::{
+    OutboxEnqueueOutcome, PostgresOutboxStore, enqueue_outbox_event_on_transaction,
+};
 pub use postgres_support::{
     PostgresJournalConfig, PostgresJournalConnectionManager, PostgresJournalPool,
     PostgresJournalTlsConnector, conversation_member_access_gate_from_pool,

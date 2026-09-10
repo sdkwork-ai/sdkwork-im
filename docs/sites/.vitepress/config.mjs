@@ -101,7 +101,6 @@ const sidebar = {
       text: "Reference",
       items: [
         { text: "CLI and Scripts", link: "/reference/cli-and-scripts" },
-        { text: "Admin Storage Contract", link: "/reference/admin-storage-contract" },
         { text: "Runtime Directory", link: "/reference/runtime-directory" },
       ],
     },

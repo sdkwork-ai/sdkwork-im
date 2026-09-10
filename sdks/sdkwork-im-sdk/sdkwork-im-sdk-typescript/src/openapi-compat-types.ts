@@ -23,7 +23,8 @@ export interface ConversationInboxPage {
 export interface ConversationMessageListResponse {
   items: ConversationMessageEntry[];
   pageInfo: SdkWorkListPageInfo;
-  highWatermark: number;
+  /** int64-as-string per API_SPEC §13.6. */
+  highWatermark: string;
 }
 
 export interface ListMembersResponse {

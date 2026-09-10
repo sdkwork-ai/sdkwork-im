@@ -1,0 +1,104 @@
+{
+  "@@locale": "zh",
+  "inboxTitle": "收件箱",
+  "@inboxTitle": {
+    "description": "Title of the chat inbox screen listing conversations."
+  },
+  "liveBadge": "实时",
+  "@liveBadge": {
+    "description": "Badge shown in the app bar while the realtime connection is live."
+  },
+  "conversationFallbackTitle": "会话",
+  "@conversationFallbackTitle": {
+    "description": "Fallback title for an inbox conversation entry that has no display name."
+  },
+  "inboxEmpty": "暂无会话。",
+  "@inboxEmpty": {
+    "description": "Empty-state text shown when the inbox has no conversations."
+  },
+  "inboxLoadError": "无法加载会话。",
+  "@inboxLoadError": {
+    "description": "Error shown when loading an inbox page fails."
+  },
+  "inboxPageRetainError": "无法保留所请求的会话页面。",
+  "@inboxPageRetainError": {
+    "description": "Error shown when a fetched conversation page cannot be merged into the inbox window."
+  },
+  "retry": "重试",
+  "@retry": {
+    "description": "Button label to retry a failed inbox load."
+  },
+  "loadMore": "加载更多",
+  "@loadMore": {
+    "description": "Button label that loads the next page of inbox conversations."
+  },
+  "conversationTitleFallback": "会话 {conversationId}",
+  "@conversationTitleFallback": {
+    "description": "Fallback app bar title for a conversation screen when no title is provided.",
+    "placeholders": {
+      "conversationId": {
+        "type": "String"
+      }
+    }
+  },
+  "messagesEmpty": "暂无消息。",
+  "@messagesEmpty": {
+    "description": "Empty-state text shown when a conversation has no messages."
+  },
+  "messagePageRetainError": "无法保留所请求的消息页面。",
+  "@messagePageRetainError": {
+    "description": "Error shown when a fetched message page cannot be merged into the history window."
+  },
+  "earlierMessagePageRetainError": "无法保留更早的消息页面。",
+  "@earlierMessagePageRetainError": {
+    "description": "Error shown when an older message page cannot be merged into the history window."
+  },
+  "failedToLoadMessages": "加载消息失败：{error}",
+  "@failedToLoadMessages": {
+    "description": "Error shown when loading the message history fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToLoadEarlierMessages": "加载更早的消息失败：{error}",
+  "@failedToLoadEarlierMessages": {
+    "description": "Error shown when loading older message history fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToSendMessage": "发送消息失败：{error}",
+  "@failedToSendMessage": {
+    "description": "Snackbar text shown when sending a message fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToUploadImage": "上传图片失败：{error}",
+  "@failedToUploadImage": {
+    "description": "Snackbar text shown when uploading an image fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "composerHint": "输入消息",
+  "@composerHint": {
+    "description": "Hint text of the message composer input field."
+  },
+  "send": "发送",
+  "@send": {
+    "description": "Label of the button that sends the composed message."
+  },
+  "sending": "发送中…",
+  "@sending": {
+    "description": "Label of the send button while a message is being sent."
+  }
+}

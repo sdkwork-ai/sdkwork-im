@@ -30,6 +30,8 @@ handler -> SpaceWriteAuthority
 
 Any Journal insert, payload validation, capacity check, normalized-state mutation, or final commit failure rolls back the entire transaction. There is no alternate normalized writer or materialize-first compensation path. Failed atomic transactions increment `im_space_postgres_atomic_write_failures_total`.
 
+Space governance mutations (`POST /bans`, `DELETE /bans/{user_id}`, `POST /invites`) follow the same coordinated path through the governance write authority: `space.ban.created`, `space.ban.lifted`, and `space.invitation.created` journal events commit with their normalized `im_ban_records`/`im_invitations` writes and a pending `im_outbox_events` row (`aggregate_type = space`) in one PostgreSQL transaction. Invitation contact channels are never projected into the outbox payload. A space outbox relay consumer is not built yet; the pending outbox rows are the durable integration evidence.
+
 The runtime constructs both adapters from the same process-wide PostgreSQL pool in `space_service::app_state_from_postgres_pool()`. It does not create a service-local pool or fall back to a second current-state authority.
 
 Startup validates database authority and begins serving normalized PostgreSQL state directly. It never replays the Journal or reconstructs current state in process memory.
@@ -100,7 +102,7 @@ The wire view types must remain aligned with `apis/open-api/im/sdkwork-im-im.ope
 
 ## Deferred Work
 
-- Journal coverage for channel, invitation, ban, and channel-access-rule mutations.
+- Journal coverage for channel and channel-access-rule mutations. (Invitation and ban mutations commit journal evidence, normalized state, and a pending `space`-aggregate outbox event in one PostgreSQL transaction since the governance write authority landed; a space outbox relay consumer is not built yet, so outbox rows remain durable pending evidence.)
 - Channel roster synchronization beyond system-channel bootstrap.
 - Durable outbox or saga delivery for group conversation creation, roster changes, and owner transfer.
 - Live PostgreSQL concurrency certification in CI using `SDKWORK_DATABASE_URL`.

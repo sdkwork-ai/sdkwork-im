@@ -1,6 +1,7 @@
 [package]
 name = "sdkwork-routes-im-social-backend-api"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 version.workspace = true
 description = "SDKWork IM social backend-api control routes for /backend/v3/api/control/social/*"

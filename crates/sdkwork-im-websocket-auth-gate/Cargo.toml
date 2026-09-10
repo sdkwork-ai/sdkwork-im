@@ -1,6 +1,7 @@
 [package]
 name = "sdkwork-im-websocket-auth-gate"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 version.workspace = true
 description = "Shared WebSocket auth.init gate for Sdkwork IM gateways and upstream compat paths"

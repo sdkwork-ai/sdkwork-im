@@ -1,6 +1,7 @@
 [package]
 name = "sdkwork-im-database-pool"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 version.workspace = true
 description = "Sdkwork IM sqlx pool bootstrap through sdkwork-database"

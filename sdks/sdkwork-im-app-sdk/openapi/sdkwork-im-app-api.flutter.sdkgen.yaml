@@ -16,7 +16,6 @@ tags:
   - name: media
   - name: automation
   - name: notifications
-  - name: principal
   - name: chat
 paths:
   /app/v3/api/automation/agent_responses:
@@ -572,7 +571,7 @@ paths:
     get:
       tags:
         - notifications
-      operationId: list
+      operationId: notifications.list
       summary: List notifications for the current principal
       parameters:
         - name: page_size
@@ -643,7 +642,7 @@ paths:
     post:
       tags:
         - notifications
-      operationId: requests.create
+      operationId: notifications.requests.create
       summary: Request a notification task
       requestBody:
         required: true
@@ -719,7 +718,7 @@ paths:
     get:
       tags:
         - notifications
-      operationId: retrieve
+      operationId: notifications.retrieve
       summary: Get a notification task
       parameters:
         - $ref: '#/components/parameters/NotificationIdPath'
@@ -1206,59 +1205,6 @@ paths:
         - provider
       operationId: mediaHealth.retrieve
       summary: Retrieve media provider health
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            type: object
-                            additionalProperties: true
-        '401':
-          description: Problem detail response
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '403':
-          description: Problem detail response
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '503':
-          description: Problem detail response
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.app
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: app-api
-      parameters: []
-  /app/v3/api/principal/profiles/provider_health:
-    get:
-      tags:
-        - provider
-      operationId: principalProfileHealth.retrieve
-      summary: Retrieve principal-profile provider health
       responses:
         '200':
           description: OK

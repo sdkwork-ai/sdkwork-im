@@ -93,6 +93,7 @@ struct PublicAppGuardrails {
 pub struct AuditRecord {
     pub tenant_id: String,
     pub record_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub audit_seq: u64,
     pub aggregate_type: String,
     pub aggregate_id: String,
@@ -117,7 +118,8 @@ pub struct AuditRecordSample {
 pub struct AuditExportBundle {
     pub tenant_id: String,
     pub exported_at: String,
-    pub total: usize,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
+    pub total: u64,
     pub items: Vec<AuditRecord>,
     pub chain_head_hash: Option<String>,
     pub chain_valid: bool,
@@ -128,7 +130,8 @@ pub struct AuditExportBundle {
 pub struct AuditChainVerification {
     pub tenant_id: String,
     pub verified_at: String,
-    pub total: usize,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
+    pub total: u64,
     pub chain_head_hash: Option<String>,
     pub chain_valid: bool,
 }
@@ -397,6 +400,14 @@ impl AuditError {
             ),
         }
     }
+
+    fn invalid_parameter(message: impl Into<String>) -> Self {
+        Self {
+            status: axum::http::StatusCode::BAD_REQUEST,
+            code: "invalid_parameter",
+            message: message.into(),
+        }
+    }
 }
 
 /// Map [`AuditError::status`] to the canonical [`WebFrameworkErrorKind`].
@@ -492,12 +503,18 @@ impl AuditRuntime {
     ) -> Result<AuditRecordListResponse, AuditError> {
         ensure_audit_read_access(auth)?;
         let after_audit_seq = query.after_audit_seq.unwrap_or(0);
-        let page_size = query
-            .paging
-            .page_size
-            .map(|value| usize::try_from(value).unwrap_or(AUDIT_RECORD_LIST_DEFAULT_PAGE_SIZE))
-            .unwrap_or(AUDIT_RECORD_LIST_DEFAULT_PAGE_SIZE)
-            .clamp(1, AUDIT_RECORD_LIST_MAX_LIMIT);
+        // PAGINATION_SPEC §10.1: an out-of-range page_size is a client
+        // contract violation and MUST be rejected with 400 instead of being
+        // silently clamped to the maximum.
+        let page_size = match query.paging.page_size {
+            Some(value) if value < 1 || value > MAX_LIST_PAGE_SIZE => {
+                return Err(AuditError::invalid_parameter(format!(
+                    "page_size must be between 1 and {AUDIT_RECORD_LIST_MAX_LIMIT}"
+                )));
+            }
+            Some(value) => usize::try_from(value).unwrap_or(AUDIT_RECORD_LIST_DEFAULT_PAGE_SIZE),
+            None => AUDIT_RECORD_LIST_DEFAULT_PAGE_SIZE,
+        };
         let limit = page_size;
 
         match &self.backend {
@@ -539,7 +556,7 @@ impl AuditRuntime {
         Ok(AuditExportBundle {
             tenant_id: auth.tenant_id.clone(),
             exported_at: utc_now_rfc3339_millis(),
-            total: items.len(),
+            total: u64::try_from(items.len()).unwrap_or(u64::MAX),
             items,
             chain_head_hash,
             chain_valid,
@@ -594,7 +611,7 @@ impl AuditRuntime {
         Ok(AuditChainVerification {
             tenant_id: auth.tenant_id.clone(),
             verified_at: utc_now_rfc3339_millis(),
-            total: result.total,
+            total: u64::try_from(result.total).unwrap_or(u64::MAX),
             chain_head_hash: result.chain_head_hash,
             chain_valid: result.chain_valid,
         })
@@ -1465,7 +1482,7 @@ pub fn validate_record_audit_anchor_request(request: &RecordAuditAnchor) -> Resu
 }
 
 pub fn verify_audit_export_bundle_integrity(bundle: &AuditExportBundle) -> bool {
-    if bundle.total != bundle.items.len() {
+    if bundle.total != u64::try_from(bundle.items.len()).unwrap_or(u64::MAX) {
         return false;
     }
 

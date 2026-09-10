@@ -25,7 +25,6 @@ Current backend modules include:
 | Audit | `/backend/v3/api/audit/*` |
 | Automation governance | `/backend/v3/api/automation/*` |
 | Control-plane governance | `/backend/v3/api/control/*` |
-| Admin | `/backend/v3/api/admin/*` |
 
 ## Does Not Own
 
@@ -37,12 +36,13 @@ Current backend modules include:
 
 ## Control And Admin Standard
 
-All control-plane and admin routes are generated from the backend authority snapshot:
+All control-plane routes are generated from the backend authority snapshot:
 
 - `/backend/v3/api/control/*` uses backend control modules for protocol registry, provider policy,
   social graph control, shared-channel runtime repair, and node lifecycle.
-- `/backend/v3/api/admin/*` uses backend admin modules for API keys, provider/routing/catalog
-  administration, billing/usage, storage, credentials, and gateway policy.
+- `/backend/v3/api/admin/*` is not part of the current backend authority: no admin routes are
+  implemented or documented today. If a future admin plane ships, it is generated as backend
+  modules inside this family — never as a separate admin SDK.
 
 Do not introduce a new admin SDK family. If a backend route is missing from generated output, fix
 the backend OpenAPI authority or materialization script and regenerate `sdkwork-im-backend-sdk`.
@@ -61,12 +61,11 @@ Regenerate a language from OpenAPI inputs with:
 node .\sdks\sdkwork-im-backend-sdk\bin\generate-sdk.mjs --language typescript
 ```
 
-The verifier enforces `/backend/v3/api/*` ownership, required ops/audit/automation/control/admin
-paths, SDKWork dual-token security, generated output structure, and SDK manifest metadata.
+The verifier enforces `/backend/v3/api/*` ownership, required ops/automation/control paths,
+SDKWork dual-token security, generated output structure, and SDK manifest metadata.
 
 ## Related API Docs
 
 - [Backend API Overview](/api-reference/backend-api)
 - [Control Module Overview](/api-reference/control-plane-api)
-- [Admin Storage Contract](/reference/admin-storage-contract)
 - [SDK Overview](/sdk/index)

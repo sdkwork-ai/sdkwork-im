@@ -15,7 +15,7 @@
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-post">POST</span>
   <code>/app/v3/api/automation/executions</code>
-  <span class="api-op-id">operationId: automation.executions.create</span>
+  <span class="api-op-id">operationId: executions.create</span>
 </div>
 
 Requests a new automation execution.

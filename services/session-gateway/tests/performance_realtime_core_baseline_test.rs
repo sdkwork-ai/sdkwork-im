@@ -527,6 +527,7 @@ fn run_cluster_handoff_drill_ms() -> f64 {
         CONVERSATION_ID,
         EVENT_TYPE,
         message_payload(25),
+        "durable",
     );
     let duration_ms = handoff_started.elapsed().as_secs_f64() * 1000.0;
     assert_eq!(routed.route_state, "resolved");

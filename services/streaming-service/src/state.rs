@@ -11,7 +11,7 @@ use sdkwork_im_contract_stream::{
     StreamAppendOutcome, StreamCreateOutcome, StreamScope, StreamSessionRecord, StreamStateStore,
     StreamTransitionOutcome,
 };
-use sdkwork_utils_rust::{SdkWorkPageData, cursor_list_page_data};
+use sdkwork_utils_rust::{SdkWorkPageData, base64url_decode, base64url_encode, cursor_list_page_data};
 
 use crate::dto::{
     AbortStreamRequest, AppendStreamFrameOutcome, AppendStreamFrameRequest,
@@ -488,7 +488,7 @@ impl StreamingRuntime {
             items.truncate(page_size);
         }
         let next_cursor = has_more
-            .then(|| items.last().map(|frame| frame.frame_seq.to_string()))
+            .then(|| items.last().map(|frame| encode_frame_cursor(frame.frame_seq)))
             .flatten();
         self.metrics.record_frame_page(items.len());
         Ok(cursor_list_page_data(
@@ -655,6 +655,27 @@ impl StreamStateStore for RuntimeMemoryStreamStateStore {
         state.frames.remove(key.as_str());
         Ok(state.sessions.remove(key.as_str()).is_some())
     }
+}
+
+/// Versioned opaque frame cursor (`sq1.<base64url(frame_seq)>`).
+///
+/// PAGINATION_SPEC §2.4/§3: cursor tokens MUST be opaque — clients echo them
+/// back verbatim and MUST NOT parse or construct them, so the wire form is a
+/// versioned, non-numeric encoding instead of the raw frame sequence.
+const FRAME_CURSOR_PREFIX: &str = "sq1.";
+
+pub(crate) fn encode_frame_cursor(frame_seq: u64) -> String {
+    format!(
+        "{FRAME_CURSOR_PREFIX}{}",
+        base64url_encode(frame_seq.to_string().as_bytes())
+    )
+}
+
+pub(crate) fn decode_frame_cursor(raw: &str) -> Option<u64> {
+    let encoded = raw.trim().strip_prefix(FRAME_CURSOR_PREFIX)?;
+    let decoded = base64url_decode(encoded)?;
+    let text = String::from_utf8(decoded).ok()?;
+    text.parse::<u64>().ok()
 }
 
 fn scope_key(scope: &StreamScope) -> String {

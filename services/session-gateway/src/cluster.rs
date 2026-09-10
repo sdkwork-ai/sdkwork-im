@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
 use im_platform_contracts::ClusterEventBus;
 use im_time::utc_now_rfc3339_millis;
@@ -84,6 +84,22 @@ struct ClusterRouteEventPayload {
     scope_id: String,
     event_type: String,
     payload: String,
+    #[serde(default = "default_cluster_route_delivery_class")]
+    delivery_class: String,
+}
+
+fn default_cluster_route_delivery_class() -> String {
+    "durable".to_string()
+}
+
+/// Weak back-reference from a delivery runtime to its owning cluster
+/// bridge. Installed when the assembly binds the node runtime so the
+/// publisher can forward scope events to device routes that live on other
+/// gateway nodes without creating a strong runtime -> cluster cycle.
+#[derive(Clone)]
+pub(crate) struct RealtimeClusterForwarder {
+    pub(crate) cluster: Weak<RealtimeClusterBridge>,
+    pub(crate) origin_node_id: Arc<str>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -164,7 +180,11 @@ impl RealtimeClusterBridge {
         self
     }
 
-    pub fn bind_node_runtime(&self, node_id: &str, runtime: Arc<RealtimeDeliveryRuntime>) {
+    pub fn bind_node_runtime(self: &Arc<Self>, node_id: &str, runtime: Arc<RealtimeDeliveryRuntime>) {
+        runtime.install_cluster_forwarder(RealtimeClusterForwarder {
+            cluster: Arc::downgrade(self),
+            origin_node_id: Arc::from(node_id),
+        });
         lock_cluster_mutex(&self.node_runtimes, "node_runtimes").insert(node_id.into(), runtime);
         self.route_store.register_node(node_id);
     }
@@ -277,26 +297,32 @@ impl RealtimeClusterBridge {
     /// Removes in-memory disconnect fences that have been cleared in the backing store
     /// or have exceeded their TTL. Call this periodically (e.g., every 10 minutes)
     /// to prevent memory leaks.
+    ///
+    /// Store verification happens OUTSIDE the `disconnect_fences` mutex: the
+    /// backing store performs one remote read per fence, and holding the lock
+    /// across that sweep would stall every bind/resolve/fence operation
+    /// node-wide (same collect-first pattern as
+    /// `cleanup_stale_route_epoch_notifiers`).
     pub fn cleanup_stale_disconnect_fences(&self) {
-        let mut fences = lock_cluster_mutex(&self.disconnect_fences, "disconnect_fences");
-        let before_count = fences.len();
+        let scope_keys: Vec<String> = {
+            let fences = lock_cluster_mutex(&self.disconnect_fences, "disconnect_fences");
+            fences.keys().cloned().collect()
+        };
 
-        // Remove fences that no longer exist in the backing store
-        fences.retain(|scope_key, _fence| {
+        let mut stale_keys = Vec::new();
+        for scope_key in scope_keys {
             let parts: Vec<&str> = scope_key.split(':').collect();
             if parts.len() != 5 {
                 tracing::warn!(
                     scope_key = %scope_key,
                     "invalid disconnect fence scope key format, removing"
                 );
-                return false;
+                stale_keys.push(scope_key);
+                continue;
             }
 
-            let tenant_id = parts[0];
-            let organization_id = parts[1];
-            let principal_kind = parts[2];
-            let principal_id = parts[3];
-            let device_id = parts[4];
+            let (tenant_id, organization_id, principal_kind, principal_id, device_id) =
+                (parts[0], parts[1], parts[2], parts[3], parts[4]);
 
             // Check if fence still exists in backing store
             match self.disconnect_fence_store.load_fence(
@@ -306,19 +332,27 @@ impl RealtimeClusterBridge {
                 principal_id,
                 device_id,
             ) {
-                Ok(Some(_)) => true, // Fence still exists, keep it
-                Ok(None) => false,   // Fence cleared in store, remove from memory
+                Ok(Some(_)) => {} // Fence still exists, keep it
+                Ok(None) => stale_keys.push(scope_key), // Fence cleared in store
                 Err(error) => {
                     tracing::warn!(
                         error = ?error,
                         scope_key = %scope_key,
                         "failed to verify disconnect fence in store, keeping in memory"
                     );
-                    true // Keep on error to avoid breaking active fences
                 }
             }
-        });
+        }
 
+        if stale_keys.is_empty() {
+            return;
+        }
+
+        let mut fences = lock_cluster_mutex(&self.disconnect_fences, "disconnect_fences");
+        let before_count = fences.len();
+        for scope_key in &stale_keys {
+            fences.remove(scope_key.as_str());
+        }
         let removed_count = before_count - fences.len();
         if removed_count > 0 {
             tracing::info!(
@@ -1049,6 +1083,143 @@ impl RealtimeClusterBridge {
         Ok(migration)
     }
 
+    /// Sign and publish one route event to the target node's cluster bus
+    /// channel. Shared by the route-publish and remote-forward paths so
+    /// both sign with the same secret and payload contract.
+    #[allow(clippy::too_many_arguments)]
+    fn build_and_publish_route_event(
+        &self,
+        target_node_id: &str,
+        tenant_id: &str,
+        organization_id: &str,
+        principal_id: &str,
+        principal_kind: &str,
+        device_id: &str,
+        scope_type: &str,
+        scope_id: &str,
+        event_type: &str,
+        payload: &str,
+        delivery_class: &str,
+    ) -> Result<(), (String, String)> {
+        let Some(ref bus) = self.cluster_bus else {
+            return Err((
+                "cluster_bus_missing".to_string(),
+                "cluster bus is not configured on this node".to_string(),
+            ));
+        };
+        let event = serde_json::json!({
+            "tenant_id": tenant_id,
+            "organization_id": organization_id,
+            "principal_id": principal_id,
+            "principal_kind": principal_kind,
+            "device_id": device_id,
+            "scope_type": scope_type,
+            "scope_id": scope_id,
+            "event_type": event_type,
+            "payload": payload,
+            "delivery_class": delivery_class,
+        });
+        let secret = self.cluster_bus_secret.as_deref().ok_or_else(|| {
+            (
+                "cluster_bus_secret_missing".to_string(),
+                "cluster bus secret is not configured on this node".to_string(),
+            )
+        })?;
+        let event_json = sign_cluster_route_event(secret, &event)
+            .map_err(|error| ("cluster_bus_sign_failed".to_string(), error))?;
+        bus.publish_route_event(target_node_id, &event_json)
+            .map_err(|error| ("cluster_bus_error".to_string(), error))
+    }
+
+    /// Forward a scope event to the node that owns the device route, when
+    /// that node is remote. Returns `no_route` when the device has no live
+    /// route anywhere (offline recovery stays with durable device events
+    /// and history pull) and `local_runtime_present` when the route already
+    /// belongs to the origin node, meaning the caller delivered locally.
+    #[allow(clippy::too_many_arguments)]
+    pub fn forward_client_route_event_if_remote(
+        &self,
+        origin_node_id: &str,
+        tenant_id: &str,
+        organization_id: &str,
+        principal_id: &str,
+        principal_kind: &str,
+        device_id: &str,
+        scope_type: &str,
+        scope_id: &str,
+        event_type: &str,
+        payload: &str,
+        delivery_class: &str,
+    ) -> RealtimeRouteDeliveryResult {
+        let Some(route) = self.resolve_client_route_internal(
+            tenant_id,
+            organization_id,
+            principal_id,
+            principal_kind,
+            device_id,
+        ) else {
+            return RealtimeRouteDeliveryResult {
+                target_node_id: origin_node_id.to_owned(),
+                route_state: "no_route".to_string(),
+                delivered: 0,
+                delivery_error_code: None,
+                delivery_error_message: None,
+            };
+        };
+        if route.owner_node_id == origin_node_id {
+            return RealtimeRouteDeliveryResult {
+                target_node_id: route.owner_node_id,
+                route_state: "local_runtime_present".to_string(),
+                delivered: 0,
+                delivery_error_code: None,
+                delivery_error_message: None,
+            };
+        }
+        {
+            let runtimes = lock_cluster_mutex(&self.node_runtimes, "node_runtimes");
+            let owner_is_local = runtimes.contains_key(route.owner_node_id.as_str());
+            drop(runtimes);
+            if owner_is_local {
+                return RealtimeRouteDeliveryResult {
+                    target_node_id: route.owner_node_id,
+                    route_state: "local_runtime_present".to_string(),
+                    delivered: 0,
+                    delivery_error_code: None,
+                    delivery_error_message: None,
+                };
+            }
+        }
+        let target_node_id = route.owner_node_id;
+        match self.build_and_publish_route_event(
+            target_node_id.as_str(),
+            tenant_id,
+            organization_id,
+            principal_id,
+            principal_kind,
+            device_id,
+            scope_type,
+            scope_id,
+            event_type,
+            payload,
+            delivery_class,
+        ) {
+            Ok(()) => RealtimeRouteDeliveryResult {
+                target_node_id,
+                route_state: "remote_published".to_string(),
+                delivered: 1,
+                delivery_error_code: None,
+                delivery_error_message: None,
+            },
+            Err((code, message)) => RealtimeRouteDeliveryResult {
+                target_node_id,
+                route_state: "remote_publish_failed".to_string(),
+                delivered: 0,
+                delivery_error_code: Some(code),
+                delivery_error_message: Some(message),
+            },
+        }
+    }
+
     pub fn ingest_cluster_route_event_for_node(
         &self,
         own_node_id: &str,
@@ -1069,8 +1240,8 @@ impl RealtimeClusterBridge {
             },
         )?;
         let runtime = self.require_runtime(own_node_id)?;
-        let delivered = runtime
-            .publish_scope_event_for_principal_kind(
+        let delivery_result = if parsed.delivery_class == "ephemeral" {
+            runtime.publish_ephemeral_scope_event_for_principal_kind(
                 parsed.tenant_id.as_str(),
                 parsed.organization_id.as_str(),
                 parsed.principal_id.as_str(),
@@ -1081,6 +1252,20 @@ impl RealtimeClusterBridge {
                 parsed.payload,
                 vec![parsed.device_id.clone()],
             )
+        } else {
+            runtime.publish_scope_event_for_principal_kind(
+                parsed.tenant_id.as_str(),
+                parsed.organization_id.as_str(),
+                parsed.principal_id.as_str(),
+                parsed.principal_kind.as_str(),
+                parsed.scope_type.as_str(),
+                parsed.scope_id.as_str(),
+                parsed.event_type.as_str(),
+                parsed.payload,
+                vec![parsed.device_id.clone()],
+            )
+        };
+        let delivered = delivery_result
             .map_err(|error| {
                 self.node_error(
                     "cluster_route_delivery_failed",
@@ -1121,6 +1306,7 @@ impl RealtimeClusterBridge {
         scope_id: &str,
         event_type: &str,
         payload: String,
+        delivery_class: &str,
     ) -> RealtimeRouteDeliveryResult {
         self.publish_client_route_event_internal(
             origin_node_id,
@@ -1133,6 +1319,7 @@ impl RealtimeClusterBridge {
             scope_id,
             event_type,
             payload,
+            delivery_class,
         )
     }
 
@@ -1149,6 +1336,7 @@ impl RealtimeClusterBridge {
         scope_id: &str,
         event_type: &str,
         payload: String,
+        delivery_class: &str,
     ) -> RealtimeRouteDeliveryResult {
         // Capture the route epoch at resolution time. Between the initial
         // `resolve_client_route_internal` and the actual call to
@@ -1195,64 +1383,36 @@ impl RealtimeClusterBridge {
         // is not available locally.
         if runtime.is_none()
             && route_state == "target_runtime_missing"
-            && let Some(ref bus) = self.cluster_bus
+            && self.cluster_bus.is_some()
         {
-            let event = serde_json::json!({
-                "tenant_id": tenant_id,
-                "principal_id": principal_id,
-                "principal_kind": principal_kind,
-                "device_id": device_id,
-                "scope_type": scope_type,
-                "scope_id": scope_id,
-                "event_type": event_type,
-                "payload": payload,
-            });
-            let secret = match self.cluster_bus_secret.as_deref() {
-                Some(secret) => secret,
-                None => {
-                    return RealtimeRouteDeliveryResult {
-                        target_node_id,
-                        route_state: "remote_publish_failed".to_string(),
-                        delivered: 0,
-                        delivery_error_code: Some("cluster_bus_secret_missing".to_string()),
-                        delivery_error_message: Some(
-                            "cluster bus secret is not configured on this node".to_string(),
-                        ),
-                    };
-                }
+            return match self.build_and_publish_route_event(
+                target_node_id.as_str(),
+                tenant_id,
+                organization_id,
+                principal_id,
+                principal_kind,
+                device_id,
+                scope_type,
+                scope_id,
+                event_type,
+                payload.as_str(),
+                delivery_class,
+            ) {
+                Ok(()) => RealtimeRouteDeliveryResult {
+                    target_node_id,
+                    route_state: "remote_published".to_string(),
+                    delivered: 1,
+                    delivery_error_code: None,
+                    delivery_error_message: None,
+                },
+                Err((code, message)) => RealtimeRouteDeliveryResult {
+                    target_node_id,
+                    route_state: "remote_publish_failed".to_string(),
+                    delivered: 0,
+                    delivery_error_code: Some(code),
+                    delivery_error_message: Some(message),
+                },
             };
-            let event_json = match sign_cluster_route_event(secret, &event) {
-                Ok(value) => value,
-                Err(error) => {
-                    return RealtimeRouteDeliveryResult {
-                        target_node_id,
-                        route_state: "remote_publish_failed".to_string(),
-                        delivered: 0,
-                        delivery_error_code: Some("cluster_bus_sign_failed".to_string()),
-                        delivery_error_message: Some(error),
-                    };
-                }
-            };
-            match bus.publish_route_event(target_node_id.as_str(), &event_json) {
-                Ok(()) => {
-                    return RealtimeRouteDeliveryResult {
-                        target_node_id,
-                        route_state: "remote_published".to_string(),
-                        delivered: 1,
-                        delivery_error_code: None,
-                        delivery_error_message: None,
-                    };
-                }
-                Err(error) => {
-                    return RealtimeRouteDeliveryResult {
-                        target_node_id,
-                        route_state: "remote_publish_failed".to_string(),
-                        delivered: 0,
-                        delivery_error_code: Some("cluster_bus_error".to_string()),
-                        delivery_error_message: Some(error),
-                    };
-                }
-            }
         }
 
         // TOCTOU re-check: if we initially resolved a route, make sure its
@@ -1464,7 +1624,7 @@ mod tests {
 
     #[test]
     fn test_bind_node_runtime_recovers_from_poisoned_runtime_registry_lock() {
-        let cluster = RealtimeClusterBridge::default();
+        let cluster = Arc::new(RealtimeClusterBridge::default());
         poison_mutex(&cluster.node_runtimes);
 
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -1482,7 +1642,7 @@ mod tests {
 
     #[test]
     fn test_route_rebind_recovers_from_poisoned_runtime_registry_lock() {
-        let cluster = RealtimeClusterBridge::default();
+        let cluster = Arc::new(RealtimeClusterBridge::default());
         cluster.bind_node_runtime(
             "node_a",
             Arc::new(RealtimeDeliveryRuntime::permissive_for_tests()),
@@ -1531,7 +1691,7 @@ mod tests {
 
     #[test]
     fn test_publish_recovers_from_poisoned_runtime_registry_lock() {
-        let cluster = RealtimeClusterBridge::default();
+        let cluster = Arc::new(RealtimeClusterBridge::default());
         let runtime_a = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
         cluster.bind_node_runtime("node_a", runtime_a.clone());
         expect_ok(runtime_a.sync_subscriptions_for_principal_kind(
@@ -1561,6 +1721,7 @@ mod tests {
                 "c_demo",
                 "message.posted",
                 r#"{"messageId":"msg_poison"}"#.into(),
+        "durable",
             )
         }));
         assert!(
@@ -1575,7 +1736,7 @@ mod tests {
 
     #[test]
     fn test_publish_does_not_fallback_to_origin_when_route_points_to_missing_target_runtime() {
-        let cluster = RealtimeClusterBridge::default();
+        let cluster = Arc::new(RealtimeClusterBridge::default());
         let runtime_a = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
         let runtime_b = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
         cluster.bind_node_runtime("node_a", runtime_a.clone());
@@ -1623,6 +1784,7 @@ mod tests {
             "c_demo",
             "message.posted",
             r#"{"messageId":"msg_demo_1"}"#.into(),
+        "durable",
         );
 
         assert_eq!(result.target_node_id, "node_b");
@@ -1645,7 +1807,7 @@ mod tests {
 
     #[test]
     fn test_direct_rebind_self_heals_stale_route_when_previous_runtime_is_missing() {
-        let cluster = RealtimeClusterBridge::default();
+        let cluster = Arc::new(RealtimeClusterBridge::default());
         let runtime_a = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
         let runtime_b = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
         cluster.bind_node_runtime("node_a", runtime_a);
@@ -1720,6 +1882,7 @@ mod tests {
             "c_demo",
             "message.posted",
             r#"{"messageId":"msg_after_stale_takeover"}"#.into(),
+        "durable",
         );
 
         assert_eq!(publish.target_node_id, "node_b");
@@ -1743,7 +1906,7 @@ mod tests {
 
     #[test]
     fn test_route_session_fence_rejects_stale_session_after_takeover() {
-        let cluster = RealtimeClusterBridge::default();
+        let cluster = Arc::new(RealtimeClusterBridge::default());
         let runtime_a = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
         let runtime_b = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
         cluster.bind_node_runtime("node_a", runtime_a);
@@ -1801,7 +1964,7 @@ mod tests {
 
     #[test]
     fn test_route_session_fence_requires_session_id_once_route_is_bound_to_session() {
-        let cluster = RealtimeClusterBridge::default();
+        let cluster = Arc::new(RealtimeClusterBridge::default());
         let runtime = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
         cluster.bind_node_runtime("node_a", runtime);
 
@@ -1829,7 +1992,7 @@ mod tests {
 
     #[test]
     fn test_disconnect_fence_requires_resume_until_cleared() {
-        let cluster = RealtimeClusterBridge::default();
+        let cluster = Arc::new(RealtimeClusterBridge::default());
         let runtime = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
         cluster.bind_node_runtime("node_a", runtime);
 
@@ -1897,7 +2060,7 @@ mod tests {
     fn test_disconnect_fence_sessionless_request_clears_stale_sessioned_fence() {
         // A request without a session id (current_session_id=None) should clear
         // a fence written by a sessioned connection, since None != Some(s).
-        let cluster = RealtimeClusterBridge::default();
+        let cluster = Arc::new(RealtimeClusterBridge::default());
         cluster.bind_node_runtime(
             "node_a",
             Arc::new(RealtimeDeliveryRuntime::permissive_for_tests()),
@@ -1924,7 +2087,7 @@ mod tests {
     #[test]
     fn test_disconnect_fence_survives_bridge_rebuild_with_shared_store() {
         let store = Arc::new(MemoryRealtimeDisconnectFenceStore::default());
-        let cluster_a = RealtimeClusterBridge::with_disconnect_fence_store(store.clone());
+        let cluster_a = Arc::new(RealtimeClusterBridge::with_disconnect_fence_store(store.clone()));
         let runtime_a = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
         cluster_a.bind_node_runtime("node_a", runtime_a);
         cluster_a
@@ -1939,7 +2102,7 @@ mod tests {
             })
             .expect("disconnect fence should persist");
 
-        let cluster_b = RealtimeClusterBridge::with_disconnect_fence_store(store);
+        let cluster_b = Arc::new(RealtimeClusterBridge::with_disconnect_fence_store(store));
         let runtime_b = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
         cluster_b.bind_node_runtime("node_b", runtime_b);
 
@@ -2099,9 +2262,9 @@ mod tests {
 
     #[test]
     fn test_disconnect_fence_store_failures_surface_as_controlled_cluster_errors() {
-        let cluster = RealtimeClusterBridge::with_disconnect_fence_store(Arc::new(
+        let cluster = Arc::new(RealtimeClusterBridge::with_disconnect_fence_store(Arc::new(
             FailingDisconnectFenceStore,
-        ));
+        )));
         let runtime = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
         cluster.bind_node_runtime("node_a", runtime);
 

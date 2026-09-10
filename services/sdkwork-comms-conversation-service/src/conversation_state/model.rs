@@ -14,6 +14,7 @@ pub struct TimelineViewEntry {
     pub tenant_id: String,
     pub conversation_id: String,
     pub message_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub message_seq: u64,
     pub summary: Option<String>,
     #[serde(default = "default_sender")]
@@ -78,6 +79,7 @@ pub struct MessageReadReceiptReaderView {
     pub principal_id: String,
     pub principal_kind: String,
     pub member_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub read_seq: u64,
     pub updated_at: String,
 }
@@ -97,6 +99,7 @@ pub struct MessageDeliveryReceiptDeviceView {
     pub principal_kind: String,
     pub member_id: String,
     pub device_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub sync_seq: u64,
 }
 
@@ -115,6 +118,7 @@ pub struct MessageInteractionSummaryView {
     pub tenant_id: String,
     pub conversation_id: String,
     pub message_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub message_seq: u64,
     pub total_reaction_count: u64,
     pub reaction_counts: Vec<MessageReactionCountView>,
@@ -166,6 +170,7 @@ pub struct ConversationSummaryView {
     pub conversation_id: String,
     pub message_count: u64,
     pub last_message_id: Option<String>,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub last_message_seq: u64,
     pub last_sender_id: Option<String>,
     pub last_sender_kind: Option<String>,
@@ -453,7 +458,8 @@ pub struct MessageFavoriteView {
     pub favorite_type: String,
     pub conversation_id: String,
     pub message_id: String,
-    pub message_seq: i32,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
+    pub message_seq: u64,
     pub title: String,
     pub content_preview: String,
     pub source_display_name: String,
@@ -477,6 +483,7 @@ pub type FavoriteMessagesWindowView = SdkWorkPageData<MessageFavoriteView>;
 pub struct MessageSearchHitView {
     pub conversation_id: String,
     pub message_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub message_seq: u64,
 }
 

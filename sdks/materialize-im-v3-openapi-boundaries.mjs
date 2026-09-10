@@ -353,9 +353,13 @@ function normalizeContentPartSchema(schemas) {
         type: 'string',
       },
       assignmentGeneration: {
+        // API_SPEC §13.6 int64-string closure: keep the wire value a decimal
+        // string so browsers never round the generation past 2^53.
         format: 'int64',
         minimum: 1,
-        type: 'integer',
+        pattern: '^-?[0-9]+$',
+        type: 'string',
+        'x-sdkwork-int64-string': true,
       },
     },
     required: ['kind', 'targetKind', 'targetId', 'displayText', 'assignmentGeneration'],
@@ -549,7 +553,7 @@ function normalizeImAuthority(im) {
     title: 'Sdkwork IM IM Standardized Development API',
     version: im.info?.version || '0.1.0',
     description:
-      'IM standardized development OpenAPI contract for conversations, messages, realtime, media, streams, social IM flows, and communication spaces.',
+      'IM standardized development OpenAPI contract for conversations, messages, realtime, media, social IM flows, and communication spaces.',
   };
   next.paths = collectRebasedPaths({
     sources: [im],
@@ -804,9 +808,6 @@ if (consolidatedIm.paths['/im/v3/api/portal/access']) {
 }
 if (!consolidatedBackend.paths['/backend/v3/api/control/protocol_registry']) {
   fail('Backend authority is missing /backend/v3/api/control/protocol_registry.');
-}
-if (!consolidatedBackend.paths['/backend/v3/api/admin/api_keys']) {
-  fail('Backend authority is missing /backend/v3/api/admin/api_keys.');
 }
 if (!consolidatedBackend.paths['/backend/v3/api/automation/governance']) {
   fail('Backend authority is missing /backend/v3/api/automation/governance.');

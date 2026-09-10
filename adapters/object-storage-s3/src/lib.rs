@@ -269,7 +269,10 @@ impl S3CompatibleObjectStorageProvider {
             "image/png",
             "image/gif",
             "image/webp",
-            "image/svg+xml",
+            // `image/svg+xml` is intentionally absent: SVG can carry active
+            // content (stored XSS) and is only safe to serve with an
+            // attachment Content-Disposition, which object storage serving
+            // does not guarantee.
             "video/mp4",
             "video/webm",
             "video/quicktime",
@@ -639,7 +642,8 @@ fn expected_content_type_for_key(object_key: &str) -> Option<&'static str> {
         "png" => "image/png",
         "gif" => "image/gif",
         "webp" => "image/webp",
-        "svg" => "image/svg+xml",
+        // "svg" is deliberately unmapped: SVG uploads are rejected (stored-XSS
+        // vector; see the allowlist note above).
         "mp4" => "video/mp4",
         "webm" => "video/webm",
         "mov" => "video/quicktime",

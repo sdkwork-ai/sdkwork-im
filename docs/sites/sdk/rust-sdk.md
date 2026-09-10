@@ -32,7 +32,7 @@ Today the normal Rust consumption boundary is the composed crate under `composed
 - live-schema generation from the same Sdkwork IM OpenAPI 3.x export as every official language
 - verified generated-versus-semantic ownership split between `generated/server-openapi` and `composed`
 - a checked-in `ImSdkClient` with route-aligned modules for session, presence, realtime, inbox,
-  conversations, messages, media, streams, and calls
+  conversations, messages, media, and calls
 - builder helpers for text messages, text stream frames, and JSON RTC signals
 - re-exported generated transport types so application code can still drop down to `ImTransportClient`
   when it needs transport-level token hooks, portal, or DTO-level access
@@ -69,7 +69,7 @@ Use the map below to jump from the Rust surface you are using to the matching HT
 | Membership and read cursors | `ImSdkClient::conversations()` plus generated DTOs | [Membership and Read State](/api-reference/im/membership-and-read-state) |
 | Message posting and mutation helpers | `ImSdkClient::conversations()`, `messages()`, `build_text_message(...)` | [Messages](/api-reference/im/messages) |
 | Upload and attachment lifecycle | `ImSdkClient::media()` | [Media](/api-reference/im/media) |
-| Stream ingestion and checkpoints | `ImSdkClient::streams()`, `build_text_stream_frame(...)` | [Streams](/api-reference/im/streams) |
+| Stream-shaped application data | `ImSdkClient::connectRealtime()`, `sync().catchUp(...)` (no streams REST surface remains) | [Session And Realtime](/api-reference/im/session-and-realtime) |
 | IM call lifecycle and signaling helpers | `ImSdkClient::calls()`, `calls.sendSignal(...)` | [Calls](/api-reference/im/calls) |
 
 When you need the exact generated route groups or transport-level DTO usage examples, pair this

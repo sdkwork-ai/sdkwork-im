@@ -266,10 +266,7 @@ pub async fn create_invitation(
             retention_until,
         };
 
-        state.invitation_store.insert(&record).map_err(|error| {
-            tracing::error!(error = ?error, "failed to insert invitation");
-            ApiProblem::internal_server_error("failed to create invitation")
-        })?;
+        crate::write_authority::persist_invitation_created(&state, &auth, &record)?;
         Ok(resource_item(InvitationResponse::from(record)))
     })();
     finish_api_response(&ctx, result.and_then(|data| created_json(&ctx, data)))

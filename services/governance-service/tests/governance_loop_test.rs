@@ -46,6 +46,7 @@ fn audit_app_context_for_organization(organization_id: &str) -> AppContext {
 
 #[tokio::test]
 async fn test_control_plane_governance_writes_feed_ops_and_audit_runtimes() {
+    ensure_test_environment();
     ensure_loop_test_env();
     let cluster = Arc::new(RealtimeClusterBridge::default());
     let runtime_a = Arc::new(RealtimeDeliveryRuntime::default());
@@ -183,6 +184,7 @@ async fn test_control_plane_governance_writes_feed_ops_and_audit_runtimes() {
 
 #[tokio::test]
 async fn test_control_plane_provider_bindings_feed_ops_runtime() {
+    ensure_test_environment();
     let cluster = Arc::new(RealtimeClusterBridge::default());
     let ops_runtime = Arc::new(OpsRuntime::new(
         "node_a",
@@ -285,6 +287,7 @@ async fn test_control_plane_provider_bindings_feed_ops_runtime() {
 
 #[tokio::test]
 async fn test_control_plane_provider_policy_writes_feed_ops_and_audit_runtimes() {
+    ensure_test_environment();
     let cluster = Arc::new(RealtimeClusterBridge::default());
     let ops_runtime = Arc::new(OpsRuntime::new(
         "node_a",
@@ -395,6 +398,7 @@ async fn test_control_plane_provider_policy_writes_feed_ops_and_audit_runtimes()
 
 #[tokio::test]
 async fn test_control_plane_provider_policy_rollback_refreshes_ops_runtime_and_audit() {
+    ensure_test_environment();
     let cluster = Arc::new(RealtimeClusterBridge::default());
     let ops_runtime = Arc::new(OpsRuntime::new(
         "node_a",
@@ -519,6 +523,7 @@ async fn test_control_plane_provider_policy_rollback_refreshes_ops_runtime_and_a
 
 #[tokio::test]
 async fn test_control_plane_repeated_provider_policy_updates_append_distinct_audit_records() {
+    ensure_test_environment();
     let cluster = Arc::new(RealtimeClusterBridge::default());
     let ops_runtime = Arc::new(OpsRuntime::new(
         "node_a",
@@ -621,6 +626,7 @@ async fn test_control_plane_repeated_provider_policy_updates_append_distinct_aud
 
 #[tokio::test]
 async fn test_control_plane_noop_provider_policy_write_does_not_append_audit() {
+    ensure_test_environment();
     let cluster = Arc::new(RealtimeClusterBridge::default());
     let ops_runtime = Arc::new(OpsRuntime::new(
         "node_a",
@@ -715,6 +721,7 @@ async fn test_control_plane_noop_provider_policy_write_does_not_append_audit() {
 
 #[tokio::test]
 async fn test_control_plane_provider_policy_preview_does_not_touch_ops_or_audit() {
+    ensure_test_environment();
     let cluster = Arc::new(RealtimeClusterBridge::default());
     let ops_runtime = Arc::new(OpsRuntime::new(
         "node_a",
@@ -781,6 +788,7 @@ async fn test_control_plane_provider_policy_preview_does_not_touch_ops_or_audit(
 
 #[tokio::test]
 async fn test_control_plane_stale_provider_policy_confirm_write_does_not_touch_ops_or_audit() {
+    ensure_test_environment();
     let cluster = Arc::new(RealtimeClusterBridge::default());
     let ops_runtime = Arc::new(OpsRuntime::new(
         "node_a",
@@ -1204,4 +1212,14 @@ async fn test_control_plane_rejects_oversized_tenant_provider_policy_write_witho
         .export_bundle(&audit_auth)
         .expect("audit export should succeed");
     assert_eq!(audit_export.total, 0);
+}
+
+fn ensure_test_environment() {
+    static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    TEST_ENVIRONMENT.get_or_init(|| {
+        // Dual-token test helpers rely on the relaxed test posture; production
+        // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
+        // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        unsafe { std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test") }
+    });
 }

@@ -5,7 +5,8 @@
 # sdkwork-im-standalone-gateway:local), then `docker compose up -d`.
 #
 # Port strategy: the gateway container binds 0.0.0.0:18079 inside, and the
-# host maps 18079 -> 18079 so the PC renderer's local gateway discovery
+# host maps 127.0.0.1:18079 -> 18079 (loopback only, never reachable from the
+# LAN) so the PC renderer's local gateway discovery
 # (http://127.0.0.1:18079/healthz probe, the standalone default) keeps working
 # from Windows browsers over the WSL2 localhost relay. PostgreSQL stays on the
 # compose network and exposes no host ports, so the composition is
@@ -38,7 +39,10 @@ services:
   im-gateway:
     image: sdkwork-im-standalone-gateway:local
     ports:
-      - "${SDKWORK_IM_HOST_PORT:-18079}:18079"
+      # Loopback-only host publish: the dev gateway must not be reachable from
+      # other hosts. Public ingress in real deployments goes through the
+      # etc/topology + k8s edge, never this local composition.
+      - "127.0.0.1:${SDKWORK_IM_HOST_PORT:-18079}:18079"
     environment:
       # Deployment identity (DEPLOYMENT_SPEC §5.2).
       SDKWORK_IM_DEPLOYMENT_PROFILE: standalone
@@ -68,7 +72,9 @@ services:
       SDKWORK_DATABASE_SCHEMA: ${SDKWORK_IM_POSTGRES_SCHEMA:-sdkwork_ai_dev}
       SDKWORK_DATABASE_USERNAME: ${SDKWORK_IM_POSTGRES_USER:-sdkwork_ai_dev}
       SDKWORK_DATABASE_PASSWORD: ${SDKWORK_IM_POSTGRES_PASSWORD:-sdkworkdev123}
-      SDKWORK_DATABASE_SSL_MODE: disable
+      # SDKWORK_DATABASE_SSL_MODE is intentionally not pinned here: it defaults
+      # through the environment/profile resolution instead of a hardcoded
+      # `disable`.
       # The gateway bootstraps the schema and applies migrations on first
       # start (the IM database manifest ships with autoMigrate=false, so the
       # compose deployment opts in explicitly).

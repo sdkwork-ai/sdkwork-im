@@ -208,3 +208,86 @@ test('clears a hydrated session when token manager hydration fails', async () =>
   assert.equal(retrieveCount, 0);
   assert.equal(clearCount, 1);
 });
+
+test('migrates a legacy localStorage session into sessionStorage on restore', () => {
+  const globalScope = globalThis as unknown as {
+    sessionStorage?: ImH5SessionStorageLike;
+    localStorage?: ImH5SessionStorageLike;
+  };
+  const originalSessionStorage = globalScope.sessionStorage;
+  const originalLocalStorage = globalScope.localStorage;
+  const browserStorage = createStorage();
+  const legacyStorage = createStorage();
+  legacyStorage.setItem(
+    'sdkwork-im-h5-session',
+    JSON.stringify({ accessToken: 'legacy-access', authToken: 'legacy-auth' }),
+  );
+  globalScope.sessionStorage = browserStorage;
+  globalScope.localStorage = legacyStorage;
+  try {
+    assert.deepEqual(readImH5PersistedSession(), {
+      accessToken: 'legacy-access',
+      authToken: 'legacy-auth',
+    });
+    assert.equal(legacyStorage.getItem('sdkwork-im-h5-session'), null);
+    assert.deepEqual(browserStorage.getItem('sdkwork-im-h5-session'), JSON.stringify({
+      accessToken: 'legacy-access',
+      authToken: 'legacy-auth',
+    }));
+    // The migration is one-time: the legacy entry is gone, nothing re-copies.
+    assert.deepEqual(readImH5PersistedSession(), {
+      accessToken: 'legacy-access',
+      authToken: 'legacy-auth',
+    });
+  } finally {
+    if (originalSessionStorage === undefined) {
+      delete globalScope.sessionStorage;
+    } else {
+      globalScope.sessionStorage = originalSessionStorage;
+    }
+    if (originalLocalStorage === undefined) {
+      delete globalScope.localStorage;
+    } else {
+      globalScope.localStorage = originalLocalStorage;
+    }
+  }
+});
+
+test('keeps the sessionStorage session over a stale legacy localStorage entry', () => {
+  const globalScope = globalThis as unknown as {
+    sessionStorage?: ImH5SessionStorageLike;
+    localStorage?: ImH5SessionStorageLike;
+  };
+  const originalSessionStorage = globalScope.sessionStorage;
+  const originalLocalStorage = globalScope.localStorage;
+  const browserStorage = createStorage();
+  const legacyStorage = createStorage();
+  browserStorage.setItem(
+    'sdkwork-im-h5-session',
+    JSON.stringify({ accessToken: 'current-access', authToken: 'current-auth' }),
+  );
+  legacyStorage.setItem(
+    'sdkwork-im-h5-session',
+    JSON.stringify({ accessToken: 'legacy-access', authToken: 'legacy-auth' }),
+  );
+  globalScope.sessionStorage = browserStorage;
+  globalScope.localStorage = legacyStorage;
+  try {
+    assert.deepEqual(readImH5PersistedSession(), {
+      accessToken: 'current-access',
+      authToken: 'current-auth',
+    });
+    assert.equal(legacyStorage.getItem('sdkwork-im-h5-session'), null);
+  } finally {
+    if (originalSessionStorage === undefined) {
+      delete globalScope.sessionStorage;
+    } else {
+      globalScope.sessionStorage = originalSessionStorage;
+    }
+    if (originalLocalStorage === undefined) {
+      delete globalScope.localStorage;
+    } else {
+      globalScope.localStorage = originalLocalStorage;
+    }
+  }
+});

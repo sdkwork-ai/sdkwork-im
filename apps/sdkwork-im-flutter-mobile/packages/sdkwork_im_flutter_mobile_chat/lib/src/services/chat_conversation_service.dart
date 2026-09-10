@@ -61,9 +61,11 @@ class ChatConversationService {
     int readSeq = 0,
   }) async {
     if (readSeq > 0) {
+      // int64 read cursors cross the wire as decimal strings (API_SPEC 13.6);
+      // the internal parameter stays numeric.
       await _client.chat.conversationsReadCursorUpdate(
         conversationId,
-        UpdateReadCursorRequest(readSeq: readSeq),
+        UpdateReadCursorRequest(readSeq: readSeq.toString()),
       );
     }
     await _client.chat.conversationsPreferencesUpdate(

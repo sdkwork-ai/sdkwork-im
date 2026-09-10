@@ -372,6 +372,27 @@ where fs.tenant_id = $1
 order by s.device_id asc
 "#;
 
+/// Keyset-paged discovery of subscribed device ids for one
+/// (principal, scope, event_type). Backed by
+/// `idx_im_realtime_subscription_scopes_fanout`; the cursor parameter is
+/// null on the first page and the final parameter is the page limit. Used
+/// by the session gateway to fan durable/ephemeral scope events out to
+/// device routes that live on other gateway nodes.
+pub const LOAD_SUBSCRIBED_DEVICE_IDS_FOR_PRINCIPAL_SCOPE_SQL: &str = r#"
+select distinct fs.device_id
+from im_realtime_subscription_scopes fs
+where fs.tenant_id = $1
+  and fs.organization_id = $2
+  and fs.principal_kind = $3
+  and fs.principal_id = $4
+  and fs.scope_type = $5
+  and fs.scope_id = $6
+  and fs.event_type in ($7, '*')
+  and ($8::text is null or fs.device_id > $8)
+order by fs.device_id asc
+limit $9
+"#;
+
 pub const LOAD_REALTIME_DISCONNECT_FENCE_SQL: &str = r#"
 select
     tenant_id,
@@ -1373,6 +1394,18 @@ const LOAD_MATCHING_REALTIME_SUBSCRIPTIONS_BINDINGS: &[RealtimePostgresParameter
     binding(8, "candidate_device_ids", "&[String]", "text[]", ""),
 ];
 
+const LOAD_SUBSCRIBED_DEVICE_IDS_FOR_PRINCIPAL_SCOPE_BINDINGS: &[RealtimePostgresParameterBinding] = &[
+    binding(1, "tenant_id", "&str", "text", ""),
+    binding(2, "organization_id", "&str", "text", ""),
+    binding(3, "principal_kind", "&str", "text", ""),
+    binding(4, "principal_id", "&str", "text", ""),
+    binding(5, "scope_type", "&str", "text", ""),
+    binding(6, "scope_id", "&str", "text", ""),
+    binding(7, "event_type", "&str", "text", ""),
+    binding(8, "after_device_id", "Option<&str>", "text", ""),
+    binding(9, "limit", "i64", "int8", ""),
+];
+
 const LOAD_REALTIME_DISCONNECT_FENCE_BINDINGS: &[RealtimePostgresParameterBinding] = &[
     binding(1, "tenant_id", "&str", "text", ""),
     binding(2, "organization_id", "&str", "text", ""),
@@ -1464,6 +1497,7 @@ pub const ALL_REALTIME_POSTGRES_SQL_CONTRACTS: &[&str] = &[
     CLEAR_REALTIME_SUBSCRIPTION_SCOPES_SQL,
     REPLACE_REALTIME_SUBSCRIPTION_SCOPES_SQL,
     LOAD_MATCHING_REALTIME_SUBSCRIPTIONS_SQL,
+    LOAD_SUBSCRIBED_DEVICE_IDS_FOR_PRINCIPAL_SCOPE_SQL,
     LOAD_REALTIME_DISCONNECT_FENCE_SQL,
     UPSERT_REALTIME_DISCONNECT_FENCE_SQL,
     CLEAR_REALTIME_DISCONNECT_FENCE_SQL,
@@ -1599,6 +1633,12 @@ pub const REALTIME_POSTGRES_SQL_CONTRACT_SPECS: &[RealtimePostgresSqlContract] =
         }),
     },
     RealtimePostgresSqlContract {
+        name: "LOAD_SUBSCRIBED_DEVICE_IDS_FOR_PRINCIPAL_SCOPE_SQL",
+        sql: LOAD_SUBSCRIBED_DEVICE_IDS_FOR_PRINCIPAL_SCOPE_SQL,
+        parameter_bindings: LOAD_SUBSCRIBED_DEVICE_IDS_FOR_PRINCIPAL_SCOPE_BINDINGS,
+        row_mapping: None,
+    },
+    RealtimePostgresSqlContract {
         name: "LOAD_REALTIME_DISCONNECT_FENCE_SQL",
         sql: LOAD_REALTIME_DISCONNECT_FENCE_SQL,
         parameter_bindings: LOAD_REALTIME_DISCONNECT_FENCE_BINDINGS,
@@ -1718,6 +1758,12 @@ const LOAD_MATCHING_SUBSCRIPTION_STEPS: &[RealtimePostgresMethodStep] = &[step(
     "LOAD_MATCHING_REALTIME_SUBSCRIPTIONS_SQL",
     "tenant/principal/scope/event tuple and candidate_device_ids text array.",
     "Map distinct rows to RealtimeSubscriptionRecord.",
+)];
+
+const LOAD_SUBSCRIBED_DEVICE_IDS_FOR_PRINCIPAL_SCOPE_STEPS: &[RealtimePostgresMethodStep] = &[step(
+    "LOAD_SUBSCRIBED_DEVICE_IDS_FOR_PRINCIPAL_SCOPE_SQL",
+    "tenant/principal/scope/event tuple, keyset cursor after_device_id, and page limit.",
+    "Map distinct device_id strings in ascending keyset order.",
 )];
 
 const SAVE_SUBSCRIPTION_STEPS: &[RealtimePostgresMethodStep] = &[
@@ -1947,6 +1993,15 @@ pub const REALTIME_POSTGRES_METHOD_PLANS: &[RealtimePostgresMethodPlan] = &[
         transaction_plan_name: None,
         steps: LOAD_MATCHING_SUBSCRIPTION_STEPS,
         notes: &["Fanout lookup must use the indexed scope table, including '*' wildcard rows."],
+    },
+    RealtimePostgresMethodPlan {
+        name: "RealtimeSubscriptionStore::load_subscribed_device_ids_for_principal_scope",
+        atomicity: RealtimePostgresMethodAtomicity::ReadOnly,
+        transaction_plan_name: None,
+        steps: LOAD_SUBSCRIBED_DEVICE_IDS_FOR_PRINCIPAL_SCOPE_STEPS,
+        notes: &[
+            "Keyset-paged over idx_im_realtime_subscription_scopes_fanout; callers must iterate pages until short.",
+        ],
     },
     RealtimePostgresMethodPlan {
         name: "RealtimeSubscriptionStore::save_subscriptions",

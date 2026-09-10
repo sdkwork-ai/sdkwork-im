@@ -5,10 +5,15 @@ import 'package:sdkwork_im_flutter_mobile_commons/sdkwork_im_flutter_mobile_comm
 import 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.dart';
 import 'package:sdkwork_im_flutter_mobile_shell/sdkwork_im_flutter_mobile_shell.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../services/chat_conversation_service.dart';
 import '../services/chat_inbox_service.dart';
+import '../services/chat_message_history_utils.dart';
 import '../services/chat_realtime_service.dart';
 import 'chat_conversation_page.dart';
+
+/// Builds inbox copy at render time so stored errors stay localized.
+typedef _ErrorMessageBuilder = String Function(AppLocalizations l10n);
 
 class ChatInboxPage extends StatefulWidget {
   const ChatInboxPage({
@@ -40,7 +45,7 @@ class _ChatInboxPageState extends State<ChatInboxPage> {
   bool _initialLoadComplete = false;
   bool _liveConnected = false;
   bool _pendingRealtimeRefresh = false;
-  String? _loadError;
+  _ErrorMessageBuilder? _loadError;
 
   @override
   void initState() {
@@ -79,7 +84,7 @@ class _ChatInboxPageState extends State<ChatInboxPage> {
               reset ? InboxWindowDirection.newer : InboxWindowDirection.older,
         );
         if (!page.incomingPageRetained) {
-          _loadError = 'Unable to retain the requested conversation page.';
+          _loadError = (l10n) => l10n.inboxPageRetainError;
           _initialLoadComplete = true;
           return;
         }
@@ -105,7 +110,7 @@ class _ChatInboxPageState extends State<ChatInboxPage> {
         return;
       }
       setState(() {
-        _loadError = 'Unable to load conversations.';
+        _loadError = (l10n) => l10n.inboxLoadError;
         _initialLoadComplete = true;
       });
     } finally {
@@ -147,20 +152,27 @@ class _ChatInboxPageState extends State<ChatInboxPage> {
     }
   }
 
-  String _entryTitle(ConversationInboxEntry entry) {
-    return resolveConversationInboxTitle(entry);
+  String _entryTitle(ConversationInboxEntry entry, AppLocalizations l10n) {
+    return resolveConversationInboxTitle(
+      entry,
+      fallback: l10n.conversationFallbackTitle,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return ImAppScaffold(
-      title: 'Inbox',
+      title: l10n.inboxTitle,
       actions: [
         if (_liveConnected)
-          const Padding(
-            padding: EdgeInsets.only(right: 12),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
             child: Center(
-              child: Text('Live', style: TextStyle(fontSize: 12)),
+              child: Text(
+                l10n.liveBadge,
+                style: const TextStyle(fontSize: 12),
+              ),
             ),
           ),
       ],
@@ -171,18 +183,21 @@ class _ChatInboxPageState extends State<ChatInboxPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(_loadError!, textAlign: TextAlign.center),
+                      Text(
+                        _loadError!(l10n),
+                        textAlign: TextAlign.center,
+                      ),
                       const SizedBox(height: 12),
                       FilledButton(
                         onPressed:
                             _loading ? null : () => _loadInboxPage(reset: true),
-                        child: const Text('Retry'),
+                        child: Text(l10n.retry),
                       ),
                     ],
                   ),
                 )
               : _entries.isEmpty
-                  ? const Center(child: Text('No conversations yet.'))
+                  ? Center(child: Text(l10n.inboxEmpty))
                   : ListView.separated(
                       padding: const EdgeInsets.all(16),
                       itemCount: _entries.length + (_hasMore ? 1 : 0),
@@ -200,7 +215,7 @@ class _ChatInboxPageState extends State<ChatInboxPage> {
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2),
                                   )
-                                : const Text('Load more'),
+                                : Text(l10n.loadMore),
                           );
                         }
                         final entry = _entries[index];
@@ -215,7 +230,9 @@ class _ChatInboxPageState extends State<ChatInboxPage> {
                           child: ListTile(
                             title: Row(
                               children: [
-                                Expanded(child: Text(_entryTitle(entry))),
+                                Expanded(
+                                  child: Text(_entryTitle(entry, l10n)),
+                                ),
                                 if (isMuted)
                                   const Padding(
                                     padding: EdgeInsets.only(left: 4),
@@ -257,10 +274,23 @@ class _ChatInboxPageState extends State<ChatInboxPage> {
                               ],
                             ),
                             onTap: () {
+                              final lastReadSeq =
+                                  parseWireSeq(entry.lastMessageSeq);
+                              if (lastReadSeq == null) {
+                                debugPrint(
+                                  'sdkwork-im-flutter-mobile: skipping read '
+                                  'cursor update with unparseable seq '
+                                  '"${entry.lastMessageSeq}"',
+                                );
+                              }
                               unawaited(
                                 widget.inboxService.markConversationRead(
                                   entry.conversationId,
-                                  readSeq: entry.lastMessageSeq,
+                                  // Wire seqs are decimal strings (API_SPEC
+                                  // 13.6); the read-cursor parameter stays
+                                  // numeric. 0 skips the cursor update and
+                                  // only clears the unread marking.
+                                  readSeq: lastReadSeq ?? 0,
                                 ),
                               );
                               Navigator.of(context).push(
@@ -274,7 +304,7 @@ class _ChatInboxPageState extends State<ChatInboxPage> {
                                     applicationPublicHttpUrl:
                                         widget.applicationPublicHttpUrl,
                                     session: widget.session,
-                                    title: _entryTitle(entry),
+                                    title: _entryTitle(entry, l10n),
                                   ),
                                 ),
                               );

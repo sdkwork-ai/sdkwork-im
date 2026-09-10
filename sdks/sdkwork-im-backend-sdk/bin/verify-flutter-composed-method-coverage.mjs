@@ -54,18 +54,8 @@ export function verifyFlutterComposedMethodCoverage(workspaceRoot) {
       'control.dart',
     ),
   );
-  const generatedAdminSource = readSource(
-    path.join(
-      root,
-      'sdkwork-im-backend-sdk-flutter',
-      'generated',
-      'server-openapi',
-      'lib',
-      'src',
-      'api',
-      'admin.dart',
-    ),
-  );
+  // No admin.dart coverage check: the backend authority currently ships no admin routes, so the
+  // generated admin API and the composed admin module were removed with the admin plane.
   const composedControlSource = readSource(
     path.join(
       root,
@@ -76,24 +66,11 @@ export function verifyFlutterComposedMethodCoverage(workspaceRoot) {
       'control_module.dart',
     ),
   );
-  const composedAdminSource = readSource(
-    path.join(
-      root,
-      'sdkwork-im-backend-sdk-flutter',
-      'composed',
-      'lib',
-      'src',
-      'admin_module.dart',
-    ),
-  );
 
   const generatedControlMethods = extractGeneratedMethodNames(generatedControlSource);
-  const generatedAdminMethods = extractGeneratedMethodNames(generatedAdminSource);
   const composedControlMethods = extractComposedMethodNames(composedControlSource);
-  const composedAdminMethods = extractComposedMethodNames(composedAdminSource);
 
   assertMethodCoverage('control', generatedControlMethods, composedControlMethods);
-  assertMethodCoverage('admin', generatedAdminMethods, composedAdminMethods);
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : null;

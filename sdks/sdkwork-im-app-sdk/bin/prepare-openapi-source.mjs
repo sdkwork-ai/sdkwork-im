@@ -91,7 +91,9 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(scriptDir, '..');
 const yaml = await loadGeneratorYaml(workspaceRoot);
 const derived = cloneOpenApiJson(loadOpenApiDocument({ prefix, filePath: path.resolve(args.base), yaml }));
-applySdkworkV3OpenApiStandard(derived, { authProfile: 'api-key-or-dual-token' });
+// TECH_ARCHITECTURE.md §4: app-api is dual-token-only (HttpRoute::dual_token); the
+// derived sdkgen input must not inject ApiKey security alternatives.
+applySdkworkV3OpenApiStandard(derived);
 stripRealtimeWebsocketPath(derived);
 if (args.targetLanguage === 'flutter') {
   applyFlutterCompatibilityTransforms(derived);

@@ -394,6 +394,7 @@ fn default_session_version() -> u64 {
 pub struct RtcSignalEvent {
     pub tenant_id: String,
     pub rtc_session_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub signal_seq: u64,
     pub conversation_id: Option<String>,
     pub rtc_mode: String,

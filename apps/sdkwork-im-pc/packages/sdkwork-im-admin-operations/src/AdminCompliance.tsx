@@ -92,7 +92,12 @@ export const AdminCompliance = () => {
         </div>
 
         <div className="flex-1 overflow-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse">
+          {data.auditLogsUnavailable ? (
+            <div className="p-8 text-center text-sm text-admin-text-muted" role="note">
+              Audit log is unavailable: the backend audit-records capability has no implemented contract.
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
             <thead>
               <tr className="text-[11px] uppercase tracking-widest text-admin-text-muted border-b border-admin-border bg-admin-bg-root/80 sticky top-0 z-10 backdrop-blur-sm">
                 <th className="px-6 py-4 font-semibold">Event Time (UTC)</th>
@@ -109,6 +114,7 @@ export const AdminCompliance = () => {
               ))}
             </tbody>
           </table>
+          )}
         </div>
       </div>
     </div>

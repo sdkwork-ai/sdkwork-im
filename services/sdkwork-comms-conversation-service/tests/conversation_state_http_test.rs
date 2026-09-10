@@ -76,6 +76,7 @@ fn timeline_message_posted_event(
 
 #[tokio::test]
 async fn test_public_app_exports_live_openapi_json() {
+    ensure_test_environment();
     let app = conversation_runtime::conversation_state::build_public_app_with_service(
         std::sync::Arc::new(
             conversation_runtime::conversation_state::ConversationStateService::default(),
@@ -113,6 +114,7 @@ async fn test_public_app_exports_live_openapi_json() {
 
 #[tokio::test]
 async fn test_public_app_serves_docs_page_for_live_openapi() {
+    ensure_test_environment();
     let app = conversation_runtime::conversation_state::build_public_app_with_service(
         std::sync::Arc::new(
             conversation_runtime::conversation_state::ConversationStateService::default(),
@@ -408,6 +410,7 @@ async fn test_conversation_state_service_does_not_own_public_message_history_rou
 
 #[tokio::test]
 async fn test_message_visibility_delete_returns_no_content_and_hides_message() {
+    ensure_test_environment();
     let service = conversation_runtime::conversation_state::ConversationStateService::default();
     let conversation_id = "c_visibility_http";
     let message_id = "m_visibility_http";
@@ -493,6 +496,7 @@ async fn test_message_visibility_delete_returns_no_content_and_hides_message() {
 
 #[tokio::test]
 async fn test_read_cursor_query_returns_projected_cursor_view() {
+    ensure_test_environment();
     let service = conversation_runtime::conversation_state::ConversationStateService::default();
     service
         .apply(
@@ -635,13 +639,14 @@ async fn test_read_cursor_query_returns_projected_cursor_view() {
         serde_json::from_slice(&body).expect("response should be valid json");
 
     assert_eq!(value["code"], 0);
-    assert_eq!(value["data"]["readSeq"], 1);
+    assert_eq!(value["data"]["readSeq"], "1");
     assert_eq!(value["data"]["unreadCount"], 1);
     assert_eq!(value["data"]["memberId"], "cm_demo");
 }
 
 #[tokio::test]
 async fn test_inbox_query_returns_projected_entries() {
+    ensure_test_environment();
     let service = conversation_runtime::conversation_state::ConversationStateService::default();
     service
         .apply(
@@ -777,6 +782,7 @@ async fn test_inbox_query_returns_projected_entries() {
 
 #[tokio::test]
 async fn test_inbox_query_returns_bounded_cursor_window() {
+    ensure_test_environment();
     let service = conversation_runtime::conversation_state::ConversationStateService::default();
 
     for seq in 1..=3 {
@@ -943,6 +949,7 @@ async fn test_inbox_query_returns_bounded_cursor_window() {
 
 #[tokio::test]
 async fn test_inbox_query_rejects_forbidden_pagination_aliases() {
+    ensure_test_environment();
     let app =
         conversation_runtime::conversation_state::build_integration_test_app(std::sync::Arc::new(
             conversation_runtime::conversation_state::ConversationStateService::default(),
@@ -987,6 +994,7 @@ async fn test_inbox_query_rejects_forbidden_pagination_aliases() {
 
 #[tokio::test]
 async fn test_inbox_query_rejects_page_and_cursor_combination() {
+    ensure_test_environment();
     let app =
         conversation_runtime::conversation_state::build_integration_test_app(std::sync::Arc::new(
             conversation_runtime::conversation_state::ConversationStateService::default(),
@@ -1019,6 +1027,7 @@ async fn test_inbox_query_rejects_page_and_cursor_combination() {
 
 #[tokio::test]
 async fn test_read_cursor_query_rejects_oversized_conversation_id_over_http() {
+    ensure_test_environment();
     let app =
         conversation_runtime::conversation_state::build_integration_test_app(std::sync::Arc::new(
             conversation_runtime::conversation_state::ConversationStateService::default(),
@@ -1060,6 +1069,7 @@ async fn test_read_cursor_query_rejects_oversized_conversation_id_over_http() {
 
 #[tokio::test]
 async fn test_interaction_summary_rejects_oversized_message_id_over_http() {
+    ensure_test_environment();
     let service = conversation_runtime::conversation_state::ConversationStateService::default();
     service
         .apply(
@@ -1129,6 +1139,7 @@ async fn test_interaction_summary_rejects_oversized_message_id_over_http() {
 
 #[tokio::test]
 async fn test_member_directory_query_returns_projected_members() {
+    ensure_test_environment();
     let service = conversation_runtime::conversation_state::ConversationStateService::default();
     service
         .apply(
@@ -1226,6 +1237,7 @@ async fn test_member_directory_query_returns_projected_members() {
 
 #[tokio::test]
 async fn test_interaction_summary_and_pins_query_return_projected_reaction_and_pin_views() {
+    ensure_test_environment();
     let service = conversation_runtime::conversation_state::ConversationStateService::default();
     service
         .apply(
@@ -1380,7 +1392,7 @@ async fn test_interaction_summary_and_pins_query_return_projected_reaction_and_p
         summary_value["data"]["messageId"],
         "msg_c_interaction_http_1"
     );
-    assert_eq!(summary_value["data"]["messageSeq"], 1);
+    assert_eq!(summary_value["data"]["messageSeq"], "1");
     assert_eq!(summary_value["data"]["totalReactionCount"], 2);
     assert_eq!(
         summary_value["data"]["reactionCounts"][0]["reactionKey"],
@@ -1427,6 +1439,7 @@ async fn test_interaction_summary_and_pins_query_return_projected_reaction_and_p
 
 #[tokio::test]
 async fn test_conversation_profile_and_preferences_support_get_and_patch() {
+    ensure_test_environment();
     let service = conversation_runtime::conversation_state::ConversationStateService::default();
     service
         .apply(
@@ -1572,6 +1585,7 @@ async fn test_conversation_profile_and_preferences_support_get_and_patch() {
 
 #[tokio::test]
 async fn test_group_conversation_profile_uses_created_title_before_profile_patch() {
+    ensure_test_environment();
     let service = conversation_runtime::conversation_state::ConversationStateService::default();
     let conversation_id = "g_profile_created_title";
 
@@ -1658,6 +1672,7 @@ async fn test_group_conversation_profile_uses_created_title_before_profile_patch
 
 #[tokio::test]
 async fn test_legacy_pc_group_profile_uses_group_metadata_conversation_state() {
+    ensure_test_environment();
     let service = conversation_runtime::conversation_state::ConversationStateService::default();
     let conversation_id = "pc-group-24c6420e-fd13-4a85-9fa0-955e23d10e04";
     let group_id = "4941";
@@ -1811,6 +1826,7 @@ async fn test_legacy_pc_group_profile_uses_group_metadata_conversation_state() {
 
 #[tokio::test]
 async fn test_g_prefixed_group_profile_uses_group_metadata_without_explicit_conversation_id() {
+    ensure_test_environment();
     let service = conversation_runtime::conversation_state::ConversationStateService::default();
     let group_id = "4941c67e5ee0964744b02f55";
     let conversation_id = "g_4941c67e5ee0964744b02f55";
@@ -1963,6 +1979,7 @@ async fn test_g_prefixed_group_profile_uses_group_metadata_without_explicit_conv
 
 #[tokio::test]
 async fn test_message_favorites_support_list_create_and_delete() {
+    ensure_test_environment();
     let service = conversation_runtime::conversation_state::ConversationStateService::default();
     let conversation_id = "c_favorites_http";
     let message_id = "msg_favorite_http_1";
@@ -2048,7 +2065,7 @@ async fn test_message_favorites_support_list_create_and_delete() {
         .as_str()
         .expect("favorite create should return favoriteId")
         .to_owned();
-    assert_eq!(create_value["data"]["item"]["messageSeq"], 1);
+    assert_eq!(create_value["data"]["item"]["messageSeq"], "1");
 
     let list_response = app
         .clone()
@@ -2102,6 +2119,7 @@ async fn test_message_favorites_support_list_create_and_delete() {
 
 #[tokio::test]
 async fn test_message_search_rejects_empty_query_with_problem_detail() {
+    ensure_test_environment();
     let app =
         conversation_runtime::conversation_state::build_integration_test_app(std::sync::Arc::new(
             conversation_runtime::conversation_state::ConversationStateService::default(),
@@ -2128,4 +2146,18 @@ async fn test_message_search_rejects_empty_query_with_problem_detail() {
     let value: serde_json::Value =
         serde_json::from_slice(&body).expect("message search error should be json");
     assert_eq!(value["title"], "Validation failed");
+}
+
+fn ensure_test_environment() {
+    static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    TEST_ENVIRONMENT.get_or_init(|| {
+        // Dual-token test helpers rely on the relaxed test posture; production
+        // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
+        // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        unsafe {
+            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
+            // Local JWT fixtures carry no AppContext signature headers.
+            std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
+        }
+    });
 }

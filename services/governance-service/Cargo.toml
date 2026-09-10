@@ -1,6 +1,7 @@
 [package]
 name = "governance-service"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 version.workspace = true
 
@@ -22,6 +23,7 @@ tracing-subscriber.workspace = true
 sdkwork_im_web_bootstrap.workspace = true
 sdkwork_utils_rust.workspace = true
 sdkwork_web_core.workspace = true
+sdkwork_web_contract.workspace = true
 sdkwork_routes_web_framework_backend_api.workspace = true
 
 [dev-dependencies]

@@ -170,7 +170,11 @@ services:
     <<: *im-gateway-common
     profiles: [instance]
     ports:
-      - "${SDKWORK_IM_MGMT_HOST_PORT:?required}:18079"
+      # Loopback-only host publish for the instance management/API port
+      # (bin/README.md management port matrix). Remote client ingress must go
+      # through the host-local TLS edge (deployments/webserver), never this
+      # raw port. Host-side health probes keep working over 127.0.0.1.
+      - "127.0.0.1:${SDKWORK_IM_MGMT_HOST_PORT:?required}:18079"
     logging: *default-logging
 
 networks:

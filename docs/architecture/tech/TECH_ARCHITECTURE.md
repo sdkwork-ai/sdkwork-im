@@ -2,7 +2,7 @@
 
 Status: active
 Owner: `im-platform`
-Updated: 2026-07-29
+Updated: 2026-09-09
 Specs: `DOMAIN_SPEC.md`, `API_SPEC.md`, `SDK_SPEC.md`, `DATABASE_SPEC.md`, `SECURITY_SPEC.md`,
 `APP_COMPOSITION_SPEC.md`, `DEPLOYMENT_SPEC.md`, `DOCUMENTATION_SPEC.md`
 
@@ -87,6 +87,8 @@ Access-Token: <access-token>
 organization, principal, Session, application, device, data scope, and permission scope. Public
 clients do not supply identity context headers. Private trusted-edge context is accepted only after
 credential validation, signature verification, and removal of client-supplied identity values.
+`jti` replay protection and session revocation checks are mandatory in production; startup fails
+closed when their configuration is absent.
 
 Every repository predicate and uniqueness boundary includes tenant and organization where the data
 is scoped. Resource membership and role checks run before Conversation-bound reads and writes.
@@ -112,7 +114,8 @@ UI -> application service/port -> injected generated SDK client
 
 Raw HTTP, manual auth headers, generated transport edits, local SDK forks, and duplicated DTO
 authorities are forbidden. Success responses use `SdkWorkApiResponse`; failures use RFC 9457
-`ProblemDetail` with numeric `code`, `traceId`, route template, canonical `operationId`, and i18n key.
+`ProblemDetail` carrying the standard RFC 9457 fields plus numeric `code`, `traceId`, optional
+`i18nKey` and `locale`, and a bounded `errors[]` field-error list.
 
 ### 5.1 H5 client composition
 
@@ -181,7 +184,10 @@ authorize command
 ```
 
 Relay failure cannot roll back committed business state. Outbox claims use bounded batches and
-database fencing. Startup reads current normalized state directly and may repopulate disposable caches lazily.
+database fencing. Published outbox rows carry a `retention_until` timestamp set at publish time and
+are purged by the retention scheduler alongside the journal; rows never published exhaust bounded
+retries and terminate in a failed state for operator replay. Startup reads current normalized state
+directly and may repopulate disposable caches lazily.
 
 ### 6.3 Query and index contract
 
@@ -207,7 +213,10 @@ and authorizes user or Conversation scopes. Query-string credentials are rejecte
 Realtime delivery uses ordered sequence windows, bounded catch-up pages, acknowledgements, and
 session-scoped disconnect fencing. Redis supports cluster routing, ephemeral presence, and rate
 coordination; PostgreSQL remains durable. Redis loss may reduce availability but cannot redefine
-Conversation or Message truth.
+Conversation or Message truth. A scope event published on one gateway node discovers subscribed
+devices from the shared subscription store and forwards the event over signed per-node cluster-bus
+channels to nodes holding the target device routes; devices without a live route recover through
+durable device events and history pull.
 
 Client offline stores are principal-scoped and bounded. They may retain a delivery queue or recent
 display window but never replace PostgreSQL or merge data across authenticated principals.
@@ -221,7 +230,8 @@ display window but never replace PostgreSQL or merge data across authenticated p
 - Readiness fails when a required database, migration, schema state, credential validator, or mandatory
   dependency is unavailable.
 - Gateway protection applies edge IP and post-auth tenant limits, bounded circuit breakers, request-size
-  limits, trusted-proxy validation, and cached single-flight OpenAPI aggregation.
+  limits, trusted-proxy validation, and a pre-composed OpenAPI document exposed by the standalone
+  gateway; edge aggregation and caching belong to the external platform ingress.
 - Million-row operational work must be resumable and database-paged; all-row in-process traversal is
   not a commercially supported path.
 

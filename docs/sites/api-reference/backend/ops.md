@@ -1,7 +1,7 @@
 # Operations
 
 <p class="api-page-intro">
-  Backend operations report health, topology, authoritative runtime lag, commercial readiness,
+  Backend operations report health, topology, authoritative runtime lag,
   runtime-directory state, provider-binding state, and bounded diagnostics. No endpoint rebuilds
   business state or exposes a state-reconstruction control plane.
 </p>
@@ -108,39 +108,6 @@ Lists real operational lag measurements from registered runtime components.
 ### Response `200`
 
 <ApiSchemaTable schema="LagListResponse" />
-
-### Error Responses
-
-| HTTP | `code` | Description |
-| --- | --- | --- |
-| `401` | `40101` | SDKWork authentication or request-context resolution failed. |
-| `403` | `40301` | The caller lacks `ops.read`. |
-| `503` | `50301` | Operational diagnostics are temporarily unavailable. |
-
-</section>
-<a id="get-ops-commercial-readiness"></a>
-<section class="api-op">
-
-## `GET /backend/v3/api/ops/commercial_readiness`
-
-<div class="api-op-header">
-  <span class="endpoint-tag endpoint-get">GET</span>
-  <code>/backend/v3/api/ops/commercial_readiness</code>
-  <span class="api-op-id">operationId: commercialReadiness.retrieve</span>
-</div>
-
-Returns current release-gate evidence without converting missing evidence into a successful state.
-
-<div class="api-meta-grid">
-  <div class="api-meta-card"><strong>Security</strong><span>SDKWork dual token + resolved request context</span></div>
-  <div class="api-meta-card"><strong>SDK</strong><span>`sdkwork-im-backend-sdk` / ops</span></div>
-  <div class="api-meta-card"><strong>Permission</strong><span>`ops.read`</span></div>
-  <div class="api-meta-card"><strong>Success</strong><span>`200 SdkWorkApiResponse`</span></div>
-</div>
-
-### Response `200`
-
-<ApiSchemaTable schema="SdkWorkApiResponse" />
 
 ### Error Responses
 

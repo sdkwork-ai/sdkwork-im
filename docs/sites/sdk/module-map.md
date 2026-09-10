@@ -16,7 +16,6 @@ to the exact App API page when needed.
 | manage members or read cursors | [/sdk/modules/conversations](/sdk/modules/conversations) | [/api-reference/im/membership-and-read-state](/api-reference/im/membership-and-read-state) | `listMembers`, `addMember`, `updateReadCursor` |
 | send, edit, or recall messages | [/sdk/modules/messages](/sdk/modules/messages) | [/api-reference/im/messages](/api-reference/im/messages) | `conversations.postText`, `messages.editText`, `messages.recall` |
 | upload or attach media | [/sdk/modules/media](/sdk/modules/media) | [/api-reference/im/media](/api-reference/im/media) | `media.createUpload`, `media.completeUpload`, `media.attachText` |
-| open or append stream frames | [/sdk/modules/streams](/sdk/modules/streams) | [/api-reference/im/streams](/api-reference/im/streams) | `streams.open`, `streams.appendTextFrame`, `streams.checkpoint` |
 | create or coordinate calls | [/sdk/modules/calls](/sdk/modules/calls) | [/api-reference/im/calls](/api-reference/im/calls) | `calls.start`, `calls.sendSignal`, `calls.issueParticipantCredential` |
 
 ## API Alignment

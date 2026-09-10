@@ -159,7 +159,7 @@ describe('HTTP API-key-or-dual-token authentication', () => {
 });
 
 describe('conversation agent assignment generation boundary', () => {
-  it('normalizes int64 responses and keeps the JSON command generation numeric', async () => {
+  it('normalizes int64 responses and keeps the command generation a decimal string', async () => {
     const updates = [];
     const conversations = new ImConversationsModule({
       chat: {
@@ -173,7 +173,7 @@ describe('conversation agent assignment generation boundary', () => {
             update: async (conversationId, body) => {
               updates.push({ conversationId, body });
               return {
-                generation: 8,
+                generation: '8',
                 source: 'conversation_override',
                 agents: body.agentAssignments,
               };
@@ -183,17 +183,17 @@ describe('conversation agent assignment generation boundary', () => {
       },
     });
 
-    assert.equal((await conversations.getAgentAssignments(' group-1 ')).generation, 7);
+    assert.equal((await conversations.getAgentAssignments(' group-1 ')).generation, '7');
     const updated = await conversations.replaceAgentAssignments('group-1', {
       expectedGeneration: 7,
       agentAssignments: [{ agentId: 'agent.im.reviewer' }],
     });
 
-    assert.equal(updated.generation, 8);
+    assert.equal(updated.generation, '8');
     assert.deepEqual(updates, [{
       conversationId: 'group-1',
       body: {
-        expectedGeneration: 7,
+        expectedGeneration: '7',
         agentAssignments: [{ agentId: 'agent.im.reviewer' }],
       },
     }]);
@@ -271,7 +271,7 @@ describe('current conversation member boundary', () => {
 });
 
 describe('generated IM client shape compatibility', () => {
-  it('uses the generated nested current API and emits numeric mention generations', async () => {
+  it('uses the generated nested current API and emits string mention generations', async () => {
     const generatedClient = new GeneratedSdkworkImClient({
       baseUrl: 'https://im.example.test',
     });
@@ -314,10 +314,10 @@ describe('generated IM client shape compatibility', () => {
     assert.equal(member.memberId, 'member-1');
     assert.equal(requests[0].path, '/im/v3/api/chat/conversations/group-1/members/current');
     assert.equal(requests[1].path, '/im/v3/api/chat/conversations/group-1/messages');
-    assert.equal(requests[1].options.body.parts[0].assignmentGeneration, 7);
+    assert.equal(requests[1].options.body.parts[0].assignmentGeneration, '7');
     assert.equal(
       typeof JSON.parse(JSON.stringify(requests[1].options.body)).parts[0].assignmentGeneration,
-      'number',
+      'string',
     );
   });
 
@@ -341,7 +341,7 @@ describe('generated IM client shape compatibility', () => {
         assignmentGeneration: '7',
       }],
     });
-    assert.equal(bodies[0].parts[0].assignmentGeneration, 7);
+    assert.equal(bodies[0].parts[0].assignmentGeneration, '7');
 
     await assert.rejects(
       conversations.postMessage('group-1', {

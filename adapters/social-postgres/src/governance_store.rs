@@ -2,7 +2,10 @@
 
 use std::sync::Arc;
 
-use im_platform_contracts::ContractError;
+use im_domain_events::space::{
+    SpaceBanCreatedPayload, SpaceBanLiftedPayload, SpaceInvitationCreatedPayload,
+};
+use im_platform_contracts::{CommitEnvelope, ContractError};
 use r2d2::Pool;
 
 use crate::member_capacity::MemberInsertOutcome;
@@ -906,6 +909,145 @@ impl BanStore for PostgresBanStore {
 }
 
 // ---------------------------------------------------------------------------
+// Governance materialization (journal-owned transaction)
+// ---------------------------------------------------------------------------
+
+/// Materializes Space governance commits (`space.ban.created`,
+/// `space.ban.lifted`, `space.invitation.created`) onto a caller-owned
+/// PostgreSQL transaction so journal evidence and normalized state commit or
+/// roll back as one database unit. The same transaction must also carry the
+/// outbox enqueue performed by the coordinated write authority.
+pub fn materialize_governance_commits_on_transaction(
+    txn: &mut postgres::Transaction<'_>,
+    commits: &[CommitEnvelope],
+) -> Result<(), ContractError> {
+    for commit in commits {
+        materialize_governance_commit_on(txn, commit).map_err(|error| {
+            ContractError::Unavailable(format!(
+                "space governance materialization failed: {error}"
+            ))
+        })?;
+    }
+    Ok(())
+}
+
+/// Returns true when `event_type` is materialized by this governance writer.
+pub fn is_governance_materialization_event_type(event_type: &str) -> bool {
+    matches!(
+        event_type,
+        "space.ban.created" | "space.ban.lifted" | "space.invitation.created"
+    )
+}
+
+fn materialize_governance_commit_on(
+    txn: &mut postgres::Transaction<'_>,
+    commit: &CommitEnvelope,
+) -> Result<(), String> {
+    match commit.event_type.as_str() {
+        "space.ban.created" => materialize_ban_created(txn, commit),
+        "space.ban.lifted" => materialize_ban_lifted(txn, commit),
+        "space.invitation.created" => materialize_invitation_created(txn, commit),
+        event_type => Err(format!(
+            "unsupported space governance normalized write event type {event_type}"
+        )),
+    }
+}
+
+fn materialize_ban_created(
+    txn: &mut postgres::Transaction<'_>,
+    commit: &CommitEnvelope,
+) -> Result<(), String> {
+    let payload: SpaceBanCreatedPayload = serde_json::from_str(commit.payload.as_str())
+        .map_err(|error| format!("invalid space.ban.created payload: {error}"))?;
+    txn.execute(
+        BAN_INSERT_SQL,
+        &[
+            &commit.tenant_id,
+            &commit.organization_id,
+            &governance_entity_id(payload.ban_id.as_str())?,
+            &payload.target_type,
+            &governance_entity_id(payload.space_id.as_str())?,
+            &payload.banned_user_id,
+            &payload.banned_by_user_id,
+            &payload.reason,
+            &payload.expires_at,
+            &None::<String>,
+            &None::<String>,
+            &payload.created_at,
+            &payload.updated_at,
+        ],
+    )
+    .map_err(|error| format!("space ban insert failed: {error}"))
+    .map(|_| ())
+}
+
+fn materialize_ban_lifted(
+    txn: &mut postgres::Transaction<'_>,
+    commit: &CommitEnvelope,
+) -> Result<(), String> {
+    let payload: SpaceBanLiftedPayload = serde_json::from_str(commit.payload.as_str())
+        .map_err(|error| format!("invalid space.ban.lifted payload: {error}"))?;
+    let updated_rows = txn
+        .execute(
+            BAN_UPDATE_SQL,
+            &[
+                &commit.tenant_id,
+                &commit.organization_id,
+                &governance_entity_id(payload.ban_id.as_str())?,
+                &payload.unbanned_at,
+                &payload.unbanned_by_user_id,
+                &payload.updated_at,
+            ],
+        )
+        .map_err(|error| format!("space ban lift update failed: {error}"))?;
+    if updated_rows == 0 {
+        return Err(format!(
+            "ban {} does not exist in normalized PostgreSQL state",
+            payload.ban_id
+        ));
+    }
+    Ok(())
+}
+
+fn materialize_invitation_created(
+    txn: &mut postgres::Transaction<'_>,
+    commit: &CommitEnvelope,
+) -> Result<(), String> {
+    let payload: SpaceInvitationCreatedPayload = serde_json::from_str(commit.payload.as_str())
+        .map_err(|error| format!("invalid space.invitation.created payload: {error}"))?;
+    txn.execute(
+        INVITATION_INSERT_SQL,
+        &[
+            &commit.tenant_id,
+            &commit.organization_id,
+            &governance_entity_id(payload.invitation_id.as_str())?,
+            &payload.inviter_user_id,
+            &payload.invitee_user_id,
+            &payload.invitee_email,
+            &payload.invitee_phone,
+            &payload.target_type,
+            &governance_entity_id(payload.target_id.as_str())?,
+            &payload.role,
+            &payload.status,
+            &payload.message,
+            &payload.expires_at,
+            &None::<String>,
+            &payload.created_at,
+            &payload.updated_at,
+            &payload.retention_until,
+        ],
+    )
+    .map_err(|error| format!("space invitation insert failed: {error}"))
+    .map(|_| ())
+}
+
+fn governance_entity_id(value: &str) -> Result<i64, String> {
+    value
+        .parse::<i64>()
+        .map_err(|_| format!("governance entity id {value:?} is not a PostgreSQL bigint"))
+}
+
+// ---------------------------------------------------------------------------
 // Channel access rule
 // ---------------------------------------------------------------------------
 
@@ -1168,5 +1310,53 @@ impl ChannelAccessRuleStore for PostgresChannelAccessRuleStore {
                 },
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod governance_materialization_tests {
+    use super::*;
+
+    /// The coordinated write authority materializes governance state on the
+    /// journal-owned transaction using these exact statements; the ban insert,
+    /// ban lift update, and invitation insert must remain plain single-statement
+    /// writes against the normalized tables.
+    #[test]
+    fn governance_materialization_targets_the_normalized_tables() {
+        let ban_insert = BAN_INSERT_SQL.to_ascii_lowercase();
+        assert!(ban_insert.contains("insert into im_ban_records"));
+        assert!(ban_insert.contains("banned_user_id"));
+        assert!(!ban_insert.contains("on conflict"));
+
+        let ban_update = BAN_UPDATE_SQL.to_ascii_lowercase();
+        assert!(ban_update.contains("update im_ban_records"));
+        assert!(ban_update.contains("set unbanned_at = $4"));
+        assert!(ban_update.contains("ban_id = $3"));
+
+        let invitation_insert = INVITATION_INSERT_SQL.to_ascii_lowercase();
+        assert!(invitation_insert.contains("insert into im_invitations"));
+        assert!(invitation_insert.contains("invitee_user_id"));
+        assert!(invitation_insert.contains("retention_until"));
+        assert!(!invitation_insert.contains("on conflict"));
+    }
+
+    #[test]
+    fn governance_dispatch_covers_exactly_the_three_governance_event_types() {
+        for event_type in [
+            "space.ban.created",
+            "space.ban.lifted",
+            "space.invitation.created",
+        ] {
+            assert!(
+                is_governance_materialization_event_type(event_type),
+                "{event_type} must materialize"
+            );
+        }
+        for event_type in ["space.created", "space.member_joined", "message.posted", ""] {
+            assert!(
+                !is_governance_materialization_event_type(event_type),
+                "{event_type} must not be claimed by the governance writer"
+            );
+        }
     }
 }

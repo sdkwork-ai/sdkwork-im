@@ -816,7 +816,7 @@ mod tests {
 
     #[test]
     fn test_mark_client_route_disconnected_recovers_from_poisoned_disconnect_cache_lock() {
-        let cluster = RealtimeClusterBridge::default();
+        let cluster = std::sync::Arc::new(RealtimeClusterBridge::default());
         cluster.bind_node_runtime(
             "node_a",
             std::sync::Arc::new(crate::RealtimeDeliveryRuntime::default()),

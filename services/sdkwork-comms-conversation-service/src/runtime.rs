@@ -753,6 +753,7 @@ pub enum PostMessageDeliveryStatus {
 #[serde(rename_all = "camelCase")]
 pub struct PostMessageResult {
     pub message_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub message_seq: u64,
     pub event_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1572,6 +1573,7 @@ impl UnpinMessageCommand {
 pub struct MessageMutationResult {
     pub conversation_id: String,
     pub message_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub message_seq: u64,
     pub event_id: String,
 }
@@ -1596,6 +1598,7 @@ pub type InboxListResult = SdkWorkPageData<String>;
 pub struct MessageReactionMutationResult {
     pub conversation_id: String,
     pub message_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub message_seq: u64,
     pub reaction_key: String,
     pub event_id: Option<String>,
@@ -1607,6 +1610,7 @@ pub struct MessageReactionMutationResult {
 pub struct MessagePinMutationResult {
     pub conversation_id: String,
     pub message_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub message_seq: u64,
     pub event_id: Option<String>,
     pub changed: bool,

@@ -2,8 +2,13 @@
 
 use std::sync::Arc;
 
-use im_adapters_postgres_journal::PostgresCommitJournal;
-use im_adapters_social_postgres::governance_store::SpaceMemberRecord;
+use im_adapters_postgres_journal::{
+    OutboxEnqueueOutcome, PostgresCommitJournal, enqueue_outbox_event_on_transaction,
+};
+use im_adapters_social_postgres::governance_store::{
+    BanRecord, InvitationRecord, SpaceMemberRecord,
+    materialize_governance_commits_on_transaction,
+};
 use im_adapters_social_postgres::member_capacity::MemberInsertOutcome;
 use im_adapters_social_postgres::organization_store::{
     GroupMemberRecord, GroupRecord, SpaceRecord,
@@ -15,16 +20,24 @@ use im_app_context::AppContext;
 use im_domain_events::space::{
     GroupCreatedPayload, GroupDeletedPayload, GroupMemberJoinedPayload, GroupMemberRemovedPayload,
     GroupMemberUpdatedPayload, GroupOwnerTransferredPayload, GroupUpdatedPayload,
-    SpaceCommitEnvelopeInput, SpaceCreatedPayload, SpaceDeletedPayload, SpaceEventType,
+    SpaceBanCreatedPayload, SpaceBanLiftedPayload, SpaceCommitEnvelopeInput,
+    SpaceCreatedPayload, SpaceDeletedPayload, SpaceEventType, SpaceInvitationCreatedPayload,
     SpaceMemberJoinedPayload, SpaceMemberRemovedPayload, SpaceMemberUpdatedPayload,
     SpaceUpdatedPayload, space_commit_envelope,
 };
 use im_domain_events::{AggregateType, CommitEnvelope, EventActor};
-use im_platform_contracts::{ContractError, IdGenerator};
+use im_platform_contracts::{ContractError, IdGenerator, OutboxEventRecord, OutboxPublishStatus};
+use im_time::utc_now_rfc3339_millis;
 use sdkwork_routes_web_framework_backend_api::response::ApiProblem;
+use sdkwork_utils_rust::sha256_hash;
 
 use crate::http::AppState;
 const MEMBER_CAPACITY_CONFLICT: &str = "space-write-member-capacity-full";
+
+/// Outbox `aggregate_type` for Space governance integration evidence. A future
+/// space outbox relay claims rows by this aggregate type, so ban and
+/// invitation evidence stays claimable without migration.
+pub const SPACE_OUTBOX_AGGREGATE_TYPE: &str = "space";
 
 pub struct SpaceWriteAuthority {
     journal: PostgresCommitJournal,
@@ -412,6 +425,152 @@ impl SpaceWriteAuthority {
         self.append_and_materialize(vec![commit])
     }
 
+    pub fn persist_ban_created(
+        &self,
+        id_generator: &Arc<dyn IdGenerator>,
+        auth: &AppContext,
+        record: &BanRecord,
+    ) -> Result<(), ApiProblem> {
+        let payload = SpaceBanCreatedPayload {
+            space_id: record.target_id.to_string(),
+            ban_id: record.ban_id.to_string(),
+            target_type: record.target_type.clone(),
+            banned_user_id: record.banned_user_id.clone(),
+            banned_by_user_id: record.banned_by_user_id.clone(),
+            reason: record.reason.clone(),
+            expires_at: record.expires_at.clone(),
+            created_at: record.created_at.clone(),
+            updated_at: record.updated_at.clone(),
+        };
+        let space_id = record.target_id.to_string();
+        self.append_governance_commit_and_enqueue(
+            SpaceCommitBuildCommand {
+                id_generator,
+                auth,
+                aggregate_type: AggregateType::Space,
+                aggregate_id: space_id.as_str(),
+                event_type: SpaceEventType::SpaceBanCreated,
+                occurred_at: record.created_at.as_str(),
+                payload_json: &serde_json::to_string(&payload).map_err(serialize_error)?,
+            },
+            payload_for_outbox(serde_json::to_value(&payload).map_err(serialize_error)?),
+        )
+    }
+
+    pub fn persist_ban_lifted(
+        &self,
+        id_generator: &Arc<dyn IdGenerator>,
+        auth: &AppContext,
+        record: &BanRecord,
+    ) -> Result<(), ApiProblem> {
+        let unbanned_at = record
+            .unbanned_at
+            .clone()
+            .ok_or_else(|| ApiProblem::internal_server_error("lifted ban is missing unbanned_at"))?;
+        let payload = SpaceBanLiftedPayload {
+            space_id: record.target_id.to_string(),
+            ban_id: record.ban_id.to_string(),
+            banned_user_id: record.banned_user_id.clone(),
+            unbanned_at,
+            unbanned_by_user_id: record.unbanned_by_user_id.clone(),
+            updated_at: record.updated_at.clone(),
+        };
+        let space_id = record.target_id.to_string();
+        self.append_governance_commit_and_enqueue(
+            SpaceCommitBuildCommand {
+                id_generator,
+                auth,
+                aggregate_type: AggregateType::Space,
+                aggregate_id: space_id.as_str(),
+                event_type: SpaceEventType::SpaceBanLifted,
+                occurred_at: record.updated_at.as_str(),
+                payload_json: &serde_json::to_string(&payload).map_err(serialize_error)?,
+            },
+            payload_for_outbox(serde_json::to_value(&payload).map_err(serialize_error)?),
+        )
+    }
+
+    pub fn persist_invitation_created(
+        &self,
+        id_generator: &Arc<dyn IdGenerator>,
+        auth: &AppContext,
+        record: &InvitationRecord,
+    ) -> Result<(), ApiProblem> {
+        let payload = SpaceInvitationCreatedPayload {
+            space_id: record.target_id.to_string(),
+            invitation_id: record.invitation_id.to_string(),
+            target_type: record.target_type.clone(),
+            target_id: record.target_id.to_string(),
+            inviter_user_id: record.inviter_user_id.clone(),
+            invitee_user_id: record.invitee_user_id.clone(),
+            invitee_email: record.invitee_email.clone(),
+            invitee_phone: record.invitee_phone.clone(),
+            role: record.role.clone(),
+            status: record.status.clone(),
+            message: record.message.clone(),
+            expires_at: record.expires_at.clone(),
+            created_at: record.created_at.clone(),
+            updated_at: record.updated_at.clone(),
+            retention_until: record.retention_until.clone(),
+        };
+        let space_id = record.target_id.to_string();
+        self.append_governance_commit_and_enqueue(
+            SpaceCommitBuildCommand {
+                id_generator,
+                auth,
+                aggregate_type: AggregateType::Space,
+                aggregate_id: space_id.as_str(),
+                event_type: SpaceEventType::SpaceInvitationCreated,
+                occurred_at: record.created_at.as_str(),
+                payload_json: &serde_json::to_string(&payload).map_err(serialize_error)?,
+            },
+            // Contact channels and the free-form message never leave the
+            // journal/state boundary (`PRIVACY_SPEC.md` contact data).
+            invitation_outbox_projection(
+                serde_json::to_value(&payload).map_err(serialize_error)?,
+            ),
+        )
+    }
+
+    /// Commits one governance journal event, its normalized state write, and
+    /// its outbox evidence inside a single journal-owned PostgreSQL
+    /// transaction (`docs/architecture/tech/TECH-im-space-open-api-alignment.md`).
+    fn append_governance_commit_and_enqueue(
+        &self,
+        command: SpaceCommitBuildCommand<'_>,
+        outbox_payload_json: String,
+    ) -> Result<(), ApiProblem> {
+        let id_generator = command.id_generator;
+        let commit = self.build_commit(command)?;
+        let outbox = build_governance_outbox_record(
+            id_generator.as_ref(),
+            &commit,
+            payload_hash_of(&outbox_payload_json),
+            outbox_payload_json,
+        )?;
+        let result = self
+            .journal
+            .append_batch_with_allocated_sequences_in_transaction(
+                vec![commit],
+                |txn, sequenced_commits| {
+                    materialize_governance_commits_on_transaction(txn, sequenced_commits)?;
+                    if enqueue_outbox_event_on_transaction(txn, &outbox)?
+                        == OutboxEnqueueOutcome::IdentityConflict
+                    {
+                        return Err(ContractError::Conflict(
+                            "space governance event already enqueued".into(),
+                        ));
+                    }
+                    Ok(())
+                },
+            );
+        if let Err(error) = result {
+            crate::space_materializer_metrics::record_postgres_atomic_write_failures(1);
+            return Err(coordinated_write_error(error));
+        }
+        Ok(())
+    }
+
     fn build_commit(
         &self,
         command: SpaceCommitBuildCommand<'_>,
@@ -482,6 +641,66 @@ pub fn event_actor_from_auth(auth: &AppContext) -> EventActor {
         actor_kind: auth.actor_kind.clone(),
         actor_session_id: auth.session_id.clone(),
     }
+}
+
+/// Outbox payloads carry the commit payload verbatim when it holds no contact
+/// PII (bans).
+fn payload_for_outbox(payload: serde_json::Value) -> String {
+    payload.to_string()
+}
+
+/// Builds the pending outbox evidence row for one governance commit. The
+/// aggregate type stays `space` so a future space outbox relay can claim the
+/// row; until a relay exists the pending row is the durable integration
+/// evidence.
+fn build_governance_outbox_record(
+    id_generator: &dyn IdGenerator,
+    commit: &CommitEnvelope,
+    payload_hash: String,
+    payload_json: String,
+) -> Result<OutboxEventRecord, ApiProblem> {
+    let outbox_id = id_generator
+        .next_id()
+        .map(|value| value.to_string())
+        .map_err(|error| {
+            tracing::error!(?error, "space governance outbox id generation failed");
+            ApiProblem::dependency_unavailable("space governance outbox id generation failed")
+        })?;
+    let now = utc_now_rfc3339_millis();
+    Ok(OutboxEventRecord {
+        tenant_id: commit.tenant_id.clone(),
+        organization_id: commit.organization_id.clone(),
+        outbox_id,
+        aggregate_type: SPACE_OUTBOX_AGGREGATE_TYPE.into(),
+        aggregate_id: commit.aggregate_id.clone(),
+        event_id: commit.event_id.clone(),
+        event_type: commit.event_type.clone(),
+        payload_json,
+        payload_hash,
+        publish_status: OutboxPublishStatus::Pending,
+        attempt_count: 0,
+        available_at: now.clone(),
+        published_at: None,
+        created_at: now.clone(),
+        updated_at: now,
+    })
+}
+
+/// Projects the invitation commit payload for the outbox plane: invitee
+/// contact channels and the free-form message stay inside the journal/state
+/// boundary and are never broadcast (`PRIVACY_SPEC.md` contact data).
+fn invitation_outbox_projection(payload: serde_json::Value) -> String {
+    let mut projection = payload;
+    if let Some(object) = projection.as_object_mut() {
+        object.remove("inviteeEmail");
+        object.remove("inviteePhone");
+        object.remove("message");
+    }
+    projection.to_string()
+}
+
+fn payload_hash_of(payload_json: &str) -> String {
+    sha256_hash(payload_json.as_bytes())
 }
 
 fn serialize_error(error: serde_json::Error) -> ApiProblem {
@@ -795,9 +1014,53 @@ pub fn persist_group_owner_transferred(
         })
 }
 
+pub fn persist_ban_created(
+    state: &AppState,
+    auth: &AppContext,
+    record: &BanRecord,
+) -> Result<(), ApiProblem> {
+    if let Some(authority) = state.write_authority.as_ref() {
+        return authority.persist_ban_created(&state.id_generator, auth, record);
+    }
+    state.ban_store.insert(record).map_err(|error| {
+        tracing::error!(error = ?error, "failed to insert ban record");
+        ApiProblem::internal_server_error("failed to insert ban")
+    })
+}
+
+pub fn persist_ban_lifted(
+    state: &AppState,
+    auth: &AppContext,
+    record: &BanRecord,
+) -> Result<(), ApiProblem> {
+    if let Some(authority) = state.write_authority.as_ref() {
+        return authority.persist_ban_lifted(&state.id_generator, auth, record);
+    }
+    state.ban_store.update(record).map_err(|error| {
+        tracing::error!(error = ?error, "failed to update ban record");
+        ApiProblem::internal_server_error("failed to update ban")
+    })
+}
+
+pub fn persist_invitation_created(
+    state: &AppState,
+    auth: &AppContext,
+    record: &InvitationRecord,
+) -> Result<(), ApiProblem> {
+    if let Some(authority) = state.write_authority.as_ref() {
+        return authority.persist_invitation_created(&state.id_generator, auth, record);
+    }
+    state.invitation_store.insert(record).map_err(|error| {
+        tracing::error!(error = ?error, "failed to insert invitation record");
+        ApiProblem::internal_server_error("failed to insert invitation")
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+    use sdkwork_im_runtime_id::RuntimeSnowflakeIdGenerator;
 
     #[test]
     fn only_the_typed_capacity_marker_is_a_business_rejection() {
@@ -810,5 +1073,114 @@ mod tests {
         assert!(!is_member_capacity_conflict(&ContractError::Unavailable(
             MEMBER_CAPACITY_CONFLICT.into()
         )));
+    }
+
+    fn governance_commit_fixture() -> CommitEnvelope {
+        space_commit_envelope(SpaceCommitEnvelopeInput {
+            event_id: "evt-space-governance-1",
+            tenant_id: "100001",
+            organization_id: "default",
+            aggregate_type: AggregateType::Space,
+            aggregate_id: "42",
+            event_type: SpaceEventType::SpaceBanCreated,
+            ordering_seq: 1,
+            actor: EventActor {
+                actor_id: "user-1".into(),
+                actor_kind: "user".into(),
+                actor_session_id: None,
+            },
+            occurred_at: "2026-09-09T00:00:00.000Z",
+            committed_at: "2026-09-09T00:00:00.000Z",
+            payload: r#"{"spaceId":"42","banId":"7"}"#,
+        })
+    }
+
+    #[test]
+    fn governance_outbox_record_claims_space_aggregate_as_pending_evidence() {
+        let id_generator =
+            RuntimeSnowflakeIdGenerator::with_node_id(0).expect("snowflake node 0 must initialize");
+        let commit = governance_commit_fixture();
+        let payload_json = r#"{"spaceId":"42","banId":"7"}"#.to_owned();
+        let record = build_governance_outbox_record(
+            &id_generator,
+            &commit,
+            payload_hash_of(&payload_json),
+            payload_json.clone(),
+        )
+        .expect("outbox record should build");
+
+        assert_eq!(record.aggregate_type, SPACE_OUTBOX_AGGREGATE_TYPE);
+        assert_eq!(record.aggregate_type, "space");
+        assert_eq!(record.aggregate_id, "42");
+        assert_eq!(record.event_id, commit.event_id);
+        assert_eq!(record.event_type, "space.ban.created");
+        assert_eq!(record.payload_hash, payload_hash_of(&payload_json));
+        assert_eq!(record.attempt_count, 0);
+        assert!(record.published_at.is_none());
+        assert!(matches!(
+            record.publish_status,
+            OutboxPublishStatus::Pending
+        ));
+    }
+
+    #[test]
+    fn invitation_outbox_projection_never_broadcasts_contact_channels() {
+        let payload = json!({
+            "spaceId": "42",
+            "invitationId": "9",
+            "targetType": "space",
+            "targetId": "42",
+            "inviterUserId": "user-1",
+            "inviteeUserId": None::<String>,
+            "inviteeEmail": "invitee@example.com",
+            "inviteePhone": "+1 555 0100",
+            "role": "member",
+            "status": "pending",
+            "message": "join my space",
+            "expiresAt": None::<String>,
+            "createdAt": "2026-09-09T00:00:00.000Z",
+            "updatedAt": "2026-09-09T00:00:00.000Z",
+            "retentionUntil": "2027-09-09T00:00:00.000Z",
+        });
+        let projection: serde_json::Value =
+            serde_json::from_str(&invitation_outbox_projection(payload))
+                .expect("projection must stay valid JSON");
+
+        assert!(projection.get("inviteeEmail").is_none());
+        assert!(projection.get("inviteePhone").is_none());
+        assert!(projection.get("message").is_none());
+        assert_eq!(projection["invitationId"], "9");
+        assert_eq!(projection["inviterUserId"], "user-1");
+        assert_eq!(projection["status"], "pending");
+    }
+
+    #[test]
+    fn ban_outbox_payload_keeps_full_commit_evidence() {
+        let payload = json!({
+            "spaceId": "42",
+            "banId": "7",
+            "bannedUserId": "user-2",
+            "reason": None::<String>,
+        });
+        let projected: serde_json::Value =
+            serde_json::from_str(&payload_for_outbox(payload)).expect("valid JSON");
+        assert_eq!(projected["banId"], "7");
+        assert_eq!(projected["bannedUserId"], "user-2");
+    }
+
+    #[test]
+    fn governance_event_wire_values_follow_the_space_namespace() {
+        assert_eq!(
+            SpaceEventType::SpaceBanCreated.as_wire_value(),
+            "space.ban.created"
+        );
+        assert_eq!(
+            SpaceEventType::SpaceBanLifted.as_wire_value(),
+            "space.ban.lifted"
+        );
+        assert_eq!(
+            SpaceEventType::SpaceInvitationCreated.as_wire_value(),
+            "space.invitation.created"
+        );
     }
 }

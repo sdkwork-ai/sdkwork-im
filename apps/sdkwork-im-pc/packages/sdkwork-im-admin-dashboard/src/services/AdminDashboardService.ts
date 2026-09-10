@@ -24,6 +24,8 @@ export interface AdminDashboardData {
   metrics: AdminMetrics;
   throughput: NetworkThroughput[];
   anomalies: SystemAnomaly[];
+  /** True when the audit-records capability backing the anomaly feed is absent. */
+  anomaliesUnavailable: boolean;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -47,19 +49,6 @@ function readNumber(record: UnknownRecord, keys: string[], fallback = 0): number
       if (Number.isFinite(parsed)) {
         return parsed;
       }
-    }
-  }
-  return fallback;
-}
-
-function readString(record: UnknownRecord, keys: string[], fallback = ''): string {
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim();
-    }
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return String(value);
     }
   }
   return fallback;
@@ -105,29 +94,17 @@ function buildThroughput(health: UnknownRecord, diagnostics: UnknownRecord): Net
   }));
 }
 
-function buildAnomalies(records: UnknownRecord[]): SystemAnomaly[] {
-  return records.slice(0, 4).map((record, index) => {
-    const action = readString(record, ['action', 'eventType', 'type'], 'backend.audit');
-    const aggregate = readString(record, ['aggregateId', 'recordId', 'id'], `record-${index + 1}`);
-    return {
-      id: readString(record, ['recordId', 'id'], `audit-${index + 1}`),
-      message: action,
-      tenant: readString(record, ['tenantId', 'aggregateType'], 'System'),
-      time: readString(record, ['recordedAt', 'createdAt', 'time'], ''),
-      type: action.toLowerCase().includes('error') || action.toLowerCase().includes('fail') ? 'critical' : 'info',
-      ...(aggregate ? { message: `${action} (${aggregate})` } : {}),
-    };
-  });
-}
-
 class AdminDashboardService {
   async getDashboardData(): Promise<AdminDashboardData> {
     const backend = getBackendSdkClientWithSession();
-    const [health, cluster, diagnostics, auditRecords] = await Promise.all([
+    // The audit-records capability was pruned from the backend SDK contract
+    // (no server implementation exists), so the anomaly feed fails closed:
+    // the dashboard keeps the implemented ops surfaces and reports the feed
+    // as explicitly unavailable instead of issuing a request that 404s.
+    const [health, cluster, diagnostics] = await Promise.all([
       backend.ops.health.retrieve(),
       backend.ops.cluster.retrieve(),
       backend.ops.diagnostics.retrieve(),
-      backend.audit.records.list(),
     ]);
     const normalizedHealth = asRecord(health);
     const normalizedCluster = asRecord(cluster);
@@ -140,7 +117,6 @@ class AdminDashboardService {
       ['activeTenants', 'tenantCount'],
       Number.NaN,
     );
-    const records = asRecordArray(asRecord(auditRecords).items);
 
     return {
       metrics: {
@@ -158,7 +134,8 @@ class AdminDashboardService {
         globalNodes: { value: String(nodeCount), trend: '', isUp: nodeCount > 0 },
       },
       throughput: buildThroughput(normalizedHealth, normalizedDiagnostics),
-      anomalies: buildAnomalies(records),
+      anomalies: [],
+      anomaliesUnavailable: true,
     };
   }
 }

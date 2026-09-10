@@ -538,14 +538,27 @@ pub async fn serve_realtime_websocket<R: RealtimeRouteOwner>(
             auth: &auth,
             device_id: device_id.as_str(),
         };
-        let Some(negotiated_after_seq) = complete_ccp_handshake(
-            &mut socket,
-            &mut link_session,
-            &mut route_epoch_receiver,
-            handshake_context,
+        // Bound the post-upgrade CCP handshake: without a deadline a
+        // client that upgrades and never sends `hello` holds a pre-auth
+        // connection slot and its task indefinitely.
+        let handshake = timeout(
+            crate::link_transport::resolve_handshake_timeout(),
+            complete_ccp_handshake(
+                &mut socket,
+                &mut link_session,
+                &mut route_epoch_receiver,
+                handshake_context,
+            ),
         )
-        .await
-        else {
+        .await;
+        let Some(negotiated_after_seq) = handshake.unwrap_or_else(|_| {
+            tracing::info!(
+                target: "sdkwork.im",
+                event = "im.realtime.handshake_timeout",
+                "ccp websocket handshake exceeded deadline; closing"
+            );
+            None
+        }) else {
             return;
         };
         resume_after_seq = negotiated_after_seq;

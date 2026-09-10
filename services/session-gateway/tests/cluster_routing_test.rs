@@ -59,6 +59,7 @@ fn test_cluster_bridge_routes_client_route_event_to_owner_node_runtime() {
         "c_demo",
         "message.posted",
         r#"{"messageId":"msg_demo_1"}"#.into(),
+        "durable",
     );
 
     assert_eq!(result.target_node_id, "node_b");
@@ -141,6 +142,7 @@ fn test_cluster_publish_surfaces_runtime_delivery_error_without_overwriting_rout
         "c_demo",
         "message.posted",
         r#"{"messageId":"msg_delivery_error"}"#.into(),
+        "durable",
     );
 
     assert_eq!(result.target_node_id, "node_b");
@@ -192,6 +194,7 @@ fn test_cluster_bridge_falls_back_to_origin_node_when_route_is_missing() {
         "c_demo",
         "message.posted",
         r#"{"messageId":"msg_demo_1"}"#.into(),
+        "durable",
     );
 
     assert_eq!(result.target_node_id, "node_a");
@@ -418,6 +421,7 @@ fn test_cluster_bridge_migrates_route_and_realtime_state_to_target_node() {
         "c_demo",
         "message.edited",
         r#"{"messageId":"msg_after_migrate"}"#.into(),
+        "durable",
     );
     assert_eq!(publish_result.target_node_id, "node_b");
     assert_eq!(publish_result.route_state, "resolved");
@@ -518,6 +522,7 @@ fn test_cluster_bridge_isolates_same_actor_id_across_principal_kinds_for_routes_
         "c_user",
         "message.posted",
         r#"{"messageId":"msg_user"}"#.into(),
+        "durable",
     );
     let agent_publish = cluster.publish_client_route_event_for_principal_kind(
         "node_a",
@@ -530,6 +535,7 @@ fn test_cluster_bridge_isolates_same_actor_id_across_principal_kinds_for_routes_
         "c_agent",
         "message.posted",
         r#"{"messageId":"msg_agent"}"#.into(),
+        "durable",
     );
     assert_eq!(user_publish.target_node_id, "node_a");
     assert_eq!(user_publish.route_state, "resolved");
@@ -610,7 +616,7 @@ fn test_cluster_disconnect_fence_isolated_by_principal_kind() {
 
 #[test]
 fn test_cluster_disconnect_fence_allows_new_session_and_reconnect_is_idempotent() {
-    let cluster = RealtimeClusterBridge::default();
+    let cluster = Arc::new(RealtimeClusterBridge::default());
     cluster.bind_node_runtime(
         "node_a",
         Arc::new(RealtimeDeliveryRuntime::permissive_for_tests()),
@@ -655,7 +661,7 @@ fn test_cluster_disconnect_fence_allows_new_session_and_reconnect_is_idempotent(
 
 #[test]
 fn test_cluster_bridge_drain_fences_and_releases_all_node_routes() {
-    let cluster = RealtimeClusterBridge::default();
+    let cluster = Arc::new(RealtimeClusterBridge::default());
     cluster.bind_node_runtime(
         "node_a",
         Arc::new(RealtimeDeliveryRuntime::permissive_for_tests()),
@@ -702,7 +708,7 @@ fn test_cluster_bridge_drain_fences_and_releases_all_node_routes() {
 
 #[test]
 fn test_cluster_bridge_drain_batch_is_bounded_and_reports_exact_remaining_count() {
-    let cluster = RealtimeClusterBridge::default();
+    let cluster = Arc::new(RealtimeClusterBridge::default());
     cluster.bind_node_runtime(
         "node_a",
         Arc::new(RealtimeDeliveryRuntime::permissive_for_tests()),
@@ -875,6 +881,7 @@ fn test_cluster_bridge_rebind_latest_owner_transfers_realtime_state() {
         "c_demo",
         "message.edited",
         r#"{"messageId":"msg_after_rebind"}"#.into(),
+        "durable",
     );
     assert_eq!(publish_result.target_node_id, "node_b");
     assert_eq!(publish_result.route_state, "resolved");
@@ -1284,6 +1291,7 @@ fn test_cluster_bridge_rebind_route_commit_failure_rolls_runtime_state_back() {
         "c_demo",
         "message.posted",
         r#"{"messageId":"msg_after_failed_rebind_commit"}"#.into(),
+        "durable",
     );
     assert_eq!(publish_result.target_node_id, "node_a");
     assert_eq!(
@@ -1360,6 +1368,7 @@ fn test_cluster_bridge_failed_rebind_keeps_source_runtime_state() {
         "c_demo",
         "message.posted",
         r#"{"messageId":"msg_after_failed_rebind"}"#.into(),
+        "durable",
     );
     assert_eq!(publish_result.target_node_id, "node_a");
     assert_eq!(
@@ -1430,6 +1439,7 @@ fn test_cluster_bridge_migration_route_commit_failure_rolls_runtime_state_back()
         "c_demo",
         "message.posted",
         r#"{"messageId":"msg_after_failed_migration_commit"}"#.into(),
+        "durable",
     );
     assert_eq!(publish_result.target_node_id, "node_a");
     assert_eq!(
@@ -1499,6 +1509,7 @@ fn test_cluster_bridge_failed_migration_keeps_source_runtime_state() {
         "c_demo",
         "message.posted",
         r#"{"messageId":"msg_after_failed_migration"}"#.into(),
+        "durable",
     );
     assert_eq!(publish_result.target_node_id, "node_a");
     assert_eq!(

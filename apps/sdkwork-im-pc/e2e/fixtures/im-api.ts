@@ -37,7 +37,8 @@ function buildInboxEntry(options: Required<PlaywrightImApiFixtureOptions>) {
     lastMessageId: 'message.playwright.1',
     lastSenderId: 'user.playwright.peer.1',
     messageCount: 1,
-    lastMessageSeq: 1,
+    // int64 seqs cross the REST wire as decimal strings per API_SPEC 13.6.
+    lastMessageSeq: '1',
     lastSummary: options.initialMessage,
     lastMessageAt: now,
     unreadCount: 0,
@@ -50,7 +51,8 @@ function buildTimelineEntry(options: Required<PlaywrightImApiFixtureOptions>) {
     tenantId: options.tenantId,
     conversationId: options.conversationId,
     messageId: 'message.playwright.1',
-    messageSeq: 1,
+    // int64 seqs cross the REST wire as decimal strings per API_SPEC 13.6.
+    messageSeq: '1',
     summary: options.initialMessage,
     sender: {
       id: 'user.playwright.peer.1',
@@ -112,7 +114,8 @@ export async function installPlaywrightImApiMocks(
 
   const inboxEntry = buildInboxEntry(options);
   const timelineEntry = buildTimelineEntry(options);
-  let nextMessageSeq = timelineEntry.messageSeq;
+  // The mutable counter stays numeric; REST responses stringify it (API_SPEC 13.6).
+  let nextMessageSeq = Number(timelineEntry.messageSeq);
 
   await page.route('**/im/v3/api/**', async (route: Route) => {
     const request = route.request();
@@ -181,7 +184,7 @@ export async function installPlaywrightImApiMocks(
           item: {
             conversationId: options.conversationId,
             messageId,
-            messageSeq: nextMessageSeq,
+            messageSeq: String(nextMessageSeq),
             body: {
               text: outboundText,
               summary: outboundText,

@@ -9,6 +9,7 @@ mod test_env;
 
 #[tokio::test]
 async fn test_healthz_returns_ok_and_service_metadata() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
 
@@ -39,6 +40,7 @@ async fn test_healthz_returns_ok_and_service_metadata() {
 
 #[tokio::test]
 async fn test_public_app_exports_live_openapi_json() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_public_app();
 
@@ -73,6 +75,7 @@ async fn test_public_app_exports_live_openapi_json() {
 
 #[tokio::test]
 async fn test_public_app_serves_docs_page_for_live_openapi() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_public_app();
 
@@ -98,6 +101,7 @@ async fn test_public_app_serves_docs_page_for_live_openapi() {
 
 #[tokio::test]
 async fn test_public_app_rejects_missing_access_token_header_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_public_app();
 
@@ -129,6 +133,7 @@ async fn test_public_app_rejects_missing_access_token_header_over_http() {
 
 #[tokio::test]
 async fn test_presence_heartbeat_returns_presence_snapshot_for_current_route() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
 
@@ -200,6 +205,7 @@ async fn test_presence_heartbeat_returns_presence_snapshot_for_current_route() {
 
 #[tokio::test]
 async fn test_presence_heartbeat_rejects_mismatched_client_route_id() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
 
@@ -240,6 +246,7 @@ async fn test_presence_heartbeat_rejects_mismatched_client_route_id() {
 
 #[tokio::test]
 async fn test_presence_snapshot_isolated_by_actor_kind_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
 
@@ -351,6 +358,7 @@ async fn test_presence_snapshot_isolated_by_actor_kind_over_http() {
 
 #[tokio::test]
 async fn test_presence_heartbeat_rejects_same_route_id_with_different_actor_kind_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
 
@@ -404,6 +412,7 @@ async fn test_presence_heartbeat_rejects_same_route_id_with_different_actor_kind
 
 #[tokio::test]
 async fn test_presence_heartbeat_rejects_same_route_id_with_different_principal_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
 
@@ -457,6 +466,7 @@ async fn test_presence_heartbeat_rejects_same_route_id_with_different_principal_
 
 #[tokio::test]
 async fn test_session_gateway_rejects_sessionless_device_rebind_after_session_resume() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
 
@@ -537,6 +547,7 @@ async fn test_session_gateway_rejects_sessionless_device_rebind_after_session_re
 
 #[tokio::test]
 async fn test_realtime_subscription_sync_and_empty_event_window_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
 
@@ -621,6 +632,7 @@ async fn test_realtime_subscription_sync_and_empty_event_window_over_http() {
 
 #[tokio::test]
 async fn test_realtime_subscription_sync_returns_403_when_scope_policy_denies_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let cluster = Arc::new(session_gateway::RealtimeClusterBridge::default());
     let app = session_gateway::build_app_with_cluster_and_runtime(
@@ -674,6 +686,7 @@ async fn test_realtime_subscription_sync_returns_403_when_scope_policy_denies_ov
 
 #[tokio::test]
 async fn test_realtime_ack_endpoint_accepts_empty_window_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
 
@@ -739,6 +752,7 @@ async fn test_realtime_ack_endpoint_accepts_empty_window_over_http() {
 
 #[tokio::test]
 async fn test_presence_heartbeat_rejects_oversized_client_route_id_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
     let oversized_device_id = "d".repeat(1024);
@@ -785,6 +799,7 @@ async fn test_presence_heartbeat_rejects_oversized_client_route_id_over_http() {
 
 #[tokio::test]
 async fn test_realtime_subscription_sync_rejects_oversized_scope_id_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let cluster = Arc::new(session_gateway::RealtimeClusterBridge::default());
     let app = session_gateway::build_app_with_cluster(cluster.clone());
@@ -842,6 +857,7 @@ async fn test_realtime_subscription_sync_rejects_oversized_scope_id_over_http() 
 
 #[tokio::test]
 async fn test_realtime_event_window_rejects_limit_above_guardrail_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
 
@@ -873,6 +889,7 @@ async fn test_realtime_event_window_rejects_limit_above_guardrail_over_http() {
 
 #[tokio::test]
 async fn test_realtime_event_window_rejects_zero_limit_without_binding_route_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let cluster = Arc::new(session_gateway::RealtimeClusterBridge::default());
     let app = session_gateway::build_app_with_cluster(cluster.clone());
@@ -911,6 +928,7 @@ async fn test_realtime_event_window_rejects_zero_limit_without_binding_route_ove
 
 #[tokio::test]
 async fn test_realtime_subscription_sync_rejects_oversized_event_types_payload_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
     let oversized_event_types = (0..300)
@@ -963,6 +981,7 @@ async fn test_realtime_subscription_sync_rejects_oversized_event_types_payload_o
 
 #[tokio::test]
 async fn test_realtime_subscription_sync_rejects_too_many_items_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
     let oversized_items = (0..300)
@@ -1015,6 +1034,7 @@ async fn test_realtime_subscription_sync_rejects_too_many_items_over_http() {
 
 #[tokio::test]
 async fn test_realtime_subscription_sync_rejects_oversized_total_payload_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = session_gateway::build_app();
     let oversized_items = (0..40)
@@ -1065,4 +1085,18 @@ async fn test_realtime_subscription_sync_rejects_oversized_total_payload_over_ht
             .expect("detail should be present")
             .contains("items")
     );
+}
+
+fn ensure_test_environment() {
+    static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    TEST_ENVIRONMENT.get_or_init(|| {
+        // Dual-token test helpers rely on the relaxed test posture; production
+        // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
+        // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        unsafe {
+            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
+            // Local JWT fixtures carry no AppContext signature headers.
+            std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
+        }
+    });
 }

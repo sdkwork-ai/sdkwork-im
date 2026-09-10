@@ -19,7 +19,7 @@
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-post">POST</span>
   <code>/app/v3/api/automation/executions</code>
-  <span class="api-op-id">operationId: automation.executions.create</span>
+  <span class="api-op-id">operationId: executions.create</span>
 </div>
 
 Requests a new automation execution.
@@ -61,7 +61,7 @@ Requests a new automation execution.
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-post">POST</span>
   <code>/app/v3/api/automation/agent_responses</code>
-  <span class="api-op-id">operationId: automation.agentResponses.create</span>
+  <span class="api-op-id">operationId: agentResponses.create</span>
 </div>
 
 Starts an agent response stream for an automation execution.
@@ -101,7 +101,7 @@ Starts an agent response stream for an automation execution.
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-post">POST</span>
   <code>/app/v3/api/automation/agent_responses/{streamId}/frames</code>
-  <span class="api-op-id">operationId: automation.agentResponses.frames.create</span>
+  <span class="api-op-id">operationId: agentResponses.frames.create</span>
 </div>
 
 Appends a frame to an active agent response stream.
@@ -147,7 +147,7 @@ Appends a frame to an active agent response stream.
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-post">POST</span>
   <code>/app/v3/api/automation/agent_responses/{streamId}/complete</code>
-  <span class="api-op-id">operationId: automation.agentResponses.complete</span>
+  <span class="api-op-id">operationId: agentResponses.complete</span>
 </div>
 
 Completes an agent response stream and returns the final stream session state.
@@ -193,7 +193,7 @@ Completes an agent response stream and returns the final stream session state.
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-post">POST</span>
   <code>/app/v3/api/automation/agent_tool_calls</code>
-  <span class="api-op-id">operationId: automation.agentToolCalls.create</span>
+  <span class="api-op-id">operationId: agentToolCalls.create</span>
 </div>
 
 Requests a tool call as part of an automation execution.
@@ -233,7 +233,7 @@ Requests a tool call as part of an automation execution.
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-post">POST</span>
   <code>/app/v3/api/automation/executions/{executionId}/agent_tool_calls/{toolCallId}/complete</code>
-  <span class="api-op-id">operationId: automation.agentToolCalls.complete</span>
+  <span class="api-op-id">operationId: agentToolCalls.complete</span>
 </div>
 
 Completes a pending agent tool call for a specific automation execution.
@@ -279,7 +279,7 @@ Completes a pending agent tool call for a specific automation execution.
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-get">GET</span>
   <code>/app/v3/api/automation/executions/{executionId}</code>
-  <span class="api-op-id">operationId: automation.executions.retrieve</span>
+  <span class="api-op-id">operationId: executions.retrieve</span>
 </div>
 
 Reads an automation execution by identifier.

@@ -60,7 +60,7 @@ concern to the matching HTTP reference:
 | Upload and attachment lifecycle | media route groups and DTOs | [Media](/api-reference/im/media) |
 | Realtime Presence, presence, and realtime coordination | session, presence, and realtime route groups | [Realtime Presence](/api-reference/im/session-and-realtime) |
 | IM call lifecycle and signaling-side HTTP operations | calls route groups | [Calls](/api-reference/im/calls) |
-| Stream ingestion and checkpoints | stream route groups | [Streams](/api-reference/im/streams) |
+| Stream-shaped application data | realtime WebSocket plane; the streams REST surface was pruned | [Session and Realtime](/api-reference/im/session-and-realtime) |
 
 This keeps the Kotlin page precise: the repo-standard delivery today is transport-first, so the
 API reference plus `generated/server-openapi/README.md` remains the exact route authority until a

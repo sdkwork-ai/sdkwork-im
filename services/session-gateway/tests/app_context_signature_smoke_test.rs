@@ -64,6 +64,7 @@ fn signed_presence_request_builder() -> axum::http::request::Builder {
 
 #[tokio::test]
 async fn test_public_app_rejects_missing_or_invalid_context_signature_when_enabled() {
+    ensure_test_environment();
     let _dev_env = test_env::dev_test_environment();
     let _env_guard = lock_app_context_signature_env_guard().await;
     let _require_signature = ScopedEnvVar::set(APP_CONTEXT_REQUIRE_SIGNATURE_ENV, "true");
@@ -161,4 +162,14 @@ async fn test_public_app_rejects_missing_or_invalid_context_signature_when_enabl
             .is_some_and(|message| message.contains("signature validation failed")),
         "invalid signature should return verification failure"
     );
+}
+
+fn ensure_test_environment() {
+    static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    TEST_ENVIRONMENT.get_or_init(|| {
+        // Dual-token test helpers rely on the relaxed test posture; production
+        // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
+        // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        unsafe { std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test") }
+    });
 }

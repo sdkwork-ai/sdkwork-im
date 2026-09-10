@@ -12,8 +12,22 @@ use tower::ServiceExt;
 
 use common::{control_plane_json_body, control_plane_write_request};
 
+fn ensure_test_environment() {
+    static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    TEST_ENVIRONMENT.get_or_init(|| {
+        // Safety: one-time bootstrap under OnceLock; process env write is
+        // single-threaded here. `AuditRuntime::from_env` (pulled in by the
+        // composed gateway router) fail-closes in production without
+        // `SDKWORK_DATABASE_URL`; these tests run on the in-memory ledger.
+        unsafe {
+            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
+        }
+    });
+}
+
 #[tokio::test]
 async fn test_control_plane_can_drain_and_migrate_routes() {
+    ensure_test_environment();
     let cluster = Arc::new(RealtimeClusterBridge::default());
     let runtime_a = Arc::new(RealtimeDeliveryRuntime::default());
     let runtime_b = Arc::new(RealtimeDeliveryRuntime::default());
@@ -45,7 +59,14 @@ async fn test_control_plane_can_drain_and_migrate_routes() {
         )
         .expect("route bind should succeed");
 
-    let app = governance_service::build_app_with_cluster(cluster.clone());
+    // Compose through the owning governance-backend route crate so the
+    // interceptor pipeline receives the real control-plane route manifest; an
+    // empty-manifest wrap cannot resolve `/backend/v3/api/control/*` routes.
+    let app = sdkwork_routes_im_governance_backend_api::gateway_mount_with_governance_sinks(
+        cluster.clone(),
+        Arc::new(ops_service::OpsRuntime::from_env()),
+        Arc::new(audit_service::AuditRuntime::from_env()),
+    );
 
     let drain_response = app
         .clone()
@@ -167,13 +188,20 @@ async fn test_control_plane_rejects_unknown_node_lifecycle_writes() {
 
 #[tokio::test]
 async fn test_control_plane_rejects_migrate_when_source_node_is_not_draining() {
+    ensure_test_environment();
     let cluster = Arc::new(RealtimeClusterBridge::default());
     let runtime_a = Arc::new(RealtimeDeliveryRuntime::default());
     let runtime_b = Arc::new(RealtimeDeliveryRuntime::default());
     cluster.bind_node_runtime("node_a", runtime_a);
     cluster.bind_node_runtime("node_b", runtime_b);
 
-    let app = governance_service::build_app_with_cluster(cluster.clone());
+    // Same manifest-composed control plane as `gateway_mount` (see the other
+    // test): the empty-manifest wrap cannot resolve control-plane routes.
+    let app = sdkwork_routes_im_governance_backend_api::gateway_mount_with_governance_sinks(
+        cluster.clone(),
+        Arc::new(ops_service::OpsRuntime::from_env()),
+        Arc::new(audit_service::AuditRuntime::from_env()),
+    );
 
     let migrate_response = app
         .oneshot(

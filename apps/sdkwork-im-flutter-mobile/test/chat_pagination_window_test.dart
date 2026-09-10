@@ -108,7 +108,8 @@ ConversationMessageEntry _message(int sequence) {
     tenantId: 'tenant-1',
     conversationId: 'conversation-1',
     messageId: 'message-$sequence',
-    messageSeq: sequence,
+    // int64 seqs cross the wire as decimal strings per API_SPEC 13.6.
+    messageSeq: '$sequence',
     sender: Sender(id: 'user-1', kind: 'user', displayName: 'Ada'),
     body: MessageBody(text: 'message $sequence', parts: <ContentPart>[]),
     messageType: 'text',
@@ -124,7 +125,8 @@ ConversationInboxEntry _inboxEntry(int index) {
     conversationType: 'direct',
     lastActivityAt: '2026-07-16T00:00:00Z',
     messageCount: 1,
-    lastMessageSeq: index,
+    // int64 seqs cross the wire as decimal strings per API_SPEC 13.6.
+    lastMessageSeq: '$index',
     unreadCount: 0,
   );
 }

@@ -5,7 +5,8 @@ use im_platform_contracts::{
 };
 use sdkwork_im_contract_control::{
     RealtimeCheckpointRecord, RealtimeCheckpointStore, RealtimeMatchingSubscriptionQuery,
-    RealtimeSubscriptionRecord, RealtimeSubscriptionStore, normalize_realtime_organization_id,
+    RealtimePrincipalScopeDevicePageQuery, RealtimeSubscriptionRecord, RealtimeSubscriptionStore,
+    SUBSCRIBED_DEVICE_PAGE_LIMIT_MAX, normalize_realtime_organization_id,
 };
 use sdkwork_im_contract_core::ContractError;
 use std::collections::hash_map::DefaultHasher;
@@ -13,7 +14,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Bound::{Excluded, Unbounded};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use im_domain_core::realtime::{
     RealtimeAckState, RealtimeEvent, RealtimeEventWindow, RealtimeSubscription,
@@ -24,6 +25,7 @@ use serde::Deserialize;
 use tokio::sync::watch;
 
 use crate::principal_scope::typed_client_route_scope_key;
+use crate::cluster::RealtimeClusterForwarder;
 use crate::realtime::storage::checkpoint_record_from_sequences;
 
 pub mod postgres_sql;
@@ -58,11 +60,14 @@ pub(crate) const REALTIME_EVENT_WINDOW_MAX_LIMIT: usize = 1000;
 const REALTIME_CLIENT_ROUTE_WINDOW_MAX_RETAINED_EVENTS: usize = REALTIME_EVENT_WINDOW_MAX_LIMIT;
 const REALTIME_CLIENT_ROUTE_WINDOW_CRITICAL_USAGE_PERMILLE: u64 = 950;
 const REALTIME_MUTATION_LOCK_SHARDS: usize = 256;
-/// Global cap on per-client-route in-memory HashMap entries. Sits above
-/// `REALTIME_MAX_WEBSOCKET_CONNECTIONS_DEFAULT` (10_000) because a single
-/// connection may materialise multiple route entries. Exceeded maps are
-/// trimmed by `enforce_client_route_maps_capacity` during the periodic
-/// maintenance job as a safety net beyond the normal disconnect fence.
+/// Global cap on per-client-route in-memory CACHE entries. Only rebuildable
+/// maps (windows, sequence trackers, capacity bookkeeping) are trimmed by
+/// `enforce_client_route_maps_capacity` during the periodic maintenance job
+/// as a safety net beyond the normal disconnect fence. Live-session state
+/// (subscriptions, notifiers, disconnect fencing) is never evicted: its
+/// growth is bounded by the WebSocket admission cap plus
+/// `drop_client_route_state` finalization, and evicting it would close
+/// healthy connections or silently stop push delivery.
 const REALTIME_CLIENT_ROUTE_MAPS_MAX_ENTRIES: usize = 20_000;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -282,6 +287,7 @@ pub struct RealtimeDeliveryRuntime {
     subscription_store: Arc<dyn RealtimeSubscriptionStore>,
     event_window_store: Arc<dyn RealtimeEventWindowStore>,
     scope_access_policy: Arc<dyn RealtimeScopeAccessPolicy>,
+    cluster_forwarder: OnceLock<RealtimeClusterForwarder>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -598,6 +604,15 @@ impl PublishScopeOptions {
     };
 }
 
+/// Result of one in-process scope publish: how many local route targets
+/// received the event and which devices they were. The caller uses the
+/// device list to forward the event to routes registered on other nodes.
+#[derive(Debug, Default)]
+struct PublishScopeOutcome {
+    delivered: usize,
+    locally_matched_device_ids: Vec<String>,
+}
+
 impl RealtimeDeliveryRuntime {
     pub fn with_checkpoint_store(checkpoint_store: Arc<dyn RealtimeCheckpointStore>) -> Self {
         Self::with_stores_and_scope_access_policy(
@@ -737,7 +752,17 @@ impl RealtimeDeliveryRuntime {
             subscription_store,
             event_window_store,
             scope_access_policy,
+            cluster_forwarder: OnceLock::new(),
         }
+    }
+
+    /// Install the cluster forwarder (weak back-reference to the owning
+    /// cluster bridge plus this node's id). Called by the assembly when it
+    /// binds the node runtime; without a forwarder the runtime delivers
+    /// only to locally-connected routes, which is the correct behavior for
+    /// embedded single-process runtimes.
+    pub(crate) fn install_cluster_forwarder(&self, forwarder: RealtimeClusterForwarder) {
+        let _ = self.cluster_forwarder.set(forwarder);
     }
 
     pub fn ensure_client_route_state_for_principal_kind(
@@ -2371,7 +2396,7 @@ impl RealtimeDeliveryRuntime {
         payload: String,
         registered_client_routes: Vec<String>,
     ) -> Result<usize, RealtimeRuntimeError> {
-        self.publish_scope_event_internal(
+        let outcome = self.publish_scope_event_internal(
             tenant_id,
             organization_id,
             principal_id,
@@ -2379,10 +2404,23 @@ impl RealtimeDeliveryRuntime {
             scope_type,
             scope_id,
             event_type,
-            payload,
+            payload.clone(),
             registered_client_routes,
             PublishScopeOptions::DURABLE,
-        )
+        )?;
+        self.forward_scope_event_to_remote_routes(
+            tenant_id,
+            organization_id,
+            principal_id,
+            principal_kind,
+            scope_type,
+            scope_id,
+            event_type,
+            &payload,
+            "durable",
+            &outcome.locally_matched_device_ids,
+        );
+        Ok(outcome.delivered)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -2398,7 +2436,7 @@ impl RealtimeDeliveryRuntime {
         payload: String,
         registered_client_routes: Vec<String>,
     ) -> Result<usize, RealtimeRuntimeError> {
-        self.publish_scope_event_internal(
+        let outcome = self.publish_scope_event_internal(
             tenant_id,
             organization_id,
             principal_id,
@@ -2406,10 +2444,23 @@ impl RealtimeDeliveryRuntime {
             scope_type,
             scope_id,
             event_type,
-            payload,
+            payload.clone(),
             registered_client_routes,
             PublishScopeOptions::EPHEMERAL,
-        )
+        )?;
+        self.forward_scope_event_to_remote_routes(
+            tenant_id,
+            organization_id,
+            principal_id,
+            principal_kind,
+            scope_type,
+            scope_id,
+            event_type,
+            &payload,
+            "ephemeral",
+            &outcome.locally_matched_device_ids,
+        );
+        Ok(outcome.delivered)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -2425,7 +2476,7 @@ impl RealtimeDeliveryRuntime {
         payload: String,
         registered_client_routes: Vec<String>,
         publish_options: PublishScopeOptions,
-    ) -> Result<usize, RealtimeRuntimeError> {
+    ) -> Result<PublishScopeOutcome, RealtimeRuntimeError> {
         let mutation_keys = [realtime_mutation_principal_key(
             tenant_id,
             principal_kind,
@@ -2509,8 +2560,14 @@ impl RealtimeDeliveryRuntime {
             }
         }
         if matched_targets.is_empty() {
-            return Ok(0);
+            return Ok(PublishScopeOutcome::default());
         }
+        let locally_matched_device_ids = matched_targets
+            .iter()
+            .map(|(_, device_id)| device_id.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
 
         let mutations = {
             // Capture per-scope snapshots under the global sequence/window
@@ -2737,7 +2794,128 @@ impl RealtimeDeliveryRuntime {
             let _ = sender.send(mutation.next_seq);
         }
 
-        Ok(delivered)
+        Ok(PublishScopeOutcome {
+            delivered,
+            locally_matched_device_ids,
+        })
+    }
+
+    /// Forward a published scope event to subscribed devices whose live
+    /// routes are registered on other gateway nodes. No-op without a
+    /// cluster forwarder (embedded/single-node runtimes) and when the
+    /// caller passed explicit route hints (the cluster ingress path
+    /// already targets one device). Devices with no live route anywhere
+    /// are skipped: offline recovery stays with durable device events and
+    /// history pull, so no per-offline-device work is introduced here.
+    #[allow(clippy::too_many_arguments)]
+    fn forward_scope_event_to_remote_routes(
+        &self,
+        tenant_id: &str,
+        organization_id: &str,
+        principal_id: &str,
+        principal_kind: &str,
+        scope_type: &str,
+        scope_id: &str,
+        event_type: &str,
+        payload: &str,
+        delivery_class: &str,
+        locally_matched_device_ids: &[String],
+    ) {
+        let Some(forwarder) = self.cluster_forwarder.get() else {
+            return;
+        };
+        let Some(cluster) = forwarder.cluster.upgrade() else {
+            return;
+        };
+        // Use the raw organization id: subscription records are persisted
+        // under the caller's organization id, matching every other store
+        // read in the publish path.
+        let page_limit = SUBSCRIBED_DEVICE_PAGE_LIMIT_MAX;
+        let mut after_device_id: Option<String> = None;
+        let mut forwarded = 0usize;
+        loop {
+            let page = match self
+                .subscription_store
+                .load_subscribed_device_ids_for_principal_scope(
+                    RealtimePrincipalScopeDevicePageQuery {
+                        tenant_id,
+                        organization_id,
+                        principal_kind,
+                        principal_id,
+                        scope_type,
+                        scope_id,
+                        event_type,
+                        after_device_id: after_device_id.as_deref(),
+                        limit: page_limit,
+                    },
+                ) {
+                Ok(page) => page,
+                Err(error) => {
+                    tracing::warn!(
+                        tenant_id = tenant_id,
+                        organization_id = organization_id,
+                        principal_id = principal_id,
+                        scope_type = scope_type,
+                        scope_id = scope_id,
+                        event_type = event_type,
+                        error = ?error,
+                        "remote route discovery failed; scope event delivered to local routes only"
+                    );
+                    return;
+                }
+            };
+            if page.is_empty() {
+                break;
+            }
+            for device_id in &page {
+                if locally_matched_device_ids.contains(device_id) {
+                    continue;
+                }
+                let result = cluster.forward_client_route_event_if_remote(
+                    forwarder.origin_node_id.as_ref(),
+                    tenant_id,
+                    organization_id,
+                    principal_id,
+                    principal_kind,
+                    device_id,
+                    scope_type,
+                    scope_id,
+                    event_type,
+                    payload,
+                    delivery_class,
+                );
+                match result.route_state.as_str() {
+                    "remote_published" => forwarded += 1,
+                    "no_route" | "local_runtime_present" => {}
+                    other => {
+                        tracing::warn!(
+                            tenant_id = tenant_id,
+                            organization_id = organization_id,
+                            principal_id = principal_id,
+                            device_id = device_id.as_str(),
+                            route_state = other,
+                            error_code = result.delivery_error_code.as_deref().unwrap_or_default(),
+                            "remote route forward did not publish"
+                        );
+                    }
+                }
+            }
+            if page.len() < page_limit {
+                break;
+            }
+            after_device_id = page.last().cloned();
+        }
+        if forwarded > 0 {
+            tracing::debug!(
+                tenant_id = tenant_id,
+                organization_id = organization_id,
+                principal_id = principal_id,
+                scope_type = scope_type,
+                scope_id = scope_id,
+                forwarded_count = forwarded,
+                "forwarded scope event to remote node routes"
+            );
+        }
     }
 
     fn index_client_route_subscriptions(
@@ -2796,18 +2974,29 @@ impl RealtimeDeliveryRuntime {
         });
     }
 
-    /// Enforce a global cap on per-client-route in-memory maps to prevent
-    /// unbounded growth from leaked entries (e.g., disconnect fences that
-    /// never fire or routes orphaned by failed cleanup). This is a safety
-    /// net beyond the normal disconnect fence and maintenance cleanup,
-    /// invoked periodically by the realtime maintenance job.
+    /// Enforce a global cap on per-client-route in-memory cache maps to
+    /// prevent unbounded growth from leaked entries. This is a safety net
+    /// beyond the normal disconnect fence and maintenance cleanup, invoked
+    /// periodically by the realtime maintenance job.
     ///
-    /// When a map exceeds `REALTIME_CLIENT_ROUTE_MAPS_MAX_ENTRIES`, the
-    /// oldest entries are evicted first. For client-route-keyed maps the
-    /// eviction priority is derived from `last_capacity_trimmed_at` (oldest
-    /// trim timestamp first); entries without a timestamp are treated as
-    /// most recently active and kept last. No I/O is performed while
-    /// holding locks.
+    /// Only rebuildable caches (event windows, sequence trackers, capacity
+    /// bookkeeping) are eligible for eviction; the oldest entries go first.
+    /// For client-route-keyed maps the eviction priority is derived from
+    /// `last_capacity_trimmed_at` (oldest trim timestamp first); entries
+    /// without a timestamp are treated as most recently active and kept
+    /// last. No I/O is performed while holding locks.
+    ///
+    /// Live-session state is deliberately never evicted here: evicting
+    /// `subscriptions` or `subscription_scope_index` silently stops push
+    /// delivery for healthy routes, evicting `notifiers` or
+    /// `disconnect_notifiers` closes healthy connections (dropped
+    /// `watch::Sender` terminals every cloned receiver), and evicting
+    /// `disconnect_generations` weakens disconnect fencing. Those maps are
+    /// bounded by the WebSocket admission cap
+    /// (`SDKWORK_IM_REALTIME_MAX_WEBSOCKET_CONNECTIONS`) plus
+    /// `drop_client_route_state` finalization; if they still exceed the
+    /// cap, that indicates a leak and is surfaced as a warning instead of
+    /// trading availability for memory.
     pub fn enforce_client_route_maps_capacity(&self) {
         // Build eviction priority from last_capacity_trimmed_at. RFC3339
         // timestamps sort chronologically as strings, so the oldest trim
@@ -2825,12 +3014,6 @@ impl RealtimeDeliveryRuntime {
             keyed.into_iter().map(|(k, _)| k).collect()
         };
 
-        enforce_realtime_string_map_capacity(
-            &self.subscriptions,
-            "realtime subscription store",
-            "subscriptions",
-            &eviction_priority,
-        );
         enforce_realtime_string_map_capacity(
             &self.windows,
             "realtime window store",
@@ -2873,27 +3056,50 @@ impl RealtimeDeliveryRuntime {
             "last_capacity_trimmed_at",
             &eviction_priority,
         );
-        enforce_realtime_string_map_capacity(
-            &self.notifiers,
-            "realtime notifier store",
-            "notifiers",
-            &eviction_priority,
-        );
-        enforce_realtime_string_map_capacity(
-            &self.disconnect_generations,
-            "realtime disconnect generation store",
-            "disconnect_generations",
-            &eviction_priority,
-        );
-        enforce_realtime_string_map_capacity(
-            &self.disconnect_notifiers,
-            "realtime disconnect notifier store",
-            "disconnect_notifiers",
-            &eviction_priority,
-        );
-
+        self.warn_live_session_maps_over_capacity();
         self.enforce_subscription_scope_index_capacity();
         self.enforce_migrated_out_scopes_capacity();
+    }
+
+    /// Log (never evict) when live-session state exceeds the cache cap. A
+    /// persistent overage means disconnect finalization or stale notifier
+    /// cleanup is leaking entries and must be fixed, not masked by
+    /// evicting state that healthy connections depend on.
+    fn warn_live_session_maps_over_capacity(&self) {
+        // The typed maps do not share one value type, so each is checked
+        // individually against the shared cap.
+        let subscription_count = lock_realtime_mutex(
+            &self.subscriptions,
+            "realtime subscription store",
+        )
+        .len();
+        let notifier_count =
+            lock_realtime_mutex(&self.notifiers, "realtime notifier store").len();
+        let disconnect_notifier_count = lock_realtime_mutex(
+            &self.disconnect_notifiers,
+            "realtime disconnect notifier store",
+        )
+        .len();
+        let disconnect_generation_count = lock_realtime_mutex(
+            &self.disconnect_generations,
+            "realtime disconnect generation store",
+        )
+        .len();
+        for (map_name, count) in [
+            ("subscriptions", subscription_count),
+            ("notifiers", notifier_count),
+            ("disconnect_notifiers", disconnect_notifier_count),
+            ("disconnect_generations", disconnect_generation_count),
+        ] {
+            if count > REALTIME_CLIENT_ROUTE_MAPS_MAX_ENTRIES {
+                tracing::warn!(
+                    map = map_name,
+                    entry_count = count,
+                    cap = REALTIME_CLIENT_ROUTE_MAPS_MAX_ENTRIES,
+                    "live realtime session map exceeds cache cap; investigate disconnect finalization instead of evicting live state"
+                );
+            }
+        }
     }
 
     fn enforce_subscription_scope_index_capacity(&self) {
@@ -2901,41 +3107,21 @@ impl RealtimeDeliveryRuntime {
             &self.subscription_scope_index,
             "realtime scope fanout index",
         );
-        let excess = guard
-            .len()
-            .saturating_sub(REALTIME_CLIENT_ROUTE_MAPS_MAX_ENTRIES);
-        if excess == 0 {
-            return;
-        }
-        // First reclaim stale entries whose device maps are already empty.
+        // Only reclaim entries whose device maps are already empty; those
+        // are dead fan-out indices no live subscription points at. Live
+        // scope entries are never evicted: removing one silently stops
+        // push delivery for the affected routes. Growth is bounded by the
+        // WebSocket admission cap plus disconnect finalization.
         let before = guard.len();
         guard.retain(|_, device_ids| !device_ids.is_empty());
         let removed_empty = before - guard.len();
-        // If still over cap, evict excess entries in a deterministic order
-        // keyed by the principal scope Debug representation.
-        let still_excess = guard
-            .len()
-            .saturating_sub(REALTIME_CLIENT_ROUTE_MAPS_MAX_ENTRIES);
-        let mut removed_excess = 0usize;
-        if still_excess > 0 {
-            let mut keys: Vec<(String, RealtimePrincipalScopeKey)> = guard
-                .keys()
-                .map(|k| (format!("{k:?}"), k.clone()))
-                .collect();
-            keys.sort_by(|a, b| a.0.cmp(&b.0));
-            for (_, key) in keys.into_iter().take(still_excess) {
-                guard.remove(&key);
-                removed_excess += 1;
-            }
-        }
-        if removed_empty > 0 || removed_excess > 0 {
+        if removed_empty > 0 {
             tracing::warn!(
                 map = "subscription_scope_index",
                 removed_empty_count = removed_empty,
-                removed_excess_count = removed_excess,
                 remaining_count = guard.len(),
                 cap = REALTIME_CLIENT_ROUTE_MAPS_MAX_ENTRIES,
-                "enforced subscription scope index capacity cap; leaked entries evicted"
+                "reclaimed empty subscription scope fanout index entries"
             );
         }
     }
@@ -3599,10 +3785,10 @@ mod tests {
 
     #[test]
     fn test_postgres_realtime_sql_contracts_are_compiled_with_runtime_module() {
-        assert_eq!(realtime_postgres_sql_contracts().len(), 21);
-        assert_eq!(realtime_postgres_sql_contract_specs().len(), 21);
+        assert_eq!(realtime_postgres_sql_contracts().len(), 22);
+        assert_eq!(realtime_postgres_sql_contract_specs().len(), 22);
         assert_eq!(realtime_postgres_transaction_plans().len(), 6);
-        assert_eq!(realtime_postgres_adapter_plan().method_plans.len(), 21);
+        assert_eq!(realtime_postgres_adapter_plan().method_plans.len(), 22);
         assert!(
             realtime_postgres_sql_contracts()
                 .iter()

@@ -34,6 +34,14 @@ import {
 // history stays reachable through the server cursor; beyond this cap the
 // oldest entries are trimmed so deep browsing cannot accumulate unbounded
 // memory (the newest messages are never dropped).
+/** Compares non-negative decimal integer strings without precision loss. */
+function compareSeqStrings(a: string, b: string | null): number {
+  const aNorm = a.replace(/^0+(?=\d)/u, "");
+  const bNorm = (b ?? "").replace(/^0+(?=\d)/u, "");
+  if (aNorm.length !== bNorm.length) return aNorm.length - bNorm.length;
+  return aNorm < bNorm ? -1 : aNorm > bNorm ? 1 : 0;
+}
+
 const MAX_RENDERED_MESSAGES = 500;
 
 export function ChatDetail() {
@@ -77,7 +85,9 @@ export function ChatDetail() {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const recordingTimer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
-  const lastReadWatermarkRef = useRef(0);
+  // int64 watermarks arrive as decimal strings; compare without Number()
+  // so the guard stays correct for any magnitude.
+  const lastReadWatermarkRef = useRef<string | null>(null);
   const chatIdRef = useRef(chatId);
   // Monotonic load generation: a fresh page load, a cursor (older history)
   // load, or a chat switch supersedes any in-flight request, so stale
@@ -109,7 +119,11 @@ export function ChatDetail() {
       setLoadError(false);
       setMessages((previous) => mergeMessages(cursor ? previous : [], page.items));
       setNextCursor(page.hasMore ? page.nextCursor : undefined);
-      if (!cursor && page.highWatermark > lastReadWatermarkRef.current) {
+      if (
+        !cursor &&
+        page.highWatermark.length > 0 &&
+        compareSeqStrings(page.highWatermark, lastReadWatermarkRef.current) > 0
+      ) {
         lastReadWatermarkRef.current = page.highWatermark;
         await ChatService.markAsRead(requestChatId);
       }
@@ -128,7 +142,7 @@ export function ChatDetail() {
     if (!chatId) return undefined;
     // Per-conversation read watermark: reset when switching chats so the new
     // conversation always commits its read cursor.
-    lastReadWatermarkRef.current = 0;
+    lastReadWatermarkRef.current = null;
     void Promise.all([ChatService.getChatById(chatId), ChatService.getEmojis()]).then(([value, emojiList]) => {
       if (chatIdRef.current !== chatId) return;
       if (value) {
@@ -443,7 +457,9 @@ export function ChatDetail() {
             })()}
           </span>
           <span className="text-[12px] text-text-sub shrink-0">
-            {pinnedMessageIds.length > 1 ? `${pinnedMessageIds.length} 条` : ""}
+            {pinnedMessageIds.length > 1
+              ? t("chat.detail.pinned_count", "{{count}} pinned", { count: pinnedMessageIds.length })
+              : ""}
           </span>
         </button>
       )}
@@ -543,10 +559,15 @@ export function ChatDetail() {
             setContextMenu((value) => ({ ...value, isOpen: false }));
             return;
           }
-          void ChatService.deleteMessage(chatId, messageId).then(() => {
-            setMessages((previous) => previous.filter((item) => item.id !== messageId));
-            setContextMenu((value) => ({ ...value, isOpen: false }));
-          });
+          void ChatService.deleteMessage(chatId, messageId)
+            .then(() => {
+              setMessages((previous) => previous.filter((item) => item.id !== messageId));
+              setContextMenu((value) => ({ ...value, isOpen: false }));
+            })
+            .catch((error) => {
+              console.error(error);
+              showToast(t("chat.detail.delete_failed", "Unable to delete message"));
+            });
         }}
         onEdit={(messageId) => {
           const message = messages.find((item) => item.id === messageId);

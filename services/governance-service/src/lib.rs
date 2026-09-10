@@ -11,6 +11,7 @@ mod error;
 mod handlers;
 mod helpers;
 mod openapi;
+pub mod route_manifest;
 mod state;
 
 pub use app::{

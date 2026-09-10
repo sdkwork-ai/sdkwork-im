@@ -54,7 +54,7 @@ Use the control-plane API docs as the semantic authority first:
 
 1. Read this overview and the linked control-plane operation groups for request, response, and permission behavior.
 2. Use [Backend SDK](/sdk/backend-sdk) to confirm package boundaries, source-of-truth files, and release-state limits.
-3. Treat `/backend/v3/api/control/*` and `/backend/v3/api/admin/*` as modules of the same backend SDK family.
+3. Treat `/backend/v3/api/control/*` as a module of the same backend SDK family.
 
 ## What To Read Next
 

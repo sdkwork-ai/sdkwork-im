@@ -68,7 +68,7 @@ impl ConversationStateService {
         organization_id: &str,
         conversation_id: &str,
         message_id: &str,
-    ) -> i32 {
+    ) -> u64 {
         lock_conversation_state_mutex(&self.entries, "conversation_state store")
             .get(scope_key(tenant_id, organization_id, conversation_id).as_str())
             .and_then(|timeline| {
@@ -77,7 +77,6 @@ impl ConversationStateService {
                     .find(|entry| entry.message_id == message_id)
                     .map(|entry| entry.message_seq)
             })
-            .map(|seq| seq.min(i32::MAX as u64) as i32)
             .unwrap_or(0)
     }
 
@@ -131,7 +130,9 @@ impl ConversationStateService {
             tenant_id: tenant_id.to_owned(),
             conversation_id: conversation_id.clone(),
             message_id: message_id.to_owned(),
-            message_seq,
+            // Internal-only snapshot (HTTP delete returns 204): keep the legacy
+            // i32 storage width with a saturating clamp on the u64 timeline seq.
+            message_seq: message_seq.min(i32::MAX as u64) as i32,
             principal_kind: principal_kind.to_owned(),
             principal_id: principal_id.to_owned(),
             is_deleted: true,

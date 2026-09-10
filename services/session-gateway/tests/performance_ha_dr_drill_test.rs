@@ -160,7 +160,7 @@ fn test_step11_ha_dr_baseline_config_is_frozen() {
 fn test_step11_ha_dr_drain_rebalance_emits_metrics() {
     let baseline = load_drill_baseline();
     let started = Instant::now();
-    let cluster = RealtimeClusterBridge::default();
+    let cluster = Arc::new(RealtimeClusterBridge::default());
     let runtime_a = Arc::new(
         RealtimeDeliveryRuntime::with_durable_stores_for_standalone_gateway(
             Arc::new(MemoryRealtimeCheckpointStore::default()),
@@ -223,6 +223,7 @@ fn test_step11_ha_dr_drain_rebalance_emits_metrics() {
         "c_step11_ha",
         "message.posted",
         r#"{"messageId":"msg_step11_ha_dr"}"#.into(),
+        "durable",
     );
 
     let drill_duration_ms = round3(started.elapsed().as_secs_f64() * 1000.0);
@@ -249,7 +250,7 @@ fn test_step11_ha_dr_drain_rebalance_emits_metrics() {
 fn test_step11_ha_dr_failover_emits_metrics() {
     let baseline = load_drill_baseline();
     let started = Instant::now();
-    let cluster = RealtimeClusterBridge::default();
+    let cluster = Arc::new(RealtimeClusterBridge::default());
     let runtime_a = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
     let runtime_b = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
     cluster.bind_node_runtime("node_a", runtime_a);
@@ -297,7 +298,7 @@ fn test_step11_ha_dr_failover_emits_metrics() {
 
 #[test]
 fn test_step11_ha_dr_stale_session_fence_emits_metrics() {
-    let cluster = RealtimeClusterBridge::default();
+    let cluster = Arc::new(RealtimeClusterBridge::default());
     let runtime_a = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
     let runtime_b = Arc::new(RealtimeDeliveryRuntime::permissive_for_tests());
     cluster.bind_node_runtime("node_a", runtime_a);

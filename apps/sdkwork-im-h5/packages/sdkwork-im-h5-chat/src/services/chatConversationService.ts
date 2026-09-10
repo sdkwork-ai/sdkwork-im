@@ -69,10 +69,10 @@ export function createChatConversationService(
 
     async markConversationRead(
       conversationId: string,
-      readSeq: number,
+      readSeq: string,
     ): Promise<void> {
-      if (!Number.isSafeInteger(readSeq) || readSeq < 0) {
-        throw new RangeError("Conversation read sequence must be a non-negative safe integer.");
+      if (!/^\d+$/u.test(readSeq)) {
+        throw new RangeError("Conversation read sequence must be a non-negative decimal integer string.");
       }
       const client = resolveClient();
       await client.conversations.updateReadCursor(conversationId, { readSeq });
@@ -116,7 +116,7 @@ export async function postText(
 
 export async function markConversationRead(
   conversationId: string,
-  readSeq: number,
+  readSeq: string,
 ): Promise<void> {
   return chatConversationService.markConversationRead(conversationId, readSeq);
 }

@@ -19,6 +19,8 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(scriptDir, '..');
 const yaml = await loadGeneratorYaml(workspaceRoot);
 const derived = cloneOpenApiJson(loadOpenApiDocument({ prefix, filePath: path.resolve(args.base), yaml }));
-applySdkworkV3OpenApiStandard(derived, { authProfile: 'api-key-or-dual-token' });
+// TECH_ARCHITECTURE.md §4: backend-api is dual-token-only (HttpRoute::dual_token); the
+// derived sdkgen input must not inject ApiKey security alternatives.
+applySdkworkV3OpenApiStandard(derived);
 writeOpenApiYamlDocument({ filePath: path.resolve(args.derived), document: derived, yaml });
 process.stdout.write(args.preferDerived ? path.resolve(args.derived) : path.resolve(args.base));

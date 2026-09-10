@@ -1,4 +1,23 @@
 {
+  "//": [
+    "Sibling-repo type scoping (PNPM_WORKSPACE_DEPENDENCY_SPEC: consumers",
+    "typecheck their own program; siblings are consumed via their public",
+    "types). The packages scoped to ./types/siblings below publish raw TS",
+    "sources (exports/types -> ./src/index.ts) and ship no dist declarations,",
+    "so importing them pulled the sibling's whole source graph into this",
+    "program and surfaced the sibling's own type debt (uninstalled sibling",
+    "deps, implicit anys, stale SDK members) as PC errors. `exclude` cannot",
+    "fix that (imported files enter the program regardless) and skipLibCheck",
+    "only skips .d.ts, so each graph is snapshotted to consumer-owned",
+    "declarations generated from the sibling's real sources. These paths",
+    "entries scope TYPECHECK only: scripts/dev/run-tsx-cli.mjs strips",
+    "types/siblings scopes for test runs so runtime keeps resolving the real",
+    "workspace packages through node_modules, and Vite builds never read this",
+    "tsconfig (aliases resolve the real sources). `types/siblings` is excluded",
+    "so snapshots are never program roots. The snapshots are committed;",
+    "regenerate them after a sibling's public surface changes."
+  ],
+  "//regen": "node scripts/dev/gen-sibling-type-decls.mjs --app apps/sdkwork-im-pc --out types/siblings --package @sdkwork/agents-pc-core --deep @sdkwork/agents-pc-core --package @sdkwork/course-pc-console --package @sdkwork/course-pc-course --package @sdkwork/order-pc-checkout --package @sdkwork/order-app-sdk --source @sdkwork/order-app-sdk=/e/sdkwork-space/sdkwork-order/sdks/sdkwork-order-app-sdk/sdkwork-order-app-sdk-typescript",
   "compilerOptions": {
     "target": "ES2022",
     "experimentalDecorators": true,
@@ -63,10 +82,34 @@
         "./../../../sdkwork-course/apps/sdkwork-course-pc/packages/sdkwork-course-pc-console/src/index.ts"
       ],
       "@sdkwork/course-pc-course": [
-        "./../../../sdkwork-course/apps/sdkwork-course-pc/packages/sdkwork-course-pc-course/src/index.ts"
+        "./types/siblings/@sdkwork/course-pc-course/src/index.d.ts"
       ],
-      "@sdkwork/course-runtime": [
-        "./../../../sdkwork-course/apps/sdkwork-course-common/packages/sdkwork-course-runtime/src/index.ts"
+      "@sdkwork/course-pc-course/*": [
+        "./types/siblings/@sdkwork/course-pc-course/src/*"
+      ],
+      "@sdkwork/course-pc-console": [
+        "./types/siblings/@sdkwork/course-pc-console/src/index.d.ts"
+      ],
+      "@sdkwork/course-pc-console/*": [
+        "./types/siblings/@sdkwork/course-pc-console/src/*"
+      ],
+      "@sdkwork/agents-pc-core": [
+        "./types/siblings/@sdkwork/agents-pc-core/src/index.d.ts"
+      ],
+      "@sdkwork/agents-pc-core/*": [
+        "./types/siblings/@sdkwork/agents-pc-core/src/*"
+      ],
+      "@sdkwork/order-pc-checkout": [
+        "./types/siblings/@sdkwork/order-pc-checkout/src/index.d.ts"
+      ],
+      "@sdkwork/order-pc-checkout/*": [
+        "./types/siblings/@sdkwork/order-pc-checkout/src/*"
+      ],
+      "@sdkwork/order-app-sdk": [
+        "./types/siblings/@sdkwork/order-app-sdk/src/index.d.ts"
+      ],
+      "@sdkwork/order-app-sdk/*": [
+        "./types/siblings/@sdkwork/order-app-sdk/src/*"
       ],
       "@sdkwork/course-sdk-ports": [
         "./../../../sdkwork-course/apps/sdkwork-course-common/packages/sdkwork-course-sdk-ports/src/index.ts"
@@ -123,7 +166,10 @@
         "../../../sdkwork-notary/sdks/sdkwork-notary-app-sdk/sdkwork-notary-app-sdk-typescript/src/index.ts"
       ],
       "@sdkwork/order-app-sdk": [
-        "./../../../sdkwork-order/sdks/sdkwork-order-app-sdk/sdkwork-order-app-sdk-typescript/src/index.ts"
+        "./types/siblings/@sdkwork/order-app-sdk/src/index.d.ts"
+      ],
+      "@sdkwork/order-app-sdk/*": [
+        "./types/siblings/@sdkwork/order-app-sdk/src/*"
       ],
       "@sdkwork/shop-app-sdk": [
         "./../../../sdkwork-shop/sdks/sdkwork-shop-app-sdk/sdkwork-shop-app-sdk-typescript/src/index.ts"
@@ -189,6 +235,7 @@
     "node_modules.*",
     ".vite",
     "tmp",
-    "target"
+    "target",
+    "types/siblings"
   ]
 }

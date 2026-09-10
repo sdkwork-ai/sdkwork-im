@@ -40,6 +40,7 @@ import { createChatMediaDownloadUrl, uploadChatMedia, type ChatMediaUpload } fro
 const LEGACY_CHAT_PAGE_SIZE = 50;
 const MAX_SEARCH_MESSAGE_LOOKUP_PAGES = 10;
 const MAX_MEMBER_LOOKUP_PAGES = 20;
+const MAX_FAVORITE_LOOKUP_PAGES = 20;
 
 /**
  * Wire-level view of a conversation member. The conversation runtime returns
@@ -94,7 +95,8 @@ export interface ChatPage {
 export interface MessagePage {
   items: Message[];
   hasMore: boolean;
-  highWatermark: number;
+  /** int64-as-string per the wire contract; only echoed back, never used in arithmetic. */
+  highWatermark: string;
   nextCursor?: string;
 }
 
@@ -111,7 +113,8 @@ export interface ChatSdkPort {
     ): Promise<unknown>;
     create(body: CreateConversationRequest): Promise<CreateConversationResult>;
     getCurrentMember?(conversationId: string): Promise<ConversationMember>;
-    getSummary?(conversationId: string): Promise<{ conversationId: string; messageCount: number; lastMessageSeq: number; lastSummary?: string | null; lastMessageAt?: string | null }>;
+    // lastMessageSeq is int64-as-string per the wire contract (API_SPEC §13.6).
+    getSummary?(conversationId: string): Promise<{ conversationId: string; messageCount: number; lastMessageSeq: string; lastSummary?: string | null; lastMessageAt?: string | null }>;
     leave?(conversationId: string): Promise<unknown>;
     list(params?: { cursor?: string; pageSize?: number; q?: string; conversationType?: string }): Promise<ConversationInboxPage>;
     listPinnedMessages?(conversationId: string): Promise<PinnedMessagesResponse>;
@@ -137,7 +140,7 @@ export interface ChatSdkPort {
       conversationId: string,
       body: UpdateConversationProfileRequest,
     ): Promise<ConversationProfileView>;
-    updateReadCursor(conversationId: string, body: { readSeq: number }): Promise<unknown>;
+    updateReadCursor(conversationId: string, body: { readSeq: string }): Promise<unknown>;
   };
   messages: {
     deleteForMe(messageId: string): Promise<void>;
@@ -688,7 +691,7 @@ export function createChatService(
 
       let cursor: string | undefined;
       const visitedCursors = new Set<string>();
-      do {
+      for (let depth = 0; depth < MAX_FAVORITE_LOOKUP_PAGES; depth += 1) {
         const page = await resolveCmsClient().favorites.list({
           pageSize: Math.min(LEGACY_CHAT_PAGE_SIZE, MAX_LIST_PAGE_SIZE),
           ...(cursor ? { cursor } : {}),
@@ -701,14 +704,20 @@ export function createChatService(
           return;
         }
         cursor = page.pageInfo.hasMore ? page.pageInfo.nextCursor ?? undefined : undefined;
-        if (cursor) {
-          if (visitedCursors.has(cursor)) {
-            throw new Error("CMS message favorites returned a repeated cursor.");
-          }
-          visitedCursors.add(cursor);
+        if (!cursor) {
+          throw new Error(`Favorite not found for message ${messageId}.`);
         }
-      } while (cursor);
-      throw new Error(`Favorite not found for message ${messageId}.`);
+        if (visitedCursors.has(cursor)) {
+          throw new Error("CMS message favorites returned a repeated cursor.");
+        }
+        visitedCursors.add(cursor);
+      }
+      // Bounded scan (same page-count guard as MAX_MEMBER_LOOKUP_PAGES):
+      // exceeding the cap must fail loudly instead of reporting a fabricated
+      // "favorite not found" for a page that was never fetched.
+      throw new Error(
+        `CMS message favorites scan exceeded ${MAX_FAVORITE_LOOKUP_PAGES} pages without resolving message ${messageId}.`,
+      );
     },
 
     async getEmojis(): Promise<string[]> {

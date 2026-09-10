@@ -7,6 +7,10 @@ export const sdkFamilyConfig = {
   sdkTarget: 'im',
   sdkType: 'im',
   apiAuthority: 'sdkwork-im.im',
+  // The public open-api surface authenticates via RouteAuth::api_key_or_dual_token, so its
+  // operations carry the ApiKey plus dual-token alternatives requirement (unlike the
+  // dual-token-only backend/app families; TECH_ARCHITECTURE.md §4).
+  authSurface: 'api-key-or-dual-token',
   ownsIdentityLifecycle: false,
   generatedApiLabel: 'Sdkwork IM IM standardized development API',
   primaryClient: 'SdkworkImClient',
@@ -39,7 +43,6 @@ export const sdkFamilyConfig = {
     '/im/v3/api/chat/messages/{messageId}/edit',
     '/im/v3/api/social/friend_requests',
     '/im/v3/api/calls/sessions',
-    '/im/v3/api/streams',
   ],
   forbiddenPathParts: [
     marker('/api', '/v1'),

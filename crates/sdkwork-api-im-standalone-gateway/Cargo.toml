@@ -2,6 +2,7 @@
 name = "sdkwork-api-im-standalone-gateway"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 description = "Canonical standalone HTTP gateway for the SDKWork IM application API assembly."
 
@@ -27,6 +28,7 @@ sdkwork_iam_web_adapter.workspace = true
 sdkwork_im_service_readiness = { workspace = true }
 sdkwork_im_iam_application_bootstrap = { workspace = true }
 session-gateway = { path = "../../services/session-gateway" }
+sdkwork_utils_rust.workspace = true
 sdkwork_web_axum.workspace = true
 sdkwork_web_core.workspace = true
 tokio = { version = "1.48", features = ["rt-multi-thread", "net", "signal"] }

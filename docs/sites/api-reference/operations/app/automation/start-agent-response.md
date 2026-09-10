@@ -15,7 +15,7 @@
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-post">POST</span>
   <code>/app/v3/api/automation/agent_responses</code>
-  <span class="api-op-id">operationId: automation.agentResponses.create</span>
+  <span class="api-op-id">operationId: agentResponses.create</span>
 </div>
 
 Starts an agent response stream for an automation execution.

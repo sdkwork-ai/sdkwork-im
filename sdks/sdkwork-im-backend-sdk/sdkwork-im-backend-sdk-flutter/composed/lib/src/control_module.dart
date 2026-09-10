@@ -181,6 +181,22 @@ class ImBackendControlModule {
     return context.transportClient.control.socialFriendRequestsCreate(body);
   }
 
+  Future<SocialFriendRequestsListResponse?> socialFriendRequestsList(
+    String userId,
+    String direction, [
+    String? status,
+    int? pageSize,
+    String? cursor,
+  ]) {
+    return context.transportClient.control.socialFriendRequestsList(
+      userId,
+      direction,
+      status,
+      pageSize,
+      cursor,
+    );
+  }
+
   Future<SocialFriendRequestSnapshotResponse?> socialFriendRequestsRetrieve(
     String requestId,
   ) {

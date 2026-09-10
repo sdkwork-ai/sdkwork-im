@@ -99,15 +99,25 @@ impl RuntimeDirInspectionView {
 #[serde(rename_all = "camelCase")]
 pub struct RetentionPurgeResponse {
     pub generated_at: String,
+    #[serde(with = "sdkwork_utils_rust::serde_int64")]
     pub batch_size: i64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub commit_journal_deleted: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub conversation_messages_deleted: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub message_media_refs_deleted: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub outbox_events_deleted: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub inbox_events_deleted: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub realtime_device_events_deleted: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub rtc_sessions_deleted: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub invitations_deleted: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub audit_records_deleted: u64,
 }
 
@@ -131,8 +141,10 @@ pub struct RealtimeInboxDiagnosticsView {
     pub max_client_route_window_event_count: u64,
     pub client_route_window_capacity: u64,
     pub max_client_route_window_usage_permille: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub max_trimmed_through_seq: u64,
     pub capacity_trimmed_event_count: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub max_capacity_trimmed_through_seq: u64,
     pub last_capacity_trimmed_at: Option<String>,
     pub oldest_pending_occurred_at: Option<String>,
@@ -147,8 +159,10 @@ pub struct RealtimeInboxHighRiskWindowView {
     pub principal_id: String,
     pub device_id: String,
     pub pending_event_count: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub trimmed_through_seq: u64,
     pub capacity_trimmed_event_count: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub capacity_trimmed_through_seq: u64,
     pub last_capacity_trimmed_at: Option<String>,
     pub usage_permille: u64,
@@ -263,7 +277,17 @@ pub struct JournalReplayStatusView {
     pub mode: String,
     pub database_configured: bool,
     pub journal_ready: bool,
+    #[serde(
+        with = "sdkwork_utils_rust::serde_uint64::option",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub total_commits: Option<u64>,
+    #[serde(
+        with = "sdkwork_utils_rust::serde_int64::option",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub head_commit_offset: Option<i64>,
     pub latest_occurred_at: Option<String>,
     pub detail: Option<String>,

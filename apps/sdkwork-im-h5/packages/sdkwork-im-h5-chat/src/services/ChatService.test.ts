@@ -63,7 +63,7 @@ function messageEntry(overrides: Partial<ConversationMessageEntry> = {}): Conver
     tenantId: "tenant-1",
     conversationId: "conversation-1",
     messageId: "message-1",
-    messageSeq: 1,
+    messageSeq: "1",
     summary: "Hello",
     sender: { id: "user-1", kind: "user", displayName: "User" },
     body: { text: "Hello", parts: [] },
@@ -109,13 +109,13 @@ function createSdk(overrides: ChatSdkOverrides = {}): ChatSdkPort {
       listMessages: async () => ({
         items: [],
         pageInfo: { mode: "cursor", hasMore: false },
-        highWatermark: 0,
+        highWatermark: "0",
       }),
       postText: async () => ({
         deliveryStatus: "applied",
         eventId: "event-message",
         messageId: "message-1",
-        messageSeq: 1,
+        messageSeq: "1",
       }),
       updatePreferences: async () => ({}),
       updateReadCursor: async () => ({}),
@@ -132,7 +132,7 @@ function createSdk(overrides: ChatSdkOverrides = {}): ChatSdkPort {
           favoriteType: "chat",
           conversationId: "conversation-1",
           messageId: "message-1",
-          messageSeq: 1,
+          messageSeq: "1",
           title: "Hello",
           contentPreview: "Hello",
           sourceDisplayName: "User",
@@ -171,7 +171,7 @@ test("lists one bounded server cursor page", async () => {
             displayName: "Support",
             lastActivityAt: "2026-07-29T00:00:00Z",
             messageCount: 0,
-            lastMessageSeq: 0,
+            lastMessageSeq: "0",
             unreadCount: 0,
           }],
           pageInfo: { mode: "cursor", hasMore: false },
@@ -200,7 +200,7 @@ test("forwards conversation type filter to the server page", async () => {
             displayName: "Team",
             lastActivityAt: "2026-07-29T00:00:00Z",
             messageCount: 0,
-            lastMessageSeq: 0,
+            lastMessageSeq: "0",
             unreadCount: 0,
           }],
           pageInfo: { mode: "cursor", hasMore: false },
@@ -238,7 +238,7 @@ test("returns the server message after posting text", async () => {
           deliveryStatus: "applied",
           eventId: "event-message",
           messageId: "message-1",
-          messageSeq: 1,
+          messageSeq: "1",
         };
       },
       listMessages: async () => ({
@@ -246,7 +246,7 @@ test("returns the server message after posting text", async () => {
           tenantId: "tenant-1",
           conversationId: "conversation-1",
           messageId: "message-1",
-          messageSeq: 1,
+          messageSeq: "1",
           sender: { id: "user-1", kind: "user" },
           body: { text: "Hello", parts: [] },
           messageType: "standard",
@@ -254,7 +254,7 @@ test("returns the server message after posting text", async () => {
           occurredAt: "2026-07-29T00:00:00Z",
         }],
         pageInfo: { mode: "cursor", hasMore: false },
-        highWatermark: 1,
+        highWatermark: "1",
       }),
     },
   }));
@@ -279,7 +279,7 @@ test("reuses the caller-provided clientMsgId for postText", async () => {
           deliveryStatus: "applied",
           eventId: "event-message",
           messageId: "message-1",
-          messageSeq: 1,
+          messageSeq: "1",
         };
       },
       listMessages: async () => ({
@@ -287,7 +287,7 @@ test("reuses the caller-provided clientMsgId for postText", async () => {
           tenantId: "tenant-1",
           conversationId: "conversation-1",
           messageId: "message-1",
-          messageSeq: 1,
+          messageSeq: "1",
           sender: { id: "user-1", kind: "user" },
           body: { text: "Hello", parts: [] },
           messageType: "standard",
@@ -295,7 +295,7 @@ test("reuses the caller-provided clientMsgId for postText", async () => {
           occurredAt: "2026-07-29T00:00:00Z",
         }],
         pageInfo: { mode: "cursor", hasMore: false },
-        highWatermark: 1,
+        highWatermark: "1",
       }),
     },
   }));
@@ -318,7 +318,7 @@ test("generates a fresh clientMsgId when the caller provides none", async () => 
           deliveryStatus: "applied",
           eventId: "event-message",
           messageId: "message-1",
-          messageSeq: 1,
+          messageSeq: "1",
         };
       },
       listMessages: async () => ({
@@ -326,7 +326,7 @@ test("generates a fresh clientMsgId when the caller provides none", async () => 
           tenantId: "tenant-1",
           conversationId: "conversation-1",
           messageId: "message-1",
-          messageSeq: 1,
+          messageSeq: "1",
           sender: { id: "user-1", kind: "user" },
           body: { text: "Hello", parts: [] },
           messageType: "standard",
@@ -334,7 +334,7 @@ test("generates a fresh clientMsgId when the caller provides none", async () => 
           occurredAt: "2026-07-29T00:00:00Z",
         }],
         pageInfo: { mode: "cursor", hasMore: false },
-        highWatermark: 1,
+        highWatermark: "1",
       }),
     },
   }));
@@ -409,7 +409,7 @@ test("searches history through the SDK and maps hits to messages", async () => {
       search: async (params) => {
         receivedParams = params;
         return {
-          items: [{ conversationId: "conversation-1", messageId: "message-42", messageSeq: 5 }],
+          items: [{ conversationId: "conversation-1", messageId: "message-42", messageSeq: "5" }],
           pageInfo: { mode: "cursor", hasMore: false },
         };
       },
@@ -420,7 +420,7 @@ test("searches history through the SDK and maps hits to messages", async () => {
           tenantId: "tenant-1",
           conversationId: "conversation-1",
           messageId: "message-42",
-          messageSeq: 5,
+          messageSeq: "5",
           sender: { id: "user-1", kind: "user" },
           body: {
             parts: [{ kind: "text", text: "Hello world" }],
@@ -431,7 +431,7 @@ test("searches history through the SDK and maps hits to messages", async () => {
           occurredAt: "2026-07-29T00:00:00Z",
         }],
         pageInfo: { mode: "cursor", hasMore: false },
-        highWatermark: 5,
+        highWatermark: "5",
       }),
     },
   }));
@@ -449,8 +449,8 @@ test("searches history with a trimmed query and skips hits without history entri
     messages: {
       search: async () => ({
         items: [
-          { conversationId: "conversation-1", messageId: "message-42", messageSeq: 5 },
-          { conversationId: "conversation-1", messageId: "message-99", messageSeq: 9 },
+          { conversationId: "conversation-1", messageId: "message-42", messageSeq: "5" },
+          { conversationId: "conversation-1", messageId: "message-99", messageSeq: "9" },
         ],
         pageInfo: { mode: "cursor", hasMore: false },
       }),
@@ -461,7 +461,7 @@ test("searches history with a trimmed query and skips hits without history entri
           tenantId: "tenant-1",
           conversationId: "conversation-1",
           messageId: "message-42",
-          messageSeq: 5,
+          messageSeq: "5",
           sender: { id: "user-1", kind: "user" },
           body: {
             parts: [{ kind: "text", text: "Hello world" }],
@@ -472,7 +472,7 @@ test("searches history with a trimmed query and skips hits without history entri
           occurredAt: "2026-07-29T00:00:00Z",
         }],
         pageInfo: { mode: "cursor", hasMore: false },
-        highWatermark: 9,
+        highWatermark: "9",
       }),
     },
   }));
@@ -528,7 +528,7 @@ test("marks a conversation read at the server history high watermark", async () 
       listMessages: async () => ({
         items: [],
         pageInfo: { mode: "cursor", hasMore: false },
-        highWatermark: 42,
+        highWatermark: "42",
       }),
       updateReadCursor: async (_conversationId, body) => {
         readCursor = body;
@@ -538,7 +538,7 @@ test("marks a conversation read at the server history high watermark", async () 
   }));
 
   await service.markAsRead("conversation-1");
-  assert.deepEqual(readCursor, { readSeq: 42 });
+  assert.deepEqual(readCursor, { readSeq: "42" });
 });
 
 test("stars a message through the CMS favorites surface with derived type", async () => {
@@ -556,7 +556,7 @@ test("stars a message through the CMS favorites surface with derived type", asyn
             }),
           ],
           pageInfo: { mode: "cursor", hasMore: false },
-          highWatermark: 1,
+          highWatermark: "1",
         }),
       },
     }),
@@ -615,7 +615,7 @@ test("derives image favorite type from media message parts", async () => {
             }),
           ],
           pageInfo: { mode: "cursor", hasMore: false },
-          highWatermark: 1,
+          highWatermark: "1",
         }),
       },
     }),
@@ -721,7 +721,7 @@ test("maps a system-type message with a text part to a system message", async ()
           }),
         ],
         pageInfo: { mode: "cursor", hasMore: false },
-        highWatermark: 1,
+        highWatermark: "1",
       }),
     },
   }));
@@ -754,7 +754,7 @@ test("maps a data-part message to a system message with a derived summary", asyn
           }),
         ],
         pageInfo: { mode: "cursor", hasMore: false },
-        highWatermark: 1,
+        highWatermark: "1",
       }),
     },
   }));
@@ -789,7 +789,7 @@ test("keeps media messages media-typed even when the server declares them system
           }),
         ],
         pageInfo: { mode: "cursor", hasMore: false },
-        highWatermark: 1,
+        highWatermark: "1",
       }),
     },
   }));
@@ -805,7 +805,7 @@ test("recalls a message through the IM SDK", async () => {
     messages: {
       recall: async (messageId) => {
         calls.push(messageId);
-        return { conversationId: "conversation-1", eventId: "event-1", messageId, messageSeq: 1 };
+        return { conversationId: "conversation-1", eventId: "event-1", messageId, messageSeq: "1" };
       },
     },
   }));
@@ -828,13 +828,13 @@ test("edits a text message and re-reads it from history", async () => {
           }),
         ],
         pageInfo: { mode: "cursor", hasMore: false },
-        highWatermark: 1,
+        highWatermark: "1",
       }),
     },
     messages: {
       edit: async (_messageId, body) => {
         editedBody = body;
-        return { conversationId: "conversation-1", eventId: "event-1", messageId: "message-1", messageSeq: 2 };
+        return { conversationId: "conversation-1", eventId: "event-1", messageId: "message-1", messageSeq: "2" };
       },
     },
   }));
@@ -851,7 +851,7 @@ test("rejects editing with empty content before calling the SDK", async () => {
     messages: {
       edit: async () => {
         calls += 1;
-        return { conversationId: "conversation-1", eventId: "event-1", messageId: "message-1", messageSeq: 2 };
+        return { conversationId: "conversation-1", eventId: "event-1", messageId: "message-1", messageSeq: "2" };
       },
     },
   }));

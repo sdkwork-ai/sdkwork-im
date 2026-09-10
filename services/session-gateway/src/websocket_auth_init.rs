@@ -79,12 +79,37 @@ pub(crate) async fn realtime_websocket_after_auth_init_frame(
         }
     };
 
-    if let Err(error) =
-        state.prepare_active_client_route(&auth, device_id.as_str(), "websocket", false)
-    {
-        close_websocket_with_auth_error(&mut socket, &trace_id, error.code, error.message.as_str())
+    // Route bind performs blocking Redis/Postgres IO; run it on the
+    // blocking pool so it cannot stall the async reactor thread.
+    let blocking_state = state.clone();
+    let blocking_auth = auth.clone();
+    let blocking_device_id = device_id.clone();
+    let bind_result = tokio::task::spawn_blocking(move || {
+        blocking_state.prepare_active_client_route(
+            &blocking_auth,
+            blocking_device_id.as_str(),
+            "websocket",
+            false,
+        )
+    })
+    .await;
+    match bind_result {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => {
+            close_websocket_with_auth_error(&mut socket, &trace_id, error.code, error.message.as_str())
+                .await;
+            return;
+        }
+        Err(error) => {
+            close_websocket_with_auth_error(
+                &mut socket,
+                &trace_id,
+                "route_bind_join_failed",
+                &format!("route bind task failed: {error}"),
+            )
             .await;
-        return;
+            return;
+        }
     }
 
     let semaphore_permit = match acquire_websocket_connection_permit(&state) {

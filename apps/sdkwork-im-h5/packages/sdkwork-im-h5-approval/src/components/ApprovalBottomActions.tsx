@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 interface ApprovalBottomActionsProps {
   submitting: boolean;
@@ -9,6 +10,7 @@ export const ApprovalBottomActions: React.FC<ApprovalBottomActionsProps> = ({
   submitting,
   onAction,
 }) => {
+  const { t } = useTranslation();
   return (
     <div className="absolute bottom-0 left-0 right-0 bg-chat-other-bg border-t border-border-color/30 px-4 pt-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] flex gap-3 z-20">
       <button
@@ -16,14 +18,14 @@ export const ApprovalBottomActions: React.FC<ApprovalBottomActionsProps> = ({
         disabled={submitting}
         onClick={() => onAction("reject")}
       >
-        拒绝
+        {t("approval.detail.reject")}
       </button>
       <button
         className="flex-1 bg-primary-blue text-white rounded-lg py-3 font-medium active:bg-primary-blue/90 disabled:opacity-50"
         disabled={submitting}
         onClick={() => onAction("approve")}
       >
-        同意
+        {t("approval.detail.agree")}
       </button>
     </div>
   );

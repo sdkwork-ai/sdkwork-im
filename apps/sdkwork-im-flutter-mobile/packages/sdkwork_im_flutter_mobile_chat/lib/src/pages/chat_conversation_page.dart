@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../services/chat_conversation_service.dart';
 import '../services/chat_media_upload_service.dart';
 import '../services/chat_realtime_service.dart';
@@ -12,6 +13,9 @@ import '../services/client_message_id.dart';
 import '../services/offline_send_queue.dart';
 
 enum _MessageHistoryUpdateMode { replace, older, newer }
+
+/// Builds conversation copy at render time so stored errors stay localized.
+typedef _ErrorMessageBuilder = String Function(AppLocalizations l10n);
 
 class ChatConversationPage extends StatefulWidget {
   const ChatConversationPage({
@@ -51,7 +55,7 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
   bool _uploading = false;
   bool _sending = false;
   bool _liveConnected = false;
-  String? _error;
+  _ErrorMessageBuilder? _error;
   int _latestSeq = 0;
   bool _loadingOlderGuard = false;
 
@@ -121,11 +125,13 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
         mode: _MessageHistoryUpdateMode.replace,
       );
       if (!applied && mounted) {
-        setState(() => _error = 'Unable to retain the requested message page.');
+        setState(() => _error = (l10n) => l10n.messagePageRetainError);
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _error = 'Failed to load messages: $error');
+        setState(
+          () => _error = (l10n) => l10n.failedToLoadMessages(error.toString()),
+        );
       }
     } finally {
       if (mounted && !silent) {
@@ -184,7 +190,9 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
         mode: _MessageHistoryUpdateMode.older,
       );
       if (!applied) {
-        setState(() => _error = 'Unable to retain the earlier message page.');
+        setState(
+          () => _error = (l10n) => l10n.earlierMessagePageRetainError,
+        );
         return;
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -196,7 +204,10 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
       });
     } catch (error) {
       if (mounted) {
-        setState(() => _error = 'Failed to load earlier messages: $error');
+        setState(
+          () => _error =
+              (l10n) => l10n.failedToLoadEarlierMessages(error.toString()),
+        );
       }
     } finally {
       _loadingOlderGuard = false;
@@ -237,32 +248,39 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
 
   Future<void> _flushPendingSends() async {
     final tenantId = widget.session.tenantId;
-    await runPendingTextSendFlushForTenant(
+    await runPendingTextSendFlushForConversation(
       tenantId: tenantId,
+      conversationId: widget.conversationId,
       flush: (pending) async {
-        final scoped = pending
-            .where((payload) => payload.conversationId == widget.conversationId)
-            .toList();
-        if (scoped.isEmpty) {
-          return;
-        }
-        for (final payload in scoped) {
+        for (var index = 0; index < pending.length; index += 1) {
+          final payload = pending[index];
           try {
             await widget.conversationService.sendText(
               widget.conversationId,
               payload.text,
               clientMsgId: payload.clientMsgId,
             );
-            await removePendingTextSend(
-              tenantId: tenantId,
-              clientMsgId: payload.clientMsgId,
-            );
-          } catch (_) {
-            await releasePendingTextSendClaim(
+            final acknowledged = await acknowledgePendingTextSend(
               tenantId: tenantId,
               clientMsgId: payload.clientMsgId,
               claimId: payload.claimId,
             );
+            if (!acknowledged) {
+              // The claim lease expired and another flush re-claimed this
+              // record; stop so the current lease owner can finish it.
+              break;
+            }
+          } catch (_) {
+            // Retryable failure: release the failed record and the rest of
+            // the claimed batch so they are re-claimable immediately instead
+            // of waiting out the claim lease.
+            for (final stalled in pending.skip(index)) {
+              await releasePendingTextSendClaim(
+                tenantId: tenantId,
+                clientMsgId: stalled.clientMsgId,
+                claimId: stalled.claimId,
+              );
+            }
             break;
           }
         }
@@ -303,7 +321,12 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send message: $error')),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)
+                  .failedToSendMessage(error.toString()),
+            ),
+          ),
         );
       }
     } finally {
@@ -357,7 +380,12 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload image: $error')),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)
+                  .failedToUploadImage(error.toString()),
+            ),
+          ),
         );
       }
     } finally {
@@ -377,17 +405,22 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
 
   @override
   Widget build(BuildContext context) {
-    final heading = widget.title ?? 'Conversation ${widget.conversationId}';
+    final l10n = AppLocalizations.of(context);
+    final heading =
+        widget.title ?? l10n.conversationTitleFallback(widget.conversationId);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(heading),
         actions: [
           if (_liveConnected)
-            const Padding(
-              padding: EdgeInsets.only(right: 12),
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
               child: Center(
-                child: Text('Live', style: TextStyle(fontSize: 12)),
+                child: Text(
+                  l10n.liveBadge,
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
             ),
         ],
@@ -398,9 +431,9 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                    ? Center(child: Text(_error!))
+                    ? Center(child: Text(_error!(l10n)))
                     : _entries.isEmpty
-                        ? const Center(child: Text('No messages yet.'))
+                        ? Center(child: Text(l10n.messagesEmpty))
                         : ListView.separated(
                             controller: _scrollController,
                             padding: const EdgeInsets.all(16),
@@ -456,9 +489,9 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
                       controller: _composerController,
                       minLines: 1,
                       maxLines: 4,
-                      decoration: const InputDecoration(
-                        hintText: 'Type a message',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        hintText: l10n.composerHint,
+                        border: const OutlineInputBorder(),
                       ),
                       onSubmitted: (_) => _handleSend(),
                     ),
@@ -466,7 +499,7 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
                   const SizedBox(width: 8),
                   FilledButton(
                     onPressed: _sending ? null : _handleSend,
-                    child: Text(_sending ? 'Sending…' : 'Send'),
+                    child: Text(_sending ? l10n.sending : l10n.send),
                   ),
                 ],
               ),

@@ -33,6 +33,7 @@ pub struct StartAgentResponseRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppendAgentResponseDeltaRequest {
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub frame_seq: u64,
     pub frame_type: String,
     pub schema_ref: Option<String>,
@@ -45,6 +46,7 @@ pub struct AppendAgentResponseDeltaRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompleteAgentResponseRequest {
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub frame_seq: u64,
     pub result_message_id: Option<String>,
 }

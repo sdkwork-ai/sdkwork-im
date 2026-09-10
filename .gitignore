@@ -129,3 +129,6 @@ scripts/dev/_tmp-*
 
 # Local build artifacts / workspace junk (auto-sync)
 .workbuddy/
+
+# SDKWork generated SDK outputs (regenerated locally, not committed)
+sdks/**/generated/

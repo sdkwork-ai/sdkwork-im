@@ -14,17 +14,17 @@ the contract authority; SDK-family OpenAPI under `sdks/` is a deterministic mate
 
 | Surface | Prefix | Operations | Authored authority | SDK authority | SDK family |
 | --- | --- | ---: | --- | --- | --- |
-| Open API | `/im/v3/api` | 138 | `apis/open-api/im/sdkwork-im-im.openapi.yaml` | `sdks/sdkwork-im-sdk/openapi/sdkwork-im-im.openapi.yaml` | `sdkwork-im-sdk` |
-| App API | `/app/v3/api` | 25 | `apis/app-api/communication/sdkwork-im-app-api.openapi.yaml` | `sdks/sdkwork-im-app-sdk/openapi/sdkwork-im-app-api.openapi.yaml` | `sdkwork-im-app-sdk` |
-| Backend API | `/backend/v3/api` | 114 | `apis/backend-api/communication/sdkwork-im-backend-api.openapi.yaml` | `sdks/sdkwork-im-backend-sdk/openapi/sdkwork-im-backend-api.openapi.yaml` | `sdkwork-im-backend-sdk` |
-| **Total** | - | **277** | - | - | - |
+| Open API | `/im/v3/api` | 132 | `apis/open-api/im/sdkwork-im-im.openapi.yaml` | `sdks/sdkwork-im-sdk/openapi/sdkwork-im-im.openapi.yaml` | `sdkwork-im-sdk` |
+| App API | `/app/v3/api` | 24 | `apis/app-api/communication/sdkwork-im-app-api.openapi.yaml` | `sdks/sdkwork-im-app-sdk/openapi/sdkwork-im-app-api.openapi.yaml` | `sdkwork-im-app-sdk` |
+| Backend API | `/backend/v3/api` | 58 | `apis/backend-api/communication/sdkwork-im-backend-api.openapi.yaml` | `sdks/sdkwork-im-backend-sdk/openapi/sdkwork-im-backend-api.openapi.yaml` | `sdkwork-im-backend-sdk` |
+| **Total** | - | **211** | - | - | - |
 
 ## Operation Inventory
 
 Each row is extracted from the authored OpenAPI `paths` object. Method, path, and `operationId`
 are public contract identifiers and must change at the OpenAPI source before this file is regenerated.
 
-### Open API (138)
+### Open API (132)
 
 | Method | Path | operationId |
 | --- | --- | --- |
@@ -85,7 +85,7 @@ are public contract identifiers and must change at the OpenAPI source before thi
 | `DELETE` | `/im/v3/api/chat/messages/{messageId}/visibility` | `messages.visibility.delete` |
 | `GET` | `/im/v3/api/chat/messages/favorites` | `messages.favorites.list` |
 | `DELETE` | `/im/v3/api/chat/messages/favorites/{favoriteId}` | `messages.favorites.delete` |
-| `GET` | `/im/v3/api/chat/messages/search` | `messages.search` |
+| `GET` | `/im/v3/api/chat/messages/search` | `messages.search.list` |
 | `POST` | `/im/v3/api/chat/rooms` | `rooms.create` |
 | `GET` | `/im/v3/api/chat/rooms/{roomId}` | `rooms.retrieve` |
 | `POST` | `/im/v3/api/chat/rooms/{roomId}/enter` | `rooms.enter` |
@@ -160,24 +160,18 @@ are public contract identifiers and must change at the OpenAPI source before thi
 | `GET` | `/im/v3/api/spaces/{spaceId}/members/{userId}` | `spaces.members.retrieve` |
 | `PATCH` | `/im/v3/api/spaces/{spaceId}/members/{userId}` | `spaces.members.update` |
 | `DELETE` | `/im/v3/api/spaces/{spaceId}/members/{userId}` | `spaces.members.delete` |
-| `POST` | `/im/v3/api/streams` | `streams.create` |
-| `POST` | `/im/v3/api/streams/{streamId}/abort` | `streams.abort` |
-| `POST` | `/im/v3/api/streams/{streamId}/checkpoint` | `streams.checkpoint` |
-| `POST` | `/im/v3/api/streams/{streamId}/complete` | `streams.complete` |
-| `GET` | `/im/v3/api/streams/{streamId}/frames` | `streams.frames.list` |
-| `POST` | `/im/v3/api/streams/{streamId}/frames` | `streams.frames.create` |
 
-### App API (25)
+### App API (24)
 
 | Method | Path | operationId |
 | --- | --- | --- |
-| `POST` | `/app/v3/api/automation/agent_responses` | `automation.agentResponses.create` |
-| `POST` | `/app/v3/api/automation/agent_responses/{streamId}/complete` | `automation.agentResponses.complete` |
-| `POST` | `/app/v3/api/automation/agent_responses/{streamId}/frames` | `automation.agentResponses.frames.create` |
-| `POST` | `/app/v3/api/automation/agent_tool_calls` | `automation.agentToolCalls.create` |
-| `POST` | `/app/v3/api/automation/executions` | `automation.executions.create` |
-| `GET` | `/app/v3/api/automation/executions/{executionId}` | `automation.executions.retrieve` |
-| `POST` | `/app/v3/api/automation/executions/{executionId}/agent_tool_calls/{toolCallId}/complete` | `automation.agentToolCalls.complete` |
+| `POST` | `/app/v3/api/automation/agent_responses` | `agentResponses.create` |
+| `POST` | `/app/v3/api/automation/agent_responses/{streamId}/complete` | `agentResponses.complete` |
+| `POST` | `/app/v3/api/automation/agent_responses/{streamId}/frames` | `agentResponses.frames.create` |
+| `POST` | `/app/v3/api/automation/agent_tool_calls` | `agentToolCalls.create` |
+| `POST` | `/app/v3/api/automation/executions` | `executions.create` |
+| `GET` | `/app/v3/api/automation/executions/{executionId}` | `executions.retrieve` |
+| `POST` | `/app/v3/api/automation/executions/{executionId}/agent_tool_calls/{toolCallId}/complete` | `agentToolCalls.complete` |
 | `POST` | `/app/v3/api/chat/conversations/{conversationId}/archive` | `conversations.archive` |
 | `GET` | `/app/v3/api/chat/conversations/{conversationId}/knowledgebase` | `conversations.knowledgebase.retrieve` |
 | `POST` | `/app/v3/api/chat/conversations/{conversationId}/knowledgebase` | `conversations.knowledgebase.create` |
@@ -195,71 +189,14 @@ are public contract identifiers and must change at the OpenAPI source before thi
 | `GET` | `/app/v3/api/portal/media` | `media.retrieve` |
 | `GET` | `/app/v3/api/portal/realtime` | `realtime.retrieve` |
 | `GET` | `/app/v3/api/portal/workspace` | `workspace.retrieve` |
-| `GET` | `/app/v3/api/principal/profiles/provider_health` | `principalProfileHealth.retrieve` |
 
-### Backend API (114)
+### Backend API (58)
 
 | Method | Path | operationId |
 | --- | --- | --- |
-| `GET` | `/backend/v3/api/admin/api_key_groups` | `apiKeyGroups.list` |
-| `POST` | `/backend/v3/api/admin/api_key_groups` | `apiKeyGroups.create` |
-| `PATCH` | `/backend/v3/api/admin/api_key_groups/{groupId}` | `apiKeyGroups.update` |
-| `DELETE` | `/backend/v3/api/admin/api_key_groups/{groupId}` | `apiKeyGroups.delete` |
-| `POST` | `/backend/v3/api/admin/api_key_groups/{groupId}/status` | `apiKeyGroups.status` |
-| `GET` | `/backend/v3/api/admin/api_keys` | `apiKeys.list` |
-| `POST` | `/backend/v3/api/admin/api_keys` | `apiKeys.create` |
-| `PUT` | `/backend/v3/api/admin/api_keys/{hashedKey}` | `apiKeys.update` |
-| `DELETE` | `/backend/v3/api/admin/api_keys/{hashedKey}` | `apiKeys.delete` |
-| `POST` | `/backend/v3/api/admin/api_keys/{hashedKey}/status` | `apiKeys.status` |
-| `GET` | `/backend/v3/api/admin/billing/events` | `billing.events.list` |
-| `GET` | `/backend/v3/api/admin/billing/events/summary` | `billing.events.summary.retrieve` |
-| `GET` | `/backend/v3/api/admin/billing/summary` | `billing.summary.retrieve` |
-| `GET` | `/backend/v3/api/admin/channel_models` | `channelModels.list` |
-| `POST` | `/backend/v3/api/admin/channel_models` | `channelModels.create` |
-| `DELETE` | `/backend/v3/api/admin/channel_models/{channelId}/models/{modelId}` | `channelModels.models.delete` |
-| `GET` | `/backend/v3/api/admin/channels` | `channels.list` |
-| `POST` | `/backend/v3/api/admin/channels` | `channels.create` |
-| `DELETE` | `/backend/v3/api/admin/channels/{channelId}` | `channels.delete` |
-| `GET` | `/backend/v3/api/admin/credentials` | `credentials.list` |
-| `POST` | `/backend/v3/api/admin/credentials` | `credentials.create` |
-| `DELETE` | `/backend/v3/api/admin/credentials/{tenantId}/providers/{providerId}/keys/{keyReference}` | `credentials.providers.keys.delete` |
-| `POST` | `/backend/v3/api/admin/extensions/runtime_reloads` | `extensions.runtimeReloads.create` |
-| `GET` | `/backend/v3/api/admin/extensions/runtime_statuses` | `extensions.runtimeStatuses.list` |
-| `GET` | `/backend/v3/api/admin/gateway/rate_limit_policies` | `gateway.rateLimitPolicies.list` |
-| `POST` | `/backend/v3/api/admin/gateway/rate_limit_policies` | `gateway.rateLimitPolicies.create` |
-| `GET` | `/backend/v3/api/admin/gateway/rate_limit_windows` | `gateway.rateLimitWindows.list` |
-| `GET` | `/backend/v3/api/admin/marketing/campaigns` | `marketing.campaigns.list` |
-| `POST` | `/backend/v3/api/admin/marketing/campaigns` | `marketing.campaigns.create` |
-| `POST` | `/backend/v3/api/admin/marketing/campaigns/{marketingCampaignId}/status` | `marketing.campaigns.status` |
-| `GET` | `/backend/v3/api/admin/model_prices` | `modelPrices.list` |
-| `POST` | `/backend/v3/api/admin/model_prices` | `modelPrices.create` |
-| `DELETE` | `/backend/v3/api/admin/model_prices/{channelId}/models/{modelId}/providers/{proxyProviderId}` | `modelPrices.models.providers.delete` |
-| `GET` | `/backend/v3/api/admin/models` | `models.list` |
-| `POST` | `/backend/v3/api/admin/models` | `models.create` |
-| `DELETE` | `/backend/v3/api/admin/models/{externalName}/providers/{providerId}` | `models.providers.delete` |
-| `GET` | `/backend/v3/api/admin/providers` | `providers.list` |
-| `POST` | `/backend/v3/api/admin/providers` | `providers.create` |
-| `DELETE` | `/backend/v3/api/admin/providers/{providerId}` | `providers.delete` |
-| `GET` | `/backend/v3/api/admin/routing/decision_logs` | `routing.decisionLogs.list` |
-| `GET` | `/backend/v3/api/admin/routing/health_snapshots` | `routing.healthSnapshots.retrieve` |
-| `GET` | `/backend/v3/api/admin/routing/profiles` | `routing.profiles.list` |
-| `POST` | `/backend/v3/api/admin/routing/profiles` | `routing.profiles.create` |
-| `GET` | `/backend/v3/api/admin/routing/snapshots` | `routing.snapshots.list` |
-| `GET` | `/backend/v3/api/admin/storage/audit` | `storage.audit.list` |
-| `GET` | `/backend/v3/api/admin/storage/config` | `storage.config.retrieve` |
-| `POST` | `/backend/v3/api/admin/storage/config` | `storage.config.create` |
-| `GET` | `/backend/v3/api/admin/storage/config/tenants/{tenantId}` | `storage.config.tenants.retrieve` |
-| `POST` | `/backend/v3/api/admin/storage/config/tenants/{tenantId}` | `storage.config.tenants.create` |
-| `DELETE` | `/backend/v3/api/admin/storage/config/tenants/{tenantId}` | `storage.config.tenants.delete` |
-| `GET` | `/backend/v3/api/admin/storage/effective/tenants/{tenantId}` | `storage.effective.tenants.retrieve` |
-| `GET` | `/backend/v3/api/admin/storage/providers` | `storage.providers.list` |
-| `POST` | `/backend/v3/api/admin/storage/validate` | `storage.validation.create` |
-| `POST` | `/backend/v3/api/admin/storage/validate/tenants/{tenantId}` | `storage.validation.tenants.create` |
-| `GET` | `/backend/v3/api/admin/usage/records` | `usage.records.list` |
-| `GET` | `/backend/v3/api/admin/usage/summary` | `usage.summary.retrieve` |
-| `GET` | `/backend/v3/api/audit/export` | `export.retrieve` |
-| `GET` | `/backend/v3/api/audit/records` | `records.list` |
-| `POST` | `/backend/v3/api/audit/records` | `records.create` |
+| `GET` | `/backend/v3/api/audit/export` | `audit.export.retrieve` |
+| `POST` | `/backend/v3/api/audit/records` | `audit.records.create` |
+| `GET` | `/backend/v3/api/audit/records` | `audit.records.list` |
 | `GET` | `/backend/v3/api/audit/verify` | `verify.retrieve` |
 | `GET` | `/backend/v3/api/automation/governance` | `governance.retrieve` |
 | `POST` | `/backend/v3/api/control/nodes/{nodeId}/activate` | `nodes.activate` |
@@ -280,6 +217,7 @@ are public contract identifiers and must change at the OpenAPI source before thi
 | `GET` | `/backend/v3/api/control/social/external_connections/{connectionId}` | `social.externalConnections.retrieve` |
 | `POST` | `/backend/v3/api/control/social/external_member_links` | `social.externalMemberLinks.create` |
 | `GET` | `/backend/v3/api/control/social/external_member_links/{linkId}` | `social.externalMemberLinks.retrieve` |
+| `GET` | `/backend/v3/api/control/social/friend_requests` | `social.friendRequests.list` |
 | `POST` | `/backend/v3/api/control/social/friend_requests` | `social.friendRequests.create` |
 | `GET` | `/backend/v3/api/control/social/friend_requests/{requestId}` | `social.friendRequests.retrieve` |
 | `POST` | `/backend/v3/api/control/social/friend_requests/{requestId}/accept` | `social.friendRequests.accept` |
@@ -306,7 +244,6 @@ are public contract identifiers and must change at the OpenAPI source before thi
 | `POST` | `/backend/v3/api/control/social/user_blocks` | `social.userBlocks.create` |
 | `GET` | `/backend/v3/api/control/social/user_blocks/{blockId}` | `social.userBlocks.retrieve` |
 | `GET` | `/backend/v3/api/ops/cluster` | `cluster.retrieve` |
-| `GET` | `/backend/v3/api/ops/commercial_readiness` | `commercialReadiness.retrieve` |
 | `GET` | `/backend/v3/api/ops/diagnostics` | `diagnostics.retrieve` |
 | `GET` | `/backend/v3/api/ops/health` | `health.retrieve` |
 | `GET` | `/backend/v3/api/ops/lag` | `lag.retrieve` |

@@ -11,8 +11,8 @@ This package is the primary IM consumer SDK for browser and Node.js and follows 
 
 Use `ImSdkClient` for application code. The root client exposes semantic modules such as
 `sdk.conversations`, `sdk.messages`, `sdk.calls`, and `sdk.connect(...)`. When you need exact
-OpenAPI transport control, use `sdk.transport.presence`, `sdk.transport.realtime`,
-`sdk.transport.chat`, and `sdk.transport.streams`.
+OpenAPI transport control, use `sdk.transport.presence`, `sdk.transport.realtime`, and
+`sdk.transport.chat`.
 
 ## Current Delivery Reality
 
@@ -143,7 +143,7 @@ when you need exact OpenAPI operations, request bodies, or transport DTO details
 | Drive-backed media message references | `sdkwork-drive` for file lifecycle, then `sdk.conversations.postMessage(...)` with `ContentPart.drive` and `MediaResource` | [Media](/api-reference/im/media) |
 | Realtime presence, live subscriptions, and durable replay | `sdk.connect(...)`, `sdk.transport.presence`, `sdk.transport.realtime` | [Realtime And Presence](/api-reference/im/session-and-realtime) |
 | IM call lifecycle and signaling-side HTTP calls | `sdk.calls.start(...)`, `sdk.calls.sendSignal(...)`, `sdk.calls.issueParticipantCredential(...)`, `sdk.calls.watchIncoming(...)` | [Calls](/api-reference/im/calls) |
-| Stream transport and checkpointing | `sdk.transport.streams.create(...)`, `sdk.transport.streams.frames.create(...)`, `sdk.transport.streams.checkpoint.create(...)`, `sdk.transport.streams.complete(...)` | [Streams](/api-reference/im/streams) |
+| Stream-shaped application data over the realtime plane | `sdk.connect(...)`, `sdk.sync.catchUp(...)` (the streams REST surface was pruned) | [Realtime And Presence](/api-reference/im/session-and-realtime) |
 
 ## Conversations
 
@@ -698,21 +698,13 @@ await sdk.transport.presence.me.retrieve();
 await sdk.transport.realtime.events.list({ pageSize: 20 });
 await sdk.conversations.listMessages('conversation-1');
 await sdk.transport.chat.inbox.list();
-await sdk.transport.streams.create({
-  streamId: 'stream-demo-1',
-  streamType: 'custom.delta.text',
-  scopeKind: 'conversation',
-  scopeId: 'conversation-1',
-  durabilityClass: 'durableSession',
-  schemaRef: 'custom.delta.text.v1',
-});
 ```
 
 Use `sdk.transport` when you need exact DTOs or route-group control. Reach for
 `sdk.transport.presence.heartbeat.create(...)`, `sdk.transport.presence.me.retrieve()`,
-`sdk.transport.realtime.events.list(...)`, `sdk.transport.chat.inbox.list()`, and
-`sdk.transport.streams.create(...)` when the route group already matches the API cleanly. Use the
-semantic domains on `ImSdkClient` for normal application integration.
+`sdk.transport.realtime.events.list(...)`, and `sdk.transport.chat.inbox.list()` when the route
+group already matches the API cleanly. Use the semantic domains on `ImSdkClient` for normal
+application integration.
 
 ## SDK Manifest Metadata
 

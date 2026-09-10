@@ -561,6 +561,50 @@
     x-sdkwork-api-surface: open-api
     x-sdkwork-route-auth: api-key-or-dual-token
     x-sdkwork-auth-mode: api-key-or-dual-token
+/im/v3/api/spaces/{spaceId}/groups/{groupId}/transfer_owner:
+  post:
+    tags:
+      - spaces
+    operationId: spaces.groups.transferOwner
+    parameters:
+      - $ref: '#/components/parameters/SpaceIdPath'
+      - $ref: '#/components/parameters/GroupIdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SpaceGroupTransferOwnerRequest'
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/SdkWorkApiResponse'
+                - type: object
+                  required:
+                    - data
+                  properties:
+                    data:
+                      type: object
+                      required:
+                        - item
+                      properties:
+                        item:
+                          $ref: '#/components/schemas/SpaceGroupView'
+    security:
+      - ApiKey: []
+      - AuthToken: []
+        AccessToken: []
+    x-sdkwork-owner: sdkwork-im
+    x-sdkwork-api-authority: sdkwork-im.im
+    summary: Transfer spaces groups owner
+    x-sdkwork-request-context: WebRequestContext
+    x-sdkwork-api-surface: open-api
+    x-sdkwork-route-auth: api-key-or-dual-token
+    x-sdkwork-auth-mode: api-key-or-dual-token
 /im/v3/api/spaces/{spaceId}/groups/{groupId}/members:
   get:
     tags:

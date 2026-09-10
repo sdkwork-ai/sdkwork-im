@@ -40,13 +40,13 @@ import type {
 export type { MessageHistoryListParams } from './transport-client-like.js';
 
 /**
- * Composed message types use a JavaScript number for the bounded int64
- * assignment generation. The generated HTTP client exposes int64 values as
- * strings for lossless transport, so this boundary owns validation and wire
- * conversion instead of leaking that mismatch to application callers.
+ * Composed message types carry the int64 assignment generation as a decimal
+ * string. The generated HTTP client exposes int64 values as strings and the
+ * server wire contract is string-based per API_SPEC §13.6, so this boundary
+ * only owns validation instead of converting the value to a lossy number.
  */
 export type ImMentionContentPart = Omit<MentionContentPart, 'assignmentGeneration'> & {
-  assignmentGeneration: number;
+  assignmentGeneration: string;
 };
 
 export type ImContentPart = Exclude<ContentPart, MentionContentPart> | ImMentionContentPart;
@@ -60,7 +60,7 @@ type CompatiblePostTextOptions =
   | Omit<ImPostMessageRequest, 'text'>
   | Omit<PostMessageRequest, 'text'>;
 
-function normalizePositiveSafeInteger(value: unknown, fieldName: string): number {
+function normalizePositiveInt64String(value: unknown, fieldName: string): string {
   const numericValue = typeof value === 'number'
     ? value
     : typeof value === 'string' && /^[0-9]+$/u.test(value)
@@ -69,11 +69,11 @@ function normalizePositiveSafeInteger(value: unknown, fieldName: string): number
   if (!Number.isSafeInteger(numericValue) || numericValue < 1) {
     throw new RangeError(`${fieldName} is outside the supported safe integer range.`);
   }
-  return numericValue;
+  return String(numericValue);
 }
 
-function normalizeAssignmentGeneration(value: string | number): number {
-  return normalizePositiveSafeInteger(value, 'Conversation agent assignment generation');
+function normalizeAssignmentGeneration(value: string | number): string {
+  return normalizePositiveInt64String(value, 'Conversation agent assignment generation');
 }
 
 function normalizePostMessageRequest(body: CompatiblePostMessageRequest): PostMessageRequest {
@@ -85,16 +85,16 @@ function normalizePostMessageRequest(body: CompatiblePostMessageRequest): PostMe
     if (part.kind !== 'mention') {
       return part;
     }
-    const assignmentGeneration = normalizePositiveSafeInteger(
+    const assignmentGeneration = normalizePositiveInt64String(
       part.assignmentGeneration,
       'Agent mention assignment generation',
     );
     return { ...part, assignmentGeneration } as unknown as MentionContentPart;
   });
 
-  // The generated transport models int64 as string, while the server wire
-  // contract is a JSON number. Keep this cast inside the composed boundary so
-  // callers never need to cast a message request themselves.
+  // The generated transport and the server wire contract both model int64 as
+  // a decimal string (API_SPEC §13.6). Keep this normalization inside the
+  // composed boundary so callers never need to cast a message request.
   return { ...body, parts } as unknown as PostMessageRequest;
 }
 
@@ -199,7 +199,7 @@ export class ImConversationsModule {
     );
   }
 
-  updateReadCursor(conversationId: string, body: { readSeq: number }): Promise<ReadCursorView> {
+  updateReadCursor(conversationId: string, body: { readSeq: string }): Promise<ReadCursorView> {
     return this.transportClient.chat.conversations.readCursor.update(
       requireStringIdentifier(conversationId, 'conversationId'),
       body,
@@ -277,15 +277,18 @@ export class ImConversationsModule {
     conversationId: string,
     body: ImReplaceConversationAgentAssignmentsRequest,
   ): Promise<ImReplaceConversationAgentAssignmentsResult> {
-    if (!Number.isSafeInteger(body.expectedGeneration) || body.expectedGeneration < 1) {
+    const expectedGenerationValid = typeof body.expectedGeneration === 'number'
+      ? Number.isSafeInteger(body.expectedGeneration) && body.expectedGeneration >= 1
+      : typeof body.expectedGeneration === 'string' && /^[0-9]+$/u.test(body.expectedGeneration);
+    if (!expectedGenerationValid) {
       return Promise.reject(new Error('A positive safe integer expectedGeneration is required.'));
     }
-    // The generator models int64 as string for lossless reads. This request is
-    // JSON integer on the wire, so keep the validated number when invoking the
-    // generated transport and normalize the returned generation explicitly.
+    // The generator and the server wire contract both model int64 as a decimal
+    // string (API_SPEC §13.6), so pass the validated string through and
+    // normalize the returned generation explicitly.
     const request = {
       ...body,
-      expectedGeneration: body.expectedGeneration,
+      expectedGeneration: String(body.expectedGeneration),
     } as unknown as UpdateConversationAgentsRequest;
     return this.transportClient.chat.conversations.agents
       .update(requireStringIdentifier(conversationId, 'conversationId'), request)

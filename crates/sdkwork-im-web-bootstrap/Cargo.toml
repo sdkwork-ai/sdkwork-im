@@ -1,6 +1,7 @@
 [package]
 name = "sdkwork-im-web-bootstrap"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 version.workspace = true
 description = "Sdkwork IM HTTP service web-framework bootstrap for open-api and mixed IM surfaces"

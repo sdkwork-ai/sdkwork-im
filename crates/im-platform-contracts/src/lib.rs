@@ -23,7 +23,8 @@ pub use sdkwork_im_contract_control::{
     RealtimeDisconnectFenceRecord, RealtimeDisconnectFenceStore,
     RealtimeEventWindowDiagnosticsSnapshot, RealtimeEventWindowHighRiskRecord,
     RealtimeEventWindowRecord, RealtimeEventWindowStore, RealtimeMatchingSubscriptionQuery,
-    RealtimeSubscriptionRecord, RealtimeSubscriptionStore, StalePresenceScopeDiscoveryRequest,
+    RealtimePrincipalScopeDevicePageQuery, RealtimeSubscriptionRecord, RealtimeSubscriptionStore,
+    StalePresenceScopeDiscoveryRequest, SUBSCRIBED_DEVICE_PAGE_LIMIT_MAX,
     normalize_realtime_organization_id, realtime_client_route_scope_key,
     realtime_principal_scope_key, realtime_scope_key_parts,
 };

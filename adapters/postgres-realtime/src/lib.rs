@@ -9,7 +9,8 @@ use im_platform_contracts::{
     RealtimeDisconnectFenceRecord, RealtimeDisconnectFenceStore,
     RealtimeEventWindowDiagnosticsSnapshot, RealtimeEventWindowHighRiskRecord,
     RealtimeEventWindowRecord, RealtimeEventWindowStore, RealtimeMatchingSubscriptionQuery,
-    RealtimeSubscriptionRecord, RealtimeSubscriptionStore, StalePresenceScopeDiscoveryRequest,
+    RealtimePrincipalScopeDevicePageQuery, RealtimeSubscriptionRecord, RealtimeSubscriptionStore,
+    StalePresenceScopeDiscoveryRequest,
 };
 use r2d2::Pool;
 use r2d2_postgres::PostgresConnectionManager;
@@ -178,6 +179,7 @@ use im_postgres_realtime_contracts::{
     LIST_REALTIME_EVENT_WINDOW_HIGH_RISK_WINDOWS_SQL, LOAD_MATCHING_REALTIME_SUBSCRIPTIONS_SQL,
     LOAD_REALTIME_CHECKPOINT_SQL, LOAD_REALTIME_DISCONNECT_FENCE_SQL,
     LOAD_REALTIME_EVENT_WINDOW_DIAGNOSTICS_SQL, LOAD_REALTIME_SUBSCRIPTION_SQL,
+    LOAD_SUBSCRIBED_DEVICE_IDS_FOR_PRINCIPAL_SCOPE_SQL,
     REPLACE_REALTIME_SUBSCRIPTION_SCOPES_SQL, TRIM_REALTIME_CLIENT_ROUTE_EVENTS_SQL,
     UPSERT_REALTIME_CHECKPOINT_SQL, UPSERT_REALTIME_CLIENT_ROUTE_EVENT_SQL,
     UPSERT_REALTIME_DISCONNECT_FENCE_SQL, UPSERT_REALTIME_SUBSCRIPTION_SQL,
@@ -991,6 +993,50 @@ impl RealtimeSubscriptionStore for PostgresRealtimeSubscriptionStore {
                 .map_err(|error| postgres_unavailable("load matching subscriptions", error))?
                 .into_iter()
                 .map(subscription_from_row)
+                .collect()
+        })
+    }
+
+    fn load_subscribed_device_ids_for_principal_scope(
+        &self,
+        query: RealtimePrincipalScopeDevicePageQuery<'_>,
+    ) -> Result<Vec<String>, ContractError> {
+        if query.limit == 0 {
+            return Ok(Vec::new());
+        }
+        let pool = self.pool.clone();
+        let tenant_id = query.tenant_id.to_owned();
+        let organization_id = query.organization_id.to_owned();
+        let principal_kind = query.principal_kind.to_owned();
+        let principal_id = query.principal_id.to_owned();
+        let scope_type = query.scope_type.to_owned();
+        let scope_id = query.scope_id.to_owned();
+        let event_type = query.event_type.to_owned();
+        let after_device_id = query.after_device_id.map(str::to_owned);
+        let limit = i64::try_from(query.limit).map_err(|_| {
+            ContractError::Invalid("subscribed device page limit exceeds i64".to_string())
+        })?;
+        run_postgres_io(move || {
+            let mut client = postgres_pool_client(&pool, "get subscription connection")?;
+            client
+                .query(
+                    LOAD_SUBSCRIBED_DEVICE_IDS_FOR_PRINCIPAL_SCOPE_SQL,
+                    &[
+                        &tenant_id,
+                        &organization_id,
+                        &principal_kind,
+                        &principal_id,
+                        &scope_type,
+                        &scope_id,
+                        &event_type,
+                        &after_device_id,
+                        &limit,
+                    ],
+                )
+                .map_err(|error| postgres_unavailable("load subscribed device ids", error))?
+                .into_iter()
+                .map(|row| row.try_get::<_, String>(0))
+                .map(|value| value.map_err(|error| postgres_unavailable("read device_id", error)))
                 .collect()
         })
     }

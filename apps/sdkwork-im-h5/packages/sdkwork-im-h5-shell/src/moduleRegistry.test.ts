@@ -13,34 +13,19 @@ import {
 } from "./moduleValidation";
 import { resolveImH5ShellHomePath } from "./moduleNavigation";
 
-test("keeps the real-SDK H5 product composition and excludes mock-only modules", () => {
-  // approval / attendance / calendar / report / recruitment / enterprise were
-  // audited as pure localStorage mocks without a backend SDK; they must not be
-  // registered by default (fail-closed, PRD).
+test("keeps the audited real-SDK release surface as the default composition", () => {
+  // The audited release surface is chat / contacts / notary / orders only:
+  // every other module (including the user module with its fabricated
+  // billing/games pages and the localStorage mocks approval / attendance /
+  // calendar / report) must stay opt-in via `VITE_SDKWORK_IM_H5_MODULES`
+  // (fail-closed, PRD).
   assert.deepEqual(DEFAULT_IM_H5_MODULES, [
     "chat",
     "contacts",
-    "user",
-    "agents",
     "notary",
     "orders",
-    "meeting",
-    "moments",
-    "music",
-    "knowledge",
-    "drive",
-    "voice",
-    "videogen",
-    "imagegen",
-    "musicgen",
-    "writing",
-    "devices",
-    "membership",
-    "course",
-    "community",
-    "shop",
   ]);
-  for (const mockModuleId of ["approval", "attendance", "calendar", "report", "recruitment", "enterprise"]) {
+  for (const mockModuleId of ["approval", "attendance", "calendar", "report", "recruitment", "enterprise", "user"]) {
     assert.equal(
       COMPOSABLE_IM_H5_MODULES.has(mockModuleId as never),
       false,

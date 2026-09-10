@@ -84,3 +84,26 @@ pub(super) fn decode_signed_cursor<T: DeserializeOwned>(
     let payload_bytes = base64url_decode(payload_segment).ok_or(SignedCursorError::Invalid)?;
     serde_json::from_slice(payload_bytes.as_slice()).map_err(|_| SignedCursorError::Invalid)
 }
+
+/// Versioned opaque offset cursor (`of1.<base64url(offset)>`).
+///
+/// PAGINATION_SPEC §2.4/§3: cursor tokens MUST be opaque — RPC list methods
+/// that page an incrementally maintained in-memory index through
+/// `offset_limit_page_from_iter` must not hand raw numeric offset strings to
+/// clients. Clients echo the token verbatim; tampering only yields a decode
+/// failure because authorization never depends on cursor contents.
+const OPAQUE_OFFSET_CURSOR_PREFIX: &str = "of1.";
+
+pub(super) fn encode_opaque_offset_cursor(offset: usize) -> String {
+    format!(
+        "{OPAQUE_OFFSET_CURSOR_PREFIX}{}",
+        base64url_encode(offset.to_string().as_bytes())
+    )
+}
+
+pub(super) fn decode_opaque_offset_cursor(raw: &str) -> Option<usize> {
+    let encoded = raw.trim().strip_prefix(OPAQUE_OFFSET_CURSOR_PREFIX)?;
+    let decoded = base64url_decode(encoded)?;
+    let text = String::from_utf8(decoded).ok()?;
+    text.parse::<usize>().ok()
+}

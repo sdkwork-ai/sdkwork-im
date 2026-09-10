@@ -16,13 +16,13 @@ function createSdk(): ChatConversationSdkPort {
       listMessages: async () => ({
         items: [],
         pageInfo: { mode: "cursor", hasMore: false },
-        highWatermark: 0,
+        highWatermark: "0",
       }),
       postText: async () => ({
         deliveryStatus: "applied" as const,
         eventId: "event-1",
         messageId: "message-1",
-        messageSeq: 1,
+        messageSeq: "1",
       }),
       updatePreferences: async () => ({
         tenantId: "tenant-1",
@@ -40,7 +40,7 @@ function createSdk(): ChatConversationSdkPort {
         conversationId: "conversation-1",
         principalKind: "user",
         principalId: "user-1",
-        readSeq: 0,
+        readSeq: "0",
         updatedAt: "2026-07-31T00:00:00Z",
       }),
     },
@@ -82,7 +82,7 @@ test("posts text with a unique client message id", async () => {
       deliveryStatus: "applied" as const,
       eventId: "event-1",
       messageId: "message-1",
-      messageSeq: 1,
+      messageSeq: "1",
     };
   };
   const service = createChatConversationService(() => sdk);
@@ -125,10 +125,10 @@ test("commits the server high watermark and clears marked-unread preference", as
   };
   const service = createChatConversationService(() => sdk);
 
-  await service.markConversationRead("conversation-1", 42);
+  await service.markConversationRead("conversation-1", "42");
 
   assert.deepEqual(calls, [
-    ["cursor", "conversation-1", { readSeq: 42 }],
+    ["cursor", "conversation-1", { readSeq: "42" }],
     ["preferences", "conversation-1", { isMarkedUnread: false }],
   ]);
 });
@@ -143,7 +143,7 @@ test("rejects invalid read sequence before calling the SDK", async () => {
   const service = createChatConversationService(() => sdk);
 
   await assert.rejects(
-    service.markConversationRead("conversation-1", Number.NaN),
+    service.markConversationRead("conversation-1", "-1"),
     RangeError,
   );
   assert.equal(calls, 0);

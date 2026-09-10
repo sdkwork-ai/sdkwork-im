@@ -1,6 +1,7 @@
 ﻿import React from "react";
 import { cn } from "@sdkwork/im-h5-commons";
 import { Clock, Check, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApprovalItem } from "../services/ApprovalService";
 
 interface ApprovalProcessTimelineProps {
@@ -8,19 +9,20 @@ interface ApprovalProcessTimelineProps {
 }
 
 export const ApprovalProcessTimeline: React.FC<ApprovalProcessTimelineProps> = ({ approval }) => {
+  const { t } = useTranslation();
   return (
     <div className="mt-4 px-4">
-      <h3 className="text-[14px] font-medium text-text-sub mb-4">审批流程</h3>
+      <h3 className="text-[14px] font-medium text-text-sub mb-4">{t("approval.detail.process")}</h3>
       <div className="flex flex-col gap-5 pl-2 relative border-l-2 border-gray-200 dark:border-gray-800 ml-4 pb-4">
         {/* Applicant step */}
         <div className="relative">
           <div className="absolute -left-[19px] w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-[12px] shadow-sm">
-            发
+            {t("approval.detail.initiatorBadge")}
           </div>
           <div className="pl-6">
             <div className="flex justify-between items-start mb-1">
               <span className="text-[15px] font-medium text-text-main">
-                {approval.applicant} (发起申请)
+                {approval.applicant} ({t("approval.detail.initiatedRequest")})
               </span>
               <span className="text-[12px] text-text-sub">
                 {approval.date}
@@ -41,7 +43,7 @@ export const ApprovalProcessTimeline: React.FC<ApprovalProcessTimelineProps> = (
             <div className="pl-6">
               <div className="flex justify-between items-start mb-1">
                 <span className="text-[15px] font-medium text-text-main">
-                  {record.name} {record.action === "reject" ? "(已拒绝)" : "(已同意)"}
+                  {record.name} {record.action === "reject" ? `(${t("approval.status.rejected")})` : `(${t("approval.status.approved")})`}
                 </span>
                 <span className="text-[12px] text-text-sub">
                   {record.actionTime}
@@ -64,7 +66,7 @@ export const ApprovalProcessTimeline: React.FC<ApprovalProcessTimelineProps> = (
             </div>
             <div className="pl-6">
               <div className="flex justify-between items-start mb-1">
-                <span className="text-[15px] font-medium text-orange-500">当前审批轮到你</span>
+                <span className="text-[15px] font-medium text-orange-500">{t("approval.detail.yourTurn")}</span>
               </div>
             </div>
           </div>

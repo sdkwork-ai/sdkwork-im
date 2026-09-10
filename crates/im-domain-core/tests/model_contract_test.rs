@@ -187,14 +187,14 @@ fn test_agent_mention_content_part_has_authoritative_target_shape() {
     assert_eq!(value["targetKind"], Value::String("agent".into()));
     assert_eq!(value["targetId"], Value::String("agent.im.reviewer".into()));
     assert_eq!(value["displayText"], Value::String("@Reviewer".into()));
-    assert_eq!(value["assignmentGeneration"], Value::Number(7.into()));
+    assert_eq!(value["assignmentGeneration"], Value::String("7".into()));
 
     let decoded: ContentPart = serde_json::from_value(value).expect("mention should deserialize");
     assert_eq!(decoded, mention);
 }
 
 #[test]
-fn test_agent_mention_requires_a_native_numeric_assignment_generation() {
+fn test_agent_mention_requires_the_int64_string_assignment_generation() {
     let missing_generation = json!({
         "kind": "mention",
         "targetKind": "agent",
@@ -206,7 +206,7 @@ fn test_agent_mention_requires_a_native_numeric_assignment_generation() {
         "an agent mention without the authoritative assignment generation must be rejected"
     );
 
-    let non_numeric_generation = json!({
+    let garbage_generation = json!({
         "kind": "mention",
         "targetKind": "agent",
         "targetId": "agent.im.reviewer",
@@ -214,8 +214,23 @@ fn test_agent_mention_requires_a_native_numeric_assignment_generation() {
         "assignmentGeneration": "garbage"
     });
     assert!(
-        serde_json::from_value::<ContentPart>(non_numeric_generation).is_err(),
-        "the domain model must not accept a stringly typed assignment generation"
+        serde_json::from_value::<ContentPart>(garbage_generation).is_err(),
+        "a malformed assignment generation must be rejected"
+    );
+
+    // The wire contract is `type: string, format: int64`
+    // (API_SPEC §13.6): a bare JSON number must be rejected so generated
+    // clients can never round-trip a precision-losing numeric form.
+    let numeric_generation = json!({
+        "kind": "mention",
+        "targetKind": "agent",
+        "targetId": "agent.im.reviewer",
+        "displayText": "@Reviewer",
+        "assignmentGeneration": 7
+    });
+    assert!(
+        serde_json::from_value::<ContentPart>(numeric_generation).is_err(),
+        "a numeric assignment generation must be rejected; the wire form is a decimal string"
     );
 }
 
@@ -447,7 +462,7 @@ fn test_stream_frame_serializes_transport_shape() {
     let value = serde_json::to_value(frame).expect("stream frame should serialize");
 
     assert_eq!(value["streamId"], Value::String("st_demo".into()));
-    assert_eq!(value["frameSeq"], Value::Number(1.into()));
+    assert_eq!(value["frameSeq"], Value::String("1".into()));
     assert_eq!(value["frameType"], Value::String("delta".into()));
     assert_eq!(value["encoding"], Value::String("json".into()));
     assert_eq!(value["sender"]["id"], Value::String("1".into()));
@@ -555,7 +570,7 @@ fn test_rtc_signal_event_serializes_signal_transport_shape() {
     let value = serde_json::to_value(signal).expect("rtc signal event should serialize");
 
     assert_eq!(value["rtcSessionId"], Value::String("rtc_demo".into()));
-    assert_eq!(value["signalSeq"], Value::Number(1.into()));
+    assert_eq!(value["signalSeq"], Value::String("1".into()));
     assert_eq!(value["signalType"], Value::String("rtc.offer".into()));
     assert_eq!(value["schemaRef"], Value::String("webrtc.offer.v1".into()));
     assert_eq!(value["sender"]["id"], Value::String("1".into()));

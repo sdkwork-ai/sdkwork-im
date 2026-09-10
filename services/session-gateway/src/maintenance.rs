@@ -31,13 +31,20 @@ pub fn spawn_realtime_maintenance_jobs(assembly: RealtimePlaneAssembly) -> Optio
         loop {
             interval.tick().await;
             let cluster = assembly.realtime_cluster();
-            cluster.cleanup_stale_route_epoch_notifiers();
-            cluster.cleanup_stale_disconnect_fences();
-            cluster.purge_expired_disconnect_fences();
-            assembly
-                .realtime_runtime()
-                .enforce_client_route_maps_capacity();
-            expire_stale_presence_devices(assembly.presence_runtime().as_ref());
+            // Route-store, fence and presence sweeps perform blocking
+            // Redis/Postgres IO; run them on the blocking pool so a slow
+            // backend cannot stall the async reactor while the job runs.
+            let presence_runtime = assembly.presence_runtime();
+            let maintenance_cluster = cluster.clone();
+            let maintenance_runtime = assembly.realtime_runtime();
+            let _ = tokio::task::spawn_blocking(move || {
+                maintenance_cluster.cleanup_stale_route_epoch_notifiers();
+                maintenance_cluster.cleanup_stale_disconnect_fences();
+                maintenance_cluster.purge_expired_disconnect_fences();
+                maintenance_runtime.enforce_client_route_maps_capacity();
+                expire_stale_presence_devices(presence_runtime.as_ref());
+            })
+            .await;
         }
     }))
 }

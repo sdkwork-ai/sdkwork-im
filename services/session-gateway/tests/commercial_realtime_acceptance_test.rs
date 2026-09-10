@@ -380,6 +380,7 @@ fn test_commercial_realtime_cluster_handoff_preserves_checkpoint_and_pending_win
         CONVERSATION_ID,
         EVENT_TYPE,
         message_payload(25),
+        "durable",
     );
     assert_eq!(publish_after_migration.route_state, "resolved");
     assert_eq!(publish_after_migration.target_node_id, "node_b");

@@ -2,6 +2,7 @@
 name = "sdkwork-routes-im-calls-open-api"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 description = "Gateway route crate for the IM-owned call signaling open-api surface."
 

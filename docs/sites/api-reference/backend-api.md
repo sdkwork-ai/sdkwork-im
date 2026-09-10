@@ -10,12 +10,12 @@
 <div class="api-overview-grid">
   <div class="api-card">
     <h3>Operations</h3>
-    <p>Inspect health, cluster topology, operational lag, commercial readiness, runtime directory state, provider bindings, and diagnostic bundles.</p>
+    <p>Inspect health, cluster topology, operational lag, runtime directory state, provider bindings, and diagnostic bundles.</p>
     <p><a href="/api-reference/backend/ops">Open Operator APIs</a></p>
   </div>
   <div class="api-card">
     <h3>Audit</h3>
-    <p>Record audit anchors, list audit records, verify hash-chain state, and export audit evidence bundles.</p>
+    <p>Verify the hash chain of the tenant audit ledger.</p>
     <p><a href="/api-reference/backend/audit">Open Audit APIs</a></p>
   </div>
   <div class="api-card">
@@ -28,7 +28,7 @@
 ## SDK Alignment
 
 - `/backend/v3/api/*` maps to `sdkwork-im-backend-sdk`.
-- `/backend/v3/api/control/*` and `/backend/v3/api/admin/*` are modules of the backend SDK family.
+- `/backend/v3/api/control/*` is a module of the backend SDK family.
 - `/app/v3/api/*` belongs to [App API](/api-reference/app-api) and `sdkwork-im-app-sdk`.
 - `/im/v3/api/*` belongs to [IM Standard API](/api-reference/im-api) and `sdkwork-im-sdk`.
 - RTC provider runtime and native driver concerns belong to [RTC SDK](/sdk/rtc-sdk).
@@ -36,8 +36,8 @@
 ## Backend API Domains
 
 <div class="api-link-list">
-  <a href="/api-reference/backend/ops"><code>Ops</code> Cluster health, operational lag, commercial readiness, runtime directory, provider bindings, and diagnostics</a>
-  <a href="/api-reference/backend/audit"><code>Audit</code> Record audit anchors, list audit records, verify hash-chain state, and export bundles</a>
+  <a href="/api-reference/backend/ops"><code>Ops</code> Cluster health, operational lag, runtime directory, provider bindings, and diagnostics</a>
+  <a href="/api-reference/backend/audit"><code>Audit</code> Verify the tenant audit ledger hash chain</a>
   <a href="/api-reference/control-plane/protocol"><code>Control Protocol</code> Protocol registry and governance snapshots</a>
   <a href="/api-reference/control-plane/providers"><code>Control Providers</code> Provider registry, binding policies, previews, and rollback</a>
   <a href="/api-reference/control-plane/social"><code>Control Social</code> Direct-chat, external collaboration, friendship, shared-channel policy, and user block control</a>

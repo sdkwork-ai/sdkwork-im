@@ -91,3 +91,58 @@ fn test_aggregate_types_do_not_include_app_local_media_asset_lifecycle() {
         "domain events must not expose legacy media_asset aggregate wire value"
     );
 }
+
+#[test]
+fn test_space_governance_event_types_follow_the_space_namespace() {
+    use im_domain_events::space::{SpaceEventType, SpaceInvitationCreatedPayload};
+
+    assert_eq!(
+        SpaceEventType::SpaceBanCreated.as_wire_value(),
+        "space.ban.created"
+    );
+    assert_eq!(
+        SpaceEventType::SpaceBanLifted.as_wire_value(),
+        "space.ban.lifted"
+    );
+    assert_eq!(
+        SpaceEventType::SpaceInvitationCreated.as_wire_value(),
+        "space.invitation.created"
+    );
+    assert_eq!(
+        SpaceEventType::SpaceBanCreated.payload_schema(),
+        "space.space_ban.created.v1"
+    );
+    assert_eq!(
+        SpaceEventType::SpaceBanLifted.payload_schema(),
+        "space.space_ban.lifted.v1"
+    );
+    assert_eq!(
+        SpaceEventType::SpaceInvitationCreated.payload_schema(),
+        "space.space_invitation.created.v1"
+    );
+
+    // The journal payload drives the normalized state write, so contact
+    // fields must round-trip through the payload contract (camelCase wire).
+    let payload = SpaceInvitationCreatedPayload {
+        space_id: "42".into(),
+        invitation_id: "9".into(),
+        target_type: "space".into(),
+        target_id: "42".into(),
+        inviter_user_id: "user-1".into(),
+        invitee_user_id: Some("user-2".into()),
+        invitee_email: Some("invitee@example.com".into()),
+        invitee_phone: None,
+        role: "member".into(),
+        status: "pending".into(),
+        message: None,
+        expires_at: None,
+        created_at: "2026-09-09T00:00:00.000Z".into(),
+        updated_at: "2026-09-09T00:00:00.000Z".into(),
+        retention_until: Some("2027-09-09T00:00:00.000Z".into()),
+    };
+    let serialized = serde_json::to_string(&payload).expect("payload must serialize");
+    assert!(serialized.contains("\"inviteeEmail\""));
+    let deserialized: SpaceInvitationCreatedPayload =
+        serde_json::from_str(&serialized).expect("payload must round-trip");
+    assert_eq!(deserialized, payload);
+}

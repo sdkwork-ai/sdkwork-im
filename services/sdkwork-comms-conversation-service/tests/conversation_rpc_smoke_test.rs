@@ -67,9 +67,12 @@ fn ensure_rpc_smoke_test_environment() {
         // SAFETY: This integration-test binary needs a deterministic dev/test
         // environment before building conversation AppState. The value is set
         // once for the whole test process and is not mutated afterwards.
+        // Local JWT fixtures carry no AppContext signature headers, matching
+        // the other integration test binaries.
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
             std::env::set_var("SDKWORK_IM_ALLOW_ALL_PRINCIPALS", "true");
+            std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
         }
     });
 }

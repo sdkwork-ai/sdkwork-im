@@ -13,6 +13,7 @@ fn ops_route_http_test_app() -> axum::Router {
 
 #[tokio::test]
 async fn test_route_composition_exports_required_infrastructure_endpoints() {
+    ensure_test_environment();
     let app = ops_route_http_test_app();
 
     for path in ["/healthz", "/metrics", "/openapi.json", "/docs"] {
@@ -44,6 +45,7 @@ async fn test_route_composition_exports_required_infrastructure_endpoints() {
 
 #[tokio::test]
 async fn test_public_app_exports_live_openapi_json() {
+    ensure_test_environment();
     let app = ops_service::build_public_app();
 
     let response = app
@@ -86,6 +88,7 @@ async fn test_public_app_exports_live_openapi_json() {
 
 #[tokio::test]
 async fn test_public_app_serves_docs_page_for_live_openapi() {
+    ensure_test_environment();
     let app = ops_service::build_public_app();
 
     let response = app
@@ -110,6 +113,7 @@ async fn test_public_app_serves_docs_page_for_live_openapi() {
 
 #[tokio::test]
 async fn test_public_app_exposes_retention_metrics() {
+    ensure_test_environment();
     let app = ops_service::build_public_app();
 
     let response = app
@@ -139,6 +143,7 @@ async fn test_public_app_exposes_retention_metrics() {
 
 #[tokio::test]
 async fn test_retention_purge_route_requires_ops_write_over_http() {
+    ensure_test_environment();
     let app = ops_route_http_test_app();
 
     let forbidden = app
@@ -184,6 +189,7 @@ async fn test_retention_purge_route_requires_ops_write_over_http() {
 
 #[tokio::test]
 async fn test_cluster_lag_health_runtime_dir_and_diagnostics_over_http() {
+    ensure_test_environment();
     let app = ops_route_http_test_app();
 
     let health_response = app
@@ -220,7 +226,7 @@ async fn test_cluster_lag_health_runtime_dir_and_diagnostics_over_http() {
         0
     );
     assert_eq!(health["realtimeInbox"]["capacityTrimmedEventCount"], 0);
-    assert_eq!(health["realtimeInbox"]["maxCapacityTrimmedThroughSeq"], 0);
+    assert_eq!(health["realtimeInbox"]["maxCapacityTrimmedThroughSeq"], "0");
     assert!(health["realtimeInbox"]["lastCapacityTrimmedAt"].is_null());
 
     let cluster_response = app
@@ -455,4 +461,18 @@ async fn test_cluster_lag_health_runtime_dir_and_diagnostics_over_http() {
         0
     );
     assert_eq!(diagnostics["lag"].as_array().unwrap().len(), 0);
+}
+
+fn ensure_test_environment() {
+    static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    TEST_ENVIRONMENT.get_or_init(|| {
+        // Dual-token test helpers rely on the relaxed test posture; production
+        // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
+        // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        unsafe {
+            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
+            // Local JWT fixtures carry no AppContext signature headers.
+            std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
+        }
+    });
 }

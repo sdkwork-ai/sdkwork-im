@@ -16,8 +16,11 @@ fn ensure_http_smoke_test_environment() {
     TEST_ENVIRONMENT.get_or_init(|| {
         // These handler tests use the explicit local AppState fixture. Server
         // environment bootstrap is covered separately with PostgreSQL.
+        // Local JWT fixtures carry no AppContext signature headers, so the
+        // signature gate must be disabled explicitly.
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
+            std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
         }
     });
 }
@@ -362,7 +365,7 @@ async fn test_create_conversation_and_post_message_over_http() {
         serde_json::from_slice(&body).expect("response should be valid json");
     let item = response_item(&value);
 
-    assert_eq!(item["messageSeq"], 1);
+    assert_eq!(item["messageSeq"], "1");
     assert_eq!(item["messageId"], format!("msg_{}_1", conversation_id));
 }
 
@@ -979,7 +982,7 @@ async fn test_group_agent_assignments_are_atomic_and_generation_checked_over_htt
     )
     .expect("get body should be json");
     let assignments = response_item(&get_json);
-    assert_eq!(assignments["generation"], 1);
+    assert_eq!(assignments["generation"], "1");
     assert_eq!(assignments["source"], "conversation_override");
     assert_eq!(assignments["agents"].as_array().map(Vec::len), Some(2));
 
@@ -1099,7 +1102,7 @@ async fn test_group_agent_assignments_are_atomic_and_generation_checked_over_htt
                 .header("content-type", "application/json")
                 .body(Body::from(
                     serde_json::json!({
-                        "expectedGeneration": 1,
+                        "expectedGeneration": "1",
                         "agentAssignments": [{"agentId": "agent.im.reviewer"}]
                     })
                     .to_string(),
@@ -1118,7 +1121,7 @@ async fn test_group_agent_assignments_are_atomic_and_generation_checked_over_htt
             .to_bytes(),
     )
     .expect("update body should be json");
-    assert_eq!(response_item(&update_json)["generation"], 2);
+    assert_eq!(response_item(&update_json)["generation"], "2");
 
     let stale = app
         .clone()
@@ -1134,7 +1137,7 @@ async fn test_group_agent_assignments_are_atomic_and_generation_checked_over_htt
                 .header("content-type", "application/json")
                 .body(Body::from(
                     serde_json::json!({
-                        "expectedGeneration": 1,
+                        "expectedGeneration":"1",
                         "agentAssignments": [{"agentId": "agent.im.writer"}]
                     })
                     .to_string(),
@@ -1182,7 +1185,7 @@ async fn test_post_message_rejects_invalid_agent_mention_display_text_over_http(
                                 "targetKind": "agent",
                                 "targetId": "agent.im.default",
                                 "displayText": display_text,
-                                "assignmentGeneration": 1
+                                "assignmentGeneration":"1"
                             }]
                         })
                         .to_string(),
@@ -1333,7 +1336,7 @@ async fn test_duplicate_post_message_request_is_idempotent_and_conflicting_retry
         .to_bytes();
     let history_json: serde_json::Value =
         serde_json::from_slice(&history_body).expect("history should be valid json");
-    assert_eq!(history_json["data"]["highWatermark"], 1);
+    assert_eq!(history_json["data"]["highWatermark"], "1");
     assert_eq!(history_json["data"]["items"].as_array().unwrap().len(), 1);
 
     let conflicting_retry = app
@@ -1510,9 +1513,7 @@ async fn test_message_history_pages_backward_with_opaque_cursor_under_new_insert
         .expect("first history items should be an array")
         .iter()
         .map(|item| {
-            item["messageSeq"]
-                .as_u64()
-                .expect("messageSeq should be u64")
+            item["messageSeq"].as_str().and_then(|v| v.parse::<u64>().ok()).expect("messageSeq should be a decimal string")
         })
         .collect::<Vec<_>>();
     assert_eq!(first_sequences, [3, 4]);
@@ -1562,9 +1563,7 @@ async fn test_message_history_pages_backward_with_opaque_cursor_under_new_insert
         .expect("second history items should be an array")
         .iter()
         .map(|item| {
-            item["messageSeq"]
-                .as_u64()
-                .expect("messageSeq should be u64")
+            item["messageSeq"].as_str().and_then(|v| v.parse::<u64>().ok()).expect("messageSeq should be a decimal string")
         })
         .collect::<Vec<_>>();
     assert_eq!(second_sequences, [1, 2]);
@@ -3242,7 +3241,7 @@ async fn test_system_channel_dedicated_publish_over_http() {
     let value: serde_json::Value =
         serde_json::from_slice(&body).expect("response should be valid json");
     let item = response_item(&value);
-    assert_eq!(item["messageSeq"], 1);
+    assert_eq!(item["messageSeq"], "1");
 
     let subscriber_publish = app
         .oneshot(
@@ -3338,7 +3337,7 @@ async fn test_post_message_accepts_structured_parts_over_http() {
         serde_json::from_slice(&body).expect("response should be valid json");
     let item = response_item(&value);
 
-    assert_eq!(item["messageSeq"], 1);
+    assert_eq!(item["messageSeq"], "1");
     assert_eq!(item["messageId"], format!("msg_{conversation_id}_1"));
 }
 
@@ -4311,7 +4310,7 @@ async fn test_read_cursor_endpoints_expose_unread_progress_over_http() {
     let initial_cursor_json: serde_json::Value =
         serde_json::from_slice(&initial_cursor_body).expect("initial cursor should be valid json");
     let initial_cursor_item = response_item(&initial_cursor_json);
-    assert_eq!(initial_cursor_item["readSeq"], 0);
+    assert_eq!(initial_cursor_item["readSeq"], "0");
     assert_eq!(initial_cursor_item["unreadCount"], 2);
 
     let update_cursor_response = app
@@ -4328,7 +4327,7 @@ async fn test_read_cursor_endpoints_expose_unread_progress_over_http() {
                 .header("content-type", "application/json")
                 .body(Body::from(format!(
                     r#"{{
-                        "readSeq": 1,
+                        "readSeq":"1",
                         "lastReadMessageId":"1"
                     }}"#,
                 )))
@@ -4346,7 +4345,7 @@ async fn test_read_cursor_endpoints_expose_unread_progress_over_http() {
     let update_cursor_json: serde_json::Value =
         serde_json::from_slice(&update_cursor_body).expect("updated cursor should be valid json");
     let update_cursor_item = response_item(&update_cursor_json);
-    assert_eq!(update_cursor_item["readSeq"], 1);
+    assert_eq!(update_cursor_item["readSeq"], "1");
     assert_eq!(update_cursor_item["unreadCount"], 1);
 }
 
@@ -4401,7 +4400,7 @@ async fn test_read_cursor_over_http_rejects_actor_kind_mismatch() {
                 .header("content-type", "application/json")
                 .body(Body::from(format!(
                     r#"{{
-                        "readSeq": 1,
+                        "readSeq":"1",
                         "lastReadMessageId":"1"
                     }}"#,
                 )))
@@ -4485,7 +4484,7 @@ async fn test_edit_and_recall_message_over_http() {
         serde_json::from_slice(&edit_body).expect("edit response should be valid json");
     let edit_item = response_item(&edit_json);
     assert_eq!(edit_item["messageId"], message_id);
-    assert_eq!(edit_item["messageSeq"], 1);
+    assert_eq!(edit_item["messageSeq"], "1");
 
     let recall_response = app
         .oneshot(
@@ -4512,7 +4511,7 @@ async fn test_edit_and_recall_message_over_http() {
         serde_json::from_slice(&recall_body).expect("recall response should be valid json");
     let recall_item = response_item(&recall_json);
     assert_eq!(recall_item["messageId"], message_id);
-    assert_eq!(recall_item["messageSeq"], 1);
+    assert_eq!(recall_item["messageSeq"], "1");
 }
 
 #[tokio::test]
@@ -4579,7 +4578,7 @@ async fn test_reaction_and_pin_message_over_http() {
         serde_json::from_slice(&reaction_body).expect("reaction response should be valid json");
     let reaction_item = response_item(&reaction_json);
     assert_eq!(reaction_item["messageId"], message_id);
-    assert_eq!(reaction_item["messageSeq"], 1);
+    assert_eq!(reaction_item["messageSeq"], "1");
     assert_eq!(reaction_item["reactionKey"], "thumbs_up");
     assert_eq!(reaction_item["changed"], true);
 
@@ -4609,7 +4608,7 @@ async fn test_reaction_and_pin_message_over_http() {
         serde_json::from_slice(&pin_body).expect("pin response should be valid json");
     let pin_item = response_item(&pin_json);
     assert_eq!(pin_item["messageId"], message_id);
-    assert_eq!(pin_item["messageSeq"], 1);
+    assert_eq!(pin_item["messageSeq"], "1");
     assert_eq!(pin_item["changed"], true);
 
     let unpin_response = app
@@ -6541,7 +6540,7 @@ async fn test_ensure_welcome_message_is_idempotent_over_http() {
         .as_str()
         .expect("sent welcome should carry message id")
         .to_owned();
-    assert!(item["messageSeq"].as_u64().unwrap_or(0) >= 1);
+    assert!(item["messageSeq"].as_str().and_then(|v| v.parse::<u64>().ok()).unwrap_or(0) >= 1);
 
     // 欢迎消息以 messageType=system 且发送者为系统智能体投递。
     let messages = app

@@ -129,7 +129,7 @@ SELECT tenant_id, organization_id, request_id, requester_user_id, target_user_id
        request_message, status, expired_at::text, created_at::text, updated_at::text
 FROM im_friend_requests
 WHERE tenant_id = $1 AND organization_id = $2 AND requester_user_id = $3 AND status = $4
-ORDER BY created_at DESC
+ORDER BY created_at DESC, request_id DESC
 LIMIT $5
 "#;
 
@@ -138,7 +138,7 @@ SELECT tenant_id, organization_id, request_id, requester_user_id, target_user_id
        request_message, status, expired_at::text, created_at::text, updated_at::text
 FROM im_friend_requests
 WHERE tenant_id = $1 AND organization_id = $2 AND target_user_id = $3 AND status = $4
-ORDER BY created_at DESC
+ORDER BY created_at DESC, request_id DESC
 LIMIT $5
 "#;
 

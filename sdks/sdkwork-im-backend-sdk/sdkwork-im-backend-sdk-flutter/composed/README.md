@@ -5,13 +5,12 @@ Official consumer-facing Flutter package for the backend SDK family.
 This package is the manual-owned `composed` layer in `sdkwork-im-backend-sdk-flutter`. It sits
 above and re-exports the generated `im_backend_api_generated` transport package.
 
-Use this package for backend/operator/control/admin capability on `/backend/v3/api`:
+Use this package for backend/operator/control capability on `/backend/v3/api`:
 
 - ops diagnostics and runtime health
 - audit export and record surfaces
 - automation governance
 - control-plane and policy governance
-- admin-console APIs
 
 Current boundary:
 
@@ -35,7 +34,7 @@ final protocolRegistry = await sdk.control.protocolRegistry();
 ```
 
 `ImBackendSdkClient` also exposes raw generated route groups (`opsApi`, `auditApi`, `automationApi`,
-`controlApi`, `adminApi`) when direct transport access is required.
+`controlApi`) when direct transport access is required.
 
 ## SDKWork Documentation Contract
 

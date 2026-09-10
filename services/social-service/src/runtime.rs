@@ -1386,8 +1386,21 @@ impl SocialRuntime {
         commits: &[CommitEnvelope],
     ) -> Result<(Vec<CommitEnvelope>, bool), String> {
         if let Some(authority) = self.postgres_atomic_write_authority.as_ref() {
+            // Outbox (no direct fanout) mode: delivery evidence rides in the
+            // same PostgreSQL transaction as the journal append and the
+            // normalized state write, so a crash can never separate the
+            // durable commit from its delivery record. Fanout mode keeps the
+            // direct publish path and enqueues nothing.
+            let (has_fanout, _has_outbox) = self.resolve_social_realtime_delivery();
+            let outbox = if has_fanout {
+                None
+            } else {
+                self.id_generator.as_deref().map(|id_generator| {
+                    crate::postgres_write_authority::SocialOutboxInTransaction { id_generator }
+                })
+            };
             let inserted = authority
-                .append_and_write(commits.to_vec())
+                .append_and_write(commits.to_vec(), outbox.as_ref())
                 .map_err(|error| {
                     crate::social_write_metrics::record_postgres_atomic_write_failures(
                         commits.len() as u64,
@@ -1435,7 +1448,15 @@ impl SocialRuntime {
         Ok((commits.to_vec(), false))
     }
 
-    fn finalize_persisted_commits(&self, commits: &[CommitEnvelope]) {
+    /// Publishes durable social commits to the realtime fanout fast path.
+    ///
+    /// `outbox_already_enqueued` is true when the atomic PostgreSQL write
+    /// authority committed the batch (outbox evidence, when this runtime runs
+    /// without a direct fanout, was already enqueued inside that transaction).
+    /// The post-commit enqueue below then never runs, so durable outbox rows
+    /// only ever originate from the atomic path; the memory/dev path keeps its
+    /// legacy best-effort enqueue.
+    fn finalize_persisted_commits(&self, commits: &[CommitEnvelope], outbox_already_enqueued: bool) {
         if commits.is_empty() {
             return;
         }
@@ -1446,32 +1467,34 @@ impl SocialRuntime {
             .clone();
         if let Some(fanout) = fanout.as_ref() {
             crate::social_realtime::try_publish_social_commits(Some(fanout.as_ref()), commits);
-        } else if let (Some(outbox_store), Some(id_generator)) =
-            (self.outbox_store.as_ref(), self.id_generator.as_ref())
-        {
-            for commit in commits {
-                match crate::social_realtime::build_social_realtime_outbox_record(
-                    commit,
-                    id_generator.as_ref(),
-                ) {
-                    Ok(Some(record)) => {
-                        if let Err(error) = outbox_store.enqueue(record) {
+        } else if !outbox_already_enqueued {
+            if let (Some(outbox_store), Some(id_generator)) =
+                (self.outbox_store.as_ref(), self.id_generator.as_ref())
+            {
+                for commit in commits {
+                    match crate::social_realtime::build_social_realtime_outbox_record(
+                        commit,
+                        id_generator.as_ref(),
+                    ) {
+                        Ok(Some(record)) => {
+                            if let Err(error) = outbox_store.enqueue(record) {
+                                tracing::warn!(
+                                    event_id = commit.event_id.as_str(),
+                                    event_type = commit.event_type.as_str(),
+                                    error = ?error,
+                                    "social outbox enqueue failed"
+                                );
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(error) => {
                             tracing::warn!(
                                 event_id = commit.event_id.as_str(),
                                 event_type = commit.event_type.as_str(),
-                                error = ?error,
-                                "social outbox enqueue failed"
+                                error = %error,
+                                "social outbox record build failed"
                             );
                         }
-                    }
-                    Ok(None) => {}
-                    Err(error) => {
-                        tracing::warn!(
-                            event_id = commit.event_id.as_str(),
-                            event_type = commit.event_type.as_str(),
-                            error = %error,
-                            "social outbox record build failed"
-                        );
                     }
                 }
             }
@@ -1897,9 +1920,9 @@ impl SocialRuntime {
         commit: &CommitEnvelope,
     ) -> Result<SocialWritePersistence, String> {
         self.ensure_social_realtime_delivery(std::slice::from_ref(commit))?;
-        let (inserted_commits, _postgres_written) =
+        let (inserted_commits, postgres_written) =
             self.persist_commits_to_authority(std::slice::from_ref(commit))?;
-        self.finalize_persisted_commits(&inserted_commits);
+        self.finalize_persisted_commits(&inserted_commits, postgres_written);
         self.state_store.save(next)?;
         Ok(self.current_persistence())
     }
@@ -1913,8 +1936,8 @@ impl SocialRuntime {
             return Ok(self.current_persistence());
         }
         self.ensure_social_realtime_delivery(commits)?;
-        let (inserted_commits, _postgres_written) = self.persist_commits_to_authority(commits)?;
-        self.finalize_persisted_commits(&inserted_commits);
+        let (inserted_commits, postgres_written) = self.persist_commits_to_authority(commits)?;
+        self.finalize_persisted_commits(&inserted_commits, postgres_written);
         self.state_store.save(next)?;
         Ok(self.current_persistence())
     }
@@ -3097,6 +3120,7 @@ mod postgres_write_authority_tests {
         fn append_and_write(
             &self,
             mut commits: Vec<CommitEnvelope>,
+            _outbox: Option<&crate::postgres_write_authority::SocialOutboxInTransaction<'_>>,
         ) -> Result<Vec<CommitEnvelope>, ContractError> {
             self.calls.fetch_add(1, Ordering::Relaxed);
             if self.fail {

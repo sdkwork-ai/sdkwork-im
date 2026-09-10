@@ -1011,7 +1011,6 @@ for (const appRequiredPath of [
   '/app/v3/api/notifications/requests',
   '/app/v3/api/automation/executions',
   '/app/v3/api/media/provider_health',
-  '/app/v3/api/principal/profiles/provider_health',
 ]) {
   assert.match(
     appConfigSource,
@@ -1243,10 +1242,8 @@ assertGeneratedTransportDoesNotImportSdkDependencies(
 );
 for (const backendRequiredPath of [
   '/backend/v3/api/ops/health',
-  '/backend/v3/api/audit/records',
   '/backend/v3/api/automation/governance',
   '/backend/v3/api/control/protocol_registry',
-  '/backend/v3/api/admin/api_keys',
 ]) {
   assert.match(
     backendConfigSource,
@@ -1357,7 +1354,6 @@ for (const imRequiredPath of [
   '/im/v3/api/chat/messages/{messageId}/edit',
   '/im/v3/api/social/friend_requests',
   '/im/v3/api/calls/sessions',
-  '/im/v3/api/streams',
 ]) {
   assert.match(
     imConfigSource,
@@ -1674,7 +1670,7 @@ assert.match(
 );
 assert.match(
   imTypeScriptCompatSource,
-  /export interface ConversationMessageListResponse\s*{[\s\S]*items:\s*ConversationMessageEntry\[\];[\s\S]*pageInfo:\s*SdkWorkListPageInfo;[\s\S]*highWatermark:\s*number;/,
+  /export interface ConversationMessageListResponse\s*{[\s\S]*items:\s*ConversationMessageEntry\[\];[\s\S]*pageInfo:\s*SdkWorkListPageInfo;[\s\S]*highWatermark:\s*string;/,
   'IM TypeScript composed ConversationMessageListResponse must expose items, pageInfo, and highWatermark from the OpenAPI data payload.',
 );
 assertNoStaleMessageHistoryContractMarkers();

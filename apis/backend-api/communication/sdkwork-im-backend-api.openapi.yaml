@@ -171,59 +171,6 @@ paths:
       x-sdkwork-api-authority: sdkwork-im.backend
       x-sdkwork-request-context: WebRequestContext
       x-sdkwork-api-surface: backend-api
-  /backend/v3/api/ops/commercial_readiness:
-    get:
-      tags:
-        - ops
-      operationId: commercialReadiness.retrieve
-      summary: Retrieve commercial readiness
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            type: object
-                            additionalProperties: true
-        '401':
-          description: Problem detail response
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '403':
-          description: Problem detail response
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '503':
-          description: Problem detail response
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
   /backend/v3/api/ops/runtime_dir:
     get:
       tags:
@@ -498,6 +445,7 @@ paths:
           schema:
             type: string
             format: int64
+            pattern: ^-?[0-9]+$
             minimum: 1
             maximum: 5000
             x-sdkwork-int64-string: true
@@ -547,59 +495,23 @@ paths:
       x-sdkwork-request-context: WebRequestContext
       x-sdkwork-api-surface: backend-api
   /backend/v3/api/audit/records:
-    get:
-      tags:
-        - audit
-      operationId: records.list
-      summary: List audit records
-      description: >-
-        Keyset window over the audit ledger. The implementation reads the `afterAuditSeq` sequence cursor and
-        `page_size` only; continuation values come from `data.pageInfo.nextCursor` of the prior page. Other pagination
-        aliases (`cursor`, `page`, `q`) are not accepted by the service and must not be sent.
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/AfterAuditSeqQuery'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Problem detail response
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '403':
-          description: Problem detail response
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '503':
-          description: Problem detail response
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
     post:
       tags:
         - audit
-      operationId: records.create
-      summary: Record audit anchor
+      operationId: audit.records.create
+      summary: Record an audit anchor
+      description: >-
+        Appends one immutable audit record to the tenant ledger with a hash-chain anchor. Retries with the same recordId
+        are idempotent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditRecordAnchorRequest'
       responses:
         '201':
-          description: OK
+          description: Audit record anchored
           content:
             application/json:
               schema:
@@ -615,8 +527,85 @@ paths:
                           - item
                         properties:
                           item:
-                            type: object
-                            additionalProperties: true
+                            $ref: '#/components/schemas/AuditRecordView'
+        '400':
+          description: Problem detail response
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Problem detail response
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Problem detail response
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: Problem detail response
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '503':
+          description: Problem detail response
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.backend
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: backend-api
+    get:
+      tags:
+        - audit
+      operationId: audit.records.list
+      summary: List audit records
+      description: >-
+        Lists the current tenant's audit ledger in descending audit-sequence order using an opaque keyset cursor bounded
+        by page_size.
+      parameters:
+        - name: afterAuditSeq
+          in: query
+          required: false
+          schema:
+            type: string
+            format: int64
+            pattern: ^-?[0-9]+$
+            x-sdkwork-int64-string: true
+            minimum: 0
+        - $ref: '#/components/parameters/PageSizeQuery'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/AuditRecordListResponse'
+        '400':
+          description: Problem detail response
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '401':
           description: Problem detail response
           content:
@@ -643,16 +632,20 @@ paths:
       x-sdkwork-api-authority: sdkwork-im.backend
       x-sdkwork-request-context: WebRequestContext
       x-sdkwork-api-surface: backend-api
-      parameters: []
   /backend/v3/api/audit/export:
     get:
       tags:
         - audit
-      operationId: export.retrieve
-      summary: Export audit bundle
+      operationId: audit.export.retrieve
+      summary: Export the audit ledger
+      description: >-
+        Streams the current tenant's audit ledger as newline-delimited JSON audit records. The stream is bounded and
+        replaces any unbounded list usage for compliance export.
+      parameters:
+        - $ref: '#/components/parameters/PageSizeQuery'
       responses:
         '200':
-          description: OK
+          description: Streaming audit ledger export envelope
           content:
             application/json:
               schema:
@@ -664,12 +657,24 @@ paths:
                     properties:
                       data:
                         type: object
+                        additionalProperties: false
                         required:
-                          - item
+                          - items
+                          - pageInfo
                         properties:
-                          item:
-                            type: object
-                            additionalProperties: true
+                          items:
+                            type: array
+                            description: Streaming array of AuditRecordView records.
+                            items:
+                              $ref: '#/components/schemas/AuditRecordView'
+                          pageInfo:
+                            $ref: '#/components/schemas/PageInfo'
+        '400':
+          description: Problem detail response
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '401':
           description: Problem detail response
           content:
@@ -696,7 +701,6 @@ paths:
       x-sdkwork-api-authority: sdkwork-im.backend
       x-sdkwork-request-context: WebRequestContext
       x-sdkwork-api-surface: backend-api
-      parameters: []
   /backend/v3/api/audit/verify:
     get:
       tags:
@@ -2150,6 +2154,106 @@ paths:
       x-sdkwork-request-context: WebRequestContext
       x-sdkwork-api-surface: backend-api
   /backend/v3/api/control/social/friend_requests:
+    get:
+      operationId: social.friendRequests.list
+      summary: List friend requests for a user.
+      description: >-
+        Cursor page of friend request inventory entries for the required userId. Mirrors the social service
+        list_friend_requests handler and the FriendRequestHttpView DTO, including requester display enrichment.
+      parameters:
+        - description: Owner user identifier whose inventory is listed.
+          in: query
+          name: userId
+          required: true
+          schema:
+            type: string
+        - description: Inventory direction filter.
+          in: query
+          name: direction
+          required: true
+          schema:
+            type: string
+            enum:
+              - incoming
+              - outgoing
+              - all
+        - description: Inventory status filter; defaults to pending.
+          in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum:
+              - pending
+              - accepted
+              - declined
+              - canceled
+              - expired
+              - all
+            default: pending
+        - description: Page size between 1 and the configured list maximum.
+          in: query
+          name: page_size
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 20
+        - description: Opaque cursor from a previous page.
+          in: query
+          name: cursor
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SocialFriendRequestInventoryPageData'
+          description: Successful response.
+        '400':
+          description: Invalid request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Authentication required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Permission denied.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '503':
+          description: Control-plane dependency is unavailable.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      tags:
+        - control
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.backend
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: backend-api
     post:
       operationId: social.friendRequests.create
       requestBody:
@@ -4006,2114 +4110,6 @@ paths:
       x-sdkwork-api-authority: sdkwork-im.backend
       x-sdkwork-request-context: WebRequestContext
       x-sdkwork-api-surface: backend-api
-  /backend/v3/api/admin/api_key_groups:
-    get:
-      operationId: apiKeyGroups.list
-      tags:
-        - admin
-      summary: listApiKeyGroups
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-    post:
-      operationId: apiKeyGroups.create
-      tags:
-        - admin
-      summary: createApiKeyGroup
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/api_key_groups/{groupId}:
-    patch:
-      operationId: apiKeyGroups.update
-      tags:
-        - admin
-      summary: updateApiKeyGroup
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-    delete:
-      operationId: apiKeyGroups.delete
-      tags:
-        - admin
-      summary: deleteApiKeyGroup
-      responses:
-        '204':
-          description: Deleted successfully. Trace id is returned in X-SdkWork-Trace-Id header.
-          headers:
-            X-SdkWork-Trace-Id:
-              description: Server-owned request correlation id.
-              schema:
-                type: string
-                format: uuid
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/api_key_groups/{groupId}/status:
-    post:
-      operationId: apiKeyGroups.status
-      tags:
-        - admin
-      summary: updateApiKeyGroupStatus
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/api_keys:
-    get:
-      operationId: apiKeys.list
-      tags:
-        - admin
-      summary: listApiKeys
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-    post:
-      operationId: apiKeys.create
-      tags:
-        - admin
-      summary: createApiKey
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/api_keys/{hashedKey}:
-    put:
-      operationId: apiKeys.update
-      tags:
-        - admin
-      summary: updateApiKey
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-    delete:
-      operationId: apiKeys.delete
-      tags:
-        - admin
-      summary: deleteApiKey
-      responses:
-        '204':
-          description: Deleted successfully. Trace id is returned in X-SdkWork-Trace-Id header.
-          headers:
-            X-SdkWork-Trace-Id:
-              description: Server-owned request correlation id.
-              schema:
-                type: string
-                format: uuid
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/api_keys/{hashedKey}/status:
-    post:
-      operationId: apiKeys.status
-      tags:
-        - admin
-      summary: updateApiKeyStatus
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/billing/events:
-    get:
-      operationId: billing.events.list
-      tags:
-        - admin
-      summary: listBillingEvents
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-  /backend/v3/api/admin/billing/events/summary:
-    get:
-      operationId: billing.events.summary.retrieve
-      tags:
-        - admin
-      summary: getBillingEventSummary
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/billing/summary:
-    get:
-      operationId: billing.summary.retrieve
-      tags:
-        - admin
-      summary: getBillingSummary
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/channel_models:
-    get:
-      operationId: channelModels.list
-      tags:
-        - admin
-      summary: listChannelModels
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-    post:
-      operationId: channelModels.create
-      tags:
-        - admin
-      summary: saveChannelModel
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/channel_models/{channelId}/models/{modelId}:
-    delete:
-      operationId: channelModels.models.delete
-      tags:
-        - admin
-      summary: deleteChannelModel
-      responses:
-        '204':
-          description: Deleted successfully. Trace id is returned in X-SdkWork-Trace-Id header.
-          headers:
-            X-SdkWork-Trace-Id:
-              description: Server-owned request correlation id.
-              schema:
-                type: string
-                format: uuid
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/channels:
-    get:
-      operationId: channels.list
-      tags:
-        - admin
-      summary: listChannels
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-    post:
-      operationId: channels.create
-      tags:
-        - admin
-      summary: saveChannel
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/channels/{channelId}:
-    delete:
-      operationId: channels.delete
-      tags:
-        - admin
-      summary: deleteChannel
-      responses:
-        '204':
-          description: Deleted successfully. Trace id is returned in X-SdkWork-Trace-Id header.
-          headers:
-            X-SdkWork-Trace-Id:
-              description: Server-owned request correlation id.
-              schema:
-                type: string
-                format: uuid
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/credentials:
-    get:
-      operationId: credentials.list
-      tags:
-        - admin
-      summary: listCredentials
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-    post:
-      operationId: credentials.create
-      tags:
-        - admin
-      summary: saveCredential
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/credentials/{tenantId}/providers/{providerId}/keys/{keyReference}:
-    delete:
-      operationId: credentials.providers.keys.delete
-      tags:
-        - admin
-      summary: deleteCredential
-      responses:
-        '204':
-          description: Deleted successfully. Trace id is returned in X-SdkWork-Trace-Id header.
-          headers:
-            X-SdkWork-Trace-Id:
-              description: Server-owned request correlation id.
-              schema:
-                type: string
-                format: uuid
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/extensions/runtime_reloads:
-    post:
-      operationId: extensions.runtimeReloads.create
-      tags:
-        - admin
-      summary: reloadExtensionRuntimes
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/extensions/runtime_statuses:
-    get:
-      operationId: extensions.runtimeStatuses.list
-      tags:
-        - admin
-      summary: listRuntimeStatuses
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-  /backend/v3/api/admin/gateway/rate_limit_policies:
-    get:
-      operationId: gateway.rateLimitPolicies.list
-      tags:
-        - admin
-      summary: listRateLimitPolicies
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-    post:
-      operationId: gateway.rateLimitPolicies.create
-      tags:
-        - admin
-      summary: createRateLimitPolicy
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/gateway/rate_limit_windows:
-    get:
-      operationId: gateway.rateLimitWindows.list
-      tags:
-        - admin
-      summary: listRateLimitWindows
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-  /backend/v3/api/admin/marketing/campaigns:
-    get:
-      operationId: marketing.campaigns.list
-      tags:
-        - admin
-      summary: listMarketingCampaigns
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-    post:
-      operationId: marketing.campaigns.create
-      tags:
-        - admin
-      summary: saveMarketingCampaign
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/marketing/campaigns/{marketingCampaignId}/status:
-    post:
-      operationId: marketing.campaigns.status
-      tags:
-        - admin
-      summary: updateMarketingCampaignStatus
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/model_prices:
-    get:
-      operationId: modelPrices.list
-      tags:
-        - admin
-      summary: listModelPrices
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-    post:
-      operationId: modelPrices.create
-      tags:
-        - admin
-      summary: saveModelPrice
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/model_prices/{channelId}/models/{modelId}/providers/{proxyProviderId}:
-    delete:
-      operationId: modelPrices.models.providers.delete
-      tags:
-        - admin
-      summary: deleteModelPrice
-      responses:
-        '204':
-          description: Deleted successfully. Trace id is returned in X-SdkWork-Trace-Id header.
-          headers:
-            X-SdkWork-Trace-Id:
-              description: Server-owned request correlation id.
-              schema:
-                type: string
-                format: uuid
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/models:
-    get:
-      operationId: models.list
-      tags:
-        - admin
-      summary: listModels
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-    post:
-      operationId: models.create
-      tags:
-        - admin
-      summary: saveModel
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/models/{externalName}/providers/{providerId}:
-    delete:
-      operationId: models.providers.delete
-      tags:
-        - admin
-      summary: deleteModel
-      responses:
-        '204':
-          description: Deleted successfully. Trace id is returned in X-SdkWork-Trace-Id header.
-          headers:
-            X-SdkWork-Trace-Id:
-              description: Server-owned request correlation id.
-              schema:
-                type: string
-                format: uuid
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/providers:
-    get:
-      operationId: providers.list
-      tags:
-        - admin
-      summary: listProviders
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-    post:
-      operationId: providers.create
-      tags:
-        - admin
-      summary: saveProvider
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/providers/{providerId}:
-    delete:
-      operationId: providers.delete
-      tags:
-        - admin
-      summary: deleteProvider
-      responses:
-        '204':
-          description: Deleted successfully. Trace id is returned in X-SdkWork-Trace-Id header.
-          headers:
-            X-SdkWork-Trace-Id:
-              description: Server-owned request correlation id.
-              schema:
-                type: string
-                format: uuid
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/routing/decision_logs:
-    get:
-      operationId: routing.decisionLogs.list
-      tags:
-        - admin
-      summary: listRoutingDecisionLogs
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-  /backend/v3/api/admin/routing/health_snapshots:
-    get:
-      operationId: routing.healthSnapshots.retrieve
-      tags:
-        - admin
-      summary: listProviderHealthSnapshots
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/routing/profiles:
-    get:
-      operationId: routing.profiles.list
-      tags:
-        - admin
-      summary: listRoutingProfiles
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-    post:
-      operationId: routing.profiles.create
-      tags:
-        - admin
-      summary: createRoutingProfile
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/routing/snapshots:
-    get:
-      operationId: routing.snapshots.list
-      tags:
-        - admin
-      summary: listCompiledRoutingSnapshots
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-  /backend/v3/api/admin/storage/audit:
-    get:
-      operationId: storage.audit.list
-      tags:
-        - admin
-      summary: listStorageAuditTrail
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-  /backend/v3/api/admin/storage/config:
-    get:
-      operationId: storage.config.retrieve
-      tags:
-        - admin
-      summary: getGlobalStorageConfig
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-    post:
-      operationId: storage.config.create
-      tags:
-        - admin
-      summary: saveGlobalStorageConfig
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/storage/config/tenants/{tenantId}:
-    get:
-      operationId: storage.config.tenants.retrieve
-      tags:
-        - admin
-      summary: getTenantStorageConfig
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-    post:
-      operationId: storage.config.tenants.create
-      tags:
-        - admin
-      summary: saveTenantStorageConfig
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-    delete:
-      operationId: storage.config.tenants.delete
-      tags:
-        - admin
-      summary: deleteTenantStorageConfig
-      responses:
-        '204':
-          description: Deleted successfully. Trace id is returned in X-SdkWork-Trace-Id header.
-          headers:
-            X-SdkWork-Trace-Id:
-              description: Server-owned request correlation id.
-              schema:
-                type: string
-                format: uuid
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/storage/effective/tenants/{tenantId}:
-    get:
-      operationId: storage.effective.tenants.retrieve
-      tags:
-        - admin
-      summary: getTenantEffectiveStorageConfig
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/storage/providers:
-    get:
-      operationId: storage.providers.list
-      tags:
-        - admin
-      summary: listStorageProviders
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-  /backend/v3/api/admin/storage/validate:
-    post:
-      operationId: storage.validation.create
-      tags:
-        - admin
-      summary: validateGlobalStorageConfig
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/storage/validate/tenants/{tenantId}:
-    post:
-      operationId: storage.validation.tenants.create
-      tags:
-        - admin
-      summary: validateTenantStorageConfig
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LooseJsonObject'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
-  /backend/v3/api/admin/usage/records:
-    get:
-      operationId: usage.records.list
-      tags:
-        - admin
-      summary: listUsageRecords
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-  /backend/v3/api/admin/usage/summary:
-    get:
-      operationId: usage.summary.retrieve
-      tags:
-        - admin
-      summary: getUsageSummary
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/LooseJsonValue'
-        '401':
-          description: Authentication failed or no active operator session
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.backend
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: backend-api
-      parameters: []
 components:
   securitySchemes:
     AuthToken:
@@ -6193,17 +4189,6 @@ components:
       required: false
       schema:
         type: string
-    AfterAuditSeqQuery:
-      name: afterAuditSeq
-      in: query
-      required: false
-      description: >-
-        Audit sequence keyset cursor. Echo the numeric `auditSeq` value returned by the prior page's
-        `data.pageInfo.nextCursor`.
-      schema:
-        type: integer
-        format: int64
-        minimum: 0
   schemas:
     ProblemDetail:
       type: object
@@ -6244,6 +4229,92 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FieldError'
+    AuditRecordAnchorRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        recordId:
+          type: string
+          maxLength: 256
+        aggregateType:
+          type: string
+          maxLength: 128
+        aggregateId:
+          type: string
+          maxLength: 256
+        action:
+          type: string
+          maxLength: 128
+        payload:
+          type: string
+          nullable: true
+          description: Bounded JSON payload evidence (max 128 KiB).
+      required:
+        - recordId
+        - aggregateType
+        - aggregateId
+        - action
+    AuditRecordView:
+      type: object
+      additionalProperties: false
+      properties:
+        tenantId:
+          type: string
+        recordId:
+          type: string
+        auditSeq:
+          type: string
+          format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
+          minimum: 0
+        aggregateType:
+          type: string
+        aggregateId:
+          type: string
+        action:
+          type: string
+        actorId:
+          type: string
+        actorKind:
+          type: string
+        actorSessionId:
+          type: string
+          nullable: true
+        payload:
+          type: string
+          nullable: true
+        recordedAt:
+          type: string
+          format: date-time
+        chainPrevHash:
+          type: string
+          nullable: true
+        chainHash:
+          type: string
+      required:
+        - tenantId
+        - recordId
+        - auditSeq
+        - aggregateType
+        - aggregateId
+        - action
+        - actorId
+        - actorKind
+        - recordedAt
+        - chainHash
+    AuditRecordListResponse:
+      type: object
+      required:
+        - items
+        - pageInfo
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditRecordView'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
     AuditChainVerification:
       type: object
       additionalProperties: false
@@ -6262,6 +4333,7 @@ components:
         total:
           type: string
           format: int64
+          pattern: ^-?[0-9]+$
           minimum: 0
           x-sdkwork-int64-string: true
         chainHeadHash:
@@ -6297,12 +4369,14 @@ components:
         totalCommits:
           type: string
           format: int64
+          pattern: ^-?[0-9]+$
           minimum: 0
           nullable: true
           x-sdkwork-int64-string: true
         headCommitOffset:
           type: string
           format: int64
+          pattern: ^-?[0-9]+$
           nullable: true
           x-sdkwork-int64-string: true
         latestOccurredAt:
@@ -6328,50 +4402,60 @@ components:
         batchSize:
           type: string
           format: int64
+          pattern: ^-?[0-9]+$
           x-sdkwork-int64-string: true
         commitJournalDeleted:
           type: string
           format: int64
+          pattern: ^-?[0-9]+$
           minimum: 0
           x-sdkwork-int64-string: true
         conversationMessagesDeleted:
           type: string
           format: int64
+          pattern: ^-?[0-9]+$
           minimum: 0
           x-sdkwork-int64-string: true
         messageMediaRefsDeleted:
           type: string
           format: int64
+          pattern: ^-?[0-9]+$
           minimum: 0
           x-sdkwork-int64-string: true
         outboxEventsDeleted:
           type: string
           format: int64
+          pattern: ^-?[0-9]+$
           minimum: 0
           x-sdkwork-int64-string: true
         inboxEventsDeleted:
           type: string
           format: int64
+          pattern: ^-?[0-9]+$
           minimum: 0
           x-sdkwork-int64-string: true
         realtimeDeviceEventsDeleted:
           type: string
           format: int64
+          pattern: ^-?[0-9]+$
           minimum: 0
           x-sdkwork-int64-string: true
         rtcSessionsDeleted:
           type: string
           format: int64
+          pattern: ^-?[0-9]+$
           minimum: 0
           x-sdkwork-int64-string: true
         invitationsDeleted:
           type: string
           format: int64
+          pattern: ^-?[0-9]+$
           minimum: 0
           x-sdkwork-int64-string: true
         auditRecordsDeleted:
           type: string
           format: int64
+          pattern: ^-?[0-9]+$
           minimum: 0
           x-sdkwork-int64-string: true
     ActivateFriendshipRequest:
@@ -7035,6 +5119,66 @@ components:
       description: Friend request snapshot plus commit history.
       properties: {}
       type: object
+    SocialFriendRequestInventoryItem:
+      additionalProperties: false
+      description: Friend request inventory entry mirroring the social service FriendRequestHttpView DTO.
+      required:
+        - createdAt
+        - friendRequestId
+        - requesterUserId
+        - status
+        - targetUserId
+        - tenantId
+        - updatedAt
+      type: object
+      properties:
+        tenantId:
+          type: string
+        friendRequestId:
+          type: string
+        requesterUserId:
+          type: string
+        targetUserId:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending
+            - accepted
+            - declined
+            - canceled
+            - expired
+        requestMessage:
+          type:
+            - string
+            - 'null'
+        expiredAt:
+          type:
+            - string
+            - 'null'
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        requesterDisplayName:
+          type: string
+          description: Resolved from the IM user profile store when configured.
+        requesterAvatarUrl:
+          type: string
+          description: Resolved from the IM user profile store when configured.
+    SocialFriendRequestInventoryPageData:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - pageInfo
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SocialFriendRequestInventoryItem'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
     SocialFriendshipCommitResponse:
       additionalProperties: true
       description: Friendship write result plus persistence metadata.
@@ -7378,10 +5522,6 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/ProviderBindingDriftPageData'
-    LooseJsonValue: {}
-    LooseJsonObject:
-      type: object
-      additionalProperties: true
     SdkWorkApiResponse:
       type: object
       additionalProperties: false

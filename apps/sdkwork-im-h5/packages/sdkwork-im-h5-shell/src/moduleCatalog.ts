@@ -32,43 +32,30 @@ export const ALL_IM_H5_MODULES = [
 ] as const satisfies readonly ImH5ModuleId[];
 
 /**
- * Default product composition: the five main tabs (chat / agents / workspace /
- * discover / me) plus every capability surface with a real owner SDK or an
- * approved canonical owner-repo UI composed in this app root.
+ * Default product composition: the audited H5 release surface only. It
+ * renders real, SDK-backed content end to end:
  *
- * Fail-closed rule (PRD): capabilities without an owner SDK / end-to-end
- * evidence must not be registered by default. approval / attendance /
- * calendar / report were audited as pure localStorage mocks with no backend
- * SDK — they are removed from the default composition. enterprise /
- * recruitment now have the sdkwork-company owner SDK and are composed by
- * default. Their route entries stay in the shell registry for opt-in via
- * `VITE_SDKWORK_IM_H5_MODULES`, where their services now fail closed with
- * typed `*CapabilityUnavailableError`s instead of fabricating data.
+ * - `chat`: inbox + conversation (message send/receive, media upload,
+ *   recall/edit, favorites, pinned messages, search, read receipts)
+ * - `contacts`: address book, friend requests, organization directory, and
+ *   the composed agents tab
+ * - `notary`: Workspace Notary plus the notary workflow routes
+ * - `orders`: order center, detail, cashier, and voucher redemption
+ *
+ * Fail-closed rule (PRD): every other module stays opt-in through
+ * `VITE_SDKWORK_IM_H5_MODULES` and must not be registered by default. The
+ * fabricated surfaces (user-package billing/games mock data, localStorage
+ * mocks such as approval / attendance / calendar / report) are not part of
+ * the default composition, and no module in the default set depends on a
+ * non-default module at runtime: the orders module only consumes the wallet
+ * portfolio *service* from the `@sdkwork/im-h5-user` package (bundled by the
+ * shell itself), not the user module's routes or navigation.
  */
 export const DEFAULT_IM_H5_MODULES = [
   "chat",
   "contacts",
-  "user",
-  "agents",
   "notary",
   "orders",
-  "meeting",
-  "moments",
-  "music",
-  "knowledge",
-  "drive",
-  "voice",
-  "videogen",
-  "imagegen",
-  "musicgen",
-  "writing",
-  "devices",
-  "membership",
-  "course",
-  "community",
-  "shop",
-  "enterprise",
-  "recruitment",
 ] as const satisfies readonly ImH5ModuleId[];
 
 export const COMPOSABLE_IM_H5_MODULES = new Set<ImH5ModuleId>([...DEFAULT_IM_H5_MODULES]);

@@ -24,6 +24,23 @@ const RUNTIME_UNSAFE_PATH_ALIASES = [
   'react-dom',
   'react-router-dom',
 ];
+// Declaration-scope snapshots (see apps/*/types/siblings and the "//" note in
+// the app tsconfig.json): their tsconfig paths entries scope TYPECHECK to
+// consumer-owned .d.ts snapshots of sibling packages. At runtime the real
+// workspace packages must keep resolving through node_modules, so these
+// entries are stripped exactly like the react aliases above.
+const DECLARATION_SNAPSHOT_PATH_PREFIX = './types/siblings/';
+
+function isDeclarationSnapshotPathsEntry(substitutions) {
+  return (
+    Array.isArray(substitutions) &&
+    substitutions.some(
+      (substitution) =>
+        typeof substitution === 'string' &&
+        substitution.replaceAll(path.sep, '/').startsWith(DECLARATION_SNAPSHOT_PATH_PREFIX),
+    )
+  );
+}
 
 function hasExplicitTsconfig(args) {
   return args.some((arg) => arg === '--tsconfig' || arg.startsWith('--tsconfig='));
@@ -45,6 +62,12 @@ function materializeRuntimeTsconfig({ appRoot, tsconfigPath = path.join(appRoot,
   for (const alias of RUNTIME_UNSAFE_PATH_ALIASES) {
     if (Object.hasOwn(runtimePaths, alias)) {
       delete runtimePaths[alias];
+      changed = true;
+    }
+  }
+  for (const [pattern, substitutions] of Object.entries(runtimePaths)) {
+    if (isDeclarationSnapshotPathsEntry(substitutions)) {
+      delete runtimePaths[pattern];
       changed = true;
     }
   }

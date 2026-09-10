@@ -14,16 +14,14 @@ export interface ComplianceData {
   legalHolds: number;
   uptime: string;
   auditLogs: AuditLog[];
+  /** True when the audit-records capability backing the audit log is absent. */
+  auditLogsUnavailable: boolean;
 }
 
 type UnknownRecord = Record<string, unknown>;
 
 function asRecord(value: unknown): UnknownRecord {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as UnknownRecord : {};
-}
-
-function asRecordArray(value: unknown): UnknownRecord[] {
-  return Array.isArray(value) ? value.map(asRecord).filter((item) => Object.keys(item).length > 0) : [];
 }
 
 function readString(record: UnknownRecord, keys: string[], fallback = ''): string {
@@ -68,16 +66,6 @@ function readBoolean(record: UnknownRecord, keys: string[], fallback = false): b
   return fallback;
 }
 
-function readRecords(record: UnknownRecord, keys: string[]): UnknownRecord[] {
-  for (const key of keys) {
-    const records = asRecordArray(record[key]);
-    if (records.length > 0) {
-      return records;
-    }
-  }
-  return [];
-}
-
 function formatUptime(health: UnknownRecord): string {
   const explicit = readString(health, ['uptime', 'uptimePercent', 'availability'], '');
   if (explicit) {
@@ -90,56 +78,27 @@ function formatUptime(health: UnknownRecord): string {
   return '0%';
 }
 
-function hasCriticalSignals(health: UnknownRecord, records: UnknownRecord[]): boolean {
+function hasCriticalSignals(health: UnknownRecord): boolean {
   const healthStatus = readString(health, ['status', 'state', 'health'], '').toLowerCase();
-  if (['critical', 'failed', 'down', 'error', 'unhealthy'].includes(healthStatus)) {
-    return true;
-  }
-  return records.some((record) => {
-    const severity = readString(record, ['severity', 'level', 'status'], '').toLowerCase();
-    const action = readString(record, ['action', 'eventType', 'type'], '').toLowerCase();
-    return ['critical', 'failed', 'error', 'violation'].includes(severity)
-      || action.includes('critical')
-      || action.includes('security_violation');
-  });
-}
-
-function normalizeAuditLog(record: UnknownRecord, index: number): AuditLog {
-  const aggregateType = readString(record, ['aggregateType', 'resourceType'], 'system');
-  const aggregateId = readString(record, ['aggregateId', 'resourceId'], '');
-  const payload = asRecord(record.payload);
-  return {
-    action: readString(record, ['action', 'eventType', 'type'], 'audit.record'),
-    actor: readString(record, ['actorId', 'createdBy', 'userId', 'tenantId'], 'system'),
-    id: readString(record, ['recordId', 'id'], `audit-${index + 1}`),
-    ip: readString(record, ['ip', 'ipAddress', 'remoteIp', 'clientIp'], readString(payload, ['ip', 'ipAddress'], '')),
-    resource: aggregateId ? `${aggregateType}: ${aggregateId}` : aggregateType,
-    time: readString(record, ['recordedAt', 'createdAt', 'time'], ''),
-  };
+  return ['critical', 'failed', 'down', 'error', 'unhealthy'].includes(healthStatus);
 }
 
 class AdminComplianceService {
   async getComplianceData(searchTerm: string): Promise<ComplianceData> {
     const backend = getBackendSdkClientWithSession();
-    const [health, auditRecords] = await Promise.all([
-      backend.ops.health.retrieve(),
-      backend.audit.records.list(),
-    ]);
-    const normalizedHealth = asRecord(health);
-    const records = readRecords(asRecord(auditRecords), ['items', 'data', 'records', 'auditLogs']);
-    const query = searchTerm.trim().toLowerCase();
-    const auditLogs = records
-      .map(normalizeAuditLog)
-      .filter((log) => !query
-        || log.action.toLowerCase().includes(query)
-        || log.actor.toLowerCase().includes(query)
-        || log.resource.toLowerCase().includes(query)
-        || log.ip.toLowerCase().includes(query));
+    // The audit-records capability was pruned from the backend SDK contract
+    // (no server implementation exists), so the audit log fails closed: the
+    // page keeps the implemented ops health surface and reports the log as
+    // explicitly unavailable instead of issuing a request that 404s. The
+    // search term stays part of the page contract for the capability's return.
+    void searchTerm;
+    const normalizedHealth = asRecord(await backend.ops.health.retrieve());
 
     return {
-      auditLogs,
+      auditLogs: [],
+      auditLogsUnavailable: true,
       legalHolds: readNumber(normalizedHealth, ['legalHolds', 'activeLegalHolds'], 0),
-      systemSecure: readBoolean(normalizedHealth, ['systemSecure', 'secure'], !hasCriticalSignals(normalizedHealth, records)),
+      systemSecure: readBoolean(normalizedHealth, ['systemSecure', 'secure'], !hasCriticalSignals(normalizedHealth)),
       uptime: formatUptime(normalizedHealth),
     };
   }

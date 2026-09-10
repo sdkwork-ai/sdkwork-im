@@ -627,7 +627,8 @@ function ChatHistorySearchHitRow({
   messageSeq,
 }: {
   conversationId: string;
-  messageSeq: number;
+  /** int64 message sequence as a decimal string per API_SPEC 13.6. */
+  messageSeq: string;
 }): React.ReactElement {
   return (
     <article className="group flex px-5 py-3 transition-colors hover:bg-white/[0.035]" role="listitem">

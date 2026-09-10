@@ -28,7 +28,9 @@ const DEV_JWT_SIGNING_SECRET_FALLBACK: &str = "sdkwork-im-dev-jwt-secret-not-for
 // P0-10 (SECURITY_SPEC §1 / IAM_SPEC): production JWT iss/aud allow-lists and
 // jti replay protection. In production, iss/aud MUST be configured; otherwise
 // verification fails closed to prevent cross-service token confusion and
-// audience-substitution attacks. jti replay protection is opt-in via TTL > 0.
+// audience-substitution attacks. `SDKWORK_IM_JWT_REQUIRE_JTI=true` is likewise
+// mandatory outside dev/test so replayed bearer tokens are rejected; the
+// replay cache TTL stays opt-in for dev/test.
 const APP_CONTEXT_JWT_EXPECTED_ISSUERS_ENV: &str = "SDKWORK_IM_JWT_EXPECTED_ISSUERS";
 const APP_CONTEXT_JWT_EXPECTED_AUDIENCES_ENV: &str = "SDKWORK_IM_JWT_EXPECTED_AUDIENCES";
 const APP_CONTEXT_JWT_REQUIRE_JTI_ENV: &str = "SDKWORK_IM_JWT_REQUIRE_JTI";
@@ -805,9 +807,16 @@ fn resolve_app_context_for_request_inner(
     let access_token =
         extract_access_token(headers).ok_or_else(AppContextError::access_token_missing)?;
     let auth_claims = TokenClaims::parse(auth_token.as_str())?;
-    let access_claims = TokenClaims::parse(access_token.as_str())?;
-    let principal = resolve_principal(&auth_claims, &access_claims)?;
-    let app_context = app_context_from_claims(&principal, &auth_claims, &access_claims);
+    // Dual-token requests commonly carry the SAME JWT in both headers. Parse
+    // it once so jti replay protection is not double-claimed for a single
+    // request (the second parse would see the jti already in the replay cache
+    // and reject an innocent first use).
+    let distinct_access_claims = (access_token != auth_token)
+        .then(|| TokenClaims::parse(access_token.as_str()))
+        .transpose()?;
+    let access_claims = distinct_access_claims.as_ref().unwrap_or(&auth_claims);
+    let principal = resolve_principal(&auth_claims, access_claims)?;
+    let app_context = app_context_from_claims(&principal, &auth_claims, access_claims);
     let server_trace_id = new_server_trace_id();
     let request_context = WebRequestContext {
         request_id: ServerRequestId(server_trace_id.clone()),
@@ -1400,6 +1409,9 @@ fn jti_replay_cache() -> &'static Mutex<BTreeMap<String, Instant>> {
     CACHE.get_or_init(|| Mutex::new(BTreeMap::new()))
 }
 
+/// Memory cap for the process-local jti replay fallback cache.
+const JTI_REPLAY_CACHE_MAX_ENTRIES: usize = 100_000;
+
 fn redis_jti_replay_store() -> Option<&'static RedisJwtReplayStore> {
     static STORE: OnceLock<Option<RedisJwtReplayStore>> = OnceLock::new();
     STORE
@@ -1431,16 +1443,34 @@ fn require_jti_claim() -> bool {
 
 /// Enforce jti replay protection on a verified JWT payload.
 ///
+/// - Outside dev/test (production-like), `SDKWORK_IM_JWT_REQUIRE_JTI=true`
+///   MUST be configured: tokens without a `jti` claim are rejected, and a
+///   deployment that does not opt in fails closed at verification time
+///   (mirroring the production iss/aud allow-list gate) so replayable
+///   bearer tokens can never be accepted by accident.
 /// - When `SDKWORK_IM_JWT_REQUIRE_JTI=true`, tokens without a `jti` claim
 ///   are rejected (production hardening for token families that always
 ///   carry jti).
 /// - When `SDKWORK_IM_JWT_REPLAY_CACHE_TTL_SECS > 0`, a seen `jti` is
 ///   rejected as a replay for the duration of its TTL.
-/// - When neither is configured, this function is a no-op so existing
-///   dev/test deployments keep working unchanged.
+/// - In dev/test without explicit configuration this function is a no-op so
+///   local development keeps working unchanged.
 fn enforce_jti_replay_protection(payload: &Value) -> Result<(), AppContextError> {
     let require_jti = require_jti_claim();
     let ttl = resolve_jti_replay_ttl();
+    let environment = resolve_web_environment_from_process_env();
+    let dev_or_test = matches!(environment, WebEnvironment::Dev | WebEnvironment::Test);
+
+    if !dev_or_test && !require_jti {
+        // Fail-closed: production MUST require the jti claim so replay
+        // protection is always active. Returning an error here causes
+        // verification to fail closed instead of silently accepting
+        // replayable tokens.
+        return Err(AppContextError::invalid(format!(
+            "production JWT verification requires {APP_CONTEXT_JWT_REQUIRE_JTI_ENV}=true so jti replay protection is enforced outside dev/test environments"
+        )));
+    }
+
     if !require_jti && ttl.is_none() {
         return Ok(());
     }
@@ -1462,7 +1492,15 @@ fn enforce_jti_replay_protection(payload: &Value) -> Result<(), AppContextError>
     };
 
     let Some(ttl) = ttl else {
-        // require_jti is true but replay cache disabled: only ensure presence.
+        // require_jti is true but the replay cache is disabled. Outside
+        // dev/test that is a fail-closed configuration gap: presence-only
+        // checks cannot stop replays, so refuse to verify instead of
+        // silently degrading the production replay guarantee.
+        if !dev_or_test {
+            return Err(AppContextError::invalid(format!(
+                "production JWT replay protection requires {APP_CONTEXT_JWT_REPLAY_CACHE_TTL_SECS_ENV} > 0 while {APP_CONTEXT_JWT_REQUIRE_JTI_ENV}=true"
+            )));
+        }
         return Ok(());
     };
 
@@ -1509,6 +1547,20 @@ fn enforce_jti_replay_protection(payload: &Value) -> Result<(), AppContextError>
         return Err(AppContextError::invalid(format!(
             "JWT jti `{jti}` has been replayed within the replay cache TTL"
         )));
+    }
+    // Hard capacity bound: after expired-entry cleanup, evict the entries
+    // closest to expiry so the process-local fallback cache can never grow
+    // unbounded under a flood of unique jti values (memory-safety cap; the
+    // Redis store remains the cross-replica authority).
+    while guard.len() >= JTI_REPLAY_CACHE_MAX_ENTRIES {
+        let victim = guard
+            .iter()
+            .min_by_key(|(_, expiry)| *expiry)
+            .map(|(key, _)| key.clone());
+        let Some(victim) = victim else {
+            break;
+        };
+        guard.remove(&victim);
     }
     guard.insert(jti, now + ttl);
     Ok(())
@@ -1698,12 +1750,17 @@ fn ensure_local_dual_token_environment_for_unconfigured_process() {
     if std::env::var("SDKWORK_IM_ENVIRONMENT").is_ok() {
         return;
     }
-    // Local dual-token helpers are used by integration tests and dev harnesses that do not
-    // bootstrap SDKWORK_IM_ENVIRONMENT explicitly. Pin test mode only while the process still
-    // relies on the implicit production default.
-    unsafe {
-        std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
-    }
+    // Local dual-token helpers are used by integration tests and dev harnesses.
+    // They MUST NOT downgrade the process-global environment: an unconfigured
+    // production process keeps the fail-closed production default (the emitted
+    // unsigned/local tokens are then rejected by every production receiver)
+    // instead of silently switching the whole process to the relaxed test
+    // posture. Test harnesses that need the relaxed posture must set
+    // `SDKWORK_IM_ENVIRONMENT=test` explicitly in their bootstrap.
+    tracing::warn!(
+        "local dual-token helper ran without SDKWORK_IM_ENVIRONMENT configured; \
+         the process keeps its default (production) verification posture"
+    );
 }
 
 /// Whether services may fall back to header-only AppContext resolution without IAM DB lookup.

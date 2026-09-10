@@ -15,7 +15,16 @@ const stringSchema = (extra = {}) => ({ type: 'string', ...extra });
 const boolSchema = () => ({ type: 'boolean' });
 const intSchema = (extra = {}) => ({ type: 'integer', format: 'int64', ...extra });
 const int32Schema = (extra = {}) => ({ type: 'integer', format: 'int32', ...extra });
-const sequenceSchema = (extra = {}) => int32Schema({ minimum: 0, ...extra });
+// API_SPEC §13.6 int64-string closure: sequence/size wire values are decimal
+// strings so browsers never round ids or seq numbers past 2^53.
+const int64StringSchema = (extra = {}) => ({
+  type: 'string',
+  format: 'int64',
+  pattern: '^-?[0-9]+$',
+  'x-sdkwork-int64-string': true,
+  ...extra,
+});
+const sequenceSchema = (extra = {}) => int64StringSchema({ minimum: 0, ...extra });
 const objectSchema = (properties, required = [], extra = {}) => ({
   type: 'object',
   additionalProperties: false,
@@ -107,13 +116,14 @@ const pathParameters = {
   FriendRequestIdPath: parameter('friendRequestId', 'path', stringSchema()),
   RoomIdPath: parameter('roomId', 'path', stringSchema()),
   RtcSessionIdPath: parameter('rtcSessionId', 'path', stringSchema()),
-  StreamIdPath: parameter('streamId', 'path', stringSchema()),
   TagIdPath: parameter('tagId', 'path', stringSchema()),
   TargetUserIdPath: parameter('targetUserId', 'path', stringSchema()),
+  UserIdPath: parameter('userId', 'path', stringSchema()),
+  DirectChatIdPath: parameter('directChatId', 'path', stringSchema()),
 };
 
 const queryParameters = {
-  AfterSignalSeqQuery: parameter('afterSignalSeq', 'query', intSchema({ minimum: 0 }), { required: false }),
+  AfterSignalSeqQuery: parameter('afterSignalSeq', 'query', int64StringSchema({ minimum: 0 }), { required: false }),
   ConversationTypeQuery: parameter('conversation_type', 'query', stringSchema(), {
     description: 'Optional conversation type filter applied by the inbox projection before pagination.',
     required: false,
@@ -252,7 +262,7 @@ const schemas = {
   RtcSignalEvent: objectSchema({
     tenantId: stringSchema(),
     rtcSessionId: stringSchema(),
-    signalSeq: intSchema({ minimum: 0 }),
+    signalSeq: int64StringSchema({ minimum: 0 }),
     conversationId: nullable(stringSchema()),
     rtcMode: stringSchema(),
     signalType: stringSchema(),
@@ -317,7 +327,7 @@ const schemas = {
     title: nullable(stringSchema()),
     fileName: nullable(stringSchema()),
     mimeType: nullable(stringSchema()),
-    size: nullable(intSchema({ minimum: 0 })),
+    size: nullable(int64StringSchema({ minimum: 0 })),
     sizeBytes: nullable(stringSchema()),
     fileSize: nullable(stringSchema()),
     durationSeconds: nullable(int32Schema({ minimum: 0 })),
@@ -413,7 +423,7 @@ const schemas = {
     status: stringSchema({ enum: ['sent', 'already_sent', 'already_engaged'] }),
     conversationId: stringSchema(),
     messageId: stringSchema(),
-    messageSeq: intSchema({ minimum: 0 }),
+    messageSeq: int64StringSchema({ minimum: 0 }),
   }, ['status', 'conversationId', 'messageId', 'messageSeq']),
   PostMessageResult: objectSchema({
     messageId: stringSchema(),
@@ -709,7 +719,7 @@ const schemas = {
     scopeType: stringSchema(),
     scopeId: stringSchema(),
     orderingKey: stringSchema(),
-    orderingSeq: intSchema({ minimum: 0 }),
+    orderingSeq: int64StringSchema({ minimum: 0 }),
     causationId: nullable(stringSchema()),
     correlationId: nullable(stringSchema()),
     idempotencyKey: nullable(stringSchema()),
@@ -780,19 +790,23 @@ const schemas = {
     tenantId: stringSchema(),
     friendshipId: stringSchema(),
     initiatorUserId: stringSchema(),
-    leftUserId: stringSchema(),
-    rightUserId: stringSchema(),
-    userHighId: stringSchema(),
     userLowId: stringSchema(),
-    status: stringSchema(),
-    createdAt: stringSchema({ format: 'date-time' }),
-  }, ['tenantId', 'friendshipId', 'initiatorUserId', 'leftUserId', 'rightUserId', 'userHighId', 'userLowId', 'status', 'createdAt']),
+    userHighId: stringSchema(),
+    status: stringSchema({ enum: ['active', 'removed'] }),
+    establishedAt: nullable(stringSchema({ format: 'date-time' })),
+    updatedAt: stringSchema({ format: 'date-time' }),
+  }, ['tenantId', 'friendshipId', 'initiatorUserId', 'userLowId', 'userHighId', 'status', 'updatedAt']),
   DirectChat: objectSchema({
     tenantId: stringSchema(),
     directChatId: stringSchema(),
-    conversationId: stringSchema(),
-    status: stringSchema(),
-  }, ['tenantId', 'directChatId', 'conversationId', 'status']),
+    leftActorId: stringSchema(),
+    rightActorId: stringSchema(),
+    pairHash: stringSchema(),
+    status: stringSchema({ enum: ['active', 'archived', 'closed'] }),
+    conversationId: nullable(stringSchema()),
+    createdAt: stringSchema({ format: 'date-time' }),
+    updatedAt: stringSchema({ format: 'date-time' }),
+  }, ['tenantId', 'directChatId', 'leftActorId', 'rightActorId', 'pairHash', 'status', 'createdAt', 'updatedAt']),
   SocialFriendRequestAcceptedConversation: objectSchema({
     tenantId: stringSchema(),
     conversationId: stringSchema(),
@@ -805,6 +819,80 @@ const schemas = {
   SocialFriendRequestPendingCountResponse: objectSchema({
     count: int32Schema({ minimum: 0 }),
   }, ['count']),
+  SocialFriendshipsResponse: objectSchema({
+    items: arrayOf(ref('Friendship')),
+    nextCursor: nullable(stringSchema()),
+    hasMore: boolSchema(),
+  }, ['items', 'hasMore']),
+  SocialUserBlockSummary: objectSchema({
+    blockId: stringSchema(),
+    blockerUserId: stringSchema(),
+    blockedUserId: stringSchema(),
+    scope: stringSchema(),
+    createdAt: stringSchema({ format: 'date-time' }),
+  }, ['blockId', 'blockerUserId', 'blockedUserId', 'scope', 'createdAt']),
+  SocialUserBlocksResponse: objectSchema({
+    items: arrayOf(ref('SocialUserBlockSummary')),
+    nextCursor: nullable(stringSchema()),
+    hasMore: boolSchema(),
+  }, ['items', 'hasMore']),
+  SocialDirectChatView: objectSchema({
+    directChatId: stringSchema(),
+    leftActorId: stringSchema(),
+    rightActorId: stringSchema(),
+    status: stringSchema(),
+    conversationId: nullable(stringSchema()),
+    createdAt: stringSchema({ format: 'date-time' }),
+    updatedAt: stringSchema({ format: 'date-time' }),
+  }, ['directChatId', 'leftActorId', 'rightActorId', 'status', 'createdAt', 'updatedAt']),
+  SocialDirectChatsResponse: objectSchema({
+    items: arrayOf(ref('SocialDirectChatView')),
+    nextCursor: nullable(stringSchema()),
+    hasMore: boolSchema(),
+  }, ['items', 'hasMore']),
+  SocialUserProfileView: objectSchema({
+    userId: stringSchema(),
+    imNickname: nullable(stringSchema()),
+    imAvatarUrl: nullable(stringSchema()),
+    imStatusMessage: nullable(stringSchema()),
+    imOnlineStatus: stringSchema(),
+    lastActiveAt: nullable(stringSchema({ format: 'date-time' })),
+  }, ['userId', 'imOnlineStatus']),
+  UpdateSocialUserProfileRequest: objectSchema({
+    imNickname: nullable(stringSchema()),
+    imAvatarUrl: nullable(stringSchema()),
+    imStatusMessage: nullable(stringSchema()),
+  }),
+  SocialUserSettingsView: objectSchema({
+    settings: mapSchema(),
+  }, ['settings']),
+  UpdateSocialUserSettingsRequest: objectSchema({
+    settings: mapSchema(),
+  }, ['settings']),
+  SharedChannelLinkSyncRequest: objectSchema({
+    conversationId: stringSchema(),
+    sharedChannelPolicyId: stringSchema(),
+    externalConnectionId: stringSchema(),
+    localActorId: stringSchema(),
+    localActorKind: stringSchema(),
+    externalMemberId: stringSchema(),
+    requestKey: nullable(stringSchema()),
+  }, ['conversationId', 'sharedChannelPolicyId', 'externalConnectionId', 'localActorId', 'localActorKind', 'externalMemberId']),
+  SharedChannelLinkSyncResponse: {
+    allOf: [
+      ref('ConversationMember'),
+      objectSchema({
+        proofVersion: stringSchema(),
+        requestKey: stringSchema(),
+        status: stringSchema({ enum: ['applied', 'already_linked', 'replayed'] }),
+      }, ['proofVersion', 'requestKey', 'status']),
+    ],
+  },
+  ConversationBindingView: objectSchema({
+    conversationId: stringSchema(),
+    businessType: stringSchema(),
+    businessId: stringSchema(),
+  }, ['conversationId', 'businessType', 'businessId']),
   SocialFriendRequestAcceptanceResponse: objectSchema({
     friendRequest: ref('FriendRequest'),
     friendship: ref('Friendship'),
@@ -851,7 +939,7 @@ const schemas = {
     })),
   }, ['agentId']),
   ConversationAgentAssignments: objectSchema({
-    generation: intSchema({ minimum: 1 }),
+    generation: int64StringSchema({ minimum: 1 }),
     source: stringSchema({ enum: ['default_policy', 'conversation_override'] }),
     agents: {
       ...arrayOf(ref('ConversationAgentAssignment')),
@@ -860,7 +948,7 @@ const schemas = {
     },
   }, ['generation', 'source', 'agents']),
   UpdateConversationAgentsRequest: objectSchema({
-    expectedGeneration: intSchema({ minimum: 1 }),
+    expectedGeneration: int64StringSchema({ minimum: 1 }),
     agentAssignments: {
       ...arrayOf(ref('ConversationAgentAssignment')),
       minItems: 1,
@@ -978,30 +1066,6 @@ const schemas = {
   PinnedMessagesResponse: objectSchema({
     items: arrayOf(ref('MessageInteractionSummaryView')),
   }, ['items']),
-  StreamView: objectSchema({
-    tenantId: stringSchema(),
-    streamId: stringSchema(),
-    state: stringSchema(),
-    openedAt: stringSchema({ format: 'date-time' }),
-  }, ['tenantId', 'streamId', 'state', 'openedAt']),
-  OpenStreamRequest: objectSchema({
-    streamType: stringSchema(),
-    conversationId: nullable(stringSchema()),
-  }, ['streamType']),
-  StreamFrameView: objectSchema({
-    streamId: stringSchema(),
-    frameSeq: sequenceSchema(),
-    payload: stringSchema(),
-    createdAt: stringSchema({ format: 'date-time' }),
-  }, ['streamId', 'frameSeq', 'payload', 'createdAt']),
-  StreamFramesResponse: objectSchema({
-    items: arrayOf(ref('StreamFrameView')),
-    nextCursor: nullable(stringSchema()),
-    hasMore: boolSchema(),
-  }, ['items', 'hasMore']),
-  AppendStreamFrameRequest: objectSchema({
-    payload: stringSchema(),
-  }, ['payload']),
 };
 
 const paths = Object.fromEntries([
@@ -1065,6 +1129,26 @@ const paths = Object.fromEntries([
   pathItem('/social/users', {
     get: operation({ tag: 'social', operationId: 'social.users.list', summary: 'Search social users', parameters: [p('QQuery'), p('PageSizeQuery'), p('CursorQuery')], response: 'SocialUserSearchResponse', statuses: ['400', '401', '403', '503'] }),
   }),
+  pathItem('/social/users/{userId}/profile', {
+    parameters: [p('UserIdPath')],
+    get: operation({ tag: 'social', operationId: 'social.users.profile.retrieve', summary: 'Retrieve a social user profile', parameters: [p('UserIdPath')], response: 'SocialUserProfileView' }),
+    patch: operation({ tag: 'social', operationId: 'social.users.profile.update', summary: 'Update the authenticated user profile', parameters: [p('UserIdPath')], request: 'UpdateSocialUserProfileRequest', response: 'SocialUserProfileView' }),
+  }),
+  pathItem('/social/users/{userId}/settings', {
+    parameters: [p('UserIdPath')],
+    get: operation({ tag: 'social', operationId: 'social.users.settings.retrieve', summary: 'Retrieve social user settings', parameters: [p('UserIdPath')], response: 'SocialUserSettingsView' }),
+    patch: operation({ tag: 'social', operationId: 'social.users.settings.update', summary: 'Update social user settings', parameters: [p('UserIdPath')], request: 'UpdateSocialUserSettingsRequest', response: 'SocialUserSettingsView' }),
+  }),
+  pathItem('/social/friendships', {
+    get: operation({ tag: 'social', operationId: 'social.friendships.list', summary: 'List friendships of the authenticated user', parameters: [p('PageSizeQuery'), p('CursorQuery')], response: 'SocialFriendshipsResponse' }),
+  }),
+  pathItem('/social/direct_chats', {
+    get: operation({ tag: 'social', operationId: 'social.directChats.list', summary: 'List direct chats of the authenticated user', parameters: [p('PageSizeQuery'), p('CursorQuery')], response: 'SocialDirectChatsResponse' }),
+  }),
+  pathItem('/social/direct_chats/{directChatId}', {
+    parameters: [p('DirectChatIdPath')],
+    get: operation({ tag: 'social', operationId: 'social.directChats.retrieve', summary: 'Retrieve a direct chat', parameters: [p('DirectChatIdPath')], response: 'SocialDirectChatView' }),
+  }),
   pathItem('/social/friend_requests', {
     get: operation({ tag: 'social', operationId: 'social.friendRequests.list', summary: 'List friend requests', parameters: [p('DirectionQuery'), p('StatusQuery'), p('PageSizeQuery'), p('CursorQuery')], response: 'SdkWorkListResponse' }),
     post: operation({ tag: 'social', operationId: 'social.friendRequests.create', summary: 'Create a friend request', request: 'SubmitFriendRequestRequest', response: 'SocialFriendRequestMutationResponse', successStatus: '201' }),
@@ -1089,6 +1173,7 @@ const paths = Object.fromEntries([
     post: operation({ tag: 'social', operationId: 'social.friendships.remove', summary: 'Remove a friendship', parameters: [p('FriendshipIdPath')], response: 'SocialFriendshipMutationResponse' }),
   }),
   pathItem('/social/user_blocks', {
+    get: operation({ tag: 'social', operationId: 'social.userBlocks.list', summary: 'List user blocks created by the authenticated user', parameters: [p('PageSizeQuery'), p('CursorQuery')], response: 'SocialUserBlocksResponse' }),
     post: operation({ tag: 'social', operationId: 'social.userBlocks.create', summary: 'Block a social user', request: 'BlockUserRequest', response: 'OpenApiUserBlockResponse', successStatus: '201' }),
   }),
   pathItem('/social/user_blocks/{blockId}', {
@@ -1146,6 +1231,9 @@ const paths = Object.fromEntries([
   pathItem('/chat/conversations/direct_chats/bindings', {
     post: operation({ tag: 'chat', operationId: 'conversations.directChats.bindings.create', summary: 'Create a direct chat conversation binding', request: 'BindDirectChatRequest', response: 'CreateConversationResult', successStatus: '201' }),
   }),
+  pathItem('/chat/conversations/shared_channel_links/sync', {
+    post: operation({ tag: 'chat', operationId: 'conversations.sharedChannelLinks.sync', summary: 'Sync a shared-channel linked member into a conversation', request: 'SharedChannelLinkSyncRequest', response: 'SharedChannelLinkSyncResponse' }),
+  }),
   pathItem('/chat/conversations/{conversationId}/agent_handoff', {
     parameters: [p('ConversationIdPath')],
     get: operation({ tag: 'chat', operationId: 'conversations.agentHandoff.retrieve', summary: 'Retrieve agent handoff state', parameters: [p('ConversationIdPath')], response: 'AckResponse' }),
@@ -1178,6 +1266,10 @@ const paths = Object.fromEntries([
     parameters: [p('ConversationIdPath')],
     get: operation({ tag: 'chat', operationId: 'conversations.agents.retrieve', summary: 'Retrieve assigned group agents', parameters: [p('ConversationIdPath')], response: 'ConversationAgentAssignments' }),
     put: operation({ tag: 'chat', operationId: 'conversations.agents.update', summary: 'Update assigned group agents', parameters: [p('ConversationIdPath')], request: 'UpdateConversationAgentsRequest', response: 'ConversationAgentAssignments', statuses: ['400', '401', '403', '404', '409'] }),
+  }),
+  pathItem('/chat/conversations/{conversationId}/binding', {
+    parameters: [p('ConversationIdPath')],
+    get: operation({ tag: 'chat', operationId: 'conversations.binding.retrieve', summary: 'Retrieve the business binding of a conversation', parameters: [p('ConversationIdPath')], response: 'ConversationBindingView' }),
   }),
   pathItem('/chat/conversations/{conversationId}/members/add', {
     parameters: [p('ConversationIdPath')],
@@ -1249,7 +1341,7 @@ const paths = Object.fromEntries([
   pathItem('/chat/messages/search', {
     get: operation({
       tag: 'chat',
-      operationId: 'messages.search',
+      operationId: 'messages.search.list',
       summary: 'Search conversation message history',
       description: 'Full-text search over message history scoped to the authenticated principal. When conversationId is omitted the search covers every conversation the principal is a member of. Results are returned newest-first with an opaque keyset cursor for older pages.',
       parameters: [p('SearchQQuery'), p('ConversationIdQuery'), p('PageSizeQuery'), p('CursorQuery')],
@@ -1311,26 +1403,6 @@ const paths = Object.fromEntries([
     parameters: [p('RoomIdPath')],
     post: operation({ tag: 'chat', operationId: 'rooms.leave', summary: 'Leave a room as the authenticated principal', parameters: [p('RoomIdPath')], response: 'EnterRoomResponse' }),
   }),
-  pathItem('/streams', {
-    post: operation({ tag: 'streams', operationId: 'streams.create', summary: 'Open a stream', request: 'OpenStreamRequest', response: 'StreamView', successStatus: '201' }),
-  }),
-  pathItem('/streams/{streamId}/frames', {
-    parameters: [p('StreamIdPath')],
-    get: operation({ tag: 'streams', operationId: 'streams.frames.list', summary: 'List stream frames', parameters: [p('StreamIdPath'), p('PageSizeQuery'), p('CursorQuery')], response: 'StreamFramesResponse' }),
-    post: operation({ tag: 'streams', operationId: 'streams.frames.create', summary: 'Append a stream frame', parameters: [p('StreamIdPath')], request: 'AppendStreamFrameRequest', response: 'StreamFrameView', successStatus: '201' }),
-  }),
-  pathItem('/streams/{streamId}/checkpoint', {
-    parameters: [p('StreamIdPath')],
-    post: operation({ tag: 'streams', operationId: 'streams.checkpoint', summary: 'Checkpoint a stream', parameters: [p('StreamIdPath')], response: 'StreamView' }),
-  }),
-  pathItem('/streams/{streamId}/complete', {
-    parameters: [p('StreamIdPath')],
-    post: operation({ tag: 'streams', operationId: 'streams.complete', summary: 'Complete a stream', parameters: [p('StreamIdPath')], response: 'StreamView' }),
-  }),
-  pathItem('/streams/{streamId}/abort', {
-    parameters: [p('StreamIdPath')],
-    post: operation({ tag: 'streams', operationId: 'streams.abort', summary: 'Abort a stream', parameters: [p('StreamIdPath')], response: 'StreamView' }),
-  }),
 ]);
 
 const document = {
@@ -1338,7 +1410,7 @@ const document = {
   info: {
     title: 'Sdkwork IM IM Standardized Development API',
     version: '0.1.0',
-    description: 'IM standardized development OpenAPI contract for conversations, messages, realtime, calls, media, streams, and social IM flows.',
+    description: 'IM standardized development OpenAPI contract for conversations, messages, realtime, calls, media, and social IM flows.',
   },
   tags: [
     { name: 'presence' },
@@ -1346,7 +1418,6 @@ const document = {
     { name: 'calls' },
     { name: 'social' },
     { name: 'chat' },
-    { name: 'streams' },
   ],
   paths,
   components: {

@@ -191,7 +191,9 @@ entries:
     rpcService: ContactService
     rpcMethod: ListContacts
     rpcSurface: app
-    parityStatus: full
+    # ContactService is declared in the proto contract but is not hosted by
+    # any rpc-bin process yet; the HTTP surface is served by social-service.
+    parityStatus: http-only
     owner: im-open-api
   - operationId: internal.messages.dispatch
     httpSurface: null
@@ -298,4 +300,4 @@ entries:
     rpcSurface: internal
     parityStatus: rpc-only
     owner: communication-internal
-    rpcOnlyReason: distributed route lease coordination for session-gateway HA
+    rpcOnlyReason: distributed route lease coordination for session-gateway HA; declared in the proto contract and covered by the method-manifest contract test, but not yet hosted by any rpc-bin process (Phase 2 discovery adoption, ADR-20260619)

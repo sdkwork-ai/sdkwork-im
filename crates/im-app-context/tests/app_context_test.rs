@@ -28,6 +28,8 @@ fn ensure_test_dev_environment() {
         std::env::remove_var("SDKWORK_IM_APP_CONTEXT_JWT_SIGNING_SECRET");
         std::env::remove_var("SDKWORK_IM_JWT_EXPECTED_ISSUERS");
         std::env::remove_var("SDKWORK_IM_JWT_EXPECTED_AUDIENCES");
+        std::env::remove_var("SDKWORK_IM_JWT_REQUIRE_JTI");
+        std::env::remove_var("SDKWORK_IM_JWT_REPLAY_CACHE_TTL_SECS");
     }
 }
 
@@ -40,6 +42,18 @@ fn configure_production_jwt_signing_env() {
         std::env::set_var("SDKWORK_IM_APP_CONTEXT_JWT_SIGNING_SECRET", "prod-secret");
         std::env::set_var("SDKWORK_IM_JWT_EXPECTED_ISSUERS", TEST_JWT_ISSUER);
         std::env::set_var("SDKWORK_IM_JWT_EXPECTED_AUDIENCES", TEST_JWT_AUDIENCE);
+        // Production contract: jti is mandatory so replay protection is on,
+        // and replay protection requires a replay-cache TTL (verification
+        // fails closed when REQUIRE_JTI=true but the TTL is absent).
+        std::env::set_var("SDKWORK_IM_JWT_REQUIRE_JTI", "true");
+        std::env::set_var("SDKWORK_IM_JWT_REPLAY_CACHE_TTL_SECS", "300");
+    }
+}
+
+fn configure_production_jwt_signing_env_without_require_jti() {
+    configure_production_jwt_signing_env();
+    unsafe {
+        std::env::remove_var("SDKWORK_IM_JWT_REQUIRE_JTI");
     }
 }
 
@@ -54,6 +68,7 @@ fn configure_production_dev_jwt_secret_env() {
         );
         std::env::set_var("SDKWORK_IM_JWT_EXPECTED_ISSUERS", TEST_JWT_ISSUER);
         std::env::set_var("SDKWORK_IM_JWT_EXPECTED_AUDIENCES", TEST_JWT_AUDIENCE);
+        std::env::set_var("SDKWORK_IM_JWT_REQUIRE_JTI", "true");
     }
 }
 
@@ -81,6 +96,22 @@ fn test_production_jwt_environment() -> TestProductionJwtEnvironment {
     let guard = lock_test_env();
     configure_production_jwt_signing_env();
     TestProductionJwtEnvironment { _guard: guard }
+}
+
+struct TestProductionJwtEnvironmentWithoutRequireJti {
+    _guard: std::sync::MutexGuard<'static, ()>,
+}
+
+impl Drop for TestProductionJwtEnvironmentWithoutRequireJti {
+    fn drop(&mut self) {
+        ensure_test_dev_environment();
+    }
+}
+
+fn test_production_jwt_environment_without_require_jti() -> TestProductionJwtEnvironmentWithoutRequireJti {
+    let guard = lock_test_env();
+    configure_production_jwt_signing_env_without_require_jti();
+    TestProductionJwtEnvironmentWithoutRequireJti { _guard: guard }
 }
 
 struct TestProductionDevJwtSecretEnvironment {
@@ -485,6 +516,14 @@ fn test_resolve_app_context_rejects_unsigned_local_jwt_in_production() {
     assert!(error.message().contains("unsigned local JWT"));
 }
 
+static TEST_JTI_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Process-unique jti so replay-cache assertions never collide across tests.
+fn next_test_jti(prefix: &str) -> String {
+    let serial = TEST_JTI_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("{prefix}-{serial}-{}", std::process::id())
+}
+
 fn signed_dual_token_headers(tenant_id: &str, secret: &str, key_id: &str) -> HeaderMap {
     use sdkwork_web_core::encode_hs256_test_jwt_with_kid;
 
@@ -509,6 +548,7 @@ fn signed_dual_token_headers(tenant_id: &str, secret: &str, key_id: &str) -> Hea
         "data_scope": ["tenant"],
         "iss": TEST_JWT_ISSUER,
         "aud": TEST_JWT_AUDIENCE,
+        "jti": next_test_jti("sdkwork-im-signed-jti"),
         "exp": now + 3600
     });
     let token = encode_hs256_test_jwt_with_kid(secret, key_id, claims);
@@ -522,6 +562,94 @@ fn signed_dual_token_headers(tenant_id: &str, secret: &str, key_id: &str) -> Hea
         HeaderValue::from_str(token.as_str()).expect("access token header"),
     );
     headers
+}
+
+fn local_token_headers_with_jti(jti: &str) -> HeaderMap {
+    let claims = json!({
+        "tenant_id": "100001",
+        "organization_id": "o_demo",
+        "login_scope": "ORGANIZATION",
+        "user_id": "1",
+        "session_id": "as_demo",
+        "device_id": "d_demo",
+        "app_id": "sdkwork-im",
+        "environment": "dev",
+        "deployment_mode": "private",
+        "auth_level": "password",
+        "actor_id": "1",
+        "actor_kind": "user",
+        "permission_scope": ["ops.read", "audit.*", "media.write"],
+        "data_scope": ["tenant"],
+        "jti": jti
+    });
+    let token = local_token(claims);
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::AUTHORIZATION,
+        HeaderValue::from_str(format!("Bearer {token}").as_str()).expect("auth header"),
+    );
+    headers.insert(
+        "Access-Token",
+        HeaderValue::from_str(token.as_str()).expect("access token header"),
+    );
+    headers
+}
+
+#[test]
+fn test_resolve_app_context_rejects_signed_jwt_without_require_jti_in_production() {
+    let _env = test_production_jwt_environment_without_require_jti();
+    let headers = signed_dual_token_headers("100001", "prod-secret", "bootstrap");
+    let error = resolve_app_context(&headers).expect_err(
+        "production must fail closed when SDKWORK_IM_JWT_REQUIRE_JTI is not configured",
+    );
+    assert_eq!(error.code(), "app_context_invalid");
+    assert!(
+        error.message().contains("SDKWORK_IM_JWT_REQUIRE_JTI"),
+        "unexpected error message: {}",
+        error.message()
+    );
+}
+
+#[test]
+fn test_resolve_app_context_rejects_local_token_without_jti_when_require_jti_opted_in() {
+    let _env = test_dev_environment();
+    unsafe {
+        std::env::set_var("SDKWORK_IM_JWT_REQUIRE_JTI", "true");
+    }
+    let headers = build_token_headers();
+    let error = resolve_app_context(&headers)
+        .expect_err("dev opt-in must reject tokens without a jti claim");
+    assert_eq!(error.code(), "app_context_invalid");
+    assert!(
+        error.message().contains("jti claim is required"),
+        "unexpected error message: {}",
+        error.message()
+    );
+}
+
+#[test]
+fn test_resolve_app_context_rejects_jti_replay_within_replay_cache_ttl() {
+    let _env = test_dev_environment();
+    let jti = next_test_jti("sdkwork-im-replay-test");
+    let headers = local_token_headers_with_jti(&jti);
+    unsafe {
+        std::env::set_var("SDKWORK_IM_JWT_REQUIRE_JTI", "true");
+        std::env::set_var("SDKWORK_IM_JWT_REPLAY_CACHE_TTL_SECS", "60");
+    }
+
+    resolve_app_context(&headers).expect("first use of the jti must resolve");
+    let error = resolve_app_context(&headers)
+        .expect_err("second use of the same jti within the TTL must fail");
+    assert_eq!(error.code(), "app_context_invalid");
+    assert!(
+        error.message().contains("replayed"),
+        "unexpected error message: {}",
+        error.message()
+    );
+    unsafe {
+        std::env::remove_var("SDKWORK_IM_JWT_REQUIRE_JTI");
+        std::env::remove_var("SDKWORK_IM_JWT_REPLAY_CACHE_TTL_SECS");
+    }
 }
 
 #[test]
@@ -545,6 +673,20 @@ fn test_resolve_app_context_accepts_signed_jwt_in_production() {
     let context = resolve_app_context(&headers).expect("signed jwt must resolve");
     assert_eq!(context.tenant_id, "100001");
     assert_eq!(context.user_id, "1");
+}
+
+#[test]
+fn test_resolve_app_context_rejects_require_jti_without_replay_ttl_in_production() {
+    let _env = test_production_jwt_environment();
+    unsafe {
+        std::env::remove_var("SDKWORK_IM_JWT_REPLAY_CACHE_TTL_SECS");
+    }
+    let headers = signed_dual_token_headers("100001", "prod-secret", "bootstrap");
+    let error = resolve_app_context(&headers)
+        .expect_err("REQUIRE_JTI=true without a replay TTL must fail closed in production");
+    assert!(error
+        .message()
+        .contains("SDKWORK_IM_JWT_REPLAY_CACHE_TTL_SECS > 0"));
 }
 
 #[test]

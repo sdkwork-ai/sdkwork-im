@@ -320,6 +320,12 @@ case "${ACTION}" in
       *)
         die "env preflight: SDKWORK_DATABASE_SSL_MODE='${pre_ssl_mode}' is invalid (disable|allow|prefer|require|verify-ca|verify-full)" ;;
     esac
+    if [ "${ENVIRONMENT}" = "production" ]; then
+      case "${pre_ssl_mode}" in
+        disable|allow|prefer)
+          die "env preflight: production forbids SDKWORK_DATABASE_SSL_MODE='${pre_ssl_mode}' (plaintext-capable); set require|verify-ca|verify-full in ${ENV_FILE}" ;;
+      esac
+    fi
     if [ "${EXTERNAL}" = "1" ] && [ "${DRY_RUN}" != "1" ] && [ "${PREFLIGHT_FAIL}" = "0" ]; then
       probe_external_postgres
       probe_external_redis

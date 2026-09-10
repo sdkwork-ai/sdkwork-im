@@ -51,7 +51,8 @@ export interface ImDecodedMessage {
   conversationId?: string;
   deliveryMode?: string;
   messageId?: string;
-  messageSeq?: number;
+  /** int64-as-string per API_SPEC §13.6. */
+  messageSeq?: string;
   messageType?: MessageType;
   occurredAt?: string;
   renderHints?: Record<string, unknown>;

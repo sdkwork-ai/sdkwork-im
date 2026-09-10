@@ -185,6 +185,32 @@ function generatedDescriptionFor(config, language) {
   return `Generator-owned ${languageDisplayName[language] || language} transport SDK for the ${config.generatedApiLabel}.`;
 }
 
+// Auth-surface expectation model (authority: docs/architecture/tech/TECH_ARCHITECTURE.md §4
+// "Authentication And Request Context").
+//
+// The backend-api and app-api route crates declare every protected operation through
+// `HttpRoute::dual_token` (RouteAuth::DualToken), so backend/app family documents must
+// declare exactly the dual-token scheme [{AuthToken, AccessToken}] on every operation.
+// ApiKey alternatives belong to the public open-api surface only
+// (RouteAuth::api_key_or_dual_token, `x-sdkwork-auth-mode: api-key-or-dual-token`) and
+// stay enforced for the sdkwork-im-sdk family. No runtime code enforces ApiKey on
+// backend/app surfaces; demanding ApiKey alternatives here was a verifier-expectation bug.
+const DUAL_TOKEN_ONLY_AUTH_SURFACE = 'dual-token-only';
+const API_KEY_OR_DUAL_TOKEN_AUTH_SURFACE = 'api-key-or-dual-token';
+const authSurfaceValues = new Set([DUAL_TOKEN_ONLY_AUTH_SURFACE, API_KEY_OR_DUAL_TOKEN_AUTH_SURFACE]);
+
+function authSurfaceFor(config) {
+  const authSurface = config.authSurface ?? API_KEY_OR_DUAL_TOKEN_AUTH_SURFACE;
+  if (!authSurfaceValues.has(authSurface)) {
+    fail(config.sdkName, `sdk-family-config.mjs authSurface must be one of ${[...authSurfaceValues].join(', ')}: ${authSurface}`);
+  }
+  return authSurface;
+}
+
+function isDualTokenOnlySurface(config) {
+  return authSurfaceFor(config) === DUAL_TOKEN_ONLY_AUTH_SURFACE;
+}
+
 function normalizeSdkManifestMetadata(root, config) {
   const manifestPath = sdkManifestPath(root);
   if (!existsSync(manifestPath)) {
@@ -458,7 +484,14 @@ function verifyOpenApiDocument(config, document, sourceLabel, failures) {
     }
   }
   const securitySchemes = document.components?.securitySchemes ?? {};
-  if (
+  const dualTokenOnlySurface = isDualTokenOnlySurface(config);
+  if (dualTokenOnlySurface) {
+    // TECH_ARCHITECTURE.md §4: backend/app surfaces are dual-token-only; the ApiKey
+    // scheme must not be declared for these families at all.
+    if (securitySchemes.ApiKey) {
+      failures.push(`${sourceLabel} must not define components.securitySchemes.ApiKey; backend/app operations are dual-token-only (TECH_ARCHITECTURE.md section 4)`);
+    }
+  } else if (
     securitySchemes.ApiKey?.type !== 'apiKey'
     || securitySchemes.ApiKey?.in !== 'header'
     || securitySchemes.ApiKey?.name !== 'X-API-Key'
@@ -508,11 +541,23 @@ function verifyOpenApiDocument(config, document, sourceLabel, failures) {
         && security.some(apiKeyRequirement)
         && security.some(dualTokenRequirement)
         && security.every((entry) => apiKeyRequirement(entry) || dualTokenRequirement(entry));
-      if (!anonymous && operation['x-sdkwork-auth-mode'] !== 'api-key-or-dual-token') {
-        failures.push(`${sourceLabel} ${normalizedMethod.toUpperCase()} ${pathKey} must use x-sdkwork-auth-mode api-key-or-dual-token`);
-      }
-      if (!anonymous && !apiKeyOrDualToken) {
-        failures.push(`${sourceLabel} ${normalizedMethod.toUpperCase()} ${pathKey} must use separate ApiKey and combined AuthToken plus AccessToken security alternatives`);
+      if (dualTokenOnlySurface) {
+        // TECH_ARCHITECTURE.md §4: backend/app operations must declare exactly the
+        // dual-token scheme [{AuthToken, AccessToken}]; missing dual-token or an
+        // added ApiKey alternative is a verifier failure.
+        const exactDualToken = Array.isArray(security)
+          && security.length === 1
+          && dualTokenRequirement(security[0]);
+        if (!exactDualToken) {
+          failures.push(`${sourceLabel} ${normalizedMethod.toUpperCase()} ${pathKey} must declare exactly the dual-token AuthToken plus AccessToken security requirement without ApiKey (TECH_ARCHITECTURE.md section 4)`);
+        }
+      } else {
+        if (!anonymous && operation['x-sdkwork-auth-mode'] !== 'api-key-or-dual-token') {
+          failures.push(`${sourceLabel} ${normalizedMethod.toUpperCase()} ${pathKey} must use x-sdkwork-auth-mode api-key-or-dual-token`);
+        }
+        if (!anonymous && !apiKeyOrDualToken) {
+          failures.push(`${sourceLabel} ${normalizedMethod.toUpperCase()} ${pathKey} must use separate ApiKey and combined AuthToken plus AccessToken security alternatives`);
+        }
       }
       for (const [status, response] of Object.entries(operation.responses ?? {})) {
         const statusNumber = Number.parseInt(status, 10);

@@ -589,7 +589,7 @@ async fn test_agent_response_and_tool_call_lifecycle_over_http() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq":1,
+                        "frameSeq":"1",
                         "frameType":"delta.text",
                         "schemaRef":"schema://agent/response.delta#chunk",
                         "encoding":"json",
@@ -693,7 +693,7 @@ async fn test_agent_response_and_tool_call_lifecycle_over_http() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq":1,
+                        "frameSeq":"1",
                         "resultMessageId":"m_http_agent"
                     }"#,
                 ))
@@ -1336,7 +1336,7 @@ async fn test_append_agent_response_delta_rejects_oversized_stream_id_path_over_
                 .header("content-type", "application/json")
                 .body(Body::from(
                     serde_json::json!({
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "frameType": "delta.text",
                         "schemaRef": "schema://agent/response.delta#chunk",
                         "encoding": "json",
@@ -1486,7 +1486,7 @@ async fn test_complete_agent_response_rejects_oversized_result_message_id_over_h
     assert_eq!(start_response.status(), StatusCode::CREATED);
 
     let request_body = serde_json::json!({
-        "frameSeq": 1,
+        "frameSeq":"1",
         "resultMessageId": "m".repeat(257)
     })
     .to_string();
@@ -1529,7 +1529,7 @@ async fn test_complete_agent_response_rejects_oversized_stream_id_path_over_http
                 .header("content-type", "application/json")
                 .body(Body::from(
                     serde_json::json!({
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "resultMessageId": "m_done"
                     })
                     .to_string(),
@@ -1695,7 +1695,7 @@ async fn test_append_agent_response_delta_rejects_oversized_payload_over_http() 
 
     let oversized_payload = "x".repeat(262145);
     let delta_request_body = serde_json::json!({
-        "frameSeq": 1,
+        "frameSeq":"1",
         "frameType": "delta.text",
         "schemaRef": "schema://agent/response.delta#chunk",
         "encoding": "json",
@@ -1732,7 +1732,7 @@ async fn test_append_agent_response_delta_rejects_oversized_contract_fields_over
         (
             "frameType",
             serde_json::json!({
-                "frameSeq": 1,
+                "frameSeq":"1",
                 "frameType": "f".repeat(65),
                 "schemaRef": "schema://agent/response.delta#chunk",
                 "encoding": "json",
@@ -1743,7 +1743,7 @@ async fn test_append_agent_response_delta_rejects_oversized_contract_fields_over
         (
             "encoding",
             serde_json::json!({
-                "frameSeq": 2,
+                "frameSeq":"2",
                 "frameType": "delta.text",
                 "schemaRef": "schema://agent/response.delta#chunk",
                 "encoding": "j".repeat(33),
@@ -1754,7 +1754,7 @@ async fn test_append_agent_response_delta_rejects_oversized_contract_fields_over
         (
             "schemaRef",
             serde_json::json!({
-                "frameSeq": 3,
+                "frameSeq":"3",
                 "frameType": "delta.text",
                 "schemaRef": "s".repeat(257),
                 "encoding": "json",
@@ -2182,7 +2182,7 @@ async fn test_append_agent_response_delta_rejects_oversized_attributes_over_http
         "trace": "x".repeat(65537)
     });
     let delta_request_body = serde_json::json!({
-        "frameSeq": 1,
+        "frameSeq":"1",
         "frameType": "delta.text",
         "schemaRef": "schema://agent/response.delta#chunk",
         "encoding": "json",
@@ -2293,7 +2293,7 @@ async fn test_request_agent_tool_call_rejects_after_agent_response_completed_ove
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq":0,
+                        "frameSeq":"0",
                         "resultMessageId":"m_done"
                     }"#,
                 ))
@@ -2436,7 +2436,7 @@ async fn test_complete_agent_response_rejects_when_tool_call_pending_over_http()
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq":0,
+                        "frameSeq":"0",
                         "resultMessageId":"m_done"
                     }"#,
                 ))
@@ -2493,7 +2493,7 @@ async fn test_complete_agent_response_rejects_when_tool_call_pending_over_http()
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq":0,
+                        "frameSeq":"0",
                         "resultMessageId":"m_done"
                     }"#,
                 ))

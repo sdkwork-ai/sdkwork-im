@@ -120,6 +120,7 @@ fn test_publish_recovers_from_poisoned_runtime_registry_lock() {
             "c_demo",
             "message.posted",
             r#"{"messageId":"msg_poison"}"#.into(),
+        "durable",
         )
     }));
     assert!(
@@ -179,6 +180,7 @@ fn test_publish_does_not_fallback_to_origin_when_route_points_to_missing_target_
         "c_demo",
         "message.posted",
         r#"{"messageId":"msg_demo_1"}"#.into(),
+        "durable",
     );
 
     assert_eq!(result.target_node_id, "node_b");
@@ -270,6 +272,7 @@ fn test_direct_rebind_self_heals_stale_route_when_previous_runtime_is_missing() 
         "c_demo",
         "message.posted",
         r#"{"messageId":"msg_after_stale_takeover"}"#.into(),
+        "durable",
     );
 
     assert_eq!(publish.target_node_id, "node_b");

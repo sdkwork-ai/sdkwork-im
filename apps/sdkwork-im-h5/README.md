@@ -13,7 +13,6 @@ The application is pre-launch and its manifest publication status remains `DRAFT
 - **Deployment profiles**: `cloud`, `standalone`
 - **Manifest**: [`sdkwork.app.config.json`](sdkwork.app.config.json)
 - **Deployment config**: [`etc/sdkwork.deployment.config.json`](etc/sdkwork.deployment.config.json)
-- **Browser runtime**: [`etc/browser.runtime.json`](etc/browser.runtime.json)
 
 ## Workspace Layout
 
@@ -59,21 +58,27 @@ historic IM package import stable while re-exporting its canonical owner module.
 mobile primitives come from `@sdkwork/ui-mobile-react`; IM-specific chat UI remains in
 `sdkwork-im-h5-commons`.
 
-`@sdkwork/im-h5-shell` is the composition entrypoint. Its default catalog enables `chat`, `notary`,
-and `orders`. Application variants can select known modules through
-`moduleIds` or inject fully declared capability modules through `modules`; routes, lifecycle hooks,
-and bottom navigation are derived from that selection. Catalog entries without a composed runtime
-remain in `CONTRACT_PENDING_IM_H5_MODULES` and are rejected rather than mounted with local fallbacks.
-The application root reads the public, typed `VITE_SDKWORK_IM_H5_MODULES` composition key. Omitting it
-preserves the release default; for example, `chat,notary,contacts,drive,orders` builds the currently
-completed SDK-backed modules into one H5 variant.
+`@sdkwork/im-h5-shell` is the composition entrypoint. Its default catalog enables exactly the audited
+release surface: `chat`, `contacts`, `notary`, and `orders`; every other module is opt-in. Application
+variants can select known modules through `moduleIds` or inject fully declared capability modules
+through `modules`; routes, lifecycle hooks, and bottom navigation are derived from that selection.
+Catalog entries without a composed runtime remain in `CONTRACT_PENDING_IM_H5_MODULES` and are rejected
+rather than mounted with local fallbacks. The application root reads the public, typed
+`VITE_SDKWORK_IM_H5_MODULES` composition key. Omitting it preserves the release default; for example,
+`chat,contacts,notary,orders,drive` composes the audited surface plus the Drive module into one H5
+variant. No default module depends on an opt-in module at runtime: the orders module consumes the
+wallet portfolio *service* from the `@sdkwork/im-h5-user` package (bundled by the shell itself), not
+the user module's routes or navigation.
 
-Package presence does not mean the feature is mounted or release-ready. The current H5 shell composes
+Package presence does not mean the feature is mounted or release-ready. The default H5 composition is
 Chat inbox, Conversation (message send/receive, media upload, recall/edit, favorites, pinned messages,
 search, read receipts), Contacts (address book, friend requests with realtime refresh, remarks,
-starred/blocked contacts, organization directory over IAM, group chat list), Workspace Notary, the
-Notary workflow routes, and the Order center (order list, order detail, cashier, and voucher
-redemption) by default. Cloud Drive is an optional composed module backed by injected owner SDK
+starred/blocked contacts, organization directory over IAM, group chat list, plus the composed agents
+tab), Workspace Notary with the Notary workflow routes, and the Order center (order list, order
+detail, cashier, and voucher redemption). The legacy user module (Workspace/Discover/Me tabs, profile,
+settings, services) is not mounted by default, so Notary and Orders are entered by deep link (for
+example the `/cashier/:orderId` entry) instead of the removed fabricated workspace grids. Cloud Drive
+is an optional composed module backed by injected owner SDK
 clients. Community (circles) and Course (course center, detail, enrollment, player, live room, my
 courses) are optional composed modules backed by injected owner SDK ports
 (`@sdkwork/community-runtime` / `@sdkwork/course-runtime`). Moments (朋友圈) is an IM-owned composed
@@ -84,7 +89,9 @@ lifecycle, AI Image/Video/Writing/Music, Voice Synthesis, Voice Summary, Calenda
 Attendance, Reports, Meeting, Channels, Hardware, Recruitment, local Knowledge CRUD, Shopping,
 Checkout (physical order creation), Refunds, Fulfillment, and Enterprise routes
 are fail-closed until their owner SDK and permission composition is complete. Legacy User profile,
-settings, Characters, Works, voice, billing, and life-service pages are also fail-closed;
+settings, Characters, Works, voice, billing, games, and life-service pages are also fail-closed: the
+billing records and Discover games pages render the typed
+`UserCapabilityUnavailableError` unavailable state instead of the removed fabricated mock data;
 browser storage and synthetic records are not accepted substitutes. The separate legacy User Auth
 implementation is excluded from release and remains blocked pending IAM security review; the root app
 uses the approved appbase IAM runtime instead. Group Knowledgebase launch remains a separate
@@ -151,6 +158,7 @@ pnpm --dir apps/sdkwork-im-h5 exec tsx --test \
   packages/sdkwork-im-h5-chat/src/services/ChatService.test.ts \
   packages/sdkwork-im-h5-chat/src/services/chatRealtimeService.test.ts \
   packages/sdkwork-im-h5-contacts/src/services/ContactService.test.ts \
+  packages/sdkwork-im-h5-contacts/src/services/OrganizationService.test.ts \
   packages/sdkwork-im-h5-commons/src/ApiClient.test.ts \
   packages/sdkwork-im-h5-channels/src/services/ChannelService.test.ts \
   packages/sdkwork-im-h5-recruitment/src/services/RecruitmentService.test.ts \

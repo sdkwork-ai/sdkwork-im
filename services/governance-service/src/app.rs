@@ -11,7 +11,7 @@ use im_platform_contracts::{ProviderRegistry, RuntimeProviderRegistry};
 use ops_service::OpsRuntime;
 use sdkwork_im_ccp_registry::CcpRegistry;
 use sdkwork_im_web_bootstrap::{
-    im_service_router_config, mount_im_infra_routes, wrap_im_service_router,
+    im_service_router_config, mount_im_infra_routes, wrap_im_service_router_with_manifest,
 };
 use sdkwork_routes_web_framework_backend_api::response::ApiProblem;
 use sdkwork_web_core::WebRequestContext;
@@ -213,10 +213,16 @@ fn build_service_router(api_router: Router, document: JsonValue) -> Router {
 }
 
 fn build_app_with_state(state: AppState) -> Router {
-    wrap_im_service_router(mount_im_infra_routes(
-        build_business_router_with_state(state),
-        im_service_router_config(),
-    ))
+    // Wrap with the governance backend route manifest so the interceptor
+    // pipeline can resolve `/backend/v3/api/control/*` operations; an
+    // empty-manifest wrap cannot match control-plane routes.
+    sdkwork_im_web_bootstrap::wrap_im_service_router_with_manifest(
+        mount_im_infra_routes(
+            build_business_router_with_state(state),
+            im_service_router_config(),
+        ),
+        crate::route_manifest::backend_route_manifest(),
+    )
 }
 
 fn build_control_surface_with_state(state: AppState) -> Router {

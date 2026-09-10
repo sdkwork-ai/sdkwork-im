@@ -168,12 +168,22 @@ pub(crate) fn build_im_postgres_r2d2_pool(
     config: &DatabaseConfig,
 ) -> Result<ImSharedPostgresR2d2Pool, String> {
     verify_production_sslmode(config.url.as_str())?;
-    let pg_config = config.url.parse().map_err(|error| {
+    let mut pg_config: r2d2_postgres::postgres::Config = config.url.parse().map_err(|error| {
         format!(
             "invalid postgres url ({}): {error}",
             redact_postgres_url(config.url.as_str())
         )
     })?;
+    // Bound every statement executed through the shared IM pool so one
+    // hung or runaway query cannot pin a blocking-pool thread forever.
+    // Env-tunable, 0 disables; default 30s.
+    let statement_timeout_ms = std::env::var("SDKWORK_DATABASE_STATEMENT_TIMEOUT_MS")
+        .ok()
+        .and_then(|value| value.trim().parse::<i64>().ok())
+        .unwrap_or(30_000);
+    if statement_timeout_ms > 0 {
+        pg_config.options(&format!("-c statement_timeout={statement_timeout_ms}"));
+    }
     let tls = make_tls_connector()
         .map_err(|error| format!("postgres TLS connector build failed: {error}"))?;
     let manager = PostgresConnectionManager::new(pg_config, tls);

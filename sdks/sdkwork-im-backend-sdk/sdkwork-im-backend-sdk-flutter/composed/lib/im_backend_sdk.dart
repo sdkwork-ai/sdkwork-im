@@ -2,7 +2,6 @@ library im_backend_sdk;
 
 export 'package:im_backend_api_generated/im_backend_api_generated.dart';
 
-export 'src/admin_module.dart';
 export 'src/audit_module.dart';
 export 'src/automation_module.dart';
 export 'src/context.dart';
@@ -12,7 +11,6 @@ export 'src/types.dart';
 
 import 'package:im_backend_api_generated/im_backend_api_generated.dart';
 
-import 'src/admin_module.dart';
 import 'src/audit_module.dart';
 import 'src/automation_module.dart';
 import 'src/context.dart';
@@ -28,7 +26,6 @@ class ImBackendSdkClient {
   late final ImBackendAuditModule audit;
   late final ImBackendAutomationModule automation;
   late final ImBackendControlModule control;
-  late final ImBackendAdminModule admin;
 
   ImBackendSdkClient(ImBackendSdkClientOptions options)
     : transportClient = options.transportClient,
@@ -42,14 +39,12 @@ class ImBackendSdkClient {
     audit = ImBackendAuditModule(_context);
     automation = ImBackendAutomationModule(_context);
     control = ImBackendControlModule(_context);
-    admin = ImBackendAdminModule(_context);
   }
 
   OpsApi get opsApi => transportClient.ops;
   AuditApi get auditApi => transportClient.audit;
   AutomationApi get automationApi => transportClient.automation;
   ControlApi get controlApi => transportClient.control;
-  AdminApi get adminApi => transportClient.admin;
 
   factory ImBackendSdkClient.create({
     SdkworkBackendClient? transportClient,

@@ -14,6 +14,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::agent_integration_store::replace_conversation_agents_in_transaction;
+use crate::outbox_store::OutboxEnqueueOutcome;
 use crate::{
     PostgresJournalPool, compose_partition_key, journal_aggregate_seq, journal_position_conflict,
     journal_retention_until, postgres_bigint_input, postgres_bigint_output, postgres_jsonb_payload,
@@ -267,15 +268,6 @@ do update set
     updated_at = greatest(im_conversation_read_cursors.updated_at, excluded.updated_at)
 "#;
 
-const ENQUEUE_OUTBOX_SQL: &str = r#"
-insert into im_outbox_events (
-    tenant_id, organization_id, outbox_id, aggregate_type, aggregate_id,
-    event_id, event_type, payload_json, payload_hash, publish_status,
-    attempt_count, available_at, created_at, updated_at
-) values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14)
-on conflict do nothing
-"#;
-
 const LOAD_REPLAY_MESSAGE_SQL: &str = r#"
 select
     tenant_id,
@@ -369,12 +361,6 @@ impl JournalAppendOutcome {
             postgres_bigint_output(offset, "commit_offset")?,
         ))
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum OutboxEnqueueOutcome {
-    Inserted,
-    IdentityConflict,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -2346,39 +2332,8 @@ fn enqueue_outbox_in_transaction(
     txn: &mut Transaction<'_>,
     event: &OutboxEventRecord,
 ) -> Result<OutboxEnqueueOutcome, ContractError> {
-    let payload_json = postgres_jsonb_payload(event.payload_json.as_str())?;
-    let attempt_count_i32 = i32::try_from(event.attempt_count).map_err(|_| {
-        ContractError::Invalid(
-            "durable outbox attempt count exceeds the PostgreSQL INTEGER range".into(),
-        )
-    })?;
-    let available_at = postgres_timestamptz(event.available_at.as_str(), "available_at")?;
-    let created_at = postgres_timestamptz(event.created_at.as_str(), "created_at")?;
-    let updated_at = postgres_timestamptz(event.updated_at.as_str(), "updated_at")?;
-    let params: &[&(dyn postgres::types::ToSql + Sync)] = &[
-        &event.tenant_id,
-        &event.organization_id,
-        &event.outbox_id,
-        &event.aggregate_type,
-        &event.aggregate_id,
-        &event.event_id,
-        &event.event_type,
-        &payload_json,
-        &event.payload_hash,
-        &event.publish_status.as_str(),
-        &attempt_count_i32,
-        &available_at,
-        &created_at,
-        &updated_at,
-    ];
-    match txn.execute(ENQUEUE_OUTBOX_SQL, params) {
-        Ok(1) => Ok(OutboxEnqueueOutcome::Inserted),
-        Ok(0) => Ok(OutboxEnqueueOutcome::IdentityConflict),
-        Ok(_) => Err(ContractError::Unavailable(
-            "postgres journal durable outbox enqueue returned an invalid row count".into(),
-        )),
-        Err(error) => Err(postgres_unavailable_db("durable outbox enqueue", error)),
-    }
+    // Single SQL owner: the in-transaction enqueue lives in `outbox_store`.
+    crate::outbox_store::enqueue_outbox_event_on_transaction(txn, event)
 }
 
 #[cfg(test)]
@@ -2904,7 +2859,8 @@ mod tests {
 
     #[test]
     fn outbox_insert_and_identity_lookup_support_concurrent_idempotency() {
-        let insert = ENQUEUE_OUTBOX_SQL.to_ascii_lowercase();
+        // The in-transaction outbox insert SQL is owned by `outbox_store`.
+        let insert = crate::outbox_store::ENQUEUE_ON_TRANSACTION_SQL.to_ascii_lowercase();
         assert!(insert.contains("on conflict do nothing"));
 
         let lookup = LOAD_CONVERSATION_OUTBOX_BY_IDENTITY_SQL.to_ascii_lowercase();

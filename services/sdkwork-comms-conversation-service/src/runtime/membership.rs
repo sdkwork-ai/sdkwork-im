@@ -1,3 +1,4 @@
+use super::cursor_signing::{decode_opaque_offset_cursor, encode_opaque_offset_cursor};
 use super::group_lifecycle::ensure_conversation_write_allowed;
 use super::member_list_cursor::{
     MemberListCursorError, MemberListCursorScope, decode_member_list_cursor,
@@ -239,7 +240,7 @@ where
         Ok(cursor_list_page_data(
             items,
             limit,
-            window.next_offset.map(|value| value.to_string()),
+            window.next_offset.map(encode_opaque_offset_cursor),
             window.has_more,
         ))
     }
@@ -2167,7 +2168,8 @@ where
         let (message_ids, has_more) = conversation
             .message_log
             .pinned_message_ids_page(offset, limit);
-        let next_cursor = has_more.then(|| (offset + message_ids.len()).to_string());
+        let next_cursor =
+            has_more.then(|| encode_opaque_offset_cursor(offset + message_ids.len()));
         Ok(cursor_list_page_data(
             message_ids,
             limit,
@@ -2198,7 +2200,11 @@ where
         Ok(cursor_list_page_data(
             page.items,
             limit,
-            page.next_cursor,
+            // The maintained-index store pages by numeric offset internally;
+            // the wire token must still be an opaque cursor.
+            page.next_cursor
+                .and_then(|value| value.parse::<usize>().ok())
+                .map(encode_opaque_offset_cursor),
             page.has_more,
         ))
     }
@@ -2212,7 +2218,7 @@ fn parse_member_list_cursor(cursor: Option<&str>) -> Result<usize, RuntimeError>
     let Some(cursor) = cursor.map(str::trim).filter(|value| !value.is_empty()) else {
         return Ok(0);
     };
-    cursor.parse::<usize>().map_err(|_| {
+    decode_opaque_offset_cursor(cursor).ok_or_else(|| {
         RuntimeError::InvalidInput(format!(
             "conversation member list cursor is invalid: {cursor}"
         ))

@@ -8,6 +8,7 @@ mod test_env;
 
 #[tokio::test]
 async fn test_route_composition_exports_required_infrastructure_endpoints() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = sdkwork_routes_im_audit_backend_api::build_public_app();
 
@@ -40,6 +41,7 @@ async fn test_route_composition_exports_required_infrastructure_endpoints() {
 
 #[tokio::test]
 async fn test_public_app_exports_live_openapi_json() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = audit_service::build_public_app();
 
@@ -71,6 +73,7 @@ async fn test_public_app_exports_live_openapi_json() {
 
 #[tokio::test]
 async fn test_public_app_serves_docs_page_for_live_openapi() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = audit_service::build_public_app();
 
@@ -96,6 +99,7 @@ async fn test_public_app_serves_docs_page_for_live_openapi() {
 
 #[tokio::test]
 async fn test_record_list_and_export_audit_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = sdkwork_routes_im_audit_backend_api::build_public_app();
 
@@ -152,7 +156,7 @@ async fn test_record_list_and_export_audit_over_http() {
         serde_json::from_slice(&list_body).expect("list body should be valid json");
     assert_eq!(list_json["code"], 0);
     assert_eq!(list_json["data"]["items"][0]["recordId"], "audit_http_demo");
-    assert_eq!(list_json["data"]["items"][0]["auditSeq"], 1);
+    assert_eq!(list_json["data"]["items"][0]["auditSeq"], "1");
     assert_eq!(list_json["data"]["pageInfo"]["hasMore"], false);
 
     let export_response = app
@@ -180,7 +184,7 @@ async fn test_record_list_and_export_audit_over_http() {
     let export_json: serde_json::Value =
         serde_json::from_slice(&export_body).expect("export body should be valid json");
     assert_eq!(export_json["code"], 0);
-    assert_eq!(export_json["data"]["total"], 1);
+    assert_eq!(export_json["data"]["total"], "1");
     assert_eq!(
         export_json["data"]["items"][0]["action"],
         "notification.requested"
@@ -211,7 +215,7 @@ async fn test_record_list_and_export_audit_over_http() {
         serde_json::from_slice(&verify_body).expect("verify body should be valid json");
     assert_eq!(verify_json["code"], 0);
     assert_eq!(verify_json["data"]["tenantId"], "100001");
-    assert_eq!(verify_json["data"]["total"], 1);
+    assert_eq!(verify_json["data"]["total"], "1");
     assert_eq!(verify_json["data"]["chainValid"], true);
     assert!(
         verify_json["data"]["chainHeadHash"].as_str().is_some(),
@@ -221,6 +225,7 @@ async fn test_record_list_and_export_audit_over_http() {
 
 #[tokio::test]
 async fn test_record_list_returns_bounded_audit_seq_cursor_window_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = sdkwork_routes_im_audit_backend_api::build_public_app();
 
@@ -285,8 +290,8 @@ async fn test_record_list_returns_bounded_audit_seq_cursor_window_over_http() {
         first_window_json["data"]["items"].as_array().unwrap().len(),
         2
     );
-    assert_eq!(first_window_json["data"]["items"][0]["auditSeq"], 1);
-    assert_eq!(first_window_json["data"]["items"][1]["auditSeq"], 2);
+    assert_eq!(first_window_json["data"]["items"][0]["auditSeq"], "1");
+    assert_eq!(first_window_json["data"]["items"][1]["auditSeq"], "2");
     assert_eq!(first_window_json["data"]["pageInfo"]["hasMore"], true);
     assert_eq!(first_window_json["data"]["pageInfo"]["nextCursor"], "2");
 
@@ -320,7 +325,7 @@ async fn test_record_list_returns_bounded_audit_seq_cursor_window_over_http() {
             .len(),
         1
     );
-    assert_eq!(second_window_json["data"]["items"][0]["auditSeq"], 3);
+    assert_eq!(second_window_json["data"]["items"][0]["auditSeq"], "3");
     assert_eq!(
         second_window_json["data"]["items"][0]["action"],
         "notification.delivered"
@@ -331,6 +336,7 @@ async fn test_record_list_returns_bounded_audit_seq_cursor_window_over_http() {
 
 #[tokio::test]
 async fn test_duplicate_record_anchor_request_is_idempotent_and_conflicting_retry_is_rejected() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = sdkwork_routes_im_audit_backend_api::build_public_app();
 
@@ -488,6 +494,7 @@ async fn test_duplicate_record_anchor_request_is_idempotent_and_conflicting_retr
 
 #[tokio::test]
 async fn test_duplicate_record_anchor_request_replays_after_session_rotation() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = sdkwork_routes_im_audit_backend_api::build_public_app();
 
@@ -606,6 +613,7 @@ async fn test_duplicate_record_anchor_request_replays_after_session_rotation() {
 
 #[tokio::test]
 async fn test_record_audit_rejects_oversized_payload_over_http() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let app = sdkwork_routes_im_audit_backend_api::build_public_app();
     let request_body = serde_json::json!({
@@ -650,4 +658,18 @@ async fn test_record_audit_rejects_oversized_payload_over_http() {
             .expect("detail should be present")
             .contains("payload")
     );
+}
+
+fn ensure_test_environment() {
+    static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    TEST_ENVIRONMENT.get_or_init(|| {
+        // Dual-token test helpers rely on the relaxed test posture; production
+        // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
+        // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        unsafe {
+            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
+            // Local JWT fixtures carry no AppContext signature headers.
+            std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
+        }
+    });
 }

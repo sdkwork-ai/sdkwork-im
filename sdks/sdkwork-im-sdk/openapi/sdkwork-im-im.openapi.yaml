@@ -3,15 +3,14 @@ info:
   title: Sdkwork IM IM Standardized Development API
   version: 0.1.0
   description: >-
-    IM standardized development OpenAPI contract for conversations, messages, realtime, media, streams, social IM flows,
-    and communication spaces.
+    IM standardized development OpenAPI contract for conversations, messages, realtime, media, social IM flows, and
+    communication spaces.
 tags:
   - name: presence
   - name: realtime
   - name: calls
   - name: social
   - name: chat
-  - name: streams
   - name: spaces
 paths:
   /im/v3/api/presence/heartbeat:
@@ -1186,6 +1185,493 @@ paths:
       x-sdkwork-auth-mode: api-key-or-dual-token
       x-sdkwork-owner: sdkwork-im
       x-sdkwork-api-authority: sdkwork-im.im
+  /im/v3/api/social/users/{userId}/profile:
+    parameters:
+      - $ref: '#/components/parameters/UserIdPath'
+    get:
+      tags:
+        - social
+      operationId: social.users.profile.retrieve
+      summary: Retrieve a social user profile
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - item
+                        properties:
+                          item:
+                            $ref: '#/components/schemas/SocialUserProfileView'
+        '400':
+          description: HTTP 400 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: HTTP 401 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: HTTP 403 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: HTTP 404 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - ApiKey: []
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: open-api
+      x-sdkwork-route-auth: api-key-or-dual-token
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.im
+    patch:
+      tags:
+        - social
+      operationId: social.users.profile.update
+      summary: Update the authenticated user profile
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSocialUserProfileRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - item
+                        properties:
+                          item:
+                            $ref: '#/components/schemas/SocialUserProfileView'
+        '400':
+          description: HTTP 400 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: HTTP 401 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: HTTP 403 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: HTTP 404 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - ApiKey: []
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: open-api
+      x-sdkwork-route-auth: api-key-or-dual-token
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.im
+  /im/v3/api/social/users/{userId}/settings:
+    parameters:
+      - $ref: '#/components/parameters/UserIdPath'
+    get:
+      tags:
+        - social
+      operationId: social.users.settings.retrieve
+      summary: Retrieve social user settings
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - item
+                        properties:
+                          item:
+                            $ref: '#/components/schemas/SocialUserSettingsView'
+        '400':
+          description: HTTP 400 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: HTTP 401 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: HTTP 403 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: HTTP 404 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - ApiKey: []
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: open-api
+      x-sdkwork-route-auth: api-key-or-dual-token
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.im
+    patch:
+      tags:
+        - social
+      operationId: social.users.settings.update
+      summary: Update social user settings
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSocialUserSettingsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - item
+                        properties:
+                          item:
+                            $ref: '#/components/schemas/SocialUserSettingsView'
+        '400':
+          description: HTTP 400 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: HTTP 401 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: HTTP 403 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: HTTP 404 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - ApiKey: []
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: open-api
+      x-sdkwork-route-auth: api-key-or-dual-token
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.im
+  /im/v3/api/social/friendships:
+    get:
+      tags:
+        - social
+      operationId: social.friendships.list
+      summary: List friendships of the authenticated user
+      parameters:
+        - $ref: '#/components/parameters/PageSizeQuery'
+        - $ref: '#/components/parameters/CursorQuery'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - items
+                          - pageInfo
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Friendship'
+                          pageInfo:
+                            type: object
+                            additionalProperties: false
+                            required:
+                              - mode
+                              - hasMore
+                            properties:
+                              mode:
+                                type: string
+                                enum:
+                                  - cursor
+                              nextCursor:
+                                type:
+                                  - string
+                                  - 'null'
+                              hasMore:
+                                type: boolean
+        '400':
+          description: HTTP 400 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: HTTP 401 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: HTTP 403 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: HTTP 404 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - ApiKey: []
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: open-api
+      x-sdkwork-route-auth: api-key-or-dual-token
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.im
+  /im/v3/api/social/direct_chats:
+    get:
+      tags:
+        - social
+      operationId: social.directChats.list
+      summary: List direct chats of the authenticated user
+      parameters:
+        - $ref: '#/components/parameters/PageSizeQuery'
+        - $ref: '#/components/parameters/CursorQuery'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - items
+                          - pageInfo
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/SocialDirectChatView'
+                          pageInfo:
+                            type: object
+                            additionalProperties: false
+                            required:
+                              - mode
+                              - hasMore
+                            properties:
+                              mode:
+                                type: string
+                                enum:
+                                  - cursor
+                              nextCursor:
+                                type:
+                                  - string
+                                  - 'null'
+                              hasMore:
+                                type: boolean
+        '400':
+          description: HTTP 400 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: HTTP 401 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: HTTP 403 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: HTTP 404 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - ApiKey: []
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: open-api
+      x-sdkwork-route-auth: api-key-or-dual-token
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.im
+  /im/v3/api/social/direct_chats/{directChatId}:
+    parameters:
+      - $ref: '#/components/parameters/DirectChatIdPath'
+    get:
+      tags:
+        - social
+      operationId: social.directChats.retrieve
+      summary: Retrieve a direct chat
+      parameters:
+        - $ref: '#/components/parameters/DirectChatIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - item
+                        properties:
+                          item:
+                            $ref: '#/components/schemas/SocialDirectChatView'
+        '400':
+          description: HTTP 400 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: HTTP 401 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: HTTP 403 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: HTTP 404 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - ApiKey: []
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: open-api
+      x-sdkwork-route-auth: api-key-or-dual-token
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.im
   /im/v3/api/social/friend_requests:
     get:
       tags:
@@ -1614,6 +2100,88 @@ paths:
       x-sdkwork-owner: sdkwork-im
       x-sdkwork-api-authority: sdkwork-im.im
   /im/v3/api/social/user_blocks:
+    get:
+      tags:
+        - social
+      operationId: social.userBlocks.list
+      summary: List user blocks created by the authenticated user
+      parameters:
+        - $ref: '#/components/parameters/PageSizeQuery'
+        - $ref: '#/components/parameters/CursorQuery'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - items
+                          - pageInfo
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/SocialUserBlockSummary'
+                          pageInfo:
+                            type: object
+                            additionalProperties: false
+                            required:
+                              - mode
+                              - hasMore
+                            properties:
+                              mode:
+                                type: string
+                                enum:
+                                  - cursor
+                              nextCursor:
+                                type:
+                                  - string
+                                  - 'null'
+                              hasMore:
+                                type: boolean
+        '400':
+          description: HTTP 400 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: HTTP 401 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: HTTP 403 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: HTTP 404 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - ApiKey: []
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: open-api
+      x-sdkwork-route-auth: api-key-or-dual-token
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.im
     post:
       tags:
         - social
@@ -2777,6 +3345,71 @@ paths:
       x-sdkwork-auth-mode: api-key-or-dual-token
       x-sdkwork-owner: sdkwork-im
       x-sdkwork-api-authority: sdkwork-im.im
+  /im/v3/api/chat/conversations/shared_channel_links/sync:
+    post:
+      tags:
+        - chat
+      operationId: conversations.sharedChannelLinks.sync
+      summary: Sync a shared-channel linked member into a conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SharedChannelLinkSyncRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - item
+                        properties:
+                          item:
+                            $ref: '#/components/schemas/SharedChannelLinkSyncResponse'
+        '400':
+          description: HTTP 400 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: HTTP 401 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: HTTP 403 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: HTTP 404 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - ApiKey: []
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: open-api
+      x-sdkwork-route-auth: api-key-or-dual-token
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.im
   /im/v3/api/chat/conversations/{conversationId}/agent_handoff:
     parameters:
       - $ref: '#/components/parameters/ConversationIdPath'
@@ -3362,6 +3995,69 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
         '409':
           description: HTTP 409 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - ApiKey: []
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: open-api
+      x-sdkwork-route-auth: api-key-or-dual-token
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.im
+  /im/v3/api/chat/conversations/{conversationId}/binding:
+    parameters:
+      - $ref: '#/components/parameters/ConversationIdPath'
+    get:
+      tags:
+        - chat
+      operationId: conversations.binding.retrieve
+      summary: Retrieve the business binding of a conversation
+      parameters:
+        - $ref: '#/components/parameters/ConversationIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - item
+                        properties:
+                          item:
+                            $ref: '#/components/schemas/ConversationBindingView'
+        '400':
+          description: HTTP 400 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: HTTP 401 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: HTTP 403 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: HTTP 404 problem
           content:
             application/problem+json:
               schema:
@@ -4569,7 +5265,7 @@ paths:
     get:
       tags:
         - chat
-      operationId: messages.search
+      operationId: messages.search.list
       summary: Search conversation message history
       description: >-
         Full-text search over message history scoped to the authenticated principal. When conversationId is omitted the
@@ -5531,412 +6227,6 @@ paths:
       x-sdkwork-auth-mode: api-key-or-dual-token
       x-sdkwork-owner: sdkwork-im
       x-sdkwork-api-authority: sdkwork-im.im
-  /im/v3/api/streams:
-    post:
-      tags:
-        - streams
-      operationId: streams.create
-      summary: Open a stream
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OpenStreamRequest'
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/StreamView'
-        '400':
-          description: HTTP 400 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '401':
-          description: HTTP 401 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '403':
-          description: HTTP 403 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '404':
-          description: HTTP 404 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - ApiKey: []
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: open-api
-      x-sdkwork-route-auth: api-key-or-dual-token
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.im
-  /im/v3/api/streams/{streamId}/frames:
-    parameters:
-      - $ref: '#/components/parameters/StreamIdPath'
-    get:
-      tags:
-        - streams
-      operationId: streams.frames.list
-      summary: List stream frames
-      parameters:
-        - $ref: '#/components/parameters/StreamIdPath'
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        additionalProperties: false
-                        required:
-                          - items
-                          - pageInfo
-                        properties:
-                          items:
-                            type: array
-                            items:
-                              $ref: '#/components/schemas/StreamFrameView'
-                          pageInfo:
-                            type: object
-                            additionalProperties: false
-                            required:
-                              - mode
-                              - hasMore
-                            properties:
-                              mode:
-                                type: string
-                                enum:
-                                  - cursor
-                              nextCursor:
-                                type:
-                                  - string
-                                  - 'null'
-                              hasMore:
-                                type: boolean
-        '400':
-          description: HTTP 400 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '401':
-          description: HTTP 401 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '403':
-          description: HTTP 403 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '404':
-          description: HTTP 404 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - ApiKey: []
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: open-api
-      x-sdkwork-route-auth: api-key-or-dual-token
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.im
-    post:
-      tags:
-        - streams
-      operationId: streams.frames.create
-      summary: Append a stream frame
-      parameters:
-        - $ref: '#/components/parameters/StreamIdPath'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AppendStreamFrameRequest'
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/StreamFrameView'
-        '400':
-          description: HTTP 400 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '401':
-          description: HTTP 401 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '403':
-          description: HTTP 403 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '404':
-          description: HTTP 404 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - ApiKey: []
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: open-api
-      x-sdkwork-route-auth: api-key-or-dual-token
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.im
-  /im/v3/api/streams/{streamId}/checkpoint:
-    parameters:
-      - $ref: '#/components/parameters/StreamIdPath'
-    post:
-      tags:
-        - streams
-      operationId: streams.checkpoint
-      summary: Checkpoint a stream
-      parameters:
-        - $ref: '#/components/parameters/StreamIdPath'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/StreamView'
-        '400':
-          description: HTTP 400 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '401':
-          description: HTTP 401 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '403':
-          description: HTTP 403 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '404':
-          description: HTTP 404 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - ApiKey: []
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: open-api
-      x-sdkwork-route-auth: api-key-or-dual-token
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.im
-  /im/v3/api/streams/{streamId}/complete:
-    parameters:
-      - $ref: '#/components/parameters/StreamIdPath'
-    post:
-      tags:
-        - streams
-      operationId: streams.complete
-      summary: Complete a stream
-      parameters:
-        - $ref: '#/components/parameters/StreamIdPath'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/StreamView'
-        '400':
-          description: HTTP 400 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '401':
-          description: HTTP 401 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '403':
-          description: HTTP 403 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '404':
-          description: HTTP 404 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - ApiKey: []
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: open-api
-      x-sdkwork-route-auth: api-key-or-dual-token
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.im
-  /im/v3/api/streams/{streamId}/abort:
-    parameters:
-      - $ref: '#/components/parameters/StreamIdPath'
-    post:
-      tags:
-        - streams
-      operationId: streams.abort
-      summary: Abort a stream
-      parameters:
-        - $ref: '#/components/parameters/StreamIdPath'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SdkWorkApiResponse'
-                  - type: object
-                    required:
-                      - data
-                    properties:
-                      data:
-                        type: object
-                        required:
-                          - item
-                        properties:
-                          item:
-                            $ref: '#/components/schemas/StreamView'
-        '400':
-          description: HTTP 400 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '401':
-          description: HTTP 401 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '403':
-          description: HTTP 403 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '404':
-          description: HTTP 404 problem
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-      security:
-        - ApiKey: []
-        - AuthToken: []
-          AccessToken: []
-      x-sdkwork-request-context: WebRequestContext
-      x-sdkwork-api-surface: open-api
-      x-sdkwork-route-auth: api-key-or-dual-token
-      x-sdkwork-auth-mode: api-key-or-dual-token
-      x-sdkwork-owner: sdkwork-im
-      x-sdkwork-api-authority: sdkwork-im.im
   /im/v3/api/spaces:
     post:
       tags:
@@ -6494,6 +6784,50 @@ paths:
       x-sdkwork-owner: sdkwork-im
       x-sdkwork-api-authority: sdkwork-im.im
       summary: Delete spaces groups
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: open-api
+      x-sdkwork-route-auth: api-key-or-dual-token
+      x-sdkwork-auth-mode: api-key-or-dual-token
+  /im/v3/api/spaces/{spaceId}/groups/{groupId}/transfer_owner:
+    post:
+      tags:
+        - spaces
+      operationId: spaces.groups.transferOwner
+      parameters:
+        - $ref: '#/components/parameters/SpaceIdPath'
+        - $ref: '#/components/parameters/GroupIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpaceGroupTransferOwnerRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - item
+                        properties:
+                          item:
+                            $ref: '#/components/schemas/SpaceGroupView'
+      security:
+        - ApiKey: []
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.im
+      summary: Transfer spaces groups owner
       x-sdkwork-request-context: WebRequestContext
       x-sdkwork-api-surface: open-api
       x-sdkwork-route-auth: api-key-or-dual-token
@@ -7362,12 +7696,6 @@ components:
       required: true
       schema:
         type: string
-    StreamIdPath:
-      name: streamId
-      in: path
-      required: true
-      schema:
-        type: string
     TagIdPath:
       name: tagId
       in: path
@@ -7380,13 +7708,27 @@ components:
       required: true
       schema:
         type: string
+    UserIdPath:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+    DirectChatIdPath:
+      name: directChatId
+      in: path
+      required: true
+      schema:
+        type: string
     AfterSignalSeqQuery:
       name: afterSignalSeq
       in: query
       required: false
       schema:
-        type: integer
+        type: string
         format: int64
+        pattern: ^-?[0-9]+$
+        x-sdkwork-int64-string: true
         minimum: 0
     ConversationTypeQuery:
       name: conversation_type
@@ -7465,6 +7807,7 @@ components:
       required: true
       schema:
         type: string
+        format: int64
         pattern: ^[0-9]+$
         x-sdkwork-int64-string: true
     GroupIdPath:
@@ -7473,6 +7816,7 @@ components:
       required: true
       schema:
         type: string
+        format: int64
         pattern: ^[0-9]+$
         x-sdkwork-int64-string: true
     ChannelIdPath:
@@ -7481,14 +7825,9 @@ components:
       required: true
       schema:
         type: string
+        format: int64
         pattern: ^[0-9]+$
         x-sdkwork-int64-string: true
-    UserIdPath:
-      name: userId
-      in: path
-      required: true
-      schema:
-        type: string
     InviteCodePath:
       name: inviteCode
       in: path
@@ -7502,6 +7841,7 @@ components:
       required: true
       schema:
         type: string
+        format: int64
         pattern: ^[0-9]+$
         x-sdkwork-int64-string: true
   schemas:
@@ -7831,8 +8171,10 @@ components:
         rtcSessionId:
           type: string
         signalSeq:
-          type: integer
+          type: string
           format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
         conversationId:
           type: string
@@ -7993,8 +8335,10 @@ components:
           type: string
           nullable: true
         size:
-          type: integer
+          type: string
           format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
           nullable: true
         sizeBytes:
@@ -8064,8 +8408,10 @@ components:
         messageId:
           type: string
         messageSeq:
-          type: integer
-          format: int32
+          type: string
+          format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
         summary:
           type: string
@@ -8121,8 +8467,10 @@ components:
                 pageInfo:
                   $ref: '#/components/schemas/PageInfo'
                 highWatermark:
-                  type: integer
-                  format: int32
+                  type: string
+                  format: int64
+                  pattern: ^-?[0-9]+$
+                  x-sdkwork-int64-string: true
                   minimum: 0
               required:
                 - items
@@ -8139,8 +8487,10 @@ components:
         messageId:
           type: string
         messageSeq:
-          type: integer
-          format: int32
+          type: string
+          format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
       required:
         - conversationId
@@ -8235,8 +8585,10 @@ components:
         messageId:
           type: string
         messageSeq:
-          type: integer
+          type: string
           format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
       required:
         - status
@@ -8250,8 +8602,10 @@ components:
         messageId:
           type: string
         messageSeq:
-          type: integer
-          format: int32
+          type: string
+          format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
         eventId:
           type: string
@@ -8278,8 +8632,10 @@ components:
         messageId:
           type: string
         messageSeq:
-          type: integer
-          format: int32
+          type: string
+          format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
         eventId:
           type: string
@@ -8344,8 +8700,10 @@ components:
         messageId:
           type: string
         messageSeq:
-          type: integer
-          format: int32
+          type: string
+          format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
         totalReactionCount:
           type: integer
@@ -8461,8 +8819,10 @@ components:
         messageId:
           type: string
         messageSeq:
-          type: integer
-          format: int32
+          type: string
+          format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
         title:
           type: string
@@ -8587,8 +8947,10 @@ components:
           format: int32
           minimum: 0
         lastMessageSeq:
-          type: integer
-          format: int32
+          type: string
+          format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
         lastSummary:
           type: string
@@ -8684,8 +9046,10 @@ components:
           format: int32
           minimum: 0
         lastMessageSeq:
-          type: integer
-          format: int32
+          type: string
+          format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
         lastSummary:
           type: string
@@ -9039,8 +9403,10 @@ components:
         orderingKey:
           type: string
         orderingSeq:
-          type: integer
+          type: string
           format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
         causationId:
           type: string
@@ -9197,29 +9563,30 @@ components:
           type: string
         initiatorUserId:
           type: string
-        leftUserId:
-          type: string
-        rightUserId:
+        userLowId:
           type: string
         userHighId:
           type: string
-        userLowId:
-          type: string
         status:
           type: string
-        createdAt:
+          enum:
+            - active
+            - removed
+        establishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
           type: string
           format: date-time
       required:
         - tenantId
         - friendshipId
         - initiatorUserId
-        - leftUserId
-        - rightUserId
-        - userHighId
         - userLowId
+        - userHighId
         - status
-        - createdAt
+        - updatedAt
     DirectChat:
       type: object
       additionalProperties: false
@@ -9228,15 +9595,36 @@ components:
           type: string
         directChatId:
           type: string
-        conversationId:
+        leftActorId:
+          type: string
+        rightActorId:
+          type: string
+        pairHash:
           type: string
         status:
           type: string
+          enum:
+            - active
+            - archived
+            - closed
+        conversationId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
       required:
         - tenantId
         - directChatId
-        - conversationId
+        - leftActorId
+        - rightActorId
+        - pairHash
         - status
+        - createdAt
+        - updatedAt
     SocialFriendRequestAcceptedConversation:
       type: object
       additionalProperties: false
@@ -9273,6 +9661,170 @@ components:
           minimum: 0
       required:
         - count
+    SocialUserBlockSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        blockId:
+          type: string
+        blockerUserId:
+          type: string
+        blockedUserId:
+          type: string
+        scope:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - blockId
+        - blockerUserId
+        - blockedUserId
+        - scope
+        - createdAt
+    SocialDirectChatView:
+      type: object
+      additionalProperties: false
+      properties:
+        directChatId:
+          type: string
+        leftActorId:
+          type: string
+        rightActorId:
+          type: string
+        status:
+          type: string
+        conversationId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - directChatId
+        - leftActorId
+        - rightActorId
+        - status
+        - createdAt
+        - updatedAt
+    SocialUserProfileView:
+      type: object
+      additionalProperties: false
+      properties:
+        userId:
+          type: string
+        imNickname:
+          type: string
+          nullable: true
+        imAvatarUrl:
+          type: string
+          nullable: true
+        imStatusMessage:
+          type: string
+          nullable: true
+        imOnlineStatus:
+          type: string
+        lastActiveAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - userId
+        - imOnlineStatus
+    UpdateSocialUserProfileRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        imNickname:
+          type: string
+          nullable: true
+        imAvatarUrl:
+          type: string
+          nullable: true
+        imStatusMessage:
+          type: string
+          nullable: true
+    SocialUserSettingsView:
+      type: object
+      additionalProperties: false
+      properties:
+        settings:
+          type: object
+          additionalProperties: true
+      required:
+        - settings
+    UpdateSocialUserSettingsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        settings:
+          type: object
+          additionalProperties: true
+      required:
+        - settings
+    SharedChannelLinkSyncRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        conversationId:
+          type: string
+        sharedChannelPolicyId:
+          type: string
+        externalConnectionId:
+          type: string
+        localActorId:
+          type: string
+        localActorKind:
+          type: string
+        externalMemberId:
+          type: string
+        requestKey:
+          type: string
+          nullable: true
+      required:
+        - conversationId
+        - sharedChannelPolicyId
+        - externalConnectionId
+        - localActorId
+        - localActorKind
+        - externalMemberId
+    SharedChannelLinkSyncResponse:
+      allOf:
+        - $ref: '#/components/schemas/ConversationMember'
+        - type: object
+          additionalProperties: false
+          properties:
+            proofVersion:
+              type: string
+            requestKey:
+              type: string
+            status:
+              type: string
+              enum:
+                - applied
+                - already_linked
+                - replayed
+          required:
+            - proofVersion
+            - requestKey
+            - status
+    ConversationBindingView:
+      type: object
+      additionalProperties: false
+      properties:
+        conversationId:
+          type: string
+        businessType:
+          type: string
+        businessId:
+          type: string
+      required:
+        - conversationId
+        - businessType
+        - businessId
     SocialFriendRequestAcceptanceResponse:
       type: object
       additionalProperties: false
@@ -9374,8 +9926,10 @@ components:
       additionalProperties: false
       properties:
         generation:
-          type: integer
+          type: string
           format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 1
         source:
           type: string
@@ -9397,8 +9951,10 @@ components:
       additionalProperties: false
       properties:
         expectedGeneration:
-          type: integer
+          type: string
           format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 1
         agentAssignments:
           type: array
@@ -9676,8 +10232,10 @@ components:
         principalId:
           type: string
         readSeq:
-          type: integer
-          format: int32
+          type: string
+          format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
         updatedAt:
           type: string
@@ -9693,68 +10251,13 @@ components:
       additionalProperties: false
       properties:
         readSeq:
-          type: integer
-          format: int32
+          type: string
+          format: int64
+          pattern: ^-?[0-9]+$
+          x-sdkwork-int64-string: true
           minimum: 0
       required:
         - readSeq
-    StreamView:
-      type: object
-      additionalProperties: false
-      properties:
-        tenantId:
-          type: string
-        streamId:
-          type: string
-        state:
-          type: string
-        openedAt:
-          type: string
-          format: date-time
-      required:
-        - tenantId
-        - streamId
-        - state
-        - openedAt
-    OpenStreamRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        streamType:
-          type: string
-        conversationId:
-          type: string
-          nullable: true
-      required:
-        - streamType
-    StreamFrameView:
-      type: object
-      additionalProperties: false
-      properties:
-        streamId:
-          type: string
-        frameSeq:
-          type: integer
-          format: int32
-          minimum: 0
-        payload:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-      required:
-        - streamId
-        - frameSeq
-        - payload
-        - createdAt
-    AppendStreamFrameRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        payload:
-          type: string
-      required:
-        - payload
     SdkWorkApiResponse:
       type: object
       additionalProperties: false
@@ -9952,6 +10455,7 @@ components:
       properties:
         spaceId:
           type: string
+          format: int64
           pattern: ^[0-9]+$
           x-sdkwork-int64-string: true
         spaceName:
@@ -10016,12 +10520,21 @@ components:
         description:
           type: string
           nullable: true
+    SpaceGroupTransferOwnerRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        newOwnerUserId:
+          type: string
+      required:
+        - newOwnerUserId
     SpaceGroupView:
       type: object
       additionalProperties: false
       properties:
         groupId:
           type: string
+          format: int64
           pattern: ^[0-9]+$
           x-sdkwork-int64-string: true
         groupName:
@@ -10102,6 +10615,7 @@ components:
       properties:
         channelId:
           type: string
+          format: int64
           pattern: ^[0-9]+$
           x-sdkwork-int64-string: true
         channelName:
@@ -10135,10 +10649,12 @@ components:
       properties:
         ruleId:
           type: string
+          format: int64
           pattern: ^[0-9]+$
           x-sdkwork-int64-string: true
         channelId:
           type: string
+          format: int64
           pattern: ^[0-9]+$
           x-sdkwork-int64-string: true
         ruleType:
@@ -10181,6 +10697,7 @@ components:
           description: Invitation target type. Only space invitations are supported.
         targetId:
           type: string
+          format: int64
           pattern: ^[0-9]+$
           x-sdkwork-int64-string: true
           description: Invitation target id, must equal the spaceId path parameter.
@@ -10209,6 +10726,7 @@ components:
       properties:
         invitationId:
           type: string
+          format: int64
           pattern: ^[0-9]+$
           x-sdkwork-int64-string: true
           description: Invitation identifier, passed as the inviteCode path parameter.
@@ -10221,6 +10739,7 @@ components:
           type: string
         targetId:
           type: string
+          format: int64
           pattern: ^[0-9]+$
           x-sdkwork-int64-string: true
         role:
@@ -10340,7 +10859,9 @@ components:
         assignmentGeneration:
           format: int64
           minimum: 1
-          type: integer
+          pattern: ^-?[0-9]+$
+          type: string
+          x-sdkwork-int64-string: true
       required:
         - kind
         - targetKind

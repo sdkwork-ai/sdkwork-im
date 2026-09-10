@@ -127,7 +127,9 @@ impl Serialize for AuditExportData<'_> {
             },
         )?;
         let result = accumulator.borrow().finish(self.target);
-        map.serialize_entry("total", &result.total)?;
+        // Int64 wire contract: `total` is `type: string, format: int64` in
+        // the backend contract, matching AuditChainVerification.total.
+        map.serialize_entry("total", &result.total.to_string())?;
         map.serialize_entry("chainHeadHash", &result.chain_head_hash)?;
         map.serialize_entry("chainValid", &result.chain_valid)?;
         map.end()
@@ -373,7 +375,7 @@ mod tests {
         let json: serde_json::Value =
             serde_json::from_slice(&payload).expect("streamed export should be valid json");
         assert_eq!(json["code"], 0);
-        assert_eq!(json["data"]["total"], 201);
+        assert_eq!(json["data"]["total"], "201");
         assert_eq!(
             json["data"]["items"]
                 .as_array()

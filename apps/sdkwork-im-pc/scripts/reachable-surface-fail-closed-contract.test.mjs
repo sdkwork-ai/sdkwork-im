@@ -77,15 +77,15 @@ assert.doesNotMatch(
   'Dashboard must not expose operations that have no implemented SDK-backed handler.',
 );
 
-assert.match(
+assert.doesNotMatch(
   billingServiceSource,
-  /export\s+const\s+BILLING_EVENTS_PAGE_SIZE\s*=\s*20/u,
-  'Billing events must declare a bounded server page size.',
+  /\.admin\.billing\.|BILLING_EVENTS_PAGE_SIZE/u,
+  'The admin billing plane was pruned from the backend SDK contract; the billing service must not reference it.',
 );
 assert.match(
   billingServiceSource,
-  /\.admin\.billing\.events\.list\s*\(\s*\{\s*pageSize:\s*BILLING_EVENTS_PAGE_SIZE\s*\}\s*\)/u,
-  'Billing events must request a bounded server page rather than a potentially unbounded list.',
+  /AdminCapabilityUnavailableError/u,
+  'The billing service must fail closed with a typed AdminCapabilityUnavailableError.',
 );
 assert.match(
   billingPageSource,

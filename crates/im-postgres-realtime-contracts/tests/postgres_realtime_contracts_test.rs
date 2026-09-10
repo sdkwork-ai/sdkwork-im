@@ -10,10 +10,10 @@ const POSTGRES_CORE_SCHEMA: &str =
 
 #[test]
 fn test_postgres_realtime_contract_crate_exports_complete_executable_contract_set() {
-    assert_eq!(ALL_REALTIME_POSTGRES_SQL_CONTRACTS.len(), 21);
-    assert_eq!(REALTIME_POSTGRES_SQL_CONTRACT_SPECS.len(), 21);
+    assert_eq!(ALL_REALTIME_POSTGRES_SQL_CONTRACTS.len(), 22);
+    assert_eq!(REALTIME_POSTGRES_SQL_CONTRACT_SPECS.len(), 22);
     assert_eq!(ALL_REALTIME_POSTGRES_TRANSACTION_PLANS.len(), 6);
-    assert_eq!(REALTIME_POSTGRES_ADAPTER_PLAN.method_plans.len(), 21);
+    assert_eq!(REALTIME_POSTGRES_ADAPTER_PLAN.method_plans.len(), 22);
     assert_eq!(
         REALTIME_POSTGRES_ADAPTER_PLAN.runtime_status,
         "store_adapter_implemented"

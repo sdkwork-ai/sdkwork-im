@@ -22,7 +22,27 @@ pub(crate) async fn prepare_realtime_websocket_route(
 ) -> Result<RealtimeWebsocketRouteContext, ApiError> {
     let auth = crate::resolve_request_app_context(auth, headers, &state.auth_resolver).await?;
     let device_id = resolve_requested_device_id(&auth, query_device_id)?;
-    state.prepare_active_client_route(&auth, device_id.as_str(), "websocket", false)?;
+    // Route bind performs blocking Redis/Postgres IO (with bounded
+    // retry backoff); run it on the blocking pool so an upgrade storm
+    // cannot stall the async reactor threads.
+    let blocking_state = state.clone();
+    let blocking_auth = auth.clone();
+    let blocking_device_id = device_id.clone();
+    tokio::task::spawn_blocking(move || {
+        blocking_state.prepare_active_client_route(
+            &blocking_auth,
+            blocking_device_id.as_str(),
+            "websocket",
+            false,
+        )
+    })
+    .await
+    .map_err(|error| {
+        ApiError::internal(
+            "route_bind_join_failed",
+            format!("route bind task failed: {error}"),
+        )
+    })??;
     Ok(RealtimeWebsocketRouteContext {
         auth,
         device_id,

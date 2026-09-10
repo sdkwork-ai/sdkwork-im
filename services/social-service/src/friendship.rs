@@ -632,6 +632,7 @@ pub(crate) struct CommitEnvelopeResponse {
     scope_type: String,
     scope_id: String,
     ordering_key: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     ordering_seq: u64,
     causation_id: Option<String>,
     correlation_id: Option<String>,

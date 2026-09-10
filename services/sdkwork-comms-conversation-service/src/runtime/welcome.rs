@@ -72,6 +72,7 @@ pub struct WelcomeEnsureView {
     pub status: String,
     pub conversation_id: String,
     pub message_id: String,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub message_seq: u64,
 }
 

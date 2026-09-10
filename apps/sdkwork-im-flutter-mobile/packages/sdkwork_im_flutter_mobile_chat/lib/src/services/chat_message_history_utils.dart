@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.dart';
 
 import 'chat_sdk_response_utils.dart';
@@ -37,11 +38,30 @@ class MessageHistoryPageMergeResult {
   final bool incomingPageRetained;
 }
 
+/// Parses an int64 wire sequence into the internal numeric domain.
+///
+/// REST responses deliver int64 seqs as decimal strings per API_SPEC 13.6
+/// (realtime frames still deliver numbers), so accept both forms and keep
+/// internal math numeric (Dart ints on io platforms hold the full int64
+/// range; never route these through double). Returns null when the value is
+/// missing or not a decimal integer — callers must skip the value with a
+/// warning instead of fabricating a valid-looking 0, which would corrupt
+/// ordering and read cursors.
+int? parseWireSeq(Object? value) => int.tryParse(value?.toString() ?? '');
+
 int resolveLatestMessageSeq(List<ConversationMessageEntry> entries) {
   var maxSeq = 0;
   for (final entry in entries) {
-    if (entry.messageSeq > maxSeq) {
-      maxSeq = entry.messageSeq;
+    final seq = parseWireSeq(entry.messageSeq);
+    if (seq == null) {
+      debugPrint(
+        'sdkwork-im-flutter-mobile: skipping message ${entry.messageId} '
+        'with unparseable seq "${entry.messageSeq}"',
+      );
+      continue;
+    }
+    if (seq > maxSeq) {
+      maxSeq = seq;
     }
   }
   return maxSeq;
@@ -64,7 +84,11 @@ MessageHistoryPageMergeResult mergeConversationMessagePage(
   }
   final merged = byId.values.toList()
     ..sort((left, right) {
-      final sequenceComparison = left.messageSeq.compareTo(right.messageSeq);
+      // Entries without a parseable seq sort ahead of sequenced ones (0
+      // precedes positive seqs) and stay deterministic via the occurredAt /
+      // messageId fallbacks below; they never fabricate a usable seq value.
+      final sequenceComparison = (parseWireSeq(left.messageSeq) ?? 0)
+          .compareTo(parseWireSeq(right.messageSeq) ?? 0);
       if (sequenceComparison != 0) {
         return sequenceComparison;
       }

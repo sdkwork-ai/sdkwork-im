@@ -62,7 +62,11 @@
     "reason": "申请事由",
     "duration": "时长/金额",
     "approvers": "审批流程",
-    "cc": "抄送人"
+    "cc": "抄送人",
+    "process": "审批流程",
+    "initiatorBadge": "发",
+    "initiatedRequest": "发起申请",
+    "yourTurn": "当前审批轮到你"
   },
   "auto_fn_2f078e83": "操作失败",
   "auto_prop_2b29ee97": "审批详情",

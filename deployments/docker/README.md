@@ -64,18 +64,16 @@ docker compose ps               # wait for im-gateway (healthy)
 ```
 
 The gateway listens on `0.0.0.0:18079` inside the container; the host maps
-`18079 -> 18079` so the PC renderer's local gateway discovery keeps working
+`127.0.0.1:18079 -> 18079` (loopback only — the dev gateway is never reachable
+from other hosts) so the PC renderer's local gateway discovery keeps working
 from browsers over the WSL2 localhost relay.
 
 ### 4. nginx (test domains)
 
-Deploy `nginx/testimdocker-im.conf` and `nginx/bootstrap-token.js` (the
-credential-entry bootstrap script it injects; see section 4b) to the host
-nginx:
+Deploy `nginx/testimdocker-im.conf` to the host nginx:
 
 ```bash
 sudo cp deployments/docker/nginx/testimdocker-im.conf /etc/nginx/sites-enabled/
-sudo cp deployments/docker/nginx/bootstrap-token.js /etc/nginx/bootstrap-token.js
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -94,7 +92,7 @@ mobile UA -> H5 renderer on the same origin).
 > and the BirdCoder `sdkwork` vhosts); keep vhost `server_name` sets disjoint so
 > nginx never routes one product's requests to another.
 
-### 4b. Browser bootstrap Access-Token injection
+### 4b. Browser bootstrap Access-Token (removed from deployments)
 
 The renderer SDK reads the development bootstrap Access-Token from
 `window.__SDKWORK_CREDENTIAL_ENTRY_BOOTSTRAP_ACCESS_TOKEN__` (or
@@ -104,22 +102,19 @@ process.env.SDKWORK_ACCESS_TOKEN`) is dev-server-only (`apply: 'serve'`), so
 production renderer builds ship without it and the browser login fails with
 `access-token-only request requires Access-Token before request dispatch`.
 
-The test nginx fixes this at the deployment layer:
+The nginx-level injection was removed: this repository previously shipped a
+committed unsigned fallback JWT (`nginx/bootstrap-token.js`, sub_filter-injected
+by the test vhost). A credential usable by anyone who can fetch a static file
+is a security hole, not a convenience — the file and the
+`location = /bootstrap-token.js` + `sub_filter` blocks were deleted.
 
-- `nginx/bootstrap-token.js` — sets the well-known development fallback JWT on
-  the window global. Deploy next to the vhost
-  (`/etc/nginx/bootstrap-token.js`) and serve it with
-  `location = /bootstrap-token.js`.
-- `nginx/testimdocker-im.conf` — `sub_filter` rewrites the served `index.html`
-  to load that script (`<script src="/bootstrap-token.js"></script>`).
+For local development, provide the token at renderer build/serve time instead:
 
-It must be an **external same-origin script**: the gateway responds with a
-strict CSP (`script-src 'self' 'nonce-...'`), so a plain inline script is
-refused by the browser even though it appears in the DOM. `Accept-Encoding ""`
-is cleared on the proxy so `sub_filter` can rewrite the body.
+- dev server: `SDKWORK_ACCESS_TOKEN=<token> pnpm dev` (the dev-only Vite plugin injects it), or
+- production/real flows: use the normal login; nothing is pre-injected.
 
-Anything real must instead set a signed token via `SDKWORK_ACCESS_TOKEN` at
-renderer build time.
+Anything real must be a signed token supplied via `SDKWORK_ACCESS_TOKEN` at
+renderer build time — never a committed secret.
 
 ### 5. IAM bootstrap (first deployment, once)
 

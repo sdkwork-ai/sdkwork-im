@@ -63,41 +63,10 @@ function assertDoesNotContain(relativePath, forbiddenText, baseDir = docsRoot) {
   }
 }
 
-assertContains("reference/admin-storage-contract.md", "/backend/v3/api/admin/storage/providers");
-assertContains(
-  "reference/admin-storage-contract.md",
-  "/backend/v3/api/admin/storage/config/tenants/{tenantId}",
-);
-assertContains("reference/admin-storage-contract.md", "whole-record override");
-assertContains(
-  "reference/admin-storage-contract.md",
-  "SDKWORK_ADMIN_SANDBOX_STORAGE_FILE",
-);
-assertContains("reference/admin-storage-contract.md", "StorageConfigUpsertInput");
-assertContains("reference/admin-storage-contract.md", "StorageSecretSummaryRecord");
-assertContains(
-  "reference/admin-storage-contract.md",
-  "sdkwork-im-backend-sdk",
-);
-assertContains(
-  "reference/admin-storage-contract.md",
-  "must not be split into a standalone admin SDK family",
-);
-assertDoesNotContain(
-  "reference/admin-storage-contract.md",
-  marker("sdkwork", "-control", "-plane", "-sdk"),
-);
-assertDoesNotContain(
-  "reference/admin-storage-contract.md",
-  marker("sdkwork", "-im", "-admin", "-sdk"),
-);
+// The retired admin storage reference page (reference/admin-storage-contract.md) was removed:
+// the /backend/v3/api/admin/storage/* surface it described was never implemented and is not part
+// of the current backend authority. Do not reintroduce page or link assertions for it.
 
-assertContainsInFirstExisting(
-  [".vitepress/config.ts", ".vitepress/config.mjs"],
-  "/reference/admin-storage-contract",
-);
-assertContains("index.md", "/reference/admin-storage-contract");
-assertContains("architecture/storage-management.md", "/reference/admin-storage-contract");
 assertContains("reference/cli-and-scripts.md", "npm run docs:verify");
 assertContains("reference/cli-and-scripts.md", "sdkwork-im-sdk");
 assertContains("reference/cli-and-scripts.md", "sdkwork-im-app-sdk");
@@ -134,14 +103,8 @@ assertDoesNotContain(
   marker("sdkwork", "-im", "-admin", "-sdk"),
 );
 
-const adminReadmePath = path.join(repoRoot, "apps/sdkwork-im-admin/README.md");
-if (fs.existsSync(adminReadmePath)) {
-  assertContains(
-    "apps/sdkwork-im-admin/README.md",
-    "../../docs/sites/reference/admin-storage-contract.md",
-    repoRoot,
-  );
-}
+// No apps/sdkwork-im-admin surface exists; if one is ever added it must not reference the
+// retired admin storage contract page either.
 
 if (issues.length > 0) {
   console.error(issues.join("\n"));
@@ -149,5 +112,5 @@ if (issues.length > 0) {
 }
 
 console.log(
-  "Verified admin storage reference page, docs navigation links, CLI docs, and optional admin README alignment.",
+  "Verified docs navigation links and CLI docs alignment (retired admin storage reference page removed).",
 );

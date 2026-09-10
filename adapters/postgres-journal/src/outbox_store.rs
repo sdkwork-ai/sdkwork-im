@@ -34,6 +34,76 @@ insert into im_outbox_events (
 ) values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14)
 "#;
 
+/// In-transaction variant of [`ENQUEUE_SQL`] used by coordinated writers that
+/// enqueue outbox evidence inside a caller-owned journal transaction. The
+/// `on conflict do nothing` clause absorbs idempotent replays of an already
+/// enqueued `event_id`/`outbox_id` instead of aborting the surrounding
+/// transaction; callers decide whether a conflict is an error via the
+/// returned [`OutboxEnqueueOutcome`].
+pub(crate) const ENQUEUE_ON_TRANSACTION_SQL: &str = r#"
+insert into im_outbox_events (
+    tenant_id, organization_id, outbox_id, aggregate_type, aggregate_id,
+    event_id, event_type, payload_json, payload_hash, publish_status,
+    attempt_count, available_at, created_at, updated_at
+) values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14)
+on conflict do nothing
+"#;
+
+/// Outcome of an in-transaction outbox enqueue.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OutboxEnqueueOutcome {
+    /// A new pending outbox row was inserted.
+    Inserted,
+    /// The insert was absorbed by `on conflict do nothing`: an outbox row
+    /// with the same `outbox_id` or `event_id` already exists.
+    IdentityConflict,
+}
+
+/// Enqueues one outbox event on a caller-owned PostgreSQL transaction.
+///
+/// This is the shared in-transaction enqueue authority: coordinated writers
+/// (message post persistence, the Space governance write authority) call it so
+/// journal rows, normalized state, and outbox evidence commit or roll back as
+/// one database unit. The caller owns `commit`/`rollback`.
+pub fn enqueue_outbox_event_on_transaction(
+    txn: &mut r2d2_postgres::postgres::Transaction<'_>,
+    event: &OutboxEventRecord,
+) -> Result<OutboxEnqueueOutcome, ContractError> {
+    let payload_json = postgres_jsonb_payload(event.payload_json.as_str())?;
+    let attempt_count_i32 = i32::try_from(event.attempt_count).map_err(|_| {
+        ContractError::Invalid(
+            "durable outbox attempt count exceeds the PostgreSQL INTEGER range".into(),
+        )
+    })?;
+    let available_at = postgres_timestamptz(event.available_at.as_str(), "available_at")?;
+    let created_at = postgres_timestamptz(event.created_at.as_str(), "created_at")?;
+    let updated_at = postgres_timestamptz(event.updated_at.as_str(), "updated_at")?;
+    let params: &[&(dyn postgres::types::ToSql + Sync)] = &[
+        &event.tenant_id,
+        &event.organization_id,
+        &event.outbox_id,
+        &event.aggregate_type,
+        &event.aggregate_id,
+        &event.event_id,
+        &event.event_type,
+        &payload_json,
+        &event.payload_hash,
+        &event.publish_status.as_str(),
+        &attempt_count_i32,
+        &available_at,
+        &created_at,
+        &updated_at,
+    ];
+    match txn.execute(ENQUEUE_ON_TRANSACTION_SQL, params) {
+        Ok(1) => Ok(OutboxEnqueueOutcome::Inserted),
+        Ok(0) => Ok(OutboxEnqueueOutcome::IdentityConflict),
+        Ok(_) => Err(ContractError::Unavailable(
+            "postgres journal durable outbox enqueue returned an invalid row count".into(),
+        )),
+        Err(error) => Err(postgres_unavailable("durable outbox enqueue", error)),
+    }
+}
+
 const CLAIM_PENDING_SQL: &str = r#"
 with candidates as materialized (
     select tenant_id, organization_id, outbox_id, aggregate_type, aggregate_id,
@@ -71,14 +141,16 @@ order by candidate.available_at, candidate.outbox_id
 
 const MARK_PUBLISHED_SQL: &str = r#"
 update im_outbox_events
-set publish_status = 'published', published_at = $5, updated_at = $5
+set publish_status = 'published', published_at = $5, updated_at = $5,
+    retention_until = $5 + make_interval(secs => $6)
 where tenant_id = $1 and organization_id = $2 and outbox_id = $3
     and publish_status = 'pending' and available_at = $4
 "#;
 
 const MARK_PUBLISHED_DIRECT_SQL: &str = r#"
 update im_outbox_events
-set publish_status = 'published', published_at = $4, updated_at = $4
+set publish_status = 'published', published_at = $4, updated_at = $4,
+    retention_until = $4 + make_interval(secs => $5)
 where tenant_id = $1 and organization_id = $2 and outbox_id = $3
     and publish_status = 'pending'
 "#;
@@ -95,6 +167,10 @@ SET
         WHEN attempt_count + 1 >= $6 THEN available_at
         ELSE $5 + make_interval(secs => LEAST(300, POWER(2, LEAST(attempt_count, 8)::int))::int)
     END,
+    retention_until = CASE
+        WHEN attempt_count + 1 >= $6 THEN $5 + make_interval(secs => $7)
+        ELSE retention_until
+    END,
     updated_at = $5
 WHERE tenant_id = $1 AND organization_id = $2 AND outbox_id = $3
     AND publish_status = 'pending' AND available_at = $4
@@ -109,6 +185,38 @@ fn resolve_outbox_max_attempts() -> i32 {
         .and_then(|value| value.parse::<i32>().ok())
         .filter(|value| *value > 0)
         .unwrap_or(OUTBOX_MAX_ATTEMPTS_DEFAULT)
+}
+
+/// How long a published outbox row survives for evidence before the
+/// retention scheduler purges it. Default: 7 days.
+const OUTBOX_PUBLISHED_RETENTION_SECS_ENV: &str = "SDKWORK_IM_OUTBOX_PUBLISHED_RETENTION_SECS";
+const OUTBOX_PUBLISHED_RETENTION_SECS_DEFAULT: i32 = 7 * 24 * 60 * 60;
+
+/// How long a terminal failed outbox row survives for operator replay
+/// before the retention scheduler purges it. Default: 30 days.
+const OUTBOX_FAILED_RETENTION_SECS_ENV: &str = "SDKWORK_IM_OUTBOX_FAILED_RETENTION_SECS";
+const OUTBOX_FAILED_RETENTION_SECS_DEFAULT: i32 = 30 * 24 * 60 * 60;
+
+fn resolve_outbox_retention_secs(env: &str, default_secs: i32) -> i32 {
+    std::env::var(env)
+        .ok()
+        .and_then(|value| value.parse::<i32>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(default_secs)
+}
+
+fn resolve_outbox_published_retention_secs() -> i32 {
+    resolve_outbox_retention_secs(
+        OUTBOX_PUBLISHED_RETENTION_SECS_ENV,
+        OUTBOX_PUBLISHED_RETENTION_SECS_DEFAULT,
+    )
+}
+
+fn resolve_outbox_failed_retention_secs() -> i32 {
+    resolve_outbox_retention_secs(
+        OUTBOX_FAILED_RETENTION_SECS_ENV,
+        OUTBOX_FAILED_RETENTION_SECS_DEFAULT,
+    )
 }
 
 const READ_BY_EVENT_ID_SQL: &str = r#"
@@ -263,6 +371,7 @@ impl OutboxStore for PostgresOutboxStore {
         let lease_expires_at =
             postgres_timestamptz(claim.lease_expires_at.as_str(), "lease_expires_at")?;
         let now = postgres_timestamptz(&now_rfc3339(), "now")?;
+        let retention_secs = resolve_outbox_published_retention_secs();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "mark_published")?;
             let affected_rows = client
@@ -274,6 +383,7 @@ impl OutboxStore for PostgresOutboxStore {
                         &outbox_id,
                         &lease_expires_at,
                         &now,
+                        &retention_secs,
                     ],
                 )
                 .map_err(|error| postgres_unavailable("mark_published", error))?;
@@ -294,10 +404,11 @@ impl OutboxStore for PostgresOutboxStore {
         let now = postgres_timestamptz(&now_rfc3339(), "now")?;
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "mark_published_direct")?;
+            let retention_secs = resolve_outbox_published_retention_secs();
             let affected_rows = client
                 .execute(
                     MARK_PUBLISHED_DIRECT_SQL,
-                    &[&tenant_id, &organization_id, &outbox_id, &now],
+                    &[&tenant_id, &organization_id, &outbox_id, &now, &retention_secs],
                 )
                 .map_err(|error| postgres_unavailable("mark_published_direct", error))?;
             if affected_rows == 0 {
@@ -319,6 +430,7 @@ impl OutboxStore for PostgresOutboxStore {
             postgres_timestamptz(claim.lease_expires_at.as_str(), "lease_expires_at")?;
         let now = postgres_timestamptz(&now_rfc3339(), "now")?;
         let max_attempts = resolve_outbox_max_attempts();
+        let retention_secs = resolve_outbox_failed_retention_secs();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "mark_failed")?;
             let affected_rows = client
@@ -331,6 +443,7 @@ impl OutboxStore for PostgresOutboxStore {
                         &lease_expires_at,
                         &now,
                         &max_attempts,
+                        &retention_secs,
                     ],
                 )
                 .map_err(|error| postgres_unavailable("mark_failed", error))?;
@@ -496,6 +609,23 @@ mod tests {
 
         assert!(sql.contains("publish_status = 'pending'"));
         assert!(sql.contains("available_at = $4"));
+        assert!(sql.contains("retention_until = $5 + make_interval(secs => $6)"));
+    }
+
+    #[test]
+    fn direct_publish_sets_row_retention() {
+        let sql = normalized_sql(MARK_PUBLISHED_DIRECT_SQL);
+
+        assert!(sql.contains("retention_until = $4 + make_interval(secs => $5)"));
+    }
+
+    #[test]
+    fn terminal_failure_sets_row_retention() {
+        let sql = normalized_sql(MARK_FAILED_SQL);
+
+        assert!(sql.contains(
+            "when attempt_count + 1 >= $6 then $5 + make_interval(secs => $7)"
+        ));
     }
 
     #[test]

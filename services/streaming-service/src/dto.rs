@@ -96,12 +96,14 @@ pub struct OpenStreamRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CheckpointStreamRequest {
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub frame_seq: u64,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompleteStreamRequest {
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub frame_seq: u64,
     pub result_message_id: Option<String>,
 }
@@ -109,6 +111,10 @@ pub struct CompleteStreamRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AbortStreamRequest {
+    #[serde(
+        with = "sdkwork_utils_rust::serde_uint64::option",
+        default
+    )]
     pub frame_seq: Option<u64>,
     pub reason: Option<String>,
 }
@@ -116,6 +122,7 @@ pub struct AbortStreamRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppendStreamFrameRequest {
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub frame_seq: u64,
     pub frame_type: String,
     pub schema_ref: Option<String>,

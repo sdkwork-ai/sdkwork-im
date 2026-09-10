@@ -79,7 +79,7 @@ async fn test_stream_checkpoint_and_complete_over_http() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 3
+                            "frameSeq": "3"
                     }"#,
                 ))
                 .unwrap(),
@@ -96,7 +96,7 @@ async fn test_stream_checkpoint_and_complete_over_http() {
     let checkpoint_json: serde_json::Value =
         serde_json::from_slice(&checkpoint_body).expect("checkpoint should be valid json");
     assert_eq!(checkpoint_json["data"]["state"], "checkpointed");
-    assert_eq!(checkpoint_json["data"]["lastCheckpointSeq"], 3);
+    assert_eq!(checkpoint_json["data"]["lastCheckpointSeq"], "3");
 
     let complete_response = app
         .oneshot(
@@ -110,7 +110,7 @@ async fn test_stream_checkpoint_and_complete_over_http() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 5,
+                        "frameSeq":"5",
                         "resultMessageId": "msg_demo_5"
                     }"#,
                 ))
@@ -128,7 +128,7 @@ async fn test_stream_checkpoint_and_complete_over_http() {
     let complete_json: serde_json::Value =
         serde_json::from_slice(&complete_body).expect("complete should be valid json");
     assert_eq!(complete_json["data"]["state"], "completed");
-    assert_eq!(complete_json["data"]["lastFrameSeq"], 5);
+    assert_eq!(complete_json["data"]["lastFrameSeq"], "5");
     assert_eq!(complete_json["data"]["resultMessageId"], "msg_demo_5");
 }
 
@@ -176,7 +176,7 @@ async fn test_stream_abort_over_http_closes_stream_without_result_message() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 2,
+                        "frameSeq":"2",
                         "reason": "client_cancelled"
                     }"#,
                 ))
@@ -194,7 +194,7 @@ async fn test_stream_abort_over_http_closes_stream_without_result_message() {
     let abort_json: serde_json::Value =
         serde_json::from_slice(&abort_body).expect("abort should be valid json");
     assert_eq!(abort_json["data"]["state"], "aborted");
-    assert_eq!(abort_json["data"]["lastFrameSeq"], 2);
+    assert_eq!(abort_json["data"]["lastFrameSeq"], "2");
     assert_eq!(
         abort_json["data"]["resultMessageId"],
         serde_json::Value::Null
@@ -213,7 +213,7 @@ async fn test_stream_abort_over_http_closes_stream_without_result_message() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 3,
+                        "frameSeq":"3",
                         "resultMessageId": "msg_demo_3"
                     }"#,
                 ))
@@ -270,7 +270,7 @@ async fn test_stream_append_and_list_frames_over_http() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -293,7 +293,7 @@ async fn test_stream_append_and_list_frames_over_http() {
         .to_bytes();
     let append_json: serde_json::Value =
         serde_json::from_slice(&append_body).expect("append response should be valid json");
-    assert_eq!(append_json["data"]["frameSeq"], 1);
+    assert_eq!(append_json["data"]["frameSeq"], "1");
     assert_eq!(append_json["data"]["frameType"], "delta");
     assert_eq!(append_json["data"]["sender"]["id"], "1");
     assert_eq!(append_json["data"]["attributes"]["topic"], "llm");
@@ -312,7 +312,7 @@ async fn test_stream_append_and_list_frames_over_http() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 2,
+                        "frameSeq":"2",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -348,8 +348,8 @@ async fn test_stream_append_and_list_frames_over_http() {
     let list_json: serde_json::Value =
         serde_json::from_slice(&list_body).expect("list response should be valid json");
     assert_eq!(list_json["data"]["items"].as_array().unwrap().len(), 2);
-    assert_eq!(list_json["data"]["items"][0]["frameSeq"], 1);
-    assert_eq!(list_json["data"]["items"][1]["frameSeq"], 2);
+    assert_eq!(list_json["data"]["items"][0]["frameSeq"], "1");
+    assert_eq!(list_json["data"]["items"][1]["frameSeq"], "2");
     assert_eq!(list_json["data"]["pageInfo"]["mode"], "cursor");
     assert_eq!(list_json["data"]["pageInfo"]["hasMore"], false);
     assert!(list_json["data"]["pageInfo"]["nextCursor"].is_null());
@@ -398,7 +398,7 @@ async fn test_request_scoped_stream_append_rejects_different_actor_over_http() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -479,7 +479,7 @@ async fn test_stream_runtime_timestamps_advance_between_distinct_mutations() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -519,7 +519,7 @@ async fn test_stream_runtime_timestamps_advance_between_distinct_mutations() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 2,
+                        "frameSeq":"2",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -558,7 +558,7 @@ async fn test_stream_runtime_timestamps_advance_between_distinct_mutations() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 2,
+                        "frameSeq":"2",
                         "resultMessageId": "msg_complete_timestamps"
                     }"#,
                 ))
@@ -629,7 +629,7 @@ async fn test_stream_append_enforces_ordering_and_idempotent_retry_rules() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -649,7 +649,7 @@ async fn test_stream_append_enforces_ordering_and_idempotent_retry_rules() {
         .to_bytes();
     let append_first_json: serde_json::Value =
         serde_json::from_slice(&append_first_body).expect("append first should be valid json");
-    assert_eq!(append_first_json["data"]["frameSeq"], 1);
+    assert_eq!(append_first_json["data"]["frameSeq"], "1");
     assert_eq!(append_first_json["data"]["deliveryStatus"], "applied");
     assert_eq!(
         append_first_json["data"]["proofVersion"],
@@ -669,7 +669,7 @@ async fn test_stream_append_enforces_ordering_and_idempotent_retry_rules() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -689,7 +689,7 @@ async fn test_stream_append_enforces_ordering_and_idempotent_retry_rules() {
         .to_bytes();
     let idempotent_retry_json: serde_json::Value = serde_json::from_slice(&idempotent_retry_body)
         .expect("idempotent retry should be valid json");
-    assert_eq!(idempotent_retry_json["data"]["frameSeq"], 1);
+    assert_eq!(idempotent_retry_json["data"]["frameSeq"], "1");
     assert_eq!(idempotent_retry_json["data"]["deliveryStatus"], "replayed");
     assert_eq!(
         idempotent_retry_json["data"]["requestKey"],
@@ -713,7 +713,7 @@ async fn test_stream_append_enforces_ordering_and_idempotent_retry_rules() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 3,
+                        "frameSeq":"3",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -748,7 +748,7 @@ async fn test_stream_append_enforces_ordering_and_idempotent_retry_rules() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -815,7 +815,7 @@ async fn test_stream_append_rejects_closed_stream() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "resultMessageId": "msg_closed_1"
                     }"#,
                 ))
@@ -837,7 +837,7 @@ async fn test_stream_append_rejects_closed_stream() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 2,
+                        "frameSeq":"2",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -920,7 +920,7 @@ async fn test_duplicate_open_stream_is_idempotent_and_conflicting_retry_is_rejec
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -969,7 +969,7 @@ async fn test_duplicate_open_stream_is_idempotent_and_conflicting_retry_is_rejec
     let idempotent_open_json: serde_json::Value = serde_json::from_slice(&idempotent_open_body)
         .expect("idempotent open should be valid json");
     assert_eq!(idempotent_open_json["data"]["state"], "active");
-    assert_eq!(idempotent_open_json["data"]["lastFrameSeq"], 1);
+    assert_eq!(idempotent_open_json["data"]["lastFrameSeq"], "1");
     assert_eq!(idempotent_open_json["data"]["deliveryStatus"], "replayed");
     assert_eq!(
         idempotent_open_json["data"]["requestKey"],
@@ -1004,7 +1004,7 @@ async fn test_duplicate_open_stream_is_idempotent_and_conflicting_retry_is_rejec
     let list_json: serde_json::Value =
         serde_json::from_slice(&list_body).expect("list response should be valid json");
     assert_eq!(list_json["data"]["items"].as_array().unwrap().len(), 1);
-    assert_eq!(list_json["data"]["items"][0]["frameSeq"], 1);
+    assert_eq!(list_json["data"]["items"][0]["frameSeq"], "1");
 
     let conflicting_open = app
         .oneshot(
@@ -1166,7 +1166,7 @@ async fn test_duplicate_complete_stream_request_is_idempotent_and_conflicting_re
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -1192,7 +1192,7 @@ async fn test_duplicate_complete_stream_request_is_idempotent_and_conflicting_re
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "resultMessageId": "msg_complete_idempotent"
                     }"#,
                 ))
@@ -1229,7 +1229,7 @@ async fn test_duplicate_complete_stream_request_is_idempotent_and_conflicting_re
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "resultMessageId": "msg_complete_idempotent"
                     }"#,
                 ))
@@ -1272,7 +1272,7 @@ async fn test_duplicate_complete_stream_request_is_idempotent_and_conflicting_re
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "resultMessageId": "msg_complete_conflict"
                     }"#,
                 ))
@@ -1337,7 +1337,7 @@ async fn test_duplicate_complete_stream_request_with_different_actor_is_not_foun
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -1363,7 +1363,7 @@ async fn test_duplicate_complete_stream_request_with_different_actor_is_not_foun
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "resultMessageId": "msg_actor_scope_complete"
                     }"#,
                 ))
@@ -1398,7 +1398,7 @@ async fn test_duplicate_complete_stream_request_with_different_actor_is_not_foun
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "resultMessageId": "msg_actor_scope_complete"
                     }"#,
                 ))
@@ -1462,7 +1462,7 @@ async fn test_duplicate_abort_stream_request_is_idempotent_and_conflicting_retry
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -1488,7 +1488,7 @@ async fn test_duplicate_abort_stream_request_is_idempotent_and_conflicting_retry
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "reason": "client_cancelled"
                     }"#,
                 ))
@@ -1511,7 +1511,7 @@ async fn test_duplicate_abort_stream_request_is_idempotent_and_conflicting_retry
         first_abort_json["data"]["proofVersion"],
         "stream.session.delivery-proof.v1"
     );
-    assert_eq!(first_abort_json["data"]["abortFrameSeq"], 1);
+    assert_eq!(first_abort_json["data"]["abortFrameSeq"], "1");
     assert_eq!(first_abort_json["data"]["abortReason"], "client_cancelled");
 
     let duplicate_abort = app
@@ -1527,7 +1527,7 @@ async fn test_duplicate_abort_stream_request_is_idempotent_and_conflicting_retry
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "reason": "client_cancelled"
                     }"#,
                 ))
@@ -1570,7 +1570,7 @@ async fn test_duplicate_abort_stream_request_is_idempotent_and_conflicting_retry
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "reason": "different_reason"
                     }"#,
                 ))
@@ -1634,7 +1634,7 @@ async fn test_duplicate_abort_stream_request_with_different_actor_is_not_found()
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -1660,7 +1660,7 @@ async fn test_duplicate_abort_stream_request_with_different_actor_is_not_found()
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "reason": "client_cancelled"
                     }"#,
                 ))
@@ -1695,7 +1695,7 @@ async fn test_duplicate_abort_stream_request_with_different_actor_is_not_found()
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "reason": "client_cancelled"
                     }"#,
                 ))
@@ -1759,7 +1759,7 @@ async fn test_duplicate_checkpoint_stream_request_replays_after_stream_completes
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 3
+                            "frameSeq": "3"
                     }"#,
                 ))
                 .unwrap(),
@@ -1795,7 +1795,7 @@ async fn test_duplicate_checkpoint_stream_request_replays_after_stream_completes
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 5,
+                        "frameSeq":"5",
                         "resultMessageId": "msg_checkpoint_complete"
                     }"#,
                 ))
@@ -1818,7 +1818,7 @@ async fn test_duplicate_checkpoint_stream_request_replays_after_stream_completes
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 3
+                            "frameSeq": "3"
                     }"#,
                 ))
                 .unwrap(),
@@ -1894,7 +1894,7 @@ async fn test_duplicate_checkpoint_stream_request_with_different_actor_is_not_fo
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 3
+                            "frameSeq": "3"
                     }"#,
                 ))
                 .unwrap(),
@@ -1928,7 +1928,7 @@ async fn test_duplicate_checkpoint_stream_request_with_different_actor_is_not_fo
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 3
+                            "frameSeq": "3"
                     }"#,
                 ))
                 .unwrap(),
@@ -1996,7 +1996,7 @@ async fn test_runtime_restores_stream_state_on_rebuild_with_shared_store() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 1,
+                        "frameSeq":"1",
                         "frameType": "delta",
                         "schemaRef": "custom.delta.text.v1",
                         "encoding": "json",
@@ -2040,7 +2040,7 @@ async fn test_runtime_restores_stream_state_on_rebuild_with_shared_store() {
         .as_array()
         .expect("items should be an array");
     assert_eq!(items.len(), 1);
-    assert_eq!(items[0]["frameSeq"], 1);
+    assert_eq!(items[0]["frameSeq"], "1");
 
     let complete_response = app_after
         .oneshot(
@@ -2054,7 +2054,7 @@ async fn test_runtime_restores_stream_state_on_rebuild_with_shared_store() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "frameSeq": 2,
+                        "frameSeq":"2",
                         "resultMessageId": "msg_rebuild_result"
                     }"#,
                 ))
@@ -2098,7 +2098,7 @@ async fn test_stream_append_rejects_oversized_payload_over_http() {
 
     let oversized_payload = "x".repeat(262145);
     let append_body = serde_json::json!({
-        "frameSeq": 1,
+        "frameSeq":"1",
         "frameType": "delta",
         "schemaRef": "custom.delta.text.v1",
         "encoding": "json",
@@ -2156,7 +2156,7 @@ async fn test_stream_append_rejects_oversized_attributes_over_http() {
     assert_eq!(open_response.status(), StatusCode::OK);
 
     let append_body = serde_json::json!({
-        "frameSeq": 1,
+        "frameSeq":"1",
         "frameType": "delta",
         "schemaRef": "custom.delta.text.v1",
         "encoding": "json",
@@ -2216,7 +2216,7 @@ async fn test_stream_complete_rejects_oversized_result_message_id_over_http() {
     assert_eq!(open_response.status(), StatusCode::OK);
 
     let complete_body = serde_json::json!({
-        "frameSeq": 1,
+        "frameSeq":"1",
         "resultMessageId": "m".repeat(257)
     })
     .to_string();
@@ -2285,7 +2285,7 @@ async fn test_stream_abort_rejects_oversized_reason_over_http() {
     assert_eq!(open_response.status(), StatusCode::OK);
 
     let abort_body = serde_json::json!({
-        "frameSeq": 1,
+        "frameSeq":"1",
         "reason": "x".repeat(8193)
     })
     .to_string();

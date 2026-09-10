@@ -15,7 +15,7 @@
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-post">POST</span>
   <code>/app/v3/api/automation/agent_responses/{streamId}/complete</code>
-  <span class="api-op-id">operationId: automation.agentResponses.complete</span>
+  <span class="api-op-id">operationId: agentResponses.complete</span>
 </div>
 
 Completes an agent response stream and returns the final stream session state.

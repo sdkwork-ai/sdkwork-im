@@ -80,7 +80,7 @@ For most new integrations, the fastest reading order is:
   </div>
   <div class="fact-card">
     <h3>SDK Delivery State</h3>
-    <p>The official IM consumer TypeScript package is <code>@sdkwork/im-sdk</code>. <code>sdkwork-im-app-sdk</code> owns <code>/app/v3/api</code>, <code>sdkwork-im-backend-sdk</code> owns all <code>/backend/v3/api</code> control/admin modules, and <code>sdkwork-rtc-sdk</code> remains an independent provider-runtime SDK.</p>
+    <p>The official IM consumer TypeScript package is <code>@sdkwork/im-sdk</code>. <code>sdkwork-im-app-sdk</code> owns <code>/app/v3/api</code>, <code>sdkwork-im-backend-sdk</code> owns all <code>/backend/v3/api</code> control modules, and <code>sdkwork-rtc-sdk</code> remains an independent provider-runtime SDK.</p>
   </div>
 </div>
 
@@ -93,9 +93,9 @@ For most new integrations, the fastest reading order is:
    [Runtime Topology](/architecture/runtime-topology) before changing runtime wiring, providers, or
    deployment assumptions.
 4. Read [Storage Management](/architecture/storage-management) before changing tenant provider
-   resolution, admin storage behavior, or upload issuance assumptions. Keep
-   [Admin Storage Contract](/reference/admin-storage-contract) open when you need the current
-   `/backend/v3/api/admin/storage/*` route set and sandbox promotion boundary.
+   resolution, admin storage behavior, or upload issuance assumptions. There is no current
+   `/backend/v3/api/admin/storage/*` route set; the retired Admin Storage Contract page was
+   removed because that surface was never implemented.
 5. Use [Server Lifecycle](/deployment/server-lifecycle) when validating the packaged
    `sdkwork-im-server` install contract, PostgreSQL-backed storage wiring, or unified gateway
    endpoints.
@@ -125,11 +125,11 @@ For most new integrations, the fastest reading order is:
 
 | Area | What is currently implemented |
 | --- | --- |
-| App runtime | Presence heartbeat, realtime delivery, conversations, membership, messages, media, streams, RTC, notifications, automation, audit, ops, and provider health |
+| App runtime | Presence heartbeat, realtime delivery, conversations, membership, messages, media, RTC, notifications, automation, audit, ops, and provider health |
 | Control plane | Protocol registry, protocol governance, provider registry, effective bindings, provider policy preview and rollback, plus node drain, activate, and route migration |
 | Unified gateway and server | `sdkwork-api-im-standalone-gateway` publishes the canonical `sdkwork-im-server` binary, the aggregate OpenAPI and discovery routes, service-schema proxies, rendered docs, and the single-port server install contract |
 | Deployment | Local binary lifecycle scripts, Docker Compose bootstrap, server install/service-management scripts, runtime inspection, repair, backup listing, archive, preview, and restore |
-| SDK workspaces | IM standard SDK for `/im/v3/api`; App API SDK for `/app/v3/api`; Backend SDK for `/backend/v3/api` including control and admin modules; independent RTC provider-standard SDK for provider runtime integration |
+| SDK workspaces | IM standard SDK for `/im/v3/api`; App API SDK for `/app/v3/api`; Backend SDK for `/backend/v3/api` control modules; independent RTC provider-standard SDK for provider runtime integration |
 | Frontend apps | `apps/sdkwork-im-admin` already provides a verified standalone operator shell, a first-class storage-management workflow, and a documented `/backend/v3/api/admin/storage/*` contract surface, while `apps/sdkwork-im-portal` exists in-repo but is not yet documented here as a mature product surface |
 
 ::: warning Scope rule

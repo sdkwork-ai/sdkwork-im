@@ -15,7 +15,7 @@
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-post">POST</span>
   <code>/app/v3/api/automation/agent_responses/{streamId}/frames</code>
-  <span class="api-op-id">operationId: automation.agentResponses.frames.create</span>
+  <span class="api-op-id">operationId: agentResponses.frames.create</span>
 </div>
 
 Appends a frame to an active agent response stream.

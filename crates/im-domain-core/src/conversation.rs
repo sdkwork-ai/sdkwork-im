@@ -41,6 +41,7 @@ impl ConversationAgentAssignment {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConversationAgentAssignmentSet {
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub generation: u64,
     pub source: ConversationAgentAssignmentSource,
     pub agents: Vec<ConversationAgentAssignment>,
@@ -222,6 +223,7 @@ pub struct ConversationReadCursorView {
     pub principal_kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<String>,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub read_seq: u64,
     pub last_read_message_id: Option<String>,
     pub updated_at: String,
@@ -1509,6 +1511,7 @@ pub struct ConversationInboxEntry {
     pub conversation_type: String,
     pub message_count: u64,
     pub last_message_id: Option<String>,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub last_message_seq: u64,
     pub last_sender_id: Option<String>,
     pub last_sender_kind: Option<String>,

@@ -6,6 +6,7 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn test_control_plane_exposes_protocol_governance_snapshot_to_control_readers() {
+    ensure_test_environment();
     let app = governance_service::build_app();
 
     let response = app
@@ -129,4 +130,18 @@ async fn test_control_plane_exposes_protocol_governance_snapshot_to_control_read
         business_policy_vocabulary["retentionClasses"],
         serde_json::json!(["ephemeral", "standard", "extended", "legal_hold"])
     );
+}
+
+fn ensure_test_environment() {
+    static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    TEST_ENVIRONMENT.get_or_init(|| {
+        // Dual-token test helpers rely on the relaxed test posture; production
+        // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
+        // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        unsafe {
+            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
+            // Local JWT fixtures carry no AppContext signature headers.
+            std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
+        }
+    });
 }

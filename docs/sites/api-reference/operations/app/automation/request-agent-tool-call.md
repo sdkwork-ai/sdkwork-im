@@ -15,7 +15,7 @@
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-post">POST</span>
   <code>/app/v3/api/automation/agent_tool_calls</code>
-  <span class="api-op-id">operationId: automation.agentToolCalls.create</span>
+  <span class="api-op-id">operationId: agentToolCalls.create</span>
 </div>
 
 Requests a tool call as part of an automation execution.

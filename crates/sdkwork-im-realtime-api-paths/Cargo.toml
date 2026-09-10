@@ -1,6 +1,7 @@
 [package]
 name = "sdkwork-im-realtime-api-paths"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 version.workspace = true
 description = "Canonical HTTP path constants for the Sdkwork IM realtime open-api surface"

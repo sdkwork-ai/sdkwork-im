@@ -4,7 +4,7 @@ use im_platform_contracts::{
 use im_time::rfc3339_le;
 use sdkwork_im_contract_control::{
     RealtimeCheckpointRecord, RealtimeCheckpointStore, RealtimeMatchingSubscriptionQuery,
-    RealtimeSubscriptionRecord, RealtimeSubscriptionStore,
+    RealtimeSubscriptionRecord, RealtimeSubscriptionStore, RealtimePrincipalScopeDevicePageQuery,
 };
 use sdkwork_im_contract_core::ContractError;
 use std::collections::HashMap;
@@ -133,6 +133,34 @@ impl RealtimeSubscriptionStore for RuntimeMemorySubscriptionStore {
                     .cloned()
             })
             .collect())
+    }
+
+    fn load_subscribed_device_ids_for_principal_scope(
+        &self,
+        query: RealtimePrincipalScopeDevicePageQuery<'_>,
+    ) -> Result<Vec<String>, ContractError> {
+        let subscriptions = lock_realtime_mutex(&self.subscriptions, "runtime subscription store");
+        let mut device_ids = subscriptions
+            .values()
+            .filter(|record| {
+                record.tenant_id == query.tenant_id
+                    && record.organization_id == query.organization_id
+                    && record.principal_kind == query.principal_kind
+                    && record.principal_id == query.principal_id
+                    && record
+                        .matches_scope_event(query.scope_type, query.scope_id, query.event_type)
+            })
+            .map(|record| record.device_id.clone())
+            .filter(|device_id| {
+                query
+                    .after_device_id
+                    .is_none_or(|after| device_id.as_str() > after)
+            })
+            .collect::<Vec<_>>();
+        device_ids.sort();
+        device_ids.dedup();
+        device_ids.truncate(query.limit);
+        Ok(device_ids)
     }
 
     fn save_subscriptions(&self, record: RealtimeSubscriptionRecord) -> Result<(), ContractError> {

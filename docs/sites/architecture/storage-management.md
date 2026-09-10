@@ -120,15 +120,13 @@ forking a second storage-management code path.
 This does not yet make the sandbox a production control plane, but it does provide a real store-
 backed path instead of in-memory-only storage behavior.
 
-## Current Admin Route Contract
+## Admin Route Status
 
-Read [Admin Storage Contract](/reference/admin-storage-contract) when you need the actual
-`/backend/v3/api/admin/storage/*` route catalog, write payload shape, validation semantics, and sandbox
-promotion boundary.
-
-That reference is intentionally separate from the OpenAPI-style API section because the storage
-routes are currently implemented as a verified admin contract, not as a published control-plane
-OpenAPI authority.
+There is no current `/backend/v3/api/admin/storage/*` route catalog. Those endpoints were never
+implemented in this repository and are not part of the backend OpenAPI authority; the former
+Admin Storage Contract reference page was removed because it documented that unshipped surface.
+The storage-management contracts and runtime described on this page remain reusable module
+boundaries, and this sandbox path is not a published API authority.
 
 ## Current Verified Consumption
 

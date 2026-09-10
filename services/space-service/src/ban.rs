@@ -104,10 +104,7 @@ pub async fn ban_user(
             updated_at: now,
         };
 
-        state.ban_store.insert(&record).map_err(|error| {
-            tracing::error!(error = ?error, "failed to insert ban record");
-            ApiProblem::internal_server_error("failed to ban user")
-        })?;
+        crate::write_authority::persist_ban_created(&state, &auth, &record)?;
         Ok(resource_item(BanResponse::from(record)))
     })();
     finish_api_response(&ctx, result.and_then(|data| created_json(&ctx, data)))
@@ -218,10 +215,7 @@ pub async fn unban_user(
         record.unbanned_by_user_id = Some(auth.actor_id.clone());
         record.updated_at = now;
 
-        state.ban_store.update(&record).map_err(|error| {
-            tracing::error!(error = ?error, "failed to unban user");
-            ApiProblem::internal_server_error("failed to unban user")
-        })?;
+        crate::write_authority::persist_ban_lifted(&state, &auth, &record)?;
         Ok(())
     })();
     finish_api_response(&ctx, result.and_then(|_| no_content(&ctx)))

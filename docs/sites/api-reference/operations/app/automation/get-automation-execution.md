@@ -15,7 +15,7 @@
 <div class="api-op-header">
   <span class="endpoint-tag endpoint-get">GET</span>
   <code>/app/v3/api/automation/executions/{executionId}</code>
-  <span class="api-op-id">operationId: automation.executions.retrieve</span>
+  <span class="api-op-id">operationId: executions.retrieve</span>
 </div>
 
 Reads an automation execution by identifier.

@@ -11,6 +11,9 @@ pub enum SpaceEventType {
     SpaceMemberJoined,
     SpaceMemberUpdated,
     SpaceMemberRemoved,
+    SpaceBanCreated,
+    SpaceBanLifted,
+    SpaceInvitationCreated,
     GroupCreated,
     GroupUpdated,
     GroupDeleted,
@@ -29,6 +32,9 @@ impl SpaceEventType {
             Self::SpaceMemberJoined => "space.member_joined",
             Self::SpaceMemberUpdated => "space.member_updated",
             Self::SpaceMemberRemoved => "space.member_removed",
+            Self::SpaceBanCreated => "space.ban.created",
+            Self::SpaceBanLifted => "space.ban.lifted",
+            Self::SpaceInvitationCreated => "space.invitation.created",
             Self::GroupCreated => "group.created",
             Self::GroupUpdated => "group.updated",
             Self::GroupDeleted => "group.deleted",
@@ -47,6 +53,9 @@ impl SpaceEventType {
             Self::SpaceMemberJoined => "space.space_member.joined.v1",
             Self::SpaceMemberUpdated => "space.space_member.updated.v1",
             Self::SpaceMemberRemoved => "space.space_member.removed.v1",
+            Self::SpaceBanCreated => "space.space_ban.created.v1",
+            Self::SpaceBanLifted => "space.space_ban.lifted.v1",
+            Self::SpaceInvitationCreated => "space.space_invitation.created.v1",
             Self::GroupCreated => "space.group.created.v1",
             Self::GroupUpdated => "space.group.updated.v1",
             Self::GroupDeleted => "space.group.deleted.v1",
@@ -119,6 +128,61 @@ pub struct SpaceMemberRemovedPayload {
     pub space_id: String,
     pub user_id: String,
     pub removed_at: String,
+}
+
+/// Journal payload for `space.ban.created`. Carries the complete normalized
+/// ban state so the governance materializer can rebuild the `im_ban_records`
+/// row from journal evidence alone.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpaceBanCreatedPayload {
+    pub space_id: String,
+    pub ban_id: String,
+    pub target_type: String,
+    pub banned_user_id: String,
+    pub banned_by_user_id: String,
+    pub reason: Option<String>,
+    pub expires_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Journal payload for `space.ban.lifted`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpaceBanLiftedPayload {
+    pub space_id: String,
+    pub ban_id: String,
+    pub banned_user_id: String,
+    pub unbanned_at: String,
+    pub unbanned_by_user_id: Option<String>,
+    pub updated_at: String,
+}
+
+/// Journal payload for `space.invitation.created`.
+///
+/// Contact fields (`invitee_email`, `invitee_phone`, free-form `message`) are
+/// intentionally part of the journal evidence that drives the normalized
+/// state write, but MUST be projected out of any outbox/realtime broadcast
+/// payload (`PRIVACY_SPEC.md` contact data retention).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpaceInvitationCreatedPayload {
+    pub space_id: String,
+    pub invitation_id: String,
+    pub target_type: String,
+    pub target_id: String,
+    pub inviter_user_id: String,
+    pub invitee_user_id: Option<String>,
+    pub invitee_email: Option<String>,
+    pub invitee_phone: Option<String>,
+    pub role: String,
+    pub status: String,
+    pub message: Option<String>,
+    pub expires_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub retention_until: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -72,8 +72,7 @@ The checked-in generated Flutter client currently exports these route groups thr
 - `presence`
 - `realtime`
 - `chat`
-- `streams`
-- `rtc`
+- `calls`
 - `social`
 
 ## Generated Chat Quick Start
@@ -98,13 +97,6 @@ await client.chat.conversationsMessagesCreate(
   ),
 );
 
-await client.streams.framesCreate(
-  'stream-1',
-  AppendStreamFrameRequest(
-    payload: '{"text":"partial chunk"}',
-  ),
-);
-
 await client.calls.sessionsRetrieve(
   'rtc-1',
 );
@@ -116,7 +108,6 @@ The checked-in Flutter transport currently exposes:
 - `client.presence`
 - `client.realtime`
 - `client.chat`
-- `client.streams`
 - `client.calls`
 - `client.social`
 
@@ -239,7 +230,7 @@ connection.events.onScope('user', '1', (_) { /* refresh inbox */ });
 | Membership and read state | `client.chat` | scope events via `events.onScope()` | [Membership and Read State](/api-reference/im/membership-and-read-state) |
 | Messages | `client.chat` | `messages.onConversation()` | [Messages](/api-reference/im/messages) |
 | Media usage references | Drive transport plus generated message models | Not checked in | [Media](/api-reference/im/media) |
-| Streams | `client.streams` | Not checked in | [Streams](/api-reference/im/streams) |
+| Stream-shaped application data | realtime WebSocket plane; the streams REST surface was pruned | Not checked in | [Session And Realtime](/api-reference/im/session-and-realtime) |
 | Calls | `client.calls` | Not checked in | [Calls](/api-reference/im/calls) |
 
 ## Current Parity Gap

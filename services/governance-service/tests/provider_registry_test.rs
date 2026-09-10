@@ -10,6 +10,7 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn test_control_plane_exposes_provider_registry_snapshot_to_control_readers() {
+    ensure_test_environment();
     let app = governance_service::build_app();
 
     let response = app
@@ -101,6 +102,7 @@ async fn test_control_plane_exposes_provider_registry_snapshot_to_control_reader
 
 #[tokio::test]
 async fn test_control_plane_exposes_deployment_profile_provider_bindings_to_control_readers() {
+    ensure_test_environment();
     let app = governance_service::build_app_with_cluster_and_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(
@@ -173,6 +175,7 @@ async fn test_control_plane_exposes_deployment_profile_provider_bindings_to_cont
 
 #[tokio::test]
 async fn test_control_plane_exposes_tenant_override_provider_bindings_to_control_readers() {
+    ensure_test_environment();
     let app = governance_service::build_app_with_cluster_and_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(
@@ -441,6 +444,7 @@ async fn test_control_plane_allows_control_writers_to_update_provider_policies_a
 
 #[tokio::test]
 async fn test_control_plane_rejects_cross_domain_provider_policy_write() {
+    ensure_test_environment();
     let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
@@ -479,6 +483,7 @@ async fn test_control_plane_rejects_cross_domain_provider_policy_write() {
 
 #[tokio::test]
 async fn test_control_plane_returns_explicit_noop_without_advancing_provider_policy_version() {
+    ensure_test_environment();
     let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
@@ -582,6 +587,7 @@ async fn test_control_plane_returns_explicit_noop_without_advancing_provider_pol
 
 #[tokio::test]
 async fn test_control_plane_exposes_provider_policy_history_and_supports_rollback() {
+    ensure_test_environment();
     let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
@@ -770,6 +776,7 @@ async fn test_control_plane_exposes_provider_policy_history_and_supports_rollbac
 
 #[tokio::test]
 async fn test_control_plane_exposes_provider_policy_diff_between_committed_versions() {
+    ensure_test_environment();
     let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
@@ -894,6 +901,7 @@ async fn test_control_plane_exposes_provider_policy_diff_between_committed_versi
 
 #[tokio::test]
 async fn test_control_plane_exposes_provider_policy_preview_without_mutation() {
+    ensure_test_environment();
     let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
@@ -987,6 +995,7 @@ async fn test_control_plane_exposes_provider_policy_preview_without_mutation() {
 
 #[tokio::test]
 async fn test_control_plane_rejects_stale_provider_policy_confirm_write_after_preview() {
+    ensure_test_environment();
     let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
@@ -1154,6 +1163,7 @@ async fn test_control_plane_rejects_stale_provider_policy_confirm_write_after_pr
 
 #[tokio::test]
 async fn test_control_plane_returns_unavailable_status_when_provider_policy_runtime_is_disabled() {
+    ensure_test_environment();
     let app = governance_service::build_app_with_cluster_and_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(StaticProviderRegistry::platform_default()),
@@ -1228,6 +1238,7 @@ async fn test_control_plane_returns_unavailable_status_when_provider_policy_runt
 
 #[tokio::test]
 async fn test_control_plane_returns_conflict_status_for_unknown_provider_policy_versions() {
+    ensure_test_environment();
     let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
@@ -1291,6 +1302,7 @@ async fn test_control_plane_returns_conflict_status_for_unknown_provider_policy_
 
 #[tokio::test]
 async fn test_control_plane_rejects_provider_policy_diff_with_reversed_version_range() {
+    ensure_test_environment();
     let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
@@ -1350,4 +1362,18 @@ async fn test_control_plane_rejects_provider_policy_diff_with_reversed_version_r
             .contains("fromVersion must not exceed toVersion"),
         "reversed diff should explain the invalid version range"
     );
+}
+
+fn ensure_test_environment() {
+    static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    TEST_ENVIRONMENT.get_or_init(|| {
+        // Dual-token test helpers rely on the relaxed test posture; production
+        // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
+        // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        unsafe {
+            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
+            // Local JWT fixtures carry no AppContext signature headers.
+            std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
+        }
+    });
 }

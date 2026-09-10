@@ -1,6 +1,16 @@
 import { resolveViteEnvironment, resolveLucideReactEntry } from '../../../sdkwork-specs/tools/vite-runtime-profile.mjs';
 import { resolveBrowserDistOutDir } from '../../../sdkwork-specs/tools/browser-dist-layout.mjs';
 
+// `vite-runtime-profile.mjs` ships as an untyped Node script, so TypeScript
+// infers `resolveViteEnvironment(mode, processEnv = undefined)` with the
+// second parameter narrowed to `undefined`. The runtime contract is Node's
+// ProcessEnv (it reads SDKWORK_ENVIRONMENT); bind that contract here once
+// instead of loosening the shared spec tool for every consumer.
+const resolveEnvironment = resolveViteEnvironment as (
+  mode: string | undefined,
+  processEnv?: NodeJS.ProcessEnv,
+) => string;
+
 import tailwindcss from '@tailwindcss/vite';
 import { createSdkworkCredentialEntryBootstrapVitePlugin } from '@sdkwork/iam-credential-entry/vite';
 import react from '@vitejs/plugin-react';
@@ -21,6 +31,15 @@ const appTailwindMergeEntry = path.resolve(
 );
 const appZustandEntry = path.resolve(__dirname, 'node_modules/zustand/esm/index.mjs');
 const appLucideReactEntry = resolveLucideReactEntry(__dirname);
+// Build-critical source verification (CODE_STYLE_SPEC §7): a missing lucide
+// ESM entry would surface as an UNLOADABLE_DEPENDENCY at dev/build time; fail
+// fast here and keep the alias `replacement` a definite string for `vite`
+// config typing (Alias.replacement is required).
+if (!appLucideReactEntry) {
+  throw new Error(
+    'lucide-react ESM entry not found under node_modules (expected dist/esm/lucide-react.{mjs,js}).',
+  );
+}
 const appMotionReactEntry = path.resolve(__dirname, 'node_modules/motion/dist/es/react.mjs');
 const appReactI18nextEntry = path.resolve(
   __dirname,
@@ -364,7 +383,7 @@ export default defineConfig(({ mode }) => ({
     // Canonical deployment-profile-aware output layout (dist/<profile>/<env>):
     // the profile comes from SDKWORK_DEPLOYMENT_PROFILE injected by the
     // canonical build runner (build-browser-client.mjs).
-    outDir: resolveBrowserDistOutDir(resolveViteEnvironment(mode, process.env)),
+    outDir: resolveBrowserDistOutDir(resolveEnvironment(mode, process.env)),
     rollupOptions: {
       output: {
         manualChunks(id) {

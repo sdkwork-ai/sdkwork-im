@@ -25,7 +25,6 @@ export const groupedPages = [
       { text: "Membership and Read State", link: "/api-reference/im/membership-and-read-state" },
       { text: "Messages", link: "/api-reference/im/messages" },
       { text: "Media", link: "/api-reference/im/media" },
-      { text: "Streams", link: "/api-reference/im/streams" },
       { text: "Calls", link: "/api-reference/im/calls" },
     ],
   },
@@ -141,13 +140,6 @@ export const pageOperationGroups = {
       ],
     },
   ],
-  "/api-reference/im/streams": [
-    {
-      text: "Stream Lifecycle",
-      anchors: ["open-stream", "checkpoint-stream", "complete-stream", "abort-stream"],
-    },
-    { text: "Frame Transport", anchors: ["append-stream-frame", "list-stream-frames"] },
-  ],
   "/api-reference/im/calls": [
     {
       text: "Call Lifecycle",
@@ -198,7 +190,6 @@ export const pageOperationGroups = {
       text: "Provider Probes",
       anchors: [
         "get-media-provider-health",
-        "get-principal-profile-provider-health",
       ],
     },
   ],

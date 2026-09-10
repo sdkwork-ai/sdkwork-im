@@ -47,6 +47,7 @@ impl RealtimeCheckpointStore for FailingCheckpointStore {
 
 #[tokio::test]
 async fn test_realtime_events_returns_503_when_checkpoint_store_load_fails() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let cluster = Arc::new(session_gateway::RealtimeClusterBridge::default());
     let app = session_gateway::build_app_with_cluster_and_runtime(
@@ -96,6 +97,7 @@ async fn test_realtime_events_returns_503_when_checkpoint_store_load_fails() {
 
 #[tokio::test]
 async fn test_realtime_ack_returns_503_when_checkpoint_store_save_fails() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let cluster = Arc::new(session_gateway::RealtimeClusterBridge::default());
     let app = session_gateway::build_app_with_cluster_and_runtime(
@@ -147,6 +149,7 @@ async fn test_realtime_ack_returns_503_when_checkpoint_store_save_fails() {
 
 #[tokio::test]
 async fn test_realtime_ack_preserves_existing_route_when_checkpoint_store_save_fails() {
+    ensure_test_environment();
     let _env = test_env::dev_test_environment();
     let cluster = Arc::new(session_gateway::RealtimeClusterBridge::default());
     let runtime = Arc::new(
@@ -206,4 +209,18 @@ async fn test_realtime_ack_preserves_existing_route_when_checkpoint_store_save_f
         current_route.route_epoch > existing_route.route_epoch,
         "restoring a previous route after a failed ack must still advance the route epoch"
     );
+}
+
+fn ensure_test_environment() {
+    static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    TEST_ENVIRONMENT.get_or_init(|| {
+        // Dual-token test helpers rely on the relaxed test posture; production
+        // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
+        // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        unsafe {
+            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
+            // Local JWT fixtures carry no AppContext signature headers.
+            std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
+        }
+    });
 }

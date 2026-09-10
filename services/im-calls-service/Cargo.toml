@@ -1,6 +1,7 @@
 [package]
 name = "calls-service"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 version.workspace = true
 description = "Sdkwork IM call signaling service owning the /im/v3/api/calls/sessions/* lifecycle."

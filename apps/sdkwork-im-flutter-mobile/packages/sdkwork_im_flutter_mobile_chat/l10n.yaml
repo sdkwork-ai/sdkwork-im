@@ -1,0 +1,8 @@
+# flutter gen-l10n configuration for the chat capability package.
+# Generated delegates are committed under lib/l10n/generated (synthetic
+# packages are deprecated; output lands in the package itself).
+arb-dir: lib/l10n/arb
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-dir: lib/l10n/generated
+nullable-getter: false

@@ -19,12 +19,12 @@
   </div>
   <div class="api-card">
     <h3>Audit and Ops</h3>
-    <p>Read and export audit records, inspect runtime health, lag, cluster topology, and diagnostic bundles.</p>
+    <p>Verify the audit ledger hash chain, and inspect runtime health, lag, cluster topology, and diagnostic bundles.</p>
     <p><a href="/api-reference/backend/ops">Open Operator APIs</a></p>
   </div>
   <div class="api-card">
     <h3>Provider Health</h3>
-    <p>Check media, RTC, and principal-profile provider plugin health from the active node.</p>
+    <p>Check media and RTC provider plugin health from the active node.</p>
     <p><a href="/api-reference/app/provider-health">Open Provider Health APIs</a></p>
   </div>
 </div>
@@ -35,8 +35,8 @@
   endpoints are consumed through `sdkwork-im-app-sdk`.
 - Permission requirements are documented in [Authentication and Errors](/api-reference/auth-and-errors) and repeated on operation pages when they are mandatory.
 - This site does not document a separate Platform API or Platform SDK family.
-- `/backend/v3/api/ops/*`, `/backend/v3/api/audit/*`, `/backend/v3/api/automation/governance`,
-  `/backend/v3/api/control/*`, and `/backend/v3/api/admin/*` belong to `sdkwork-im-backend-sdk`.
+- `/backend/v3/api/ops/*`, `/backend/v3/api/audit/*`, `/backend/v3/api/automation/governance`, and
+  `/backend/v3/api/control/*` belong to `sdkwork-im-backend-sdk`.
 - Provider health, IoT protocol, app-facing notifications, app-facing automation execution, and
   app-facing RTC provider routes belong to `sdkwork-im-app-sdk` under `/app/v3/api/*`.
 - In packaged installs, these routes are still reached through the unified `sdkwork-im-server` /

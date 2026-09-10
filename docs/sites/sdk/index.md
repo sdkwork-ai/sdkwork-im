@@ -19,9 +19,9 @@ Control-plane and admin APIs are backend modules inside `sdkwork-im-backend-sdk`
 
 | API group | SDK family | Rule |
 | --- | --- | --- |
-| `/im/v3/api/*` | `sdkwork-im-sdk` | Use for standardized IM development: conversations, messages, realtime, media, streams, IM call signaling, portal snapshots, and IM runtime helpers. |
+| `/im/v3/api/*` | `sdkwork-im-sdk` | Use for standardized IM development: conversations, messages, realtime, media, IM call signaling, portal snapshots, and IM runtime helpers. |
 | `/app/v3/api/*` | `sdkwork-im-app-sdk` | Use for app-business and non-management HTTP APIs that are not part of the IM standardized SDK. Provider health, IoT protocol, notifications, automation execution, and app-facing RTC provider callbacks belong here. |
-| `/backend/v3/api/*` | `sdkwork-im-backend-sdk` | Use for ops, audit, automation governance, control-plane governance, node operations, and every admin route. |
+| `/backend/v3/api/*` | `sdkwork-im-backend-sdk` | Use for ops, audit, automation governance, control-plane governance, and node operations. |
 | RTC provider runtime | `sdkwork-rtc-sdk` | Use for provider selection, provider package loading, native driver/runtime bridge contracts, and call runtime abstractions. |
 
 There is no separate admin SDK family and no separate control-plane SDK family. If the route starts

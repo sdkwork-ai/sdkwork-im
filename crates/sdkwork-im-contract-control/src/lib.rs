@@ -354,6 +354,25 @@ pub struct RealtimeMatchingSubscriptionQuery<'a> {
     pub candidate_device_ids: &'a [String],
 }
 
+/// Keyset-paged query for the device ids subscribed to one
+/// (principal, scope, event_type). `after_device_id` is `None` on the first
+/// page; callers iterate with the last returned device id until a page is
+/// shorter than `limit`.
+#[derive(Clone, Copy, Debug)]
+pub struct RealtimePrincipalScopeDevicePageQuery<'a> {
+    pub tenant_id: &'a str,
+    pub organization_id: &'a str,
+    pub principal_kind: &'a str,
+    pub principal_id: &'a str,
+    pub scope_type: &'a str,
+    pub scope_id: &'a str,
+    pub event_type: &'a str,
+    pub after_device_id: Option<&'a str>,
+    pub limit: usize,
+}
+
+pub const SUBSCRIBED_DEVICE_PAGE_LIMIT_MAX: usize = 1_000;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PresenceStateRecord {
     pub tenant_id: String,
@@ -546,6 +565,20 @@ pub trait RealtimeSubscriptionStore: Send + Sync {
         &self,
         query: RealtimeMatchingSubscriptionQuery<'_>,
     ) -> Result<Vec<RealtimeSubscriptionRecord>, ContractError>;
+
+    /// Keyset-paged discovery of subscribed device ids for one
+    /// (principal, scope, event_type), including `'*'` wildcard rows.
+    /// Stores that do not support scope discovery must keep the loud
+    /// default so cluster fan-out cannot silently no-op.
+    fn load_subscribed_device_ids_for_principal_scope(
+        &self,
+        query: RealtimePrincipalScopeDevicePageQuery<'_>,
+    ) -> Result<Vec<String>, ContractError> {
+        let _ = query;
+        Err(ContractError::UnsupportedCapability(
+            "load_subscribed_device_ids_for_principal_scope".to_string(),
+        ))
+    }
 
     fn save_subscriptions(&self, record: RealtimeSubscriptionRecord) -> Result<(), ContractError>;
 

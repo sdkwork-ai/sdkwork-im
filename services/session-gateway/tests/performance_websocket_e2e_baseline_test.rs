@@ -462,6 +462,7 @@ fn publish_cluster_device_message(
         CONVERSATION_ID,
         EVENT_TYPE,
         message_payload(index),
+        "durable",
     );
     assert_eq!(result.route_state, "resolved");
     assert_eq!(result.delivery_error_code, None);

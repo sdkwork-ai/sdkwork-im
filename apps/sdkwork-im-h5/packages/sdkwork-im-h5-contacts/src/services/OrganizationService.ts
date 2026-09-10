@@ -4,6 +4,14 @@ const DIRECTORY_PAGE_SIZE = 100;
 const DIRECTORY_MAX_PAGES = 50;
 const DIRECTORY_CACHE_TTL_MS = 5 * 60 * 1000;
 
+/** The department directory must be a forest; this error fails closed on a parentId loop. */
+export class OrganizationDirectoryCycleError extends Error {
+  constructor(departmentId: string) {
+    super(`Organization department tree contains a parentId cycle at ${departmentId}.`);
+    this.name = "OrganizationDirectoryCycleError";
+  }
+}
+
 export interface OrgDepartment {
   id: string;
   name: string;
@@ -185,6 +193,31 @@ async function fetchAllDepartments(): Promise<OrgDepartment[]> {
 }
 
 /**
+ * Resolve the root-to-department path. The parent walk is bounded by a
+ * visited set: directory ids are unique, so revisiting a node means the
+ * server tree carries a parentId cycle and the walk fails closed with a
+ * typed `OrganizationDirectoryCycleError` instead of looping forever.
+ */
+export function resolveDepartmentPath(
+  departments: OrgDepartment[],
+  deptId: string,
+): OrgDepartment[] {
+  const byId = new Map(departments.map((department) => [department.id, department]));
+  const path: OrgDepartment[] = [];
+  const visited = new Set<string>();
+  let current = byId.get(deptId);
+  while (current) {
+    if (visited.has(current.id)) {
+      throw new OrganizationDirectoryCycleError(current.id);
+    }
+    visited.add(current.id);
+    path.unshift(current);
+    current = current.parentId ? byId.get(current.parentId) : undefined;
+  }
+  return path;
+}
+
+/**
  * The wire records are fallback-grouped into the requested department only
  * when *no* record carries a department id (single-scope backend response).
  */
@@ -293,16 +326,11 @@ export const OrganizationService = {
 
   async getDepartmentPath(deptId: string): Promise<OrgDepartment[]> {
     try {
-      const departments = await fetchAllDepartments();
-      const byId = new Map(departments.map((department) => [department.id, department]));
-      const path: OrgDepartment[] = [];
-      let current = byId.get(deptId);
-      while (current) {
-        path.unshift(current);
-        current = current.parentId ? byId.get(current.parentId) : undefined;
-      }
-      return path;
+      return resolveDepartmentPath(await fetchAllDepartments(), deptId);
     } catch (error) {
+      if (error instanceof OrganizationDirectoryCycleError) {
+        throw error;
+      }
       console.error("Unable to resolve department path", error);
       return [];
     }

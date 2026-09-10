@@ -485,7 +485,6 @@ for (const marker of [
   "/backend/v3/api/*",
   "sdkwork-im-backend-sdk",
   "/backend/v3/api/control/*",
-  "/backend/v3/api/admin/*",
   "no standalone admin SDK family",
   "no standalone",
 ]) {
@@ -499,7 +498,6 @@ for (const relativePath of [
   "api-reference/im/media.md",
   "api-reference/im/calls.md",
   "api-reference/im/session-and-realtime.md",
-  "api-reference/im/streams.md",
   "api-reference/im/membership-and-read-state.md",
 ]) {
   const source = read(relativePath);

@@ -7,6 +7,9 @@ export const sdkFamilyConfig = {
   sdkTarget: 'app',
   sdkType: 'app',
   apiAuthority: 'sdkwork-im.app',
+  // TECH_ARCHITECTURE.md §4: app-api routes are HttpRoute::dual_token only; the family
+  // verifier must not demand ApiKey alternatives for this surface.
+  authSurface: 'dual-token-only',
   ownsIdentityLifecycle: false,
   generatedApiLabel: 'Sdkwork IM app-development API',
   legacyClient: 'SdkworkAppClient',
@@ -116,7 +119,6 @@ export const sdkFamilyConfig = {
     '/app/v3/api/notifications/requests',
     '/app/v3/api/automation/executions',
     '/app/v3/api/media/provider_health',
-    '/app/v3/api/principal/profiles/provider_health',
     '/app/v3/api/chat/conversations/{conversationId}/knowledgebase',
     '/app/v3/api/chat/conversations/{conversationId}/knowledgebase/launch',
     '/app/v3/api/chat/conversations/{conversationId}/archive',

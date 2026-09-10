@@ -28,10 +28,51 @@ export interface ImH5SessionValidationRuntime {
   retrieveCurrentSession(): Promise<unknown>;
 }
 
+/**
+ * The H5 session persists under `sessionStorage` (matching the PC reference):
+ * dual tokens must not outlive the tab, and `localStorage` is readable by
+ * every script on the page. A one-time migration moves a legacy `localStorage`
+ * entry into `sessionStorage` on restore.
+ */
 function resolveBrowserStorage(): ImH5SessionStorageLike | null {
+  return typeof globalThis.sessionStorage === 'undefined'
+    ? null
+    : globalThis.sessionStorage;
+}
+
+function resolveLegacyBrowserStorage(): ImH5SessionStorageLike | null {
   return typeof globalThis.localStorage === 'undefined'
     ? null
     : globalThis.localStorage;
+}
+
+/**
+ * One-time legacy migration: builds before sessionStorage adoption persisted
+ * the session under the same key in `localStorage` (readable across every
+ * script and tab). When the active browser storage holds no session but a
+ * legacy entry exists, copy it into `sessionStorage` and drop the legacy
+ * entry. Injected storages (tests, SSR) never touch real browser storage.
+ */
+function migrateLegacySessionEntry(storage: ImH5SessionStorageLike): void {
+  if (typeof globalThis.sessionStorage === 'undefined' || storage !== globalThis.sessionStorage) {
+    return;
+  }
+  const legacyStorage = resolveLegacyBrowserStorage();
+  if (!legacyStorage) {
+    return;
+  }
+  try {
+    const legacyRaw = legacyStorage.getItem(IM_H5_SESSION_STORAGE_KEY);
+    if (!legacyRaw) {
+      return;
+    }
+    if (storage.getItem(IM_H5_SESSION_STORAGE_KEY) === null) {
+      storage.setItem(IM_H5_SESSION_STORAGE_KEY, legacyRaw);
+    }
+    legacyStorage.removeItem(IM_H5_SESSION_STORAGE_KEY);
+  } catch {
+    // Best-effort migration: an unreadable legacy entry must not break restore.
+  }
 }
 
 function normalizeOptionalString(value: unknown): string | undefined {
@@ -74,6 +115,7 @@ export function readImH5PersistedSession(
   if (!storage) {
     return null;
   }
+  migrateLegacySessionEntry(storage);
   try {
     const raw = storage.getItem(IM_H5_SESSION_STORAGE_KEY);
     return raw ? normalizeSession(JSON.parse(raw)) : null;

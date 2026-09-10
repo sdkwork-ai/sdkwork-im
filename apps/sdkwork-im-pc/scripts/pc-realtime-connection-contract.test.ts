@@ -774,7 +774,8 @@ async function runChatAgentAssignmentRealtimeContract(): Promise<void> {
             conversationType: 'group',
             unreadCount: 0,
             lastActivityAt: '2026-07-12T00:00:00.000Z',
-            lastMessageSeq: 0,
+            // int64 seqs cross the REST wire as decimal strings per API_SPEC 13.6.
+            lastMessageSeq: '0',
           }],
           pageInfo: { hasMore: false },
         }),

@@ -171,47 +171,76 @@ async fn run_conversation_outbox_relay(
             break;
         }
 
-        for (tenant_id, organization_id) in resolve_conversation_outbox_relay_scopes(&outbox) {
-            match outbox.claim_pending(
-                tenant_id.as_str(),
-                organization_id.as_str(),
-                CONVERSATION_OUTBOX_AGGREGATE_TYPE,
-                DEFAULT_CONVERSATION_OUTBOX_RELAY_BATCH_SIZE,
-                DEFAULT_OUTBOX_CLAIM_LEASE,
-            ) {
-                Ok(claims) => {
-                    for claim in claims {
-                        let event = &claim.event;
-                        if event.aggregate_type != CONVERSATION_OUTBOX_AGGREGATE_TYPE {
-                            log_unexpected_aggregate_type(
-                                event,
-                                CONVERSATION_OUTBOX_AGGREGATE_TYPE,
-                                "conversation",
-                            );
-                            continue;
-                        }
-                        relay_conversation_outbox_event(
-                            realtime_runtime.as_ref(),
-                            &outbox,
-                            aggregate_store.as_ref(),
-                            &claim,
-                        );
-                    }
-                }
-                Err(error) => {
-                    warn!(
-                        tenant_id = tenant_id.as_str(),
-                        organization_id = organization_id.as_str(),
-                        error = ?error,
-                        "conversation outbox relay drain failed"
-                    );
-                }
-            }
+        // The drain is fully synchronous blocking I/O (Postgres claims plus a
+        // per-member fan-out that itself pages members and durable event
+        // windows). Running it inline on the async reactor starves every other
+        // task on that worker for the duration of a large fan-out, so it runs
+        // on the blocking pool instead; this task only waits and observes
+        // shutdown between drains.
+        let drain_outbox = outbox.clone();
+        let drain_aggregate_store = aggregate_store.clone();
+        let drain_realtime_runtime = realtime_runtime.clone();
+        let drained = tokio::task::spawn_blocking(move || {
+            drain_conversation_outbox_scopes(
+                &drain_outbox,
+                drain_aggregate_store.as_ref(),
+                drain_realtime_runtime.as_ref(),
+            );
+        })
+        .await;
+        if let Err(error) = drained {
+            warn!(error = ?error, "conversation outbox relay drain worker failed");
         }
 
         tokio::select! {
             _ = shutdown.changed() => break,
             _ = tokio::time::sleep(poll_interval) => {}
+        }
+    }
+}
+
+/// One synchronous drain pass over every relay scope. Blocking; must be
+/// called from `spawn_blocking`.
+fn drain_conversation_outbox_scopes(
+    outbox: &Arc<dyn OutboxStore>,
+    aggregate_store: &dyn ConversationAggregateStore,
+    realtime_runtime: &RealtimeDeliveryRuntime,
+) {
+    for (tenant_id, organization_id) in resolve_conversation_outbox_relay_scopes(outbox) {
+        match outbox.claim_pending(
+            tenant_id.as_str(),
+            organization_id.as_str(),
+            CONVERSATION_OUTBOX_AGGREGATE_TYPE,
+            DEFAULT_CONVERSATION_OUTBOX_RELAY_BATCH_SIZE,
+            DEFAULT_OUTBOX_CLAIM_LEASE,
+        ) {
+            Ok(claims) => {
+                for claim in claims {
+                    let event = &claim.event;
+                    if event.aggregate_type != CONVERSATION_OUTBOX_AGGREGATE_TYPE {
+                        log_unexpected_aggregate_type(
+                            event,
+                            CONVERSATION_OUTBOX_AGGREGATE_TYPE,
+                            "conversation",
+                        );
+                        continue;
+                    }
+                    relay_conversation_outbox_event(
+                        realtime_runtime,
+                        outbox,
+                        aggregate_store,
+                        &claim,
+                    );
+                }
+            }
+            Err(error) => {
+                warn!(
+                    tenant_id = tenant_id.as_str(),
+                    organization_id = organization_id.as_str(),
+                    error = ?error,
+                    "conversation outbox relay drain failed"
+                );
+            }
         }
     }
 }

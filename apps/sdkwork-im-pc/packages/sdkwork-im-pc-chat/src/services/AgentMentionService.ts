@@ -17,6 +17,21 @@ export interface ActiveAgentMentionQuery {
 const STANDARD_AGENT_ID_PATTERN = /^agent\.[a-z0-9_-]+(?:\.[a-z0-9_-]+)*$/u;
 
 /**
+ * A mention's assignment generation crosses the wire as an int64 decimal
+ * string per API_SPEC 13.6 while locally cached snapshots keep it numeric,
+ * so validate both forms.
+ */
+function isValidAssignmentGeneration(value: unknown): boolean {
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value >= 1;
+  }
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    return Number(value.trim()) >= 1;
+  }
+  return false;
+}
+
+/**
  * Returns true only for a parts payload that contains at least one complete
  * agent mention and no malformed mention entries. This is used when the
  * assignment catalog is unavailable: an unresolved plain-text `@` must never
@@ -48,8 +63,7 @@ export function hasStructuredAgentMentionParts(parts: readonly unknown[] | undef
       || !STANDARD_AGENT_ID_PATTERN.test(record.targetId.trim())
       || typeof record.displayText !== 'string'
       || !record.displayText.trim().startsWith('@')
-      || !Number.isSafeInteger(record.assignmentGeneration)
-      || (record.assignmentGeneration as number) < 1
+      || !isValidAssignmentGeneration(record.assignmentGeneration)
     ) {
       return false;
     }
@@ -201,7 +215,8 @@ export function buildAgentMentionParts(
       targetKind: 'agent',
       targetId: nextTarget.agent.agentId.trim(),
       displayText: nextTarget.marker,
-      assignmentGeneration: assignmentGeneration as number,
+      // int64 generations cross the wire as decimal strings (API_SPEC 13.6).
+      assignmentGeneration: String(assignmentGeneration),
     });
     mentionCount += 1;
     cursor = nextIndex + nextTarget.marker.length;
