@@ -128,7 +128,16 @@ fi
 print_header "4. WebSocket Reachability"
 
 if command -v wscat >/dev/null 2>&1; then
-    if timeout 5 wscat -c "$WS_URL" -x '{"type":"ping"}' >/dev/null 2>&1; then
+    # GNU `timeout` is coreutils-only (absent on macOS, where Homebrew exposes
+    # it as gtimeout). With neither available the probe runs unbounded instead
+    # of failing the check outright.
+    ws_probe_timeout_seconds=5
+    ws_probe() {
+        if command -v timeout >/dev/null 2>&1; then timeout "${ws_probe_timeout_seconds}" "$@"
+        elif command -v gtimeout >/dev/null 2>&1; then gtimeout "${ws_probe_timeout_seconds}" "$@"
+        else "$@"; fi
+    }
+    if ws_probe wscat -c "$WS_URL" -x '{"type":"ping"}' >/dev/null 2>&1; then
         check_pass "WebSocket endpoint reachable"
     else
         check_warn "WebSocket handshake timed out or rejected" "Auth may be required; verify ingress and port"

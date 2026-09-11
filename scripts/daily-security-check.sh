@@ -58,7 +58,7 @@ if [ -n "$SSL_CERT_PATH" ] && [ -f "$SSL_CERT_PATH" ]; then
     CERT_EXPIRY=$(openssl x509 -in "$SSL_CERT_PATH" -noout -enddate 2>/dev/null | cut -d= -f2)
     if [ -n "$CERT_EXPIRY" ]; then
         # 兼容 GNU date 和 BSD date
-        EXPIRY_EPOCH=$(date -d "$CERT_EXPIRY" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "$CERT_EXPIRY" +%s 2>/dev/null || echo 0)
+        EXPIRY_EPOCH=$(date -d "$CERT_EXPIRY" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "$CERT_EXPIRY" +%s 2>/dev/null || echo 0) # PORTABILITY:allow
         if [ "$EXPIRY_EPOCH" -gt 0 ]; then
             DAYS_LEFT=$(( (EXPIRY_EPOCH - $(date +%s)) / 86400 ))
             if [ "$DAYS_LEFT" -ge 30 ]; then
@@ -80,7 +80,7 @@ elif command -v openssl >/dev/null 2>&1 && [ -n "$SDKWORK_IM_FORCE_HTTPS" ] && [
     CERT_EXPIRY=$(echo | openssl s_client -connect "${HOST}:${PORT}" -servername "$HOST" 2>/dev/null \
         | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
     if [ -n "$CERT_EXPIRY" ]; then
-        EXPIRY_EPOCH=$(date -d "$CERT_EXPIRY" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "$CERT_EXPIRY" +%s 2>/dev/null || echo 0)
+        EXPIRY_EPOCH=$(date -d "$CERT_EXPIRY" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "$CERT_EXPIRY" +%s 2>/dev/null || echo 0) # PORTABILITY:allow
         if [ "$EXPIRY_EPOCH" -gt 0 ]; then
             DAYS_LEFT=$(( (EXPIRY_EPOCH - $(date +%s)) / 86400 ))
             if [ "$DAYS_LEFT" -ge 30 ]; then

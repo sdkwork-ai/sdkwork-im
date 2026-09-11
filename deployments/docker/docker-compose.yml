@@ -12,6 +12,14 @@
 # compose network and exposes no host ports, so the composition is
 # conflict-free by construction.
 
+# Shared log rotation policy (OPERATIONS_SPEC §2.3): every service rotates
+# at 10MB, keeping 3 files, so container logs cannot fill the host disk.
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     # pgvector image: the embedded knowledgebase database module requires the
@@ -35,6 +43,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
+    logging: *default-logging
 
   im-gateway:
     image: sdkwork-im-standalone-gateway:local
@@ -108,6 +117,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 90s
+    logging: *default-logging
     # Commercial deployment guardrails: bound the gateway to predictable CPU
     # and memory (tune via .env) so noisy neighbors cannot starve the host.
     deploy:

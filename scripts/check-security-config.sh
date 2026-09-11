@@ -476,7 +476,7 @@ if [ "$PROFILE" == "production" ]; then
         # 检查证书有效期
         CERT_EXPIRY=$(openssl x509 -in "$SSL_CERT_PATH" -noout -enddate 2>/dev/null | cut -d= -f2)
         if [ -n "$CERT_EXPIRY" ]; then
-            EXPIRY_DATE=$(date -d "$CERT_EXPIRY" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "$CERT_EXPIRY" +%s 2>/dev/null)
+            EXPIRY_DATE=$(date -d "$CERT_EXPIRY" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "$CERT_EXPIRY" +%s 2>/dev/null) # PORTABILITY:allow
             CURRENT_DATE=$(date +%s)
             DAYS_LEFT=$(( (EXPIRY_DATE - CURRENT_DATE) / 86400 ))
             

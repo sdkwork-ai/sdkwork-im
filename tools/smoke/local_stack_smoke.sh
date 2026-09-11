@@ -97,13 +97,17 @@ http_get() {
   local url="$1"
 
   if have_curl; then
-    mapfile -t dual_token_args < <(curl_dual_token_args)
+    # bash 3.2 has no mapfile (macOS /usr/bin/bash).
+    dual_token_args=()
+    while IFS= read -r line; do dual_token_args+=("$line"); done < <(curl_dual_token_args)
     curl --fail --silent --show-error "${dual_token_args[@]}" "$url"
     return
   fi
 
   if have_wget; then
-    mapfile -t dual_token_args < <(wget_dual_token_args)
+    # bash 3.2 has no mapfile (macOS /usr/bin/bash).
+    dual_token_args=()
+    while IFS= read -r line; do dual_token_args+=("$line"); done < <(wget_dual_token_args)
     wget -q -O - "${dual_token_args[@]}" "$url"
     return
   fi
@@ -117,7 +121,9 @@ http_post() {
   local body="$2"
 
   if have_curl; then
-    mapfile -t dual_token_args < <(curl_dual_token_args)
+    # bash 3.2 has no mapfile (macOS /usr/bin/bash).
+    dual_token_args=()
+    while IFS= read -r line; do dual_token_args+=("$line"); done < <(curl_dual_token_args)
     curl --fail --silent --show-error \
       -X POST \
       "${dual_token_args[@]}" \
@@ -128,7 +134,9 @@ http_post() {
   fi
 
   if have_wget; then
-    mapfile -t dual_token_args < <(wget_dual_token_args)
+    # bash 3.2 has no mapfile (macOS /usr/bin/bash).
+    dual_token_args=()
+    while IFS= read -r line; do dual_token_args+=("$line"); done < <(wget_dual_token_args)
     wget -q -O - \
       --method=POST \
       "${dual_token_args[@]}" \
