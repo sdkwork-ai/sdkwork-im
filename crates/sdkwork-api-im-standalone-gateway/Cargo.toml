@@ -10,6 +10,9 @@ description = "Canonical standalone HTTP gateway for the SDKWork IM application 
 name = "sdkwork-api-im-standalone-gateway"
 path = "src/main.rs"
 
+
+[lints]
+workspace = true
 [dependencies]
 axum.workspace = true
 im-domain-core.workspace = true

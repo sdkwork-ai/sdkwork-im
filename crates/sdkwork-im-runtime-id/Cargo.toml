@@ -5,6 +5,9 @@ rust-version.workspace = true
 license.workspace = true
 version.workspace = true
 
+
+[lints]
+workspace = true
 [dependencies]
 im-platform-contracts = { path = "../im-platform-contracts" }
 sdkwork_id.workspace = true

@@ -836,8 +836,13 @@
 - the `connection` family is explicitly anchored to:
   - `crates/sdkwork-api-im-standalone-gateway/tests/websocket_e2e_test.rs`
   - `tools/chat-cli/tests/chat_cli_e2e_test.rs`
-  - `tools/smoke/local_stack_smoke.ps1`
-  - `tools/smoke/local_stack_smoke.sh`
+  - `tools/smoke/local_stack_smoke.ps1` — **retired 2026-09-11**: `MODULE_BIN_SPEC.md`
+    §2.1 requires verification to be language-native, so the local-stack and
+    end-to-end shell/PS smoke scripts were deleted; the equivalent coverage now
+    lives in `scripts/dev/sdkwork-im-pc-e2e-smoke.test.mjs`,
+    `scripts/dev/sdkwork-im-comms-conversation-rpc-smoke.test.mjs`, and the
+    per-service `http_smoke_test` / `websocket_smoke_test` cargo suites.
+  - `tools/smoke/local_stack_smoke.sh` — **retired 2026-09-11** (same reason).
 - this means the connection-management architecture now has a truthful Step 11 baseline for:
   - handshake success
   - active connection count

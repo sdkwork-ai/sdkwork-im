@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@sdkwork/sdk-common": "^1.0.2",
-    "ws": "^8.18.1"
+    "ws": "^8.18.1",
+    "@sdkwork/utils": "^0.11.0"
   }
 }

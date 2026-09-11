@@ -6,6 +6,9 @@ license.workspace = true
 version.workspace = true
 description = "Sdkwork IM call signaling service owning the /im/v3/api/calls/sessions/* lifecycle."
 
+
+[lints]
+workspace = true
 [lib]
 name = "calls_service"
 path = "src/lib.rs"

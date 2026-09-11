@@ -28,7 +28,8 @@
 | `bin/chat-cli.*` | CLI HTTP verification against application ingress |
 | `bin/chat-window.*` | Multi-terminal chat demo windows |
 | `pnpm dev` | Start development stack before CLI smoke |
-| `tools/smoke/local_stack_smoke.*` | Minimal stack smoke against `http://127.0.0.1:18079` |
+| `bin/verify-server.sh` | Deployment verification (config, storage wiring, ready state, release-gate contracts) |
+| `node --test scripts/dev/*-smoke.test.mjs` | Language-native smoke tests (replaced the retired `tools/smoke/*` shell scripts) |
 
 ## SDK families
 

@@ -6,6 +6,9 @@ license.workspace = true
 version.workspace = true
 description = "Sdkwork IM HTTP service web-framework bootstrap for open-api and mixed IM surfaces"
 
+
+[lints]
+workspace = true
 [dependencies]
 axum.workspace = true
 im-app-context = { path = "../im-app-context" }

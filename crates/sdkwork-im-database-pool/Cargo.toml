@@ -6,6 +6,9 @@ license.workspace = true
 version.workspace = true
 description = "Sdkwork IM sqlx pool bootstrap through sdkwork-database"
 
+
+[lints]
+workspace = true
 [dependencies]
 native-tls = "0.2"
 postgres-native-tls = "0.5"

@@ -5,6 +5,9 @@ rust-version.workspace = true
 license.workspace = true
 version.workspace = true
 
+
+[lints]
+workspace = true
 [dependencies]
 sdkwork-im-ccp-binding-tcp = { workspace = true }
 sdkwork-im-ccp-binding-udp = { workspace = true }

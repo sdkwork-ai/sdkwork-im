@@ -13,7 +13,7 @@ equivalent for `deploymentProfile = "standalone"`, `runtimeTarget = "container"`
 - `.env.example` — deployment-time environment template (copy to `.env`).
 - `nginx/testimdocker-im.conf` — test-domain vhost (3 domains, WebSocket
   upgrade) for a host-installed nginx.
-- `postgres/init/001-create-schema.sh` — creates the workspace schema on first
+- `../../bin/container/postgres-init/001-create-schema.sh` — creates the workspace schema on first
   PostgreSQL initialization.
 
 ## Pipeline

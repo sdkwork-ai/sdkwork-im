@@ -10,6 +10,9 @@ publish = false
 name = "governance-service"
 path = "src/main.rs"
 
+
+[lints]
+workspace = true
 [dependencies]
 axum.workspace = true
 governance-service = { path = "../governance-service" }

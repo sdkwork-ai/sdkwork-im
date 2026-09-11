@@ -392,17 +392,28 @@ pub async fn resolve_gateway_readiness_check_with_required_checks(
 }
 
 /// Sets `SDKWORK_IM_SERVICE_NAME` and `OTEL_SERVICE_NAME` when unset so metrics and traces use a stable service id.
+///
+/// Caller contract: this writes the process environment through
+/// `std::env::set_var`, which edition 2024 marks `unsafe` because it is not
+/// thread-safe. Call it from `main` before any thread that reads the
+/// environment exists — in practice before the Tokio runtime or any worker is
+/// created. The reviewed exception to the workspace lint baseline is justified
+/// in the crate `README.md`, section "Unsafe Code".
+#[allow(unsafe_code)]
 pub fn ensure_im_service_process_identity(service_name: &str) {
     let service_name = service_name.trim();
     if service_name.is_empty() {
         return;
     }
     if std::env::var("SDKWORK_IM_SERVICE_NAME").is_err() {
+        // SAFETY: no thread exists yet, so no other thread can observe the
+        // environment while this write happens (caller contract above).
         unsafe {
             std::env::set_var("SDKWORK_IM_SERVICE_NAME", service_name);
         }
     }
     if std::env::var("OTEL_SERVICE_NAME").is_err() {
+        // SAFETY: as above — the caller contract pins this to single-threaded startup.
         unsafe {
             std::env::set_var("OTEL_SERVICE_NAME", service_name);
         }
@@ -440,6 +451,7 @@ mod identity_tests {
     use super::*;
 
     #[test]
+    #[allow(unsafe_code)]
     fn ensure_im_service_process_identity_sets_defaults_when_unset() {
         let prior_service = std::env::var("SDKWORK_IM_SERVICE_NAME").ok();
         let prior_otel = std::env::var("OTEL_SERVICE_NAME").ok();

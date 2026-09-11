@@ -10,6 +10,9 @@ publish = false
 name = "media-service"
 path = "src/main.rs"
 
+
+[lints]
+workspace = true
 [dependencies]
 axum.workspace = true
 media-service = { path = "../media-service" }

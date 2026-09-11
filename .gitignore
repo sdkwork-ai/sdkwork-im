@@ -122,16 +122,20 @@ scripts/dev/_tmp-*
 # Runtime-generated env config (modified by local dev server)
 **/public/runtime-env.json
 
-# Workspace-level build artifacts
-/bin/
+# Workspace-level build artifacts.
+# NOTE: `/bin/` MUST NOT be listed here. The repository-root bin/ directory holds
+# this module's normative command entrypoints and bin/lib + bin/container assets
+# (MODULE_BIN_SPEC.md section 2); ignoring it makes them un-committable.
 /_tmp_*
 /NUL.*
 
 # Local build artifacts / workspace junk (auto-sync)
 .workbuddy/
 
-# SDKWork generated SDK outputs (regenerated locally, not committed)
-sdks/**/generated/
+# SDKWork generated SDK outputs.
+# NOTE: `sdks/**/generated/**` IS committed. AGENTS.md defines sdks/ as holding
+# generated SDK artifacts, SDK_WORKSPACE_GENERATION_SPEC.md governs committed
+# generated/server-openapi output, and the fleet tracks it. Do not re-add a rule.
 
 # Generated app-level type declarations and Flutter l10n codegen
 **/types/siblings/

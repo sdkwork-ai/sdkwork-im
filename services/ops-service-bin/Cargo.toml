@@ -10,6 +10,9 @@ publish = false
 name = "ops-service"
 path = "src/main.rs"
 
+
+[lints]
+workspace = true
 [dependencies]
 axum.workspace = true
 im-adapters-postgres-journal = { path = "../../adapters/postgres-journal" }

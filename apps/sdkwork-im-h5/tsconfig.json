@@ -14,8 +14,9 @@
     "types/siblings scopes for test runs so runtime keeps resolving the real",
     "workspace packages through node_modules, and Vite builds never read this",
     "tsconfig (aliases resolve the real sources). `types/siblings` is excluded",
-    "so snapshots are never program roots. The snapshots are committed;",
-    "regenerate them after a sibling's public surface changes."
+    "so snapshots are never program roots. The snapshots are generated",
+    "locally and git-ignored (`**/types/siblings/`); regenerate them with",
+    "the //regen command below after a sibling's public surface changes."
   ],
   "//regen": "node scripts/dev/gen-sibling-type-decls.mjs --app apps/sdkwork-im-h5 --out types/siblings --package @sdkwork/rtc-h5-call --package @sdkwork/order-app-sdk --package @sdkwork/community-mobile-react-community --package @sdkwork/i18n-pc-react",
   "compilerOptions": {

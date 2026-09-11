@@ -6,6 +6,9 @@ license.workspace = true
 version.workspace = true
 description = "Portal snapshot builders for SDKWork IM console and workspace surfaces."
 
+
+[lints]
+workspace = true
 [dependencies]
 audit-service = { path = "../../services/audit-service" }
 im-app-context = { path = "../im-app-context" }

@@ -10,6 +10,9 @@ publish = false
 name = "comms-conversation-rpc"
 path = "src/main.rs"
 
+
+[lints]
+workspace = true
 [dependencies]
 conversation-runtime.workspace = true
 sdkwork_im_rpc_service_rust.workspace = true

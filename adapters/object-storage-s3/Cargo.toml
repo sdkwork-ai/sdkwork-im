@@ -5,6 +5,9 @@ rust-version.workspace = true
 license.workspace = true
 version.workspace = true
 
+
+[lints]
+workspace = true
 [dependencies]
 hmac = "0.12"
 sdkwork-im-contract-core = { workspace = true }

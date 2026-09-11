@@ -31,6 +31,17 @@ provider payloads, or internal topology information.
 - `SDKWORK_IM_DEPLOYMENT_PROFILE`
 - IAM database configuration resolved by the IAM/session-gateway adapter
 
+## Unsafe Code
+
+`ensure_im_service_process_identity` is this crate's only reviewed `unsafe` site. It writes
+`SDKWORK_IM_SERVICE_NAME` and `OTEL_SERVICE_NAME` with `std::env::set_var`, which edition 2024 marks
+`unsafe` because mutating the process environment is not thread-safe. The function is documented to
+run from `main` before the Tokio runtime or any worker thread exists, so no other thread can read the
+environment concurrently; that precondition is restated in a `// SAFETY:` comment on each block.
+
+The crate therefore narrows the workspace baseline `unsafe_code = "forbid"` to `"deny"` and carries a
+scoped `#[allow(unsafe_code)]` (RUST_CODE_SPEC.md section 6). No other `unsafe` is permitted here.
+
 ## Related Specs
 
 - `../../../sdkwork-specs/COMPONENT_SPEC.md`

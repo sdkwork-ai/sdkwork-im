@@ -712,6 +712,10 @@ fn resolve_sibling_app_root(directory: &str) -> PathBuf {
 /// must only be called from `fn main()` before the Tokio runtime is created
 /// (i.e., before any other threads exist). The `apply_embedded_dependency_env`
 /// entry point enforces this contract.
+// Reviewed exception to the workspace `unsafe_code` baseline (RUST_CODE_SPEC.md
+// section 6): the write itself is unavoidable on edition 2024, and the caller
+// contract above is what makes it sound.
+#[allow(unsafe_code)]
 fn set_env_var(key: &str, value: &str) {
     // SAFETY: Called from apply_embedded_dependency_env which is invoked
     // synchronously from fn main() before tokio::runtime::Builder::build().
@@ -737,7 +741,9 @@ mod tests {
     };
 
     #[test]
+    #[allow(unsafe_code)]
     fn apply_knowledgebase_runtime_env_defaults_align_with_iam_bootstrap_ids() {
+        // SAFETY: single-threaded test binary; no other thread reads the environment.
         unsafe {
             std::env::remove_var("SDKWORK_KNOWLEDGEBASE_TENANT_ID");
             std::env::remove_var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID");

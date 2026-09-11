@@ -11,13 +11,27 @@ use portal_service::PortalRuntime;
 use sdkwork_web_bootstrap::{
     ApiAssemblyContribution, CompositeReadinessCheck, ReadinessCheck, ReadinessFuture, WebModule,
 };
-use sdkwork_web_core::HttpRouteManifest;
+use sdkwork_web_core::{DomainContextInjector, HttpRouteManifest};
 use session_gateway::RealtimePlaneBootstrap;
 use social_service::SocialRuntime;
 use tokio::task::JoinHandle;
 
 use crate::ops_realtime_wiring::{OpsRealtimeMirrorHandle, spawn_ops_realtime_mirror};
 use crate::space_conversation_wiring::wire_space_conversation_binders;
+
+/// Domain context injectors this owner contributes to a composed host
+/// (`API_ASSEMBLY_SPEC.md` §4.1.1).
+///
+/// `ImAppContextInjector` is the only producer of `im_app_context::AppContext`,
+/// and every IM HTTP handler extracts `Extension<AppContext>`. A composed host
+/// (platform cloud gateway, IM standalone gateway) runs `ContextInjection` with
+/// exactly the injectors declared here, then the module's own
+/// `WebFrameworkLayer` short-circuits because the request is already
+/// classified. An empty list therefore leaves every IM handler without its
+/// extension and turns the whole `/im/v3/api/*` surface into 500/50001.
+fn im_domain_context_injectors() -> Vec<Arc<dyn DomainContextInjector>> {
+    vec![Arc::new(sdkwork_im_web_bootstrap::ImAppContextInjector)]
+}
 
 pub struct ApiAssembly {
     pub contribution: ApiAssemblyContribution,
@@ -214,12 +228,19 @@ pub async fn assemble_api_router_with_realtime_bootstrap(
             bootstrap.assembly.readiness(),
         )));
     }
+    // API_ASSEMBLY_SPEC.md §4.1.1: a contribution is router + route manifest +
+    // OpenAPI + permission catalog + domain injectors + readiness. A composed
+    // host runs these injectors itself and short-circuits the module layer once
+    // it has classified the request, so declaring them here is what keeps
+    // `Extension<AppContext>` available to every IM handler under composed
+    // hosting (platform cloud gateway and the IM standalone gateway alike).
+    // See `im_domain_context_injectors` for the failure mode this prevents.
     let contribution = ApiAssemblyContribution::from_manifest(
         "sdkwork-im",
         "SDKWork IM API",
         router,
         build_route_manifest(),
-        Vec::new(),
+        im_domain_context_injectors(),
         Arc::new(CompositeReadinessCheck::new(readiness_checks)),
     )?;
 
@@ -312,6 +333,40 @@ mod tests {
         assert_eq!(
             contribution.permission_catalog,
             sdkwork_web_bootstrap::permission_catalog(contribution.route_manifest.routes()),
+        );
+    }
+
+    /// Guards `API_ASSEMBLY_SPEC.md` §4.1.1. A composed host
+    /// (`ComposedApiAssembly::into_hosted`) runs `ContextInjection` with exactly
+    /// the injectors a contribution declares, and the module's own
+    /// `WebFrameworkLayer` is short-circuited once the host has classified the
+    /// request. `AppContext` is produced only by `ImAppContextInjector` and every
+    /// IM handler extracts `Extension<AppContext>`, so an empty injector list is
+    /// a whole-surface outage: 500 / 50001 "An internal error occurred" on
+    /// `/im/v3/api/*` and the IM app-api routes.
+    #[test]
+    fn contribution_declares_the_im_domain_context_injector() {
+        let injectors = im_domain_context_injectors();
+        assert!(
+            !injectors.is_empty(),
+            "the sdkwork-im contribution must declare ImAppContextInjector; an empty list \
+             leaves every IM handler without Extension<AppContext> under composed hosting",
+        );
+
+        let contribution = ApiAssemblyContribution::from_manifest(
+            "sdkwork-im",
+            "SDKWork IM API",
+            Router::new(),
+            build_route_manifest(),
+            injectors,
+            Arc::new(sdkwork_web_bootstrap::AlwaysReady),
+        )
+        .expect("IM route manifest must produce aligned OpenAPI and permissions");
+
+        assert_eq!(
+            contribution.domain_context_injectors.len(),
+            1,
+            "from_manifest must carry the IM domain context injector into the contribution",
         );
     }
 }

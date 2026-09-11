@@ -1,5 +1,11 @@
 # SDKWork IM 运维手册
 
+> **规范入口（MUST）**：模块唯一的运维通道是 `bin/`（`MODULE_BIN_SPEC.md` §1）。
+> 部署、配置、诊断、备份恢复一律经 `bin/docker-image.sh`、`bin/docker-deploy.sh`、
+> `bin/config.sh`、`bin/doctor.sh`、`bin/backup.sh` 调用；本文中任何直接调用
+> `scripts/**`、`deployments/**`、`tools/**` 下脚本的历史写法都已作废。
+> 运维生命周期语义以 `sdkwork-specs/OPERATIONS_SPEC.md` §3–§5 为准。
+
 **版本**: v1.0  
 **适用范围**: 生产环境运维、故障处理、容量规划  
 **更新日期**: 2026-06-30
@@ -161,36 +167,27 @@ kubectl logs -f deployment/sdkwork-im-gateway -n sdkwork-im
 #### 功能验证清单
 
 ```bash
-#!/bin/bash
-# 文件: scripts/verify-deployment.sh
+# 规范入口：bin/ 是模块唯一的运维通道（MODULE_BIN_SPEC.md §1）。
 
-echo "=== Deployment Verification ==="
+# 1. 部署验证（配置、存储接线、ready 状态、release-gate 语义契约）
+bash bin/verify-server.sh --output-format text
 
-# 1. 健康检查
-echo "Checking health endpoints..."
-curl -f http://localhost:18079/healthz || exit 1
-curl -f http://localhost:18079/readyz || exit 1
+# 2. 环境诊断（只读；工具链、bundle、容器健康、日志错误）
+bash bin/doctor.sh --environment production
 
-# 2. 数据库连接
-echo "Checking database connection..."
-psql $SDKWORK_DATABASE_URL -c "SELECT 1" || exit 1
+# 3. 端到端接口冒烟按语言原生测试组织，不再提供 shell 脚本
+#    （MODULE_BIN_SPEC.md §2.1：断言行为属测试，不属 shell 脚本）：
+node --test scripts/dev/sdkwork-im-pc-e2e-smoke.test.mjs
+node --test scripts/dev/sdkwork-im-comms-conversation-rpc-smoke.test.mjs
+```
 
-# 3. Redis连接
-echo "Checking Redis connection..."
-redis-cli -c -h localhost -p 6379 PING || exit 1
+等价的基础探针（人工排查时可用）：
 
-# 4. WebSocket测试
-echo "Testing WebSocket..."
-wscat -c ws://localhost:18079 -x '{"type":"auth.init","token":"test"}'
-
-# 5. API测试
-echo "Testing API..."
-curl -X POST http://localhost:18079/im/v3/api/messages \
-  -H "Authorization: Bearer test" \
-  -H "Content-Type: application/json" \
-  -d '{"content":"test"}'
-
-echo "✅ All deployment checks passed"
+```bash
+curl -f http://localhost:18079/healthz
+curl -f http://localhost:18079/readyz
+psql "$SDKWORK_DATABASE_URL" -c "SELECT 1"
+redis-cli -c -h localhost -p 6379 PING
 ```
 
 ---
@@ -1121,83 +1118,34 @@ backup_strategy:
 ### 6.2 备份执行脚本
 
 ```bash
-#!/bin/bash
-# 文件: scripts/backup.sh
+# 备份由规范入口 bin/backup.sh 负责（OPERATIONS_SPEC.md §5）。
+# 不要复制代码块创建独立任务，也不要手写对象删除管道：安全清理必须
+# 验证备份名称与 LastModified、保留数据库恢复点、限制单次删除数量、
+# 并在错误时失败关闭 —— 这些都由共享库 ops-backup.sh 统一实现。
 
-set -euo pipefail
-
-S3_BUCKET="s3://backup-sdkwork-im"
-
-# 唯一支持的实现是 scripts/backup.sh。不要复制此代码块创建独立任务，
-# 也不要使用手写的对象删除管道。安全清理必须验证备份名称和
-# LastModified，保留数据库恢复点，限制单次删除数量，并在错误时失败关闭。
 # 定时备份命令：
-# ./scripts/backup.sh --target "${S3_BUCKET}" --retention-days 30 --delete-limit 100
+bash bin/backup.sh create --environment production
 
-# 1. 应用配置备份
-# 配置归档与上传由 scripts/backup.sh 负责。
+# 列出已有备份集
+bash bin/backup.sh list --environment production
 
-# 2. 数据库全量备份
-# PostgreSQL 归档与上传由 scripts/backup.sh 负责。
+# 校验备份集（省略 --set 时校验最新）
+bash bin/backup.sh verify --environment production --set <YYYYMMDD_HHMMSS>
 
-# 3. Redis备份
-# Redis 快照与上传由 scripts/backup.sh 负责。
-
-# 4. 清理过期备份
-# 修改保留策略前先预览清理计划。--dry-run 只禁止删除，不会替代正式备份。
-./scripts/backup.sh --target "${S3_BUCKET}" --retention-days 30 --delete-limit 100 --dry-run
-
-echo "✅ Backup completed successfully"
+# 正式执行前先预览计划
+bash bin/backup.sh create --environment production --dry-run
 ```
 
 ### 6.3 恢复流程
 
 ```bash
-#!/bin/bash
-# 文件: scripts/restore.sh
+# 恢复同样由规范入口 bin/backup.sh 负责（create|list|verify|restore）。
+# 生产环境恢复必须显式 --yes，缺失时入口拒绝执行。
 
-BACKUP_DATE=$1  # 格式: YYYYMMDD_HHMMSS
-
-if [ -z "$BACKUP_DATE" ]; then
-    echo "Usage: scripts/restore.sh YYYYMMDD_HHMMSS"
-    exit 1
-fi
-
-S3_BUCKET="s3://backup-sdkwork-im"
-
-echo "=== Starting Restore ==="
-
-# 1. 停止服务
-echo "Stopping services..."
-docker-compose down
-
-# 2. 恢复数据库
-echo "Restoring database..."
-aws s3 cp ${S3_BUCKET}/db-full/db_${BACKUP_DATE}.dump /tmp/
-pg_restore -d $SDKWORK_DATABASE_URL -Fc /tmp/db_${BACKUP_DATE}.dump
-
-# 3. 恢复Redis
-echo "Restoring Redis..."
-aws s3 cp ${S3_BUCKET}/redis/redis_${BACKUP_DATE}.rdb /tmp/
-cp /tmp/redis_${BACKUP_DATE}.rdb /var/lib/redis/dump.rdb
-
-# 4. 恢复配置
-echo "Restoring config..."
-aws s3 cp ${S3_BUCKET}/config/config_${BACKUP_DATE}.tar.gz /tmp/
-tar -xzf /tmp/config_${BACKUP_DATE}.tar.gz -C /
-
-# 5. 启动服务
-echo "Starting services..."
-docker-compose up -d
-
-# 6. 验证恢复
-echo "Verifying recovery..."
-sleep 30
-curl -f http://localhost:18079/healthz || exit 1
-curl -f http://localhost:18079/readyz || exit 1
-
-echo "✅ Restore completed successfully"
+bash bin/backup.sh restore --environment production --set <YYYYMMDD_HHMMSS> --yes
 ```
+
+恢复后按下节清单逐项验证。
 
 ### 6.4 恢复验证清单
 
@@ -1291,34 +1239,25 @@ upgrade_process:
 ### 7.2 数据库迁移指南
 
 ```bash
-#!/bin/bash
-# 文件: scripts/migrate-database.sh
-
-NEW_VERSION=$1
-
-echo "=== Database Migration ==="
+# 迁移由仓库的数据库 CLI 负责（package.json: db:migrate / db:postgres:migrate），
+# 部署时由 bundle 的 migrationMode=apply 执行；不再提供 shell 迁移脚本。
 
 # 1. 检查迁移脚本
 ls database/migrations/ | grep -E "^${NEW_VERSION}"
 
-# 2. 备份数据库
-scripts/backup.sh
+# 2. 备份数据库（规范入口）
+bash bin/backup.sh create --environment production
 
 # 3. 执行迁移
-for migration in database/migrations/${NEW_VERSION}/*.sql; do
-    echo "Executing $migration..."
-    psql $SDKWORK_DATABASE_URL -f $migration || {
-        echo "❌ Migration failed"
-        scripts/restore.sh latest
-        exit 1
-    }
-done
+pnpm db:migrate
 
 # 4. 验证迁移
-psql $SDKWORK_DATABASE_URL -c "SELECT * FROM schema_migrations ORDER BY version"
-
-echo "✅ Migration completed successfully"
+psql "$SDKWORK_DATABASE_URL" -c "SELECT * FROM schema_migrations ORDER BY version"
 ```
+
+回滚策略：bundle release 只切换镜像，**不会**回退已应用的迁移
+（`bin/docker-bundle-release.sh` 头部说明）。因此迁移必须前向兼容
+（expand/contract），失败时用 `bin/backup.sh restore … --yes` 回到备份点。
 
 ### 7.3 服务重启流程
 
@@ -1487,9 +1426,10 @@ exit 1
 ## 执行脚本
 
 ```bash
-scripts/verify-deployment.sh
+bash bin/verify-server.sh --output-format text
+bash bin/doctor.sh --environment production
 ```
-```
+
 
 ### 8.2 运维日常检查清单
 

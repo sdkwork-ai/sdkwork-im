@@ -10,6 +10,9 @@ publish = false
 name = "session-gateway-rpc"
 path = "src/main.rs"
 
+
+[lints]
+workspace = true
 [dependencies]
 session-gateway = { path = "../session-gateway" }
 sdkwork_im_rpc_service_rust.workspace = true

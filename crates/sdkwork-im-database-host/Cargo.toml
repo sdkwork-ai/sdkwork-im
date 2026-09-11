@@ -6,6 +6,9 @@ license.workspace = true
 version.workspace = true
 description = "SDKWork IM database lifecycle bootstrap."
 
+
+[lints]
+workspace = true
 [lib]
 name = "sdkwork_im_database_host"
 path = "src/lib.rs"

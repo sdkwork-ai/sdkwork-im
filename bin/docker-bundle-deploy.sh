@@ -63,8 +63,12 @@ if [ -f "${SCRIPT_DIR}/compose/docker-compose.bundle.yml" ]; then
   BUNDLE_IMAGE_TGZ="${SCRIPT_DIR}/image.tar.gz"
   BUNDLE_IMAGE_ENV="${SCRIPT_DIR}/image.env"
 else
-  COMPOSE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-  ENV_DIR="${SCRIPT_DIR}/env"
+  # Repository layout: the executor sits flat in bin/ (MODULE_BIN_SPEC.md
+  # §2.2); the bundle inputs (compose + env) stay under
+  # deployments/docker/bundle/.
+  SDKWORK_REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+  COMPOSE_DIR="${SDKWORK_REPO_ROOT}/deployments/docker/bundle/compose"
+  ENV_DIR="${SDKWORK_REPO_ROOT}/deployments/docker/bundle/env"
   BUNDLE_IMAGE_TGZ=""
   BUNDLE_IMAGE_ENV=""
 fi

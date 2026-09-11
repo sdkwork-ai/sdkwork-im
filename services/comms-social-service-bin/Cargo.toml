@@ -10,6 +10,9 @@ publish = false
 name = "comms-social-service"
 path = "src/main.rs"
 
+
+[lints]
+workspace = true
 [dependencies]
 axum.workspace = true
 im-adapters-social-postgres = { path = "../../adapters/social-postgres" }

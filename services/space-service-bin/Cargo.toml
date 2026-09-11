@@ -10,6 +10,9 @@ publish = false
 name = "space-service"
 path = "src/main.rs"
 
+
+[lints]
+workspace = true
 [dependencies]
 axum.workspace = true
 space-service = { path = "../space-service" }

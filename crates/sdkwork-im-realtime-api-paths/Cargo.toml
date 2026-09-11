@@ -6,6 +6,9 @@ license.workspace = true
 version.workspace = true
 description = "Canonical HTTP path constants for the Sdkwork IM realtime open-api surface"
 
+
+[lints]
+workspace = true
 [lib]
 name = "sdkwork_im_realtime_api_paths"
 path = "src/lib.rs"

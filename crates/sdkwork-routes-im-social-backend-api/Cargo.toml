@@ -6,6 +6,9 @@ license.workspace = true
 version.workspace = true
 description = "SDKWork IM social backend-api control routes for /backend/v3/api/control/social/*"
 
+
+[lints]
+workspace = true
 [lib]
 name = "sdkwork_routes_im_social_backend_api"
 path = "src/lib.rs"

@@ -6,6 +6,7 @@
   "scripts": {
     "workflow:materialize-client-env": "node ../sdkwork-specs/tools/materialize-client-env.mjs --root .",
     "check:client-env": "node ../sdkwork-specs/tools/materialize-client-env.mjs --root . --check",
+    "check:cors-standard": "node ../sdkwork-specs/tools/check-cors-standard.mjs --root .",
     "stop": "pnpm exec sdkwork-app stop",
     "dev": "pnpm dev:standalone",
     "dev:standalone": "pnpm exec sdkwork-app dev --deployment-profile standalone",
@@ -40,7 +41,7 @@
     "_sdkwork:build": "node scripts/release/build-sdkwork-im-production.mjs",
     "_sdkwork:test": "node scripts/run-sdkwork-im-standards-verification.mjs",
     "_sdkwork:check": "pnpm exec sdkwork-app doctor && node ../sdkwork-specs/tools/check-app-manifest-standard.mjs --workspace . && pnpm run check:pnpm-script-standard && pnpm run check:agent-workflow-standard && pnpm run test:tenant-isolation-standard && node --test scripts/release/workflow-release-target.test.mjs scripts/release/workflow-supply-chain-evidence.test.mjs scripts/release/workflow-deploy.test.mjs && node scripts/release/commercial-readiness.test.mjs && pnpm run check:app-composition && node scripts/dependency-management-standard.test.mjs",
-    "_sdkwork:verify": "node scripts/run-sdkwork-im-standards-verification.mjs && pnpm run check:app-composition",
+    "_sdkwork:verify": "node scripts/run-sdkwork-im-standards-verification.mjs && pnpm run check:app-composition && pnpm check:cors-standard",
     "_sdkwork:clean": "node scripts/clean-sdkwork-im.mjs",
     "_sdkwork:gateway:standalone": "node scripts/gateway-standalone-run.mjs",
     "_sdkwork:client:desktop:standalone": "node scripts/im-dev.mjs --target desktop --client-only --deployment-profile standalone --environment development",

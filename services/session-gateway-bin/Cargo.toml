@@ -10,6 +10,9 @@ publish = false
 name = "session-gateway"
 path = "src/main.rs"
 
+
+[lints]
+workspace = true
 [dependencies]
 axum.workspace = true
 session-gateway = { path = "../session-gateway" }

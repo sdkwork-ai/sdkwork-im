@@ -6,6 +6,9 @@ license.workspace = true
 version.workspace = true
 description = "Generated API assembly for sdkwork-im application HTTP plane."
 
+
+[lints]
+workspace = true
 [lib]
 name = "sdkwork_api_im_assembly"
 path = "src/lib.rs"
@@ -38,6 +41,7 @@ conversation-runtime.workspace = true
 im-adapters-social-postgres = { path = "../../adapters/social-postgres" }
 sdkwork_im_database_pool = { workspace = true }
 sdkwork_im_service_readiness = { workspace = true }
+sdkwork_im_web_bootstrap = { workspace = true }
 calls-service = { path = "../../services/im-calls-service" }
 sdkwork-agents-runtime-facade.workspace = true
 # Embedded dependency surfaces (single-ingress composition). External route,

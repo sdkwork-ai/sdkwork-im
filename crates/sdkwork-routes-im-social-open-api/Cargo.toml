@@ -6,6 +6,9 @@ license.workspace = true
 version.workspace = true
 description = "SDKWork IM social open-api route crate for /im/v3/api/social/*"
 
+
+[lints]
+workspace = true
 [lib]
 name = "sdkwork_routes_im_social_open_api"
 path = "src/lib.rs"

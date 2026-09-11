@@ -6,6 +6,9 @@ license.workspace = true
 version.workspace = true
 description = "Ensure Sdkwork IM IAM tenant applications through the shared embedded bootstrap framework."
 
+
+[lints]
+workspace = true
 [lib]
 name = "sdkwork_im_iam_application_bootstrap"
 path = "src/lib.rs"

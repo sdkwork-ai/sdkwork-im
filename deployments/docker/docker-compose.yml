@@ -37,7 +37,7 @@ services:
       - im-postgres-data:/var/lib/postgresql/data
       # Creates the same-named workspace schema on first initialization
       # (the sdkwork-database lifecycle pins search_path to it).
-      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+      - ../../bin/container/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${SDKWORK_IM_POSTGRES_USER:-sdkwork_ai_dev} -d ${SDKWORK_IM_POSTGRES_DB:-sdkwork_ai_dev}"]
       interval: 5s

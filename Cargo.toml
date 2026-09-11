@@ -116,8 +116,17 @@ rust-version = "1.85"
 
 # RUST_CODE_SPEC.md §13 workspace lint baseline. Generated Rust SDK crates
 # under sdks/*/generated inherit this through `[lints] workspace = true`.
+#
+# `unsafe_code` is `deny`, not `forbid`: this workspace has reviewed `unsafe`
+# sites (process-identity `std::env::set_var` calls, and the Win32-style
+# bootstrap samplers in the service runtimes). Cargo does not allow a member to
+# narrow an inherited lint, and `forbid` cannot be overridden by an `#[allow]`,
+# so `deny` is the only baseline under which a reviewed site can carry a
+# scoped, documented exception instead of a crate-level global allow.
+# Every such site carries `#[allow(unsafe_code)]` plus its own `// SAFETY:`
+# proof; see sdkwork-webserver `Cargo.toml` for the same precedent.
 [workspace.lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "deny"
 rust_2018_idioms = { level = "warn", priority = -1 }
 trivial_casts = "warn"

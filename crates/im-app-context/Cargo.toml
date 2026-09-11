@@ -5,6 +5,9 @@ rust-version.workspace = true
 license.workspace = true
 version.workspace = true
 
+
+[lints]
+workspace = true
 [dependencies]
 axum.workspace = true
 sdkwork-im-ccp-core = { workspace = true }

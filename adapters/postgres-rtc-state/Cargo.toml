@@ -6,6 +6,9 @@ license.workspace = true
 version.workspace = true
 description = "PostgreSQL-backed durable state store for RTC call sessions and signals."
 
+
+[lints]
+workspace = true
 [dependencies]
 chrono = "0.4.44"
 im-app-context = { path = "../../crates/im-app-context" }

@@ -5,6 +5,9 @@ rust-version.workspace = true
 license.workspace = true
 version.workspace = true
 
+
+[lints]
+workspace = true
 [dependencies]
 im-domain-core.workspace = true
 im-domain-events = { path = "../../crates/im-domain-events" }

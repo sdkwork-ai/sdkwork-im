@@ -6,6 +6,10 @@ license.workspace = true
 version.workspace = true
 description = "Shared dependency-aware readiness probes for Sdkwork IM HTTP services"
 
+
+[lints]
+workspace = true
+
 [dependencies]
 im-app-context = { path = "../im-app-context" }
 sdkwork_database_sqlx = { workspace = true }

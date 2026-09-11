@@ -68,16 +68,20 @@ warn() { printf '%s WARNING: %s\n' "$LOG_PREFIX" "$*" >&2; }
 die()  { printf '%s ERROR: %s\n' "$LOG_PREFIX" "$*" >&2; exit 1; }
 usage() { sed -n '2,/^set -euo pipefail$/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; exit 0; }
 
-# --- layout autodetection (mirrors deploy.sh) ---------------------------------
+# --- layout autodetection (mirrors the deploy executor) -----------------------
 if [ -f "${SCRIPT_DIR}/compose/docker-compose.bundle.yml" ]; then
+  # Bundle layout: the packager placed both executors at the bundle root under
+  # the artifact names DOCKER_SPEC.md §4.1 fixes.
   BUNDLE_ROOT="${SCRIPT_DIR}"
   DEPLOY_SCRIPT="${SCRIPT_DIR}/deploy.sh"
   DEFAULT_STATE_ROOT="${SCRIPT_DIR}/release-state"
   BUNDLE_IMAGE_ENV="${SCRIPT_DIR}/image.env"
 else
-  REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+  # Repository layout: the executors sit flat in bin/ (MODULE_BIN_SPEC.md
+  # §2.2), so the co-located deploy executor carries its bin/ name.
+  REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
   BUNDLE_ROOT=""
-  DEPLOY_SCRIPT="${SCRIPT_DIR}/deploy.sh"
+  DEPLOY_SCRIPT="${SCRIPT_DIR}/docker-bundle-deploy.sh"
   DEFAULT_STATE_ROOT="${REPO_ROOT}/release-state"
   BUNDLE_IMAGE_ENV=""
 fi

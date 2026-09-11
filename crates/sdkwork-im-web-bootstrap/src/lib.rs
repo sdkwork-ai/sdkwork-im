@@ -39,8 +39,18 @@ use sdkwork_web_core::{
 static SHARED_IAM_WEB_REQUEST_CONTEXT_RESOLVER: OnceLock<IamWebRequestContextResolver> =
     OnceLock::new();
 
+/// IM domain-context injector (`API_ASSEMBLY_SPEC.md` §4.1.1).
+///
+/// `AppContext` is produced only here, and every IM HTTP handler extracts
+/// `Extension<AppContext>`. A composed host runs the domain injectors declared
+/// by each `ApiAssemblyContribution`, and the module layer short-circuits once
+/// the host has already classified the request (`sdkwork-web-axum`
+/// `composition guard`). IM contributions must therefore declare this injector
+/// so the outer pipeline performs the projection; otherwise the whole
+/// `/im/v3/api/*` surface collapses to 500. It stays registered on the module
+/// layer as well, for standalone hosting where no outer pipeline runs.
 #[derive(Clone, Default)]
-struct ImAppContextInjector;
+pub struct ImAppContextInjector;
 
 static IM_HTTP_METRICS: OnceLock<Arc<HttpMetricsRegistry>> = OnceLock::new();
 
