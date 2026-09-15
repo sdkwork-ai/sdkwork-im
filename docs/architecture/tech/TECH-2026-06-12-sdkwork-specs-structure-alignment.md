@@ -270,7 +270,7 @@ Implementation notes:
   deterministic helper so the contract remains stable without visual redesign.
 - The SDKWORK App Manifest v3 validator command recommended by `APP_MANIFEST_SPEC.md` remains
   unavailable in this workspace because `apps/scripts/validate-sdkwork-app-standard-v3.mjs` is not
-  present here or in the sibling `E:\sdkwork-space\apps\scripts` path.
+  present here or in the sibling `<workspace-root>/apps\scripts` path.
 
 Verified commands:
 

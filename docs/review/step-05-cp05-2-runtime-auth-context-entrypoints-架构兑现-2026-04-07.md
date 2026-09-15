@@ -62,7 +62,7 @@
 ### 5.3 fresh verification 证据
 
 - `cargo test -p conversation-runtime --offline`
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-2c-local-node-full'; cargo test -p sdkwork-api-im-standalone-gateway --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-2c-local-node-full'; cargo test -p sdkwork-api-im-standalone-gateway --offline`
 - `cargo test -p projection-service --offline`
 
 ## 6. 架构结论

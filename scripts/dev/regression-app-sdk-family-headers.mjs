@@ -8,14 +8,21 @@
  */
 import http from 'node:http';
 import assert from 'node:assert/strict';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+// `<workspace-root>/sdkwork-im/scripts/dev/` -> three levels up is the checkout
+// root that holds the sibling SDK repositories below.
+const WORKSPACE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const workspaceFileUrl = (relativePath) => pathToFileURL(resolve(WORKSPACE_ROOT, relativePath)).href;
 
 const CLIENTS = [
-  ['course', 'file:///E:/sdkwork-space/sdkwork-course/sdks/sdkwork-course-app-sdk/sdkwork-course-app-sdk-typescript/generated/server-openapi/dist/index.js', 'SdkworkAppClient'],
-  ['iam-app', 'file:///E:/sdkwork-space/sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/dist/index.js', 'SdkworkAppClient'],
-  ['drive', 'file:///E:/sdkwork-space/sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript/generated/server-openapi/dist/index.js', 'SdkworkAppClient'],
-  ['knowledgebase', 'file:///E:/sdkwork-space/sdkwork-knowledgebase/sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/dist/index.js', 'SdkworkKnowledgebaseAppClient'],
-  ['agents', 'file:///E:/sdkwork-space/sdkwork-agents/sdks/sdkwork-agents-app-sdk/sdkwork-agents-app-sdk-typescript/generated/server-openapi/dist/index.js', 'SdkworkAppClient'],
-  ['notary', 'file:///E:/sdkwork-space/sdkwork-notary/sdks/sdkwork-notary-app-sdk/sdkwork-notary-app-sdk-typescript/generated/server-openapi/dist/index.js', 'SdkworkAppClient'],
+  ['course', workspaceFileUrl('sdkwork-course/sdks/sdkwork-course-app-sdk/sdkwork-course-app-sdk-typescript/generated/server-openapi/dist/index.js'), 'SdkworkAppClient'],
+  ['iam-app', workspaceFileUrl('sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/dist/index.js'), 'SdkworkAppClient'],
+  ['drive', workspaceFileUrl('sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript/generated/server-openapi/dist/index.js'), 'SdkworkAppClient'],
+  ['knowledgebase', workspaceFileUrl('sdkwork-knowledgebase/sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/dist/index.js'), 'SdkworkKnowledgebaseAppClient'],
+  ['agents', workspaceFileUrl('sdkwork-agents/sdks/sdkwork-agents-app-sdk/sdkwork-agents-app-sdk-typescript/generated/server-openapi/dist/index.js'), 'SdkworkAppClient'],
+  ['notary', workspaceFileUrl('sdkwork-notary/sdks/sdkwork-notary-app-sdk/sdkwork-notary-app-sdk-typescript/generated/server-openapi/dist/index.js'), 'SdkworkAppClient'],
 ];
 
 const FORBIDDEN = [

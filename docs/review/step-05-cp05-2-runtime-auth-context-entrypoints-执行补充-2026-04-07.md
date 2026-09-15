@@ -89,14 +89,14 @@
 - Green
   - `cargo test -p conversation-runtime --test conversation_domain_structure_test --offline`
   - `cargo test -p conversation-runtime --test authority_command_test --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-2c-local-node'; cargo test -p sdkwork-api-im-standalone-gateway --test lib_structure_test --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-2c-local-node'; cargo test -p sdkwork-api-im-standalone-gateway --test lib_structure_test --offline`
 
 ### 5.2 完整回归证据
 
 - `rustfmt --edition 2024 services/conversation-runtime/src/runtime/creation.rs services/conversation-runtime/src/runtime/membership.rs services/conversation-runtime/src/runtime/handoff.rs services/conversation-runtime/src/runtime/http.rs services/conversation-runtime/tests/conversation_domain_structure_test.rs crates/sdkwork-api-im-standalone-gateway/src/node.rs crates/sdkwork-api-im-standalone-gateway/src/node/conversation.rs crates/sdkwork-api-im-standalone-gateway/src/node/membership.rs crates/sdkwork-api-im-standalone-gateway/src/node/handoff.rs crates/sdkwork-api-im-standalone-gateway/src/node/projection.rs crates/sdkwork-api-im-standalone-gateway/tests/lib_structure_test.rs`
 - `rustfmt --edition 2024 --check services/conversation-runtime/src/runtime/creation.rs services/conversation-runtime/src/runtime/membership.rs services/conversation-runtime/src/runtime/handoff.rs services/conversation-runtime/src/runtime/http.rs services/conversation-runtime/tests/conversation_domain_structure_test.rs crates/sdkwork-api-im-standalone-gateway/src/node.rs crates/sdkwork-api-im-standalone-gateway/src/node/conversation.rs crates/sdkwork-api-im-standalone-gateway/src/node/membership.rs crates/sdkwork-api-im-standalone-gateway/src/node/handoff.rs crates/sdkwork-api-im-standalone-gateway/src/node/projection.rs crates/sdkwork-api-im-standalone-gateway/tests/lib_structure_test.rs`
 - `cargo test -p conversation-runtime --offline`
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-2c-local-node-full'; cargo test -p sdkwork-api-im-standalone-gateway --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-2c-local-node-full'; cargo test -p sdkwork-api-im-standalone-gateway --offline`
 - `cargo test -p projection-service --offline`
 
 ### 5.3 验证结论

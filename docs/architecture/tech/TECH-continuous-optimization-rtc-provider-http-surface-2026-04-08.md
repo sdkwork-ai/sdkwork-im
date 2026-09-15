@@ -25,12 +25,12 @@
 以下命令已重新执行并通过：
 - `cargo fmt --all`
 - `cargo fmt --all --check`
-- `$env:CARGO_TARGET_DIR='C:\Users\admin\.codex\memories\target-rtc-surface-service'; cargo test -p im-call-runtime --offline --test http_smoke_test -- --nocapture`
-- `$env:CARGO_TARGET_DIR='C:\Users\admin\.codex\memories\target-rtc-surface-service'; cargo test -p im-call-runtime --offline --test rtc_runtime_persistence_test -- --nocapture`
-- `$env:CARGO_TARGET_DIR='C:\Users\admin\.codex\memories\target-rtc-surface-local'; cargo test -p sdkwork-api-im-standalone-gateway --offline --test http_e2e_test test_local_minimal_profile_issues_rtc_participant_credential_over_http -- --nocapture`
-- `$env:CARGO_TARGET_DIR='C:\Users\admin\.codex\memories\target-rtc-surface-local'; cargo test -p sdkwork-api-im-standalone-gateway --offline --test http_e2e_test test_local_minimal_profile_gets_rtc_provider_health_over_http -- --nocapture`
-- `$env:CARGO_TARGET_DIR='C:\Users\admin\.codex\memories\target-rtc-surface-local'; cargo test -p sdkwork-api-im-standalone-gateway --offline --test rtc_runtime_persistence_test -- --nocapture`
-- `$env:CARGO_TARGET_DIR='C:\Users\admin\.codex\memories\target-rtc-surface-local'; cargo test -p sdkwork-api-im-standalone-gateway --offline --test provider_plugin_docs_test -- --nocapture`
+- `$env:CARGO_TARGET_DIR='<home>\.codex\memories\target-rtc-surface-service'; cargo test -p im-call-runtime --offline --test http_smoke_test -- --nocapture`
+- `$env:CARGO_TARGET_DIR='<home>\.codex\memories\target-rtc-surface-service'; cargo test -p im-call-runtime --offline --test rtc_runtime_persistence_test -- --nocapture`
+- `$env:CARGO_TARGET_DIR='<home>\.codex\memories\target-rtc-surface-local'; cargo test -p sdkwork-api-im-standalone-gateway --offline --test http_e2e_test test_local_minimal_profile_issues_rtc_participant_credential_over_http -- --nocapture`
+- `$env:CARGO_TARGET_DIR='<home>\.codex\memories\target-rtc-surface-local'; cargo test -p sdkwork-api-im-standalone-gateway --offline --test http_e2e_test test_local_minimal_profile_gets_rtc_provider_health_over_http -- --nocapture`
+- `$env:CARGO_TARGET_DIR='<home>\.codex\memories\target-rtc-surface-local'; cargo test -p sdkwork-api-im-standalone-gateway --offline --test rtc_runtime_persistence_test -- --nocapture`
+- `$env:CARGO_TARGET_DIR='<home>\.codex\memories\target-rtc-surface-local'; cargo test -p sdkwork-api-im-standalone-gateway --offline --test provider_plugin_docs_test -- --nocapture`
 
 说明：由于 `D:` 盘构建缓存空间耗尽，本轮测试使用 `CARGO_TARGET_DIR` 切换到 `C:` 盘独立缓存目录完成验证。
 

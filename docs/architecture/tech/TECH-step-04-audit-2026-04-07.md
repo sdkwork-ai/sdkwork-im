@@ -481,11 +481,11 @@
   - `$env:CARGO_TARGET_DIR='target/local-minimal-step04-goaway-owner-red'; cargo test -p sdkwork-im-runtime-link test_runtime_link_builds_session_disconnect_goaway_owner_contract --offline`
   - `$env:CARGO_TARGET_DIR='target/local-minimal-step04-goaway-owner-red'; cargo test -p session-gateway test_realtime_websocket_sends_ccp_goaway_before_disconnect_close --offline`
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-goaway-owner'; cargo test -p sdkwork-im-runtime-link test_runtime_link_builds_session_disconnect_goaway_owner_contract --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-goaway-owner'; cargo test -p session-gateway test_realtime_websocket_sends_ccp_goaway_before_disconnect_close --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-goaway-owner'; cargo test -p sdkwork-im-runtime-link test_runtime_link_builds_session_disconnect_goaway_owner_contract --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-goaway-owner'; cargo test -p session-gateway test_realtime_websocket_sends_ccp_goaway_before_disconnect_close --offline`
   - `cargo fmt --check --package sdkwork-im-runtime-link --package session-gateway`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-goaway-owner'; cargo test -p sdkwork-im-runtime-link --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-goaway-owner'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-goaway-owner'; cargo test -p sdkwork-im-runtime-link --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-goaway-owner'; cargo test -p session-gateway --offline`
 
 ### 18.4 审计结论
 
@@ -527,17 +527,17 @@
 ### 19.2 fail-first 与回归验证
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-session-resume-red'; cargo test -p session-gateway test_realtime_websocket_negotiates_ccp_subprotocol_and_wraps_business_frames --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-session-resume-red'; cargo test -p session-gateway test_realtime_websocket_negotiates_ccp_subprotocol_and_wraps_business_frames --offline`
   - 失败点：
     - 期望收到 `control / cc.control.session_resumed.v1`
     - 实际收到 `evt / cc.realtime.connected.v1`
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-session-resume-green'; cargo test -p sdkwork-im-runtime-link test_runtime_link_builds_session_resumed_owner_contract --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-session-resume-green'; cargo test -p session-gateway test_realtime_websocket_negotiates_ccp_subprotocol_and_wraps_business_frames --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-session-resume-green'; cargo test -p session-gateway test_realtime_websocket_sends_ccp_goaway_before_disconnect_close --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-session-resume-green'; cargo test -p sdkwork-im-runtime-link test_runtime_link_builds_session_resumed_owner_contract --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-session-resume-green'; cargo test -p session-gateway test_realtime_websocket_negotiates_ccp_subprotocol_and_wraps_business_frames --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-session-resume-green'; cargo test -p session-gateway test_realtime_websocket_sends_ccp_goaway_before_disconnect_close --offline`
   - `cargo fmt --check --package sdkwork-im-runtime-link --package session-gateway`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-session-resume-full'; cargo test -p sdkwork-im-runtime-link --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-session-resume-full'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-session-resume-full'; cargo test -p sdkwork-im-runtime-link --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-session-resume-full'; cargo test -p session-gateway --offline`
 
 ### 19.3 审计结论
 
@@ -581,16 +581,16 @@
 ### 20.3 fail-first fresh 验证
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-owner-red'; cargo test -p session-gateway test_realtime_websocket_upgrade_uses_runtime_link_owner_contract --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-owner-red'; cargo test -p session-gateway test_realtime_websocket_upgrade_uses_runtime_link_owner_contract --offline`
   - 失败原因是缺失`realtime_websocket_subprotocols / select_realtime_websocket_mode`，与本轮新增 owner API 精确对应
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-owner-green'; cargo test -p session-gateway test_realtime_websocket_upgrade_uses_runtime_link_owner_contract --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-owner-green'; cargo test -p sdkwork-im-runtime-link test_runtime_link_exposes_websocket_upgrade_owner_contract --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-owner-green'; cargo test -p session-gateway test_realtime_websocket_negotiates_ccp_subprotocol_and_wraps_business_frames --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-owner-green'; cargo test -p session-gateway test_realtime_websocket_upgrade_uses_runtime_link_owner_contract --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-owner-green'; cargo test -p sdkwork-im-runtime-link test_runtime_link_exposes_websocket_upgrade_owner_contract --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-owner-green'; cargo test -p session-gateway test_realtime_websocket_negotiates_ccp_subprotocol_and_wraps_business_frames --offline`
   - `cargo fmt --package sdkwork-im-runtime-link --package session-gateway`
   - `cargo fmt --check --package sdkwork-im-runtime-link --package session-gateway`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-owner-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-owner-session-full'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-owner-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-owner-session-full'; cargo test -p session-gateway --offline`
 
 ### 20.4 风险与残留问题
 
@@ -633,17 +633,17 @@
 ### 21.3 fail-first fresh 验证
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-queue-owner-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_plans_live_outbound_queue_batches_from_owner_limits --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-queue-owner-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_plans_live_outbound_queue_batches_from_owner_limits --offline`
     - 失败原因：缺失`plan_stream_batch / plan_pull_batch`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-queue-owner-red-session'; cargo test -p session-gateway test_realtime_websocket_uses_runtime_link_queue_owner_limits_for_catchup_and_pull --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-queue-owner-red-session'; cargo test -p session-gateway test_realtime_websocket_uses_runtime_link_queue_owner_limits_for_catchup_and_pull --offline`
     - 失败原因：catchup 实际仍为硬编码 `100`
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-queue-owner-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_plans_live_outbound_queue_batches_from_owner_limits --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-queue-owner-green-session'; cargo test -p session-gateway test_realtime_websocket_uses_runtime_link_queue_owner_limits_for_catchup_and_pull --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-queue-owner-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_plans_live_outbound_queue_batches_from_owner_limits --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-queue-owner-green-session'; cargo test -p session-gateway test_realtime_websocket_uses_runtime_link_queue_owner_limits_for_catchup_and_pull --offline`
   - `cargo fmt --package sdkwork-im-runtime-link --package session-gateway`
   - `cargo fmt --check --package sdkwork-im-runtime-link --package session-gateway`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-queue-owner-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-queue-owner-session-full'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-queue-owner-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-queue-owner-session-full'; cargo test -p session-gateway --offline`
 
 ### 21.4 风险与残留问题
 
@@ -688,15 +688,15 @@
 ### 26.3 fail-first fresh 验证
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-seam-red'; cargo test -p session-gateway test_session_gateway_websocket_upgrade_transport_seam_moves_out_of_lib_impl --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-seam-red'; cargo test -p session-gateway test_session_gateway_websocket_upgrade_transport_seam_moves_out_of_lib_impl --offline`
     - 失败原因：websocket upgrade helper 仍滞留在 `services/session-gateway/src/lib.rs`
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-seam-green-2'; cargo test -p session-gateway test_session_gateway_websocket_upgrade_transport_seam_moves_out_of_lib_impl --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-seam-green-2'; cargo test -p session-gateway test_realtime_websocket_upgrade_uses_runtime_link_owner_contract --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-seam-green-2'; cargo test -p session-gateway test_realtime_websocket_upgrade_prepares_runtime_link_handoff_owner --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-seam-green-2'; cargo test -p session-gateway test_session_gateway_websocket_upgrade_transport_seam_moves_out_of_lib_impl --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-seam-green-2'; cargo test -p session-gateway test_realtime_websocket_upgrade_uses_runtime_link_owner_contract --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-seam-green-2'; cargo test -p session-gateway test_realtime_websocket_upgrade_prepares_runtime_link_handoff_owner --offline`
   - `cargo fmt --package session-gateway`
   - `cargo fmt --check --package session-gateway`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-seam-session-full'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-seam-session-full'; cargo test -p session-gateway --offline`
 
 ### 26.4 风险与残留问题
 
@@ -741,14 +741,14 @@
 ### 28.3 fail-first fresh 验证
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-pending-math-red'; cargo test -p session-gateway test_session_gateway_websocket_pending_backlog_math_moves_out_of_service_impl --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-pending-math-red'; cargo test -p session-gateway test_session_gateway_websocket_pending_backlog_math_moves_out_of_service_impl --offline`
     - 失败原因：`services/session-gateway/src/websocket.rs` 仍保留本backlog helper
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-pending-math-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_counts_pending_outbound_events_with_saturating_math --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-pending-math-green-session'; cargo test -p session-gateway test_session_gateway_websocket_pending_backlog_math_moves_out_of_service_impl --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-pending-math-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_counts_pending_outbound_events_with_saturating_math --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-pending-math-green-session'; cargo test -p session-gateway test_session_gateway_websocket_pending_backlog_math_moves_out_of_service_impl --offline`
   - `cargo fmt --check --package sdkwork-im-runtime-link --package session-gateway`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-pending-math-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-pending-math-session-full'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-pending-math-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-pending-math-session-full'; cargo test -p session-gateway --offline`
 
 ### 28.4 风险与残留问题
 
@@ -792,13 +792,13 @@
 ### 27.3 fail-first fresh 验证
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-route-seam-red'; cargo test -p session-gateway test_session_gateway_websocket_route_handler_moves_out_of_lib_impl --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-route-seam-red'; cargo test -p session-gateway test_session_gateway_websocket_route_handler_moves_out_of_lib_impl --offline`
     - 失败原因：`lib.rs` 仍保`WebSocketUpgrade` 导入websocket route handler
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-route-seam-green'; cargo test -p session-gateway test_session_gateway_websocket_route_handler_moves_out_of_lib_impl --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-route-seam-green'; cargo test -p session-gateway test_session_gateway_websocket_route_handler_moves_out_of_lib_impl --offline`
   - `cargo fmt --package session-gateway`
   - `cargo fmt --check --package session-gateway`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-route-seam-session-full'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-route-seam-session-full'; cargo test -p session-gateway --offline`
 
 ### 27.4 风险与残留问题
 
@@ -844,9 +844,9 @@
 ### 22.3 fail-first fresh 验证
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-handoff-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_prepares_websocket_upgrade_handoff_owner_contract --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-handoff-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_prepares_websocket_upgrade_handoff_owner_contract --offline`
     - 失败原因：`prepare_websocket_upgrade` 尚不存在
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-handoff-red-session'; cargo test -p session-gateway test_realtime_websocket_upgrade_prepares_runtime_link_handoff_owner --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-handoff-red-session'; cargo test -p session-gateway test_realtime_websocket_upgrade_prepares_runtime_link_handoff_owner --offline`
     - 失败原因：`prepare_realtime_websocket_upgrade` 尚不存在
 - Green
   - `cargo test -p sdkwork-im-runtime-link test_runtime_link_prepares_websocket_upgrade_handoff_owner_contract --offline`
@@ -855,8 +855,8 @@
   - `cargo test -p session-gateway test_realtime_websocket_negotiates_ccp_subprotocol_and_wraps_business_frames --offline`
   - `cargo fmt --package sdkwork-im-runtime-link --package session-gateway`
   - `cargo fmt --check --package sdkwork-im-runtime-link --package session-gateway`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-handoff-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-upgrade-handoff-session-full'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-handoff-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-upgrade-handoff-session-full'; cargo test -p session-gateway --offline`
 
 ### 22.4 风险与残留问题
 
@@ -900,17 +900,17 @@
 ### 23.3 fail-first fresh 验证
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-push-degrade-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_degrades_live_push_to_pull_only_when_backlog_exceeds_hard_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-push-degrade-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_degrades_live_push_to_pull_only_when_backlog_exceeds_hard_limit --offline`
     - 失败原因为缺失`plan_push_batch / LinkPushMode`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-push-degrade-red-session'; cargo test -p session-gateway test_realtime_websocket_degrades_live_push_to_pull_only_when_runtime_link_detects_overload --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-push-degrade-red-session'; cargo test -p session-gateway test_realtime_websocket_degrades_live_push_to_pull_only_when_runtime_link_detects_overload --offline`
     - 失败原因：gateway overload backlog 下仍继续自动 push
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-push-degrade-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_degrades_live_push_to_pull_only_when_backlog_exceeds_hard_limit --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-push-degrade-green-session'; cargo test -p session-gateway test_realtime_websocket_degrades_live_push_to_pull_only_when_runtime_link_detects_overload --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-push-degrade-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_degrades_live_push_to_pull_only_when_backlog_exceeds_hard_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-push-degrade-green-session'; cargo test -p session-gateway test_realtime_websocket_degrades_live_push_to_pull_only_when_runtime_link_detects_overload --offline`
   - `cargo fmt --package sdkwork-im-runtime-link --package session-gateway`
   - `cargo fmt --check --package sdkwork-im-runtime-link --package session-gateway`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-push-degrade-runtime-full-2'; cargo test -p sdkwork-im-runtime-link --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-push-degrade-session-full-2'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-push-degrade-runtime-full-2'; cargo test -p sdkwork-im-runtime-link --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-push-degrade-session-full-2'; cargo test -p session-gateway --offline`
 
 ### 23.4 风险与残留问题
 
@@ -954,18 +954,18 @@
 ### 24.3 fail-first fresh 验证
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-push-buffer-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_recovers_buffered_push_after_pull_reduces_backlog_under_hard_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-push-buffer-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_recovers_buffered_push_after_pull_reduces_backlog_under_hard_limit --offline`
     - 失败原因：`LinkSession::start_push_cursor` 尚不存在
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-push-buffer-red-session'; cargo test -p session-gateway test_realtime_websocket_recovers_buffered_push_after_pull_reduces_backlog_under_hard_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-push-buffer-red-session'; cargo test -p session-gateway test_realtime_websocket_recovers_buffered_push_after_pull_reduces_backlog_under_hard_limit --offline`
     - 失败原因：pull 降压后没有恢buffered push
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-push-buffer-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_recovers_buffered_push_after_pull_reduces_backlog_under_hard_limit --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-push-buffer-green-session-2'; cargo test -p session-gateway test_realtime_websocket_recovers_buffered_push_after_pull_reduces_backlog_under_hard_limit --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-push-buffer-green-session-2'; cargo test -p session-gateway test_realtime_websocket_degrades_live_push_to_pull_only_when_runtime_link_detects_overload --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-push-buffer-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_recovers_buffered_push_after_pull_reduces_backlog_under_hard_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-push-buffer-green-session-2'; cargo test -p session-gateway test_realtime_websocket_recovers_buffered_push_after_pull_reduces_backlog_under_hard_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-push-buffer-green-session-2'; cargo test -p session-gateway test_realtime_websocket_degrades_live_push_to_pull_only_when_runtime_link_detects_overload --offline`
   - `cargo fmt --package sdkwork-im-runtime-link --package session-gateway`
   - `cargo fmt --check --package sdkwork-im-runtime-link --package session-gateway`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-push-buffer-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-push-buffer-session-full'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-push-buffer-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-push-buffer-session-full'; cargo test -p session-gateway --offline`
 
 ### 24.4 风险与残留问题
 
@@ -1013,19 +1013,19 @@
 ### 25.3 fail-first fresh 验证
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-overload-close-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_closes_connection_when_backlog_exceeds_overload_disconnect_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-overload-close-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_closes_connection_when_backlog_exceeds_overload_disconnect_limit --offline`
     - 失败原因：缺失`Disconnect` 裁决、过载关闭常量和 `disconnect` 指令字段
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-overload-close-red-session'; cargo test -p session-gateway test_realtime_websocket_closes_when_runtime_link_detects_extreme_overload_backlog --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-overload-close-red-session'; cargo test -p session-gateway test_realtime_websocket_closes_when_runtime_link_detects_extreme_overload_backlog --offline`
     - 失败原因：缺失`REALTIME_OVERLOAD_CLOSE_CODE / REALTIME_OVERLOAD_CLOSE_REASON` 导出
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-overload-close-green-runtime-2'; cargo test -p sdkwork-im-runtime-link test_runtime_link_closes_connection_when_backlog_exceeds_overload_disconnect_limit --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-overload-close-green-session-2'; cargo test -p session-gateway test_realtime_websocket_closes_when_runtime_link_detects_extreme_overload_backlog --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-overload-close-green-runtime-recovery'; cargo test -p sdkwork-im-runtime-link test_runtime_link_recovers_buffered_push_after_pull_reduces_backlog_under_hard_limit --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-overload-close-green-session-recovery'; cargo test -p session-gateway test_realtime_websocket_recovers_buffered_push_after_pull_reduces_backlog_under_hard_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-overload-close-green-runtime-2'; cargo test -p sdkwork-im-runtime-link test_runtime_link_closes_connection_when_backlog_exceeds_overload_disconnect_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-overload-close-green-session-2'; cargo test -p session-gateway test_realtime_websocket_closes_when_runtime_link_detects_extreme_overload_backlog --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-overload-close-green-runtime-recovery'; cargo test -p sdkwork-im-runtime-link test_runtime_link_recovers_buffered_push_after_pull_reduces_backlog_under_hard_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-overload-close-green-session-recovery'; cargo test -p session-gateway test_realtime_websocket_recovers_buffered_push_after_pull_reduces_backlog_under_hard_limit --offline`
   - `cargo fmt --package sdkwork-im-runtime-link --package session-gateway`
   - `cargo fmt --check --package sdkwork-im-runtime-link --package session-gateway`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-overload-close-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-overload-close-session-full'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-overload-close-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-overload-close-session-full'; cargo test -p session-gateway --offline`
 
 ### 25.4 风险与残留问题
 
@@ -1062,13 +1062,13 @@
 ### 26.3 fresh evidence
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-queue-state-red-session'; cargo test -p session-gateway test_session_gateway_websocket_outbound_queue_state_moves_out_of_service_impl --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-queue-state-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_outbound_queue_state_owns_last_sent_seq_and_buffered_push_recovery --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-queue-state-red-session'; cargo test -p session-gateway test_session_gateway_websocket_outbound_queue_state_moves_out_of_service_impl --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-queue-state-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_outbound_queue_state_owns_last_sent_seq_and_buffered_push_recovery --offline`
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-queue-state-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_outbound_queue_state_owns_last_sent_seq_and_buffered_push_recovery --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-queue-state-green-session'; cargo test -p session-gateway test_session_gateway_websocket_outbound_queue_state_moves_out_of_service_impl --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-session-full'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-queue-state-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_outbound_queue_state_owns_last_sent_seq_and_buffered_push_recovery --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-queue-state-green-session'; cargo test -p session-gateway test_session_gateway_websocket_outbound_queue_state_moves_out_of_service_impl --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-session-full'; cargo test -p session-gateway --offline`
   - `rustfmt --edition 2024 crates/sdkwork-im-runtime-link/src/lib.rs services/session-gateway/src/websocket.rs services/session-gateway/tests/lib_structure_test.rs`
   - `rustfmt --edition 2024 --check crates/sdkwork-im-runtime-link/src/lib.rs services/session-gateway/src/websocket.rs services/session-gateway/tests/lib_structure_test.rs`
 
@@ -1108,15 +1108,15 @@
 ### 27.3 fresh evidence
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-stale-pull-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_drops_stale_pull_replay_when_backlog_is_still_over_hard_limit --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-stale-pull-red-session'; cargo test -p session-gateway test_realtime_websocket_clamps_stale_pull_replay_when_backlog_is_still_over_hard_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-stale-pull-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_drops_stale_pull_replay_when_backlog_is_still_over_hard_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-stale-pull-red-session'; cargo test -p session-gateway test_realtime_websocket_clamps_stale_pull_replay_when_backlog_is_still_over_hard_limit --offline`
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-stale-pull-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_drops_stale_pull_replay_when_backlog_is_still_over_hard_limit --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-stale-pull-green-session'; cargo test -p session-gateway test_realtime_websocket_clamps_stale_pull_replay_when_backlog_is_still_over_hard_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-stale-pull-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_drops_stale_pull_replay_when_backlog_is_still_over_hard_limit --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-stale-pull-green-session'; cargo test -p session-gateway test_realtime_websocket_clamps_stale_pull_replay_when_backlog_is_still_over_hard_limit --offline`
   - `rustfmt --edition 2024 crates/sdkwork-im-runtime-link/src/lib.rs services/session-gateway/tests/websocket_smoke_test.rs`
   - `rustfmt --edition 2024 --check crates/sdkwork-im-runtime-link/src/lib.rs services/session-gateway/tests/websocket_smoke_test.rs`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-stale-pull-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-stale-pull-session-full'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-stale-pull-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-stale-pull-session-full'; cargo test -p session-gateway --offline`
 
 ### 27.4 residual risk
 
@@ -1156,15 +1156,15 @@
 ### 28.3 fresh evidence
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-buffer-drain-red-session'; cargo test -p session-gateway test_session_gateway_websocket_buffered_push_drain_loop_moves_out_of_service_impl --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-buffer-drain-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_drains_buffered_push_windows_via_owner_async_loop --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-buffer-drain-red-session'; cargo test -p session-gateway test_session_gateway_websocket_buffered_push_drain_loop_moves_out_of_service_impl --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-buffer-drain-red-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_drains_buffered_push_windows_via_owner_async_loop --offline`
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-buffer-drain-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_drains_buffered_push_windows_via_owner_async_loop --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-buffer-drain-green-session'; cargo test -p session-gateway test_session_gateway_websocket_buffered_push_drain_loop_moves_out_of_service_impl --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-buffer-drain-green-runtime'; cargo test -p sdkwork-im-runtime-link test_runtime_link_drains_buffered_push_windows_via_owner_async_loop --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-buffer-drain-green-session'; cargo test -p session-gateway test_session_gateway_websocket_buffered_push_drain_loop_moves_out_of_service_impl --offline`
   - `rustfmt --edition 2024 crates/sdkwork-im-runtime-link/src/lib.rs services/session-gateway/src/websocket.rs services/session-gateway/tests/lib_structure_test.rs`
   - `rustfmt --edition 2024 --check crates/sdkwork-im-runtime-link/src/lib.rs services/session-gateway/src/websocket.rs services/session-gateway/tests/lib_structure_test.rs`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-buffer-drain-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-buffer-drain-session-full'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-buffer-drain-runtime-full'; cargo test -p sdkwork-im-runtime-link --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-buffer-drain-session-full'; cargo test -p session-gateway --offline`
 
 ### 28.4 residual risk
 
@@ -1209,15 +1209,15 @@
 ### 29.3 fresh evidence
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-axum-adapter-red-2'; cargo test -p session-gateway test_session_gateway_websocket_upgrade_module_stays_pure_axum_adapter --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-axum-adapter-red-2'; cargo test -p session-gateway test_session_gateway_websocket_upgrade_module_stays_pure_axum_adapter --offline`
 - Green
   - `rustfmt --edition 2024 services/session-gateway/src/websocket_route.rs services/session-gateway/src/websocket_upgrade.rs services/session-gateway/src/lib.rs services/session-gateway/tests/lib_structure_test.rs`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-axum-adapter-green-2'; cargo test -p session-gateway test_session_gateway_websocket_upgrade_module_stays_pure_axum_adapter --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-axum-adapter-green-2'; cargo test -p session-gateway test_session_gateway_websocket_upgrade_module_stays_pure_axum_adapter --offline`
   - `rustfmt --edition 2024 --check services/session-gateway/src/websocket_route.rs services/session-gateway/src/websocket_upgrade.rs services/session-gateway/src/lib.rs services/session-gateway/tests/lib_structure_test.rs`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-session-full-axum-boundary'; cargo test -p session-gateway --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-runtime-link-full-axum-boundary'; cargo test -p sdkwork-im-runtime-link --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-runtime-route-full-axum-boundary'; cargo test -p sdkwork-im-runtime-route --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step04-local-node-full-axum-boundary'; cargo test -p sdkwork-api-im-standalone-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-session-full-axum-boundary'; cargo test -p session-gateway --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-runtime-link-full-axum-boundary'; cargo test -p sdkwork-im-runtime-link --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-runtime-route-full-axum-boundary'; cargo test -p sdkwork-im-runtime-route --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step04-local-node-full-axum-boundary'; cargo test -p sdkwork-api-im-standalone-gateway --offline`
 
 ### 29.4 residual risk
 

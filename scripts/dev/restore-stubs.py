@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Restore enterprise/recruitment/report stub pages from the original zip snapshot."""
 import io, os, sys
+from pathlib import Path
+
+# `<workspace-root>/sdkwork-im/scripts/dev/` -> parents[2] is the `sdkwork-im` repo root.
+IM_ROOT = Path(__file__).resolve().parents[2]
 
 orig = sys.argv[1] + r'\packages'
-base = r'E:\sdkwork-space\sdkwork-im\apps\sdkwork-im-h5\packages'
+base = str(IM_ROOT / 'apps/sdkwork-im-h5/packages')
 RENAMES = [
     ('@sdkwork/clawchat-mobile-commons', '@sdkwork/im-h5-commons'),
     ('@sdkwork/clawchat-mobile-core', '@sdkwork/im-h5-core'),

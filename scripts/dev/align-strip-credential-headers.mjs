@@ -9,6 +9,8 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const OLD_BLOCK = `      'X-Tenant-Id',
       'X-Organization-Id',
@@ -48,16 +50,17 @@ const NEW_BLOCK = `      'X-Tenant-Id',
       'X-Sdkwork-Subject-Signature',
     ].forEach((key) => {`;
 
-const files = execSync(
-  'git -C /e/sdkwork-space ls-files --error-unmatch 2>/dev/null; true; echo skip',
-  { shell: 'bash' },
-).toString();
+// The checkout root, in the two shapes the two consumers need: a native path for
+// `node:fs`, and forward slashes for the `bash` child process (Git Bash accepts a
+// drive-rooted path with forward slashes, and grep echoes arguments back in the
+// form it was given).
+const WORKSPACE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const BASH_WORKSPACE_ROOT = WORKSPACE_ROOT.split(path.sep).join('/');
+
 const list = execSync(
-  `grep -rln "stripCredentialHeaders" /e/sdkwork-space --include=client.ts 2>/dev/null | grep -vE "node_modules|/target/|\\\\.git|dist/|manual-backups|\\\\.sdkwork/tmp|\\\\.strict-generated" | sort`,
+  `grep -rln "stripCredentialHeaders" "${BASH_WORKSPACE_ROOT}" --include=client.ts 2>/dev/null | grep -vE "node_modules|/target/|\\\\.git|dist/|manual-backups|\\\\.sdkwork/tmp|\\\\.strict-generated" | sort`,
   { shell: 'bash' },
-).toString().trim().split('\n').filter(Boolean)
-  // Convert git-bash absolute paths (/e/foo) to Windows paths (E:/foo).
-  .map((p) => (p.startsWith('/e/') ? `E:/${p.slice(3)}` : p));
+).toString().trim().split('\n').filter(Boolean);
 
 let patched = 0, already = 0, unmatched = [];
 for (const file of list) {

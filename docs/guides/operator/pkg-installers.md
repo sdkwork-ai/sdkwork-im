@@ -54,7 +54,7 @@ From Git Bash the sh entrypoint works unchanged: every repository command is
 bridged into WSL Ubuntu automatically. WSL Ubuntu must be installed.
 
 ```bash
-cd /e/sdkwork-space/sdkwork-im
+cd <workspace-root>/sdkwork-im
 bin/apps-pkg-installer.sh server linux production   # host = linux (inside WSL)
 bin/apps-pkg-installer.sh flutter android test
 ```

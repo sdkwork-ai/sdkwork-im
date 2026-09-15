@@ -132,7 +132,7 @@
 - remaining blockers:
   - four enabled direct distribution packages in `sdkwork.app.config.json` still lack SHA-256 checksum, signature, SBOM, and provenance or attestation evidence
   - three catalog media assets still have `metadata.generatedPlaceholder=true`
-  - `cargo fmt --all` is blocked by a sibling workspace reference to missing `E:\sdkwork-course\crates\sdkwork-course-gateway-assembly\Cargo.toml`; package-level fmt for touched crates passed
+  - `cargo fmt --all` is blocked by a sibling workspace reference to missing `<workspace-root>/sdkwork-course/crates/sdkwork-course-gateway-assembly/Cargo.toml`; package-level fmt for touched crates passed
   - several ad-hoc `scripts/dev/*.test.ts` service contract scripts are blocked by the current PC `tsx` runner plus React `.d.ts` path mapping; direct removal of that mapping breaks PC lint through duplicate React types and missing JSX runtime resolution in sibling packages
 - closure:
   - current app is still not commercially releasable

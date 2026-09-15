@@ -4,9 +4,13 @@ import { fileURLToPath } from 'url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../..');
+// Vite must be allowed to serve the sibling workspace packages, so the allow
+// entry is the checkout root this app is checked out under — derived, not the
+// drive it was authored on.
+const workspaceRoot = path.resolve(root, '..', '..', '..');
 const server = await createServer({
   configFile: path.join(root, 'vite.config.ts'),
-  server: { host: '127.0.0.1', port: 4180, strictPort: true, fs: { allow: ['E:/sdkwork-space'] } },
+  server: { host: '127.0.0.1', port: 4180, strictPort: true, fs: { allow: [workspaceRoot] } },
   optimizeDeps: { disabled: true },
   logLevel: 'error',
 });

@@ -11,8 +11,18 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const LIST_FILE = 'e:/sdkwork-space/agents_list.txt';
+// `<workspace-root>/sdkwork-im/scripts/dev/` -> `../../..` is the checkout root.
+// NOTE: the generated scratch input `agents_list.txt` is not present in the
+// current checkout, so this one-off migration helper is obsolete as written.
+const LIST_FILE = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+  'agents_list.txt',
+);
 const SKIP_PATTERNS = [/node_modules/i, /external\//i, /target\//i, /hosted-runtime-tests/i, /\.codex/i];
 
 const BUILD_INTEGRITY_NOTE =

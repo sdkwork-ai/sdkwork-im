@@ -81,8 +81,8 @@
 
 ### 5.1 Red
 
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-2d-red-runtime'; cargo test -p conversation-runtime --test conversation_domain_structure_test test_runtime_exposes_read_query_auth_context_entrypoints --offline`
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-2d-red-local-node'; cargo test -p sdkwork-api-im-standalone-gateway --test lib_structure_test test_local_minimal_node_read_query_paths_use_runtime_auth_context_entrypoints --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-2d-red-runtime'; cargo test -p conversation-runtime --test conversation_domain_structure_test test_runtime_exposes_read_query_auth_context_entrypoints --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-2d-red-local-node'; cargo test -p sdkwork-api-im-standalone-gateway --test lib_structure_test test_local_minimal_node_read_query_paths_use_runtime_auth_context_entrypoints --offline`
 
 Red 失败原因符合预期:
 
@@ -91,9 +91,9 @@ Red 失败原因符合预期:
 
 ### 5.2 Green
 
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-2d-green-runtime'; cargo test -p conversation-runtime --test conversation_domain_structure_test test_runtime_exposes_read_query_auth_context_entrypoints --offline`
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-2d-green-runtime-http'; cargo test -p conversation-runtime --test conversation_domain_structure_test test_http_read_query_surface_uses_runtime_auth_context_entrypoints --offline`
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-2d-green-local-node'; cargo test -p sdkwork-api-im-standalone-gateway --test lib_structure_test test_local_minimal_node_read_query_paths_use_runtime_auth_context_entrypoints --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-2d-green-runtime'; cargo test -p conversation-runtime --test conversation_domain_structure_test test_runtime_exposes_read_query_auth_context_entrypoints --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-2d-green-runtime-http'; cargo test -p conversation-runtime --test conversation_domain_structure_test test_http_read_query_surface_uses_runtime_auth_context_entrypoints --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-2d-green-local-node'; cargo test -p sdkwork-api-im-standalone-gateway --test lib_structure_test test_local_minimal_node_read_query_paths_use_runtime_auth_context_entrypoints --offline`
 
 ### 5.3 Fresh verification
 
@@ -102,8 +102,8 @@ Red 失败原因符合预期:
 - `cargo test -p conversation-runtime --test conversation_domain_structure_test --offline`
 - `cargo test -p conversation-runtime --test authority_command_test --offline`
 - `cargo test -p conversation-runtime --offline`
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-2d-local-node-structure'; cargo test -p sdkwork-api-im-standalone-gateway --test lib_structure_test --offline`
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-2d-local-node-full'; cargo test -p sdkwork-api-im-standalone-gateway --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-2d-local-node-structure'; cargo test -p sdkwork-api-im-standalone-gateway --test lib_structure_test --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-2d-local-node-full'; cargo test -p sdkwork-api-im-standalone-gateway --offline`
 - `cargo test -p projection-service --offline`
 
 说明:

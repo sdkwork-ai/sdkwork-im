@@ -18,7 +18,7 @@
     "locally and git-ignored (`**/types/siblings/`); regenerate them with",
     "the //regen command below after a sibling's public surface changes."
   ],
-  "//regen": "node scripts/dev/gen-sibling-type-decls.mjs --app apps/sdkwork-im-pc --out types/siblings --package @sdkwork/agents-pc-core --deep @sdkwork/agents-pc-core --package @sdkwork/course-pc-console --package @sdkwork/course-pc-course --package @sdkwork/order-pc-checkout --package @sdkwork/order-app-sdk --source @sdkwork/order-app-sdk=/e/sdkwork-space/sdkwork-order/sdks/sdkwork-order-app-sdk/sdkwork-order-app-sdk-typescript",
+  "//regen": "node scripts/dev/gen-sibling-type-decls.mjs --app apps/sdkwork-im-pc --out types/siblings --package @sdkwork/agents-pc-core --deep @sdkwork/agents-pc-core --package @sdkwork/course-pc-console --package @sdkwork/course-pc-course --package @sdkwork/order-pc-checkout --package @sdkwork/order-app-sdk --source @sdkwork/order-app-sdk=../sdkwork-order/sdks/sdkwork-order-app-sdk/sdkwork-order-app-sdk-typescript",
   "compilerOptions": {
     "target": "ES2022",
     "experimentalDecorators": true,

@@ -39,20 +39,20 @@
 ## 4. TDD 证据
 
 - Red
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-1f-red-domain'; cargo test -p im-domain-core --test conversation_domain_builder_test test_message_locator_index_resolves_message_to_conversation --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-1f-red-runtime'; cargo test -p conversation-runtime --test conversation_domain_structure_test test_runtime_state_uses_domain_message_locator_for_cross_conversation_lookup --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-1f-red-domain'; cargo test -p im-domain-core --test conversation_domain_builder_test test_message_locator_index_resolves_message_to_conversation --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-1f-red-runtime'; cargo test -p conversation-runtime --test conversation_domain_structure_test test_runtime_state_uses_domain_message_locator_for_cross_conversation_lookup --offline`
 - Green
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-1f-green-domain'; cargo test -p im-domain-core --test conversation_domain_builder_test test_message_locator_index_resolves_message_to_conversation --offline`
-  - `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-1f-green-runtime'; cargo test -p conversation-runtime --test conversation_domain_structure_test test_runtime_state_uses_domain_message_locator_for_cross_conversation_lookup --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-1f-green-domain'; cargo test -p im-domain-core --test conversation_domain_builder_test test_message_locator_index_resolves_message_to_conversation --offline`
+  - `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-1f-green-runtime'; cargo test -p conversation-runtime --test conversation_domain_structure_test test_runtime_state_uses_domain_message_locator_for_cross_conversation_lookup --offline`
 
 ## 5. 完整验证
 
 - `rustfmt --edition 2024 crates/im-domain-core/src/message.rs crates/im-domain-core/tests/conversation_domain_builder_test.rs services/conversation-runtime/src/runtime.rs services/conversation-runtime/src/runtime/recovery.rs services/conversation-runtime/src/runtime/support.rs services/conversation-runtime/tests/conversation_domain_structure_test.rs`
 - `rustfmt --edition 2024 --check crates/im-domain-core/src/message.rs crates/im-domain-core/tests/conversation_domain_builder_test.rs services/conversation-runtime/src/runtime.rs services/conversation-runtime/src/runtime/recovery.rs services/conversation-runtime/src/runtime/support.rs services/conversation-runtime/tests/conversation_domain_structure_test.rs`
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-1f-im-domain-core-full'; cargo test -p im-domain-core --offline`
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-1f-conversation-runtime-full'; cargo test -p conversation-runtime --offline`
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-1f-projection-service-full'; cargo test -p projection-service --offline`
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-1f-local-node-full'; cargo test -p sdkwork-api-im-standalone-gateway --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-1f-im-domain-core-full'; cargo test -p im-domain-core --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-1f-conversation-runtime-full'; cargo test -p conversation-runtime --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-1f-projection-service-full'; cargo test -p projection-service --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-1f-local-node-full'; cargo test -p sdkwork-api-im-standalone-gateway --offline`
 - 备注：`sdkwork-im-server` 的 `deployment_profile_test` 会打印预期的启动失败/健康检查超时样例日志，但 suite 退出码为 `0`。
 
 ## 6. 架构映射

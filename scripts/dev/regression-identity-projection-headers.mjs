@@ -10,8 +10,15 @@
  */
 import http from 'node:http';
 import assert from 'node:assert/strict';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const IM_SDK_URL = new URL('file:///E:/sdkwork-space/sdkwork-im/sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/dist/index.js').href;
+// `<workspace-root>/sdkwork-im/scripts/dev/` -> three levels up is the checkout
+// root that holds the sibling SDK repositories.
+const WORKSPACE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const workspaceFileUrl = (relativePath) => pathToFileURL(resolve(WORKSPACE_ROOT, relativePath)).href;
+
+const IM_SDK_URL = workspaceFileUrl('sdkwork-im/sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/dist/index.js');
 const { SdkworkImClient } = await import(IM_SDK_URL);
 
 const FORBIDDEN = [

@@ -50,12 +50,12 @@
 
 - `cargo test -p conversation-runtime --test conversation_domain_structure_test --offline`
 - `cargo test -p conversation-runtime --test authority_command_test --offline`
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-2c-local-node'; cargo test -p sdkwork-api-im-standalone-gateway --test lib_structure_test --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-2c-local-node'; cargo test -p sdkwork-api-im-standalone-gateway --test lib_structure_test --offline`
 
 ### 4.2 全量受影响服务验证
 
 - `cargo test -p conversation-runtime --offline`
-- `$env:CARGO_TARGET_DIR='C:\\Users\\admin\\.codex\\memories\\target-step05-cp05-2c-local-node-full'; cargo test -p sdkwork-api-im-standalone-gateway --offline`
+- `$env:CARGO_TARGET_DIR='<home>\\.codex\\memories\\target-step05-cp05-2c-local-node-full'; cargo test -p sdkwork-api-im-standalone-gateway --offline`
 - `cargo test -p projection-service --offline`
 
 ## 5. 审计结论

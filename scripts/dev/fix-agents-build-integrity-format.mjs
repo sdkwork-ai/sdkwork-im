@@ -7,8 +7,19 @@
  */
 
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const LIST_FILE = 'e:/sdkwork-space/agents_list.txt';
+// `<workspace-root>/sdkwork-im/scripts/dev/` -> `../../..` is the checkout root.
+// NOTE: the generated scratch input `agents_list.txt` is not present in the
+// current checkout, so this one-off migration helper is obsolete as written.
+const LIST_FILE = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+  'agents_list.txt',
+);
 const SKIP_PATTERNS = [/node_modules/i, /external\//i, /target[\\/]/i, /hosted-runtime-tests/i, /\.codex/i];
 
 const NOTE_LINE = 'Build scripts, dev runners, and `pnpm clean` must follow `CODE_STYLE_SPEC.md` §7 (Build Source Integrity And Self-Healing). Git-tracked build-critical source files must be verified before builds and self-healed from git when missing; `clean` must not delete them.';

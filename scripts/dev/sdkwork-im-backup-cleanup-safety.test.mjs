@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// WORKSPACE-PATH:allow-fixture: fixtures name a foreign checkout root, drive, or home directory to exercise path handling, so the literal is the value under assertion rather than a binding this build resolves
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

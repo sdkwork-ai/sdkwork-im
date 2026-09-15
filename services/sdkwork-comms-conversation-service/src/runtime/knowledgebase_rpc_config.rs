@@ -248,7 +248,7 @@ fn configuration_error(message: &str) -> RuntimeError {
     ))
 }
 
-#[cfg(test)]
+#[cfg(test)] // WORKSPACE-PATH:allow-fixture-block: this module is the file's #[cfg(test)] unit-test fixture data
 mod tests {
     use super::*;
 

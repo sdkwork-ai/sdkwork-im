@@ -9,36 +9,40 @@
  * Usage: node scripts/audit-class-coverage.mjs
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const IM_H5_ROOT = "E:/sdkwork-space/sdkwork-im/apps/sdkwork-im-h5";
-const AGENTS_H5_ROOT = "E:/sdkwork-space/sdkwork-agents/apps/sdkwork-agents-h5";
+// The shared checkout root: this script lives four levels below it.
+const WORKSPACE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
+
+const IM_H5_ROOT = join(WORKSPACE_ROOT, "sdkwork-im/apps/sdkwork-im-h5");
+const AGENTS_H5_ROOT = join(WORKSPACE_ROOT, "sdkwork-agents/apps/sdkwork-agents-h5");
 
 // Every root scanned by im-h5's Tailwind (auto root + explicit @source entries).
 const SCAN_ROOTS = [
   join(IM_H5_ROOT, "src"),
   join(IM_H5_ROOT, "packages"),
   join(AGENTS_H5_ROOT, "packages"),
-  "E:/sdkwork-space/sdkwork-aiot/apps/sdkwork-aiot-shared/packages/sdkwork-aiot-mobile-react-hardware/src",
-  "E:/sdkwork-space/sdkwork-iam/apps/sdkwork-iam-h5/packages/sdkwork-iam-h5-auth/src",
-  "E:/sdkwork-space/sdkwork-community/apps/sdkwork-community-common/packages/sdkwork-community-mobile-react-community/src",
-  "E:/sdkwork-space/sdkwork-course/apps/sdkwork-course-common/packages/sdkwork-course-mobile-react-courses/src",
-  "E:/sdkwork-space/sdkwork-drive/apps/sdkwork-drive-common/packages/sdkwork-drive-mobile-react-drive/src",
-  "E:/sdkwork-space/sdkwork-image/apps/sdkwork-image-common/packages/sdkwork-image-mobile-react-generation/src",
-  "E:/sdkwork-space/sdkwork-knowledgebase/apps/sdkwork-knowledgebase-common/packages/sdkwork-knowledgebase-mobile-react-knowledge/src",
-  "E:/sdkwork-space/sdkwork-membership/apps/sdkwork-membership-common/packages/sdkwork-membership-mobile-react-subscription/src",
-  "E:/sdkwork-space/sdkwork-music/apps/sdkwork-music-common/packages/sdkwork-music-mobile-react-generation/src",
-  "E:/sdkwork-space/sdkwork-music/apps/sdkwork-music-common/packages/sdkwork-music-mobile-react-playback/src",
-  "E:/sdkwork-space/sdkwork-notary/apps/sdkwork-notary-h5/packages/sdkwork-notary-h5-notary/src",
-  "E:/sdkwork-space/sdkwork-order/apps/sdkwork-order-common/packages/sdkwork-order-mobile-react-orders/src",
-  "E:/sdkwork-space/sdkwork-order/apps/sdkwork-order-h5/packages/sdkwork-order-h5-subscription/src",
-  "E:/sdkwork-space/sdkwork-order/apps/sdkwork-order-h5/packages/sdkwork-order-h5-withdraw/src",
-  "E:/sdkwork-space/sdkwork-rtc/apps/sdkwork-rtc-h5/packages/sdkwork-rtc-mobile-react-meeting/src",
-  "E:/sdkwork-space/sdkwork-shop/apps/sdkwork-shop-common/packages/sdkwork-shop-mobile-react-shopping/src",
-  "E:/sdkwork-space/sdkwork-video/apps/sdkwork-video-common/packages/sdkwork-video-mobile-react-generation/src",
-  "E:/sdkwork-space/sdkwork-voice/apps/sdkwork-voice-common/packages/sdkwork-voice-mobile-react-generation/src",
-  "E:/sdkwork-space/sdkwork-voice/apps/sdkwork-voice-common/packages/sdkwork-voice-mobile-my-voices/src",
-  "E:/sdkwork-space/sdkwork-ui/sdkwork-ui-mobile-react/src",
+  join(WORKSPACE_ROOT, "sdkwork-aiot/apps/sdkwork-aiot-shared/packages/sdkwork-aiot-mobile-react-hardware/src"),
+  join(WORKSPACE_ROOT, "sdkwork-iam/apps/sdkwork-iam-h5/packages/sdkwork-iam-h5-auth/src"),
+  join(WORKSPACE_ROOT, "sdkwork-community/apps/sdkwork-community-common/packages/sdkwork-community-mobile-react-community/src"),
+  join(WORKSPACE_ROOT, "sdkwork-course/apps/sdkwork-course-common/packages/sdkwork-course-mobile-react-courses/src"),
+  join(WORKSPACE_ROOT, "sdkwork-drive/apps/sdkwork-drive-common/packages/sdkwork-drive-mobile-react-drive/src"),
+  join(WORKSPACE_ROOT, "sdkwork-image/apps/sdkwork-image-common/packages/sdkwork-image-mobile-react-generation/src"),
+  join(WORKSPACE_ROOT, "sdkwork-knowledgebase/apps/sdkwork-knowledgebase-common/packages/sdkwork-knowledgebase-mobile-react-knowledge/src"),
+  join(WORKSPACE_ROOT, "sdkwork-membership/apps/sdkwork-membership-common/packages/sdkwork-membership-mobile-react-subscription/src"),
+  join(WORKSPACE_ROOT, "sdkwork-music/apps/sdkwork-music-common/packages/sdkwork-music-mobile-react-generation/src"),
+  join(WORKSPACE_ROOT, "sdkwork-music/apps/sdkwork-music-common/packages/sdkwork-music-mobile-react-playback/src"),
+  join(WORKSPACE_ROOT, "sdkwork-notary/apps/sdkwork-notary-h5/packages/sdkwork-notary-h5-notary/src"),
+  join(WORKSPACE_ROOT, "sdkwork-order/apps/sdkwork-order-common/packages/sdkwork-order-mobile-react-orders/src"),
+  join(WORKSPACE_ROOT, "sdkwork-order/apps/sdkwork-order-h5/packages/sdkwork-order-h5-subscription/src"),
+  join(WORKSPACE_ROOT, "sdkwork-order/apps/sdkwork-order-h5/packages/sdkwork-order-h5-withdraw/src"),
+  join(WORKSPACE_ROOT, "sdkwork-rtc/apps/sdkwork-rtc-h5/packages/sdkwork-rtc-mobile-react-meeting/src"),
+  join(WORKSPACE_ROOT, "sdkwork-shop/apps/sdkwork-shop-common/packages/sdkwork-shop-mobile-react-shopping/src"),
+  join(WORKSPACE_ROOT, "sdkwork-video/apps/sdkwork-video-common/packages/sdkwork-video-mobile-react-generation/src"),
+  join(WORKSPACE_ROOT, "sdkwork-voice/apps/sdkwork-voice-common/packages/sdkwork-voice-mobile-react-generation/src"),
+  join(WORKSPACE_ROOT, "sdkwork-voice/apps/sdkwork-voice-common/packages/sdkwork-voice-mobile-my-voices/src"),
+  join(WORKSPACE_ROOT, "sdkwork-ui/sdkwork-ui-mobile-react/src"),
 ];
 
 function collectFiles(root, out = []) {
@@ -143,7 +147,7 @@ function main() {
           present += 1;
         } else {
           if (!missing.has(token)) missing.set(token, new Set());
-          missing.get(token).add(relative("E:/sdkwork-space", file));
+          missing.get(token).add(relative(WORKSPACE_ROOT, file));
         }
       }
     }
