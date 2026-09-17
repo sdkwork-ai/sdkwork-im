@@ -1,0 +1,21 @@
+{
+  "environment": "test",
+  "deploymentProfile": "cloud",
+  "profileId": "cloud.test",
+  "runtimeTarget": "harmony-native",
+  "im": {
+    "apiBaseUrl": "https://api-test.sdkwork.com;https://api-test.birdcoder.com;https://api-test.dtupay.com;https://api-test.noaper.com;https://api-test.sdkwork.cn;https://api-test.birdcoder.cn;https://api-test.dtupay.cn;https://api-test.noaper.cn;https://api-test.skubc.com;https://api-test.skubc.cn;https://api-test.zowalk.com;https://api-test.zowalk.cn;https://api-test.offer86.com;https://api-test.offer86.cn;https://api-test.86offer.com;https://api-test.86offer.cn",
+    "platformApiGatewayHttpUrl": "https://api-test.sdkwork.com;https://api-test.birdcoder.com;https://api-test.dtupay.com;https://api-test.noaper.com;https://api-test.sdkwork.cn;https://api-test.birdcoder.cn;https://api-test.dtupay.cn;https://api-test.noaper.cn;https://api-test.skubc.com;https://api-test.skubc.cn;https://api-test.zowalk.com;https://api-test.zowalk.cn;https://api-test.offer86.com;https://api-test.offer86.cn;https://api-test.86offer.com;https://api-test.86offer.cn",
+    "applicationPublicHttpUrl": "https://im-test.sdkwork.com",
+    "applicationPublicWebsocketUrl": "wss://api-test.sdkwork.com"
+  },
+  "appbase": {
+    "appApiBaseUrl": "https://api-test.sdkwork.com;https://api-test.birdcoder.com;https://api-test.dtupay.com;https://api-test.noaper.com;https://api-test.sdkwork.cn;https://api-test.birdcoder.cn;https://api-test.dtupay.cn;https://api-test.noaper.cn;https://api-test.skubc.com;https://api-test.skubc.cn;https://api-test.zowalk.com;https://api-test.zowalk.cn;https://api-test.offer86.com;https://api-test.offer86.cn;https://api-test.86offer.com;https://api-test.86offer.cn",
+    "loginUrl": "https://im-test.sdkwork.com"
+  },
+  "metadata": {
+    "profileBinding": "runtime-configurable",
+    "applicationCode": "im",
+    "namespace": "sdkwork-im-harmony-mobile"
+  }
+}

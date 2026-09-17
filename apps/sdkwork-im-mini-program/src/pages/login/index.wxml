@@ -1,0 +1,19 @@
+<view class="im-mp-page login-page">
+  <view class="login-page__header">
+    <text class="login-page__title">{{title}}</text>
+    <text class="login-page__description">{{description}}</text>
+  </view>
+
+  <view class="login-page__body">
+    <button
+      class="login-page__action"
+      type="primary"
+      disabled="{{pending}}"
+      bindtap="onLogin"
+    >
+      {{pending ? pendingText : actionText}}
+    </button>
+
+    <text wx:if="{{errorText}}" class="login-page__error">{{errorText}}</text>
+  </view>
+</view>

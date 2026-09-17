@@ -1,0 +1,14 @@
+{
+  "appKey": "sdkwork-im-mini-program",
+  "deploymentProfile": "standalone",
+  "environment": "development",
+  "profileId": "standalone.development",
+  "runtimeTarget": "mini-program",
+  "platform": "MP_WEIXIN",
+  "bundle": "src/runtime/im-app.js",
+  "appJson": {
+    "pages": 2,
+    "subPackages": 1,
+    "tabBar": false
+  }
+}

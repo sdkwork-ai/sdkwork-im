@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 3,
+  "kind": "sdkwork.app",
+  "app": {
+    "key": "sdkwork-im-harmony-mobile",
+    "name": "SDKWork IM HarmonyOS Mobile",
+    "displayName": "SDKWork IM HarmonyOS Mobile",
+    "description": "SDKWork IM native HarmonyOS (ArkTS/ArkUI) mobile client application for inbox and conversations.",
+    "vendor": "SDKWork",
+    "officialWebsiteUrl": "https://sdkwork.com/apps/sdkwork-im-harmony-mobile",
+    "supportUrl": "https://sdkwork.com/support",
+    "privacyPolicyUrl": "https://sdkwork.com/privacy",
+    "termsOfServiceUrl": "https://sdkwork.com/terms",
+    "iconUrl": "https://cdn.sdkwork.com/apps/sdkwork-im-harmony-mobile/assets/icon-1024.png",
+    "appType": "APP_HARMONY",
+    "versionSource": "oh-package.json5",
+    "identifiers": {
+      "packageName": "com.sdkwork.im.mobile",
+      "bundleId": "com.sdkwork.im.mobile",
+      "desktopAppId": null,
+      "containerImage": "registry.sdkwork.com/apps/sdkwork-im-harmony-mobile"
+    }
+  },
+  "backend": {
+    "profileKey": "backend-root-admin",
+    "ownerMode": "tenant",
+    "grantMode": "current",
+    "platform": "APP_HARMONY",
+    "appId": "sdkwork-im-harmony-mobile",
+    "organizationId": "0",
+    "tenantId": "100001",
+    "accessTokenPermissionScope": [
+      "iam:self"
+    ]
+  },
+  "runtime": {
+    "family": "mobile",
+    "framework": "harmony-native",
+    "runtimes": [
+      "APP_HARMONY"
+    ],
+    "deliveryModes": [
+      "APP_GALLERY",
+      "DIRECT_DOWNLOAD"
+    ],
+    "defaultPlatform": "APP_HARMONY",
+    "defaultArchitecture": "harmony-native",
+    "targetPlatforms": [
+      "harmony-native"
+    ],
+    "clientArchitectures": [
+      "harmony-native"
+    ],
+    "supportedDeploymentProfiles": [
+      "standalone",
+      "cloud"
+    ],
+    "defaultDeploymentProfile": "standalone"
+  },
+  "media": {
+    "icons": {
+      "primary": {
+        "id": "sdkwork-im-harmony-mobile-primary-icon",
+        "type": "ICON",
+        "purpose": "PRIMARY",
+        "url": "https://cdn.sdkwork.com/apps/sdkwork-im-harmony-mobile/assets/icon-1024.png",
+        "platform": "APP_HARMONY",
+        "locale": "en-US",
+        "width": 1024,
+        "height": 1024,
+        "format": "PNG",
+        "fileSizeBytes": 524288,
+        "alphaChannel": false,
+        "enabled": true,
+        "metadata": {
+          "generatedBy": "sdkwork-im-client-scaffold"
+        }
+      },
+      "platform": [],
+      "metadata": {
+        "generatedBy": "sdkwork-im-client-scaffold"
+      }
+    },
+    "screenshots": [],
+    "previews": [],
+    "metadata": {
+      "assetVersion": "0.1.0",
+      "defaultLocale": "en-US"
+    }
+  },
+  "publish": {
+    "status": "DRAFT",
+    "installSkill": false,
+    "platforms": [
+      "APP_HARMONY"
+    ],
+    "installPlatforms": [
+      "APP_HARMONY"
+    ],
+    "config": {
+      "workspaceRoot": "apps/sdkwork-im-harmony-mobile",
+      "framework": "harmony-native",
+      "managedBy": "sdkwork-im-client-scaffold",
+      "distribution": {
+        "appGallery": {
+          "appIdPlaceholder": "<appgallery-app-id>",
+          "signingReference": "<deveco-signing-profile-name>"
+        },
+        "privateDistribution": {
+          "channelPlaceholder": "<private-distribution-channel>"
+        }
+      }
+    }
+  },
+  "artifacts": {
+    "installConfig": {
+      "packages": [],
+      "metadata": {
+        "workspaceRoot": "apps/sdkwork-im-harmony-mobile",
+        "framework": "harmony-native",
+        "packageManager": "ohpm",
+        "releaseBuildDeferred": true,
+        "releaseBuildDeferredReason": "DevEco Studio or a compatible HarmonyOS SDK with hvigor/ohpm is not installed in the repository workspace, and no signing profile is available; hvigor assembleHap cannot run yet."
+      }
+    }
+  },
+  "release": {
+    "currentVersion": "0.1.0",
+    "defaultChannel": "BETA",
+    "latest": {
+      "BETA": "0.1.0"
+    },
+    "notes": [
+      {
+        "version": "0.1.0",
+        "channel": "BETA",
+        "current": true,
+        "packageIds": []
+      }
+    ]
+  },
+  "security": {
+    "checksumRequired": true,
+    "signatureRequired": true,
+    "sbomRequired": true
+  },
+  "devApp": {
+    "build": {
+      "targets": []
+    },
+    "sourceRoot": "apps/sdkwork-im-harmony-mobile"
+  },
+  "metadata": {
+    "standardOwner": "sdkwork-im",
+    "initializedAt": "2026-09-17T00:00:00Z",
+    "deploymentConfig": "etc/sdkwork.deployment.config.json",
+    "releaseAuthority": "../../sdkwork.workflow.json",
+    "architectureSpec": "HARMONY_APP_MOBILE_ARCHITECTURE_SPEC.md",
+    "runtimeTarget": "harmony-native"
+  }
+}

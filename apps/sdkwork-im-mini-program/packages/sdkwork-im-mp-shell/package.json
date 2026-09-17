@@ -1,0 +1,43 @@
+{
+  "name": "@sdkwork/im-mp-shell",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./routes": {
+      "types": "./src/navigation/routeContribution.ts",
+      "import": "./src/navigation/routeContribution.ts",
+      "default": "./src/navigation/routeContribution.ts"
+    },
+    "./placement": {
+      "types": "./src/navigation/routePlacement.ts",
+      "import": "./src/navigation/routePlacement.ts",
+      "default": "./src/navigation/routePlacement.ts"
+    },
+    "./auth": {
+      "types": "./src/auth/authGate.ts",
+      "import": "./src/auth/authGate.ts",
+      "default": "./src/auth/authGate.ts"
+    },
+    "./tabBar": {
+      "types": "./src/navigation/tabBarProjection.ts",
+      "import": "./src/navigation/tabBarProjection.ts",
+      "default": "./src/navigation/tabBarProjection.ts"
+    },
+    "./i18n": {
+      "types": "./src/i18n/index.ts",
+      "import": "./src/i18n/index.ts",
+      "default": "./src/i18n/index.ts"
+    }
+  },
+  "dependencies": {
+    "@sdkwork/im-mp-commons": "workspace:*"
+  }
+}

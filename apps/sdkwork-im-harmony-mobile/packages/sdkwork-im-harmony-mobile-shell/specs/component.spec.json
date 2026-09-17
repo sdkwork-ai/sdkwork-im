@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-im-harmony-mobile-shell",
+    "displayName": "SDKWork IM HarmonyOS Mobile Shell",
+    "version": "0.1.0",
+    "type": "arkts-package",
+    "root": "apps/sdkwork-im-harmony-mobile/packages/sdkwork-im-harmony-mobile-shell",
+    "domain": "communication",
+    "capability": "shell",
+    "surface": "app",
+    "languages": [
+      "arkts"
+    ],
+    "generated": false,
+    "manifests": [
+      "oh-package.json5",
+      "package.json",
+      "specs/component.spec.json"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "HARMONY_APP_MOBILE_ARCHITECTURE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/HARMONY_APP_MOBILE_ARCHITECTURE_SPEC.md",
+      "purpose": "HarmonyOS mobile application root architecture."
+    },
+    {
+      "file": "APP_HARMONY_NATIVE_UI_SPEC.md",
+      "path": "../../../../../sdkwork-specs/APP_HARMONY_NATIVE_UI_SPEC.md",
+      "purpose": "Harmony native ArkUI package rules."
+    },
+    {
+      "file": "APP_CLIENT_ARCHITECTURE_ALIGNMENT_SPEC.md",
+      "path": "../../../../../sdkwork-specs/APP_CLIENT_ARCHITECTURE_ALIGNMENT_SPEC.md",
+      "purpose": "Cross-client package taxonomy, route identity, and dependency direction."
+    },
+    {
+      "file": "FRONTEND_SPEC.md",
+      "path": "../../../../../sdkwork-specs/FRONTEND_SPEC.md",
+      "purpose": "Frontend package layering and SDK injection boundaries."
+    },
+    {
+      "file": "I18N_SPEC.md",
+      "path": "../../../../../sdkwork-specs/I18N_SPEC.md",
+      "purpose": "Runtime locale and message catalog rules."
+    }
+  ],
+  "contracts": {
+    "layerRole": "frontend-shell",
+    "publicExports": [
+      "."
+    ],
+    "providedPorts": [
+      {
+        "name": "imHarmonyShellRouteStack",
+        "export": "."
+      },
+      {
+        "name": "imHarmonyShellAuthGate",
+        "export": "."
+      },
+      {
+        "name": "imHarmonyShellMessageCatalog",
+        "export": "."
+      }
+    ],
+    "requiredPorts": [
+      {
+        "name": "imHarmonyCommonsScreenState",
+        "package": "@sdkwork/sdkwork-im-harmony-mobile-commons",
+        "export": "Index.ets"
+      },
+      {
+        "name": "imHarmonyCommonsDesignTokens",
+        "package": "@sdkwork/sdkwork-im-harmony-mobile-commons",
+        "export": "Index.ets"
+      }
+    ],
+    "sdkClients": [],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": []
+  },
+  "verification": {
+    "commands": [
+      "node ../sdkwork-specs/tools/check-frontend-composition.mjs --root .."
+    ]
+  }
+}

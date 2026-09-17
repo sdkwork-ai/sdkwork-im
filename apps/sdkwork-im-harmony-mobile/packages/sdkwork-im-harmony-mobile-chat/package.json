@@ -1,0 +1,16 @@
+{
+  "name": "@sdkwork/sdkwork-im-harmony-mobile-chat",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "sdkwork": {
+    "role": "harmony-arkts-chat-contract",
+    "toolchain": "ohpm",
+    "note": "Composition contract entry for check-frontend-composition. Not a pnpm workspace member."
+  },
+  "dependencies": {
+    "@sdkwork/sdkwork-im-harmony-mobile-core": "file:../sdkwork-im-harmony-mobile-core",
+    "@sdkwork/sdkwork-im-harmony-mobile-commons": "file:../sdkwork-im-harmony-mobile-commons",
+    "@sdkwork/sdkwork-im-harmony-mobile-shell": "file:../sdkwork-im-harmony-mobile-shell"
+  }
+}

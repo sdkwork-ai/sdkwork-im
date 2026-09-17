@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Host SDKWork IM client application roots (`pc`, `h5`, `flutter-mobile`) and their architecture-local packages.
+Host SDKWork IM client application roots (`pc`, `h5`, `flutter-mobile`, `mini-program`, `harmony-mobile`) and their architecture-local packages.
 
 ## Owner
 
@@ -23,6 +23,8 @@ The repository root `sdkwork.app.config.json` governs the primary application ma
 | --- | --- | --- | --- | --- |
 | sdkwork-im-flutter-mobile | flutter-mobile | yes | SDKWork IM Mobile flutter-mobile application root. | [README](sdkwork-im-flutter-mobile/README.md) |
 | sdkwork-im-h5 | h5 | yes | SDKWork IM H5 h5 application root. | [README](sdkwork-im-h5/README.md) |
+| sdkwork-im-harmony-mobile | harmony-mobile | yes | SDKWork IM HarmonyOS Mobile harmony-mobile application root. | [README](sdkwork-im-harmony-mobile/README.md) |
+| sdkwork-im-mini-program | mini-program | yes | SDKWork IM Mini Program mini-program application root. | [README](sdkwork-im-mini-program/README.md) |
 | sdkwork-im-pc | pc | yes | Sdkwork IM PC pc application root. | [README](sdkwork-im-pc/README.md) |
 
 ## Allowed Content

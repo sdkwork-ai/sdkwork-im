@@ -1,0 +1,9 @@
+{
+  "name": "@sdkwork/sdkwork-im-harmony-mobile-core",
+  "version": "0.1.0",
+  "description": "SDKWork IM HarmonyOS Mobile Core package.",
+  "main": "src/main/ets/Index.ets",
+  "author": "SDKWork",
+  "license": "Apache-2.0",
+  "dependencies": {}
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@sdkwork/sdkwork-im-harmony-mobile-commons",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "sdkwork": {
+    "role": "harmony-arkts-commons-contract",
+    "toolchain": "ohpm",
+    "note": "Composition contract entry for check-frontend-composition. Not a pnpm workspace member."
+  }
+}

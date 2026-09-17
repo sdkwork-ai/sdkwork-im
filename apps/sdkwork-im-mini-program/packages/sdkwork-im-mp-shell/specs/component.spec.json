@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-im-mp-shell",
+    "displayName": "Sdkwork IM Mini Program Shell",
+    "version": "0.1.0",
+    "type": "typescript-package",
+    "root": "apps/sdkwork-im-mini-program/packages/sdkwork-im-mp-shell",
+    "domain": "communication",
+    "capability": "shell",
+    "surface": "app",
+    "languages": [
+      "typescript"
+    ],
+    "generated": false,
+    "manifests": [
+      "package.json"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "MINI_PROGRAM_APP_ARCHITECTURE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/MINI_PROGRAM_APP_ARCHITECTURE_SPEC.md",
+      "purpose": "Mini program application root architecture."
+    },
+    {
+      "file": "APP_CLIENT_ARCHITECTURE_ALIGNMENT_SPEC.md",
+      "path": "../../../../../sdkwork-specs/APP_CLIENT_ARCHITECTURE_ALIGNMENT_SPEC.md",
+      "purpose": "Cross-client package taxonomy and dependency direction."
+    },
+    {
+      "file": "APP_MINI_PROGRAM_UI_SPEC.md",
+      "path": "../../../../../sdkwork-specs/APP_MINI_PROGRAM_UI_SPEC.md",
+      "purpose": "Mini program UI package rules."
+    },
+    {
+      "file": "FRONTEND_SPEC.md",
+      "path": "../../../../../sdkwork-specs/FRONTEND_SPEC.md",
+      "purpose": "Frontend package layering and SDK injection boundaries."
+    },
+    {
+      "file": "I18N_SPEC.md",
+      "path": "../../../../../sdkwork-specs/I18N_SPEC.md",
+      "purpose": "Authored locale fragment layout and thin boundary rules."
+    }
+  ],
+  "contracts": {
+    "layerRole": "frontend-shell",
+    "publicExports": [
+      ".",
+      "./routes",
+      "./placement",
+      "./auth",
+      "./tabBar",
+      "./i18n"
+    ],
+    "providedPorts": [
+      {
+        "name": "imMpRoutePlacement",
+        "export": "./placement"
+      },
+      {
+        "name": "imMpAuthGate",
+        "export": "./auth"
+      }
+    ],
+    "requiredPorts": [
+      {
+        "name": "imMpCommonsUi",
+        "export": ".",
+        "provider": "sdkwork-im-mp-commons"
+      }
+    ],
+    "sdkClients": [],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": []
+  },
+  "verification": {
+    "commands": [
+      "pnpm --filter @sdkwork/im-mini-program typecheck"
+    ]
+  }
+}

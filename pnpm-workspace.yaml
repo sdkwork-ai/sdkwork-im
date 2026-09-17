@@ -3,6 +3,8 @@ packages:
   - "apps/sdkwork-im-flutter-mobile/packages/*"
   - "apps/sdkwork-im-h5"
   - "apps/sdkwork-im-h5/packages/*"
+  - "apps/sdkwork-im-mini-program"
+  - "apps/sdkwork-im-mini-program/packages/*"
   - "apps/sdkwork-im-pc"
   - "apps/sdkwork-im-pc/packages/*"
   - "sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript"
@@ -139,6 +141,25 @@ packages:
   - "../sdkwork-memory/sdks/sdkwork-memory-app-sdk/sdkwork-memory-app-sdk-typescript"
   - "../sdkwork-prompts/sdks/sdkwork-prompts-app-sdk/sdkwork-prompts-app-sdk-typescript"
   - "../sdkwork-prompts/sdks/sdkwork-prompts-app-sdk/sdkwork-prompts-app-sdk-typescript/src/index.ts"
+  # Cross-repo workspace members consumed by apps/sdkwork-im-h5 and apps/sdkwork-im-pc but
+  # never registered here, which made `pnpm install` fail in this repository before it could
+  # resolve anything. `@sdkwork/voice-mobile-my-voices` was registered until commit 8b05c467
+  # removed its line; the rest were never added. Every path below was verified to resolve to
+  # exactly one package.json whose `name` equals the dependency being declared.
+  - "../sdkwork-agents/apps/sdkwork-agents-h5/packages/sdkwork-agents-h5-agents"
+  - "../sdkwork-company/apps/sdkwork-company-common/packages/sdkwork-company-mobile-react-enterprise"
+  - "../sdkwork-company/apps/sdkwork-company-common/packages/sdkwork-company-runtime"
+  - "../sdkwork-company/apps/sdkwork-company-common/packages/sdkwork-company-sdk-ports"
+  - "../sdkwork-company/apps/sdkwork-company-pc/packages/sdkwork-company-pc-company"
+  - "../sdkwork-company/sdks/sdkwork-company-app-sdk/sdkwork-company-app-sdk-typescript"
+  - "../sdkwork-course/apps/sdkwork-course-common/packages/sdkwork-course-runtime"
+  - "../sdkwork-course/apps/sdkwork-course-common/packages/sdkwork-course-sdk-ports"
+  - "../sdkwork-feeds/sdks/sdkwork-feeds-sdk/sdkwork-feeds-sdk-typescript"
+  - "../sdkwork-iam/apps/sdkwork-iam-h5/packages/sdkwork-iam-h5-auth"
+  - "../sdkwork-order/apps/sdkwork-order-h5/packages/sdkwork-order-h5-subscription"
+  - "../sdkwork-order/apps/sdkwork-order-h5/packages/sdkwork-order-h5-withdraw"
+  - "../sdkwork-rtc/apps/sdkwork-rtc-h5/packages/sdkwork-rtc-h5-call"
+  - "../sdkwork-voice/apps/sdkwork-voice-common/packages/sdkwork-voice-mobile-my-voices"
 
 catalog:
   react: ^19.2.8

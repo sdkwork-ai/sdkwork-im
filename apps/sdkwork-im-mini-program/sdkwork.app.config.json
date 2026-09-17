@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 3,
+  "kind": "sdkwork.app",
+  "app": {
+    "key": "sdkwork-im-mini-program",
+    "name": "Sdkwork IM Mini Program",
+    "displayName": "Sdkwork IM Mini Program",
+    "description": "Sdkwork IM native WeChat mini program client application for mobile inbox and conversations.",
+    "vendor": "SDKWork",
+    "officialWebsiteUrl": "https://sdkwork.com/apps/sdkwork-im-mini-program",
+    "supportUrl": "https://sdkwork.com/support",
+    "privacyPolicyUrl": "https://sdkwork.com/privacy",
+    "termsOfServiceUrl": "https://sdkwork.com/terms",
+    "iconUrl": "https://cdn.sdkwork.com/apps/sdkwork-im-mini-program/assets/icon-1024.png",
+    "appType": "APP_UNIAPP",
+    "versionSource": "package.json",
+    "identifiers": {
+      "packageName": null,
+      "bundleId": null,
+      "desktopAppId": null,
+      "containerImage": "registry.sdkwork.com/apps/sdkwork-im-mini-program"
+    }
+  },
+  "backend": {
+    "profileKey": "backend-root-admin",
+    "ownerMode": "tenant",
+    "grantMode": "current",
+    "platform": "MP_WEIXIN",
+    "appId": "sdkwork-im-mini-program",
+    "organizationId": "0",
+    "tenantId": "100001",
+    "accessTokenPermissionScope": [
+      "iam:self"
+    ]
+  },
+  "runtime": {
+    "family": "mini-program",
+    "framework": "weixin-mini-program",
+    "runtimes": [
+      "MP_WEIXIN"
+    ],
+    "deliveryModes": [
+      "WEB_URL"
+    ],
+    "defaultPlatform": "MP_WEIXIN",
+    "defaultArchitecture": "universal",
+    "targetPlatforms": [
+      "mini-program"
+    ],
+    "clientArchitectures": [
+      "mini-program"
+    ],
+    "supportedDeploymentProfiles": [
+      "cloud",
+      "standalone"
+    ],
+    "defaultDeploymentProfile": "cloud"
+  },
+  "media": {
+    "icons": {
+      "primary": {
+        "id": "sdkwork-im-mini-program-primary-icon",
+        "type": "ICON",
+        "purpose": "PRIMARY",
+        "url": "https://cdn.sdkwork.com/apps/sdkwork-im-mini-program/assets/icon-1024.png",
+        "platform": "MP_WEIXIN",
+        "locale": "en-US",
+        "width": 1024,
+        "height": 1024,
+        "format": "PNG",
+        "fileSizeBytes": 524288,
+        "alphaChannel": false,
+        "enabled": true,
+        "metadata": {
+          "generatedBy": "sdkwork-im-client-scaffold"
+        }
+      },
+      "platform": [],
+      "metadata": {
+        "generatedBy": "sdkwork-im-client-scaffold"
+      }
+    },
+    "screenshots": [],
+    "previews": [],
+    "metadata": {
+      "assetVersion": "0.1.0",
+      "defaultLocale": "en-US"
+    }
+  },
+  "publish": {
+    "status": "DRAFT",
+    "installSkill": false,
+    "platforms": [
+      "MP_WEIXIN"
+    ],
+    "installPlatforms": [
+      "MP_WEIXIN"
+    ],
+    "config": {
+      "workspaceRoot": "apps/sdkwork-im-mini-program",
+      "framework": "weixin-mini-program",
+      "managedBy": "sdkwork-im-client-scaffold"
+    }
+  },
+  "artifacts": {
+    "installConfig": {
+      "packages": [],
+      "metadata": {
+        "workspaceRoot": "apps/sdkwork-im-mini-program",
+        "framework": "weixin-mini-program",
+        "packageManager": "pnpm",
+        "releaseBuildDeferred": true,
+        "releaseBuildDeferredReason": "WeChat mini program upload requires the WeChat DevTools CLI and a bound mini program appid; both are operator-held and absent from the repository workspace."
+      }
+    }
+  },
+  "release": {
+    "currentVersion": "0.1.0",
+    "defaultChannel": "BETA",
+    "latest": {
+      "BETA": "0.1.0"
+    },
+    "notes": [
+      {
+        "version": "0.1.0",
+        "channel": "BETA",
+        "current": true,
+        "packageIds": []
+      }
+    ]
+  },
+  "security": {
+    "checksumRequired": true,
+    "signatureRequired": false,
+    "sbomRequired": true
+  },
+  "devApp": {
+    "build": {
+      "targets": []
+    },
+    "sourceRoot": "apps/sdkwork-im-mini-program"
+  },
+  "metadata": {
+    "standardOwner": "sdkwork-im",
+    "initializedAt": "2026-09-17T00:00:00Z",
+    "deploymentConfig": "etc/sdkwork.deployment.config.json",
+    "releaseAuthority": "../../sdkwork.workflow.json",
+    "architectureSpec": "MINI_PROGRAM_APP_ARCHITECTURE_SPEC.md",
+    "runtimeTarget": "mini-program"
+  }
+}

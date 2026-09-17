@@ -1,0 +1,58 @@
+<view class="im-mp-page conversation-page">
+  <scroll-view
+    class="conversation-page__history"
+    scroll-y
+    scroll-into-view="{{scrollToId}}"
+    bindscrolltoupper="onReachTop"
+    upper-threshold="80"
+  >
+    <view wx:if="{{hasMore}}" class="conversation-page__earlier">
+      <text wx:if="{{loadingEarlier}}">…</text>
+      <text wx:else>{{texts.loadEarlier}}</text>
+    </view>
+    <view wx:else class="conversation-page__earlier">{{texts.noMore}}</view>
+
+    <view wx:if="{{status === 'loading'}}" class="im-mp-state">{{texts.loading}}</view>
+
+    <view wx:elif="{{status === 'error'}}" class="im-mp-state">
+      <text>{{texts.loadFailed}}</text>
+      <text class="im-mp-state__action" bindtap="onRetry">{{texts.retry}}</text>
+      <text wx:if="{{errorText}}" class="conversation-page__error">{{errorText}}</text>
+    </view>
+
+    <view wx:elif="{{status === 'empty'}}" class="im-mp-state">{{texts.empty}}</view>
+
+    <view wx:else class="conversation-page__messages">
+      <view
+        wx:for="{{messages}}"
+        wx:key="messageId"
+        id="{{item.anchorId}}"
+        class="message-bubble"
+      >
+        <text wx:if="{{item.senderDisplayName}}" class="message-bubble__sender">{{item.senderDisplayName}}</text>
+        <text class="message-bubble__text">{{item.text}}</text>
+        <text class="message-bubble__time">{{item.timeText}}</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="conversation-page__composer">
+    <input
+      class="conversation-page__input"
+      value="{{inputValue}}"
+      placeholder="{{texts.inputPlaceholder}}"
+      confirm-type="send"
+      bindinput="onInput"
+      bindconfirm="onSend"
+    />
+    <button
+      class="conversation-page__send"
+      size="mini"
+      type="primary"
+      disabled="{{sending}}"
+      bindtap="onSend"
+    >
+      {{sending ? texts.sending : texts.send}}
+    </button>
+  </view>
+</view>

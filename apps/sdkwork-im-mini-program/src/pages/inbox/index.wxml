@@ -1,0 +1,45 @@
+<view class="im-mp-page inbox-page">
+  <view class="inbox-page__toolbar">
+    <text class="inbox-page__toolbar-title">{{texts.createGroup}}</text>
+    <text class="inbox-page__toolbar-action" bindtap="onOpenCreateGroup">+</text>
+  </view>
+
+  <view wx:if="{{status === 'loading'}}" class="im-mp-state">{{texts.loading}}</view>
+
+  <view wx:elif="{{status === 'error'}}" class="im-mp-state">
+    <text>{{texts.loadFailed}}</text>
+    <text class="im-mp-state__action" bindtap="onRetry">{{texts.retry}}</text>
+    <text wx:if="{{errorText}}" class="inbox-page__error">{{errorText}}</text>
+  </view>
+
+  <view wx:elif="{{status === 'empty'}}" class="im-mp-state">{{texts.empty}}</view>
+
+  <view wx:else class="im-mp-list">
+    <view
+      wx:for="{{items}}"
+      wx:key="conversationId"
+      class="inbox-row"
+      data-conversation-id="{{item.conversationId}}"
+      bindtap="onOpenConversation"
+    >
+      <image wx:if="{{item.avatarUrl}}" class="inbox-row__avatar" src="{{item.avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="inbox-row__avatar inbox-row__avatar--placeholder" />
+
+      <view class="inbox-row__body">
+        <view class="inbox-row__line">
+          <text class="inbox-row__name">{{item.displayName}}</text>
+          <text class="inbox-row__time">{{item.timeText}}</text>
+        </view>
+        <text class="inbox-row__summary">{{item.summary}}</text>
+      </view>
+
+      <text wx:if="{{item.unreadBadge}}" class="inbox-row__badge">{{item.unreadBadge}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{status === 'ready'}}" class="inbox-page__footer">
+    <text wx:if="{{loadingMore}}">{{texts.loadingMore}}</text>
+    <text wx:elif="{{hasMore}}">{{texts.loadMore}}</text>
+    <text wx:else>{{texts.noMore}}</text>
+  </view>
+</view>

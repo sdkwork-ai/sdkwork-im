@@ -1,0 +1,12 @@
+{
+  "name": "@sdkwork/sdkwork-im-harmony-mobile-shell",
+  "version": "0.1.0",
+  "description": "SDKWork IM HarmonyOS Mobile Shell package.",
+  "main": "src/main/ets/Index.ets",
+  "author": "SDKWork",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@sdkwork/sdkwork-im-harmony-mobile-core": "file:../sdkwork-im-harmony-mobile-core",
+    "@sdkwork/sdkwork-im-harmony-mobile-commons": "file:../sdkwork-im-harmony-mobile-commons"
+  }
+}

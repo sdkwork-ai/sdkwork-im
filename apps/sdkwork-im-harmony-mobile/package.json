@@ -1,0 +1,19 @@
+{
+  "name": "@sdkwork/im-harmony-mobile",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "sdkwork": {
+    "role": "harmony-native-app-root",
+    "toolchain": "ohpm",
+    "note": "Static verification surface only. The HarmonyOS SDK, hvigor, and ohpm are not part of the repository workspace, so this root deliberately declares no dev/build alias that cannot execute."
+  },
+  "scripts": {
+    "generate:runtime-config": "node scripts/generate-harmony-runtime-config.mjs",
+    "test:harmony-native": "node --test tests/harmony-surface-contract.test.mjs",
+    "test:config": "node --test tests/harmony-runtime-config.test.mjs",
+    "_sdkwork:test": "node --test tests/*.test.mjs",
+    "_sdkwork:check": "node scripts/generate-harmony-runtime-config.mjs --check && node ../../../sdkwork-specs/tools/check-source-config-standard.mjs --root . && node ../../../sdkwork-specs/tools/check-frontend-composition.mjs --root ../..",
+    "_sdkwork:verify": "pnpm run _sdkwork:check && pnpm run _sdkwork:test"
+  }
+}

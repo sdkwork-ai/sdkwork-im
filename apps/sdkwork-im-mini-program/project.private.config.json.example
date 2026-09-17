@@ -1,0 +1,8 @@
+{
+  "projectname": "sdkwork-im-mini-program",
+  "appid": "<weixin-mini-program-appid>",
+  "setting": {
+    "urlCheck": true
+  },
+  "libVersion": "<weixin-base-library-version>"
+}

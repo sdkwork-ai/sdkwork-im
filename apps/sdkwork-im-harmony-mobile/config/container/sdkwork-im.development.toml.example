@@ -1,0 +1,5 @@
+# Container profile template for the SDKWork IM HarmonyOS mobile surface.
+# Shared deployment authority lives at ../../../etc/sdkwork.deployment.config.json.
+[runtime]
+target = "harmony-native"
+profile = "development"

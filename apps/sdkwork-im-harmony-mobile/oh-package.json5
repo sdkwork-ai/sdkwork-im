@@ -1,0 +1,19 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "sdkwork-im-harmony-mobile",
+  "version": "0.1.0",
+  "description": "SDKWork IM HarmonyOS native mobile application",
+  "main": "",
+  "author": "SDKWork",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@sdkwork/sdkwork-im-harmony-mobile-core": "file:./packages/sdkwork-im-harmony-mobile-core",
+    "@sdkwork/sdkwork-im-harmony-mobile-commons": "file:./packages/sdkwork-im-harmony-mobile-commons",
+    "@sdkwork/sdkwork-im-harmony-mobile-shell": "file:./packages/sdkwork-im-harmony-mobile-shell",
+    "@sdkwork/sdkwork-im-harmony-mobile-host": "file:./packages/sdkwork-im-harmony-mobile-host",
+    "@sdkwork/sdkwork-im-harmony-mobile-chat": "file:./packages/sdkwork-im-harmony-mobile-chat"
+  },
+  "devDependencies": {
+    "@ohos/hypium": "1.0.19"
+  }
+}

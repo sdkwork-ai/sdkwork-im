@@ -1,0 +1,21 @@
+{
+  "environment": "development",
+  "deploymentProfile": "cloud",
+  "profileId": "cloud.development",
+  "runtimeTarget": "harmony-native",
+  "im": {
+    "apiBaseUrl": "http://127.0.0.1:3900",
+    "platformApiGatewayHttpUrl": "http://127.0.0.1:3900",
+    "applicationPublicHttpUrl": "http://im-dev.sdkwork.com:3801",
+    "applicationPublicWebsocketUrl": "wss://api-dev.sdkwork.com"
+  },
+  "appbase": {
+    "appApiBaseUrl": "http://127.0.0.1:3900",
+    "loginUrl": "http://im-dev.sdkwork.com:3801"
+  },
+  "metadata": {
+    "profileBinding": "runtime-configurable",
+    "applicationCode": "im",
+    "namespace": "sdkwork-im-harmony-mobile"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "pages": [
+    "pages/login/index",
+    "pages/inbox/index"
+  ],
+  "subPackages": [
+    {
+      "root": "package-chat",
+      "pages": [
+        "pages/conversation/index",
+        "pages/create-group/index"
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/inbox/index": {
+      "network": "all",
+      "packages": [
+        "package-chat"
+      ]
+    }
+  },
+  "window": {
+    "navigationBarTitleText": "SDKWork IM",
+    "navigationBarBackgroundColor": "#0f766e",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f5f5f5"
+  },
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents"
+}

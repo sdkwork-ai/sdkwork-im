@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "SDKWork IM",
+  "enablePullDownRefresh": true,
+  "onReachBottomDistance": 100,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {}
+}

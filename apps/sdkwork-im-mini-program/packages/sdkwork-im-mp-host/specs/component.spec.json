@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-im-mp-host",
+    "displayName": "Sdkwork IM Mini Program Host",
+    "version": "0.1.0",
+    "type": "typescript-package",
+    "root": "apps/sdkwork-im-mini-program/packages/sdkwork-im-mp-host",
+    "domain": "communication",
+    "capability": "host",
+    "surface": "app",
+    "languages": [
+      "typescript"
+    ],
+    "generated": false,
+    "manifests": [
+      "package.json"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "MINI_PROGRAM_APP_ARCHITECTURE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/MINI_PROGRAM_APP_ARCHITECTURE_SPEC.md",
+      "purpose": "Mini program application root architecture and host adapter boundary."
+    },
+    {
+      "file": "APP_CLIENT_ARCHITECTURE_ALIGNMENT_SPEC.md",
+      "path": "../../../../../sdkwork-specs/APP_CLIENT_ARCHITECTURE_ALIGNMENT_SPEC.md",
+      "purpose": "Cross-client package taxonomy and dependency direction."
+    },
+    {
+      "file": "APP_SDK_INTEGRATION_SPEC.md",
+      "path": "../../../../../sdkwork-specs/APP_SDK_INTEGRATION_SPEC.md",
+      "purpose": "Generated app SDK transport and host adapter integration."
+    },
+    {
+      "file": "FRONTEND_SPEC.md",
+      "path": "../../../../../sdkwork-specs/FRONTEND_SPEC.md",
+      "purpose": "Frontend package layering and host boundaries."
+    }
+  ],
+  "contracts": {
+    "layerRole": "frontend-host",
+    "publicExports": [
+      "."
+    ],
+    "providedPorts": [
+      {
+        "name": "imMpPlatformAdapters",
+        "export": "."
+      }
+    ],
+    "requiredPorts": [
+      {
+        "name": "imMpCoreSessionLifecycle",
+        "export": ".",
+        "provider": "sdkwork-im-mp-core"
+      }
+    ],
+    "sdkClients": [],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": []
+  },
+  "verification": {
+    "commands": [
+      "pnpm --filter @sdkwork/im-mini-program typecheck"
+    ]
+  }
+}

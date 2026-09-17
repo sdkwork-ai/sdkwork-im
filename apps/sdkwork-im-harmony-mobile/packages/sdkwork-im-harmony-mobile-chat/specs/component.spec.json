@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-im-harmony-mobile-chat",
+    "displayName": "SDKWork IM HarmonyOS Mobile Chat",
+    "version": "0.1.0",
+    "type": "arkts-package",
+    "root": "apps/sdkwork-im-harmony-mobile/packages/sdkwork-im-harmony-mobile-chat",
+    "domain": "communication",
+    "capability": "chat",
+    "surface": "app",
+    "languages": [
+      "arkts"
+    ],
+    "generated": false,
+    "manifests": [
+      "oh-package.json5",
+      "package.json",
+      "specs/component.spec.json"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "HARMONY_APP_MOBILE_ARCHITECTURE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/HARMONY_APP_MOBILE_ARCHITECTURE_SPEC.md",
+      "purpose": "HarmonyOS mobile capability package shape, SDK injection, and route alignment."
+    },
+    {
+      "file": "APP_HARMONY_NATIVE_UI_SPEC.md",
+      "path": "../../../../../sdkwork-specs/APP_HARMONY_NATIVE_UI_SPEC.md",
+      "purpose": "Harmony native ArkUI page, component, and screen-state rules."
+    },
+    {
+      "file": "APP_CLIENT_ARCHITECTURE_ALIGNMENT_SPEC.md",
+      "path": "../../../../../sdkwork-specs/APP_CLIENT_ARCHITECTURE_ALIGNMENT_SPEC.md",
+      "purpose": "Cross-client route identity and capability surface alignment."
+    },
+    {
+      "file": "PAGINATION_SPEC.md",
+      "path": "../../../../../sdkwork-specs/PAGINATION_SPEC.md",
+      "purpose": "Interactive list pagination contracts."
+    },
+    {
+      "file": "I18N_SPEC.md",
+      "path": "../../../../../sdkwork-specs/I18N_SPEC.md",
+      "purpose": "Authored locale fragment layout and thin boundary rules."
+    },
+    {
+      "file": "FRONTEND_SPEC.md",
+      "path": "../../../../../sdkwork-specs/FRONTEND_SPEC.md",
+      "purpose": "Frontend package layering and SDK injection boundaries."
+    }
+  ],
+  "contracts": {
+    "layerRole": "frontend-feature",
+    "publicExports": [
+      ".",
+      "./services",
+      "./state",
+      "./routes",
+      "./i18n"
+    ],
+    "providedPorts": [
+      {
+        "name": "imHarmonyChatInboxService",
+        "export": "./services"
+      },
+      {
+        "name": "imHarmonyChatConversationService",
+        "export": "./services"
+      },
+      {
+        "name": "imHarmonyChatSdkPort",
+        "export": "./services"
+      },
+      {
+        "name": "imHarmonyChatRoutes",
+        "export": "./routes"
+      },
+      {
+        "name": "imHarmonyChatMessages",
+        "export": "./i18n"
+      }
+    ],
+    "requiredPorts": [
+      {
+        "name": "imHarmonyCoreSessionLifecycle",
+        "package": "@sdkwork/sdkwork-im-harmony-mobile-core",
+        "export": "src/main/ets/session/SessionStore.ets"
+      },
+      {
+        "name": "imHarmonyCommonsScreenState",
+        "package": "@sdkwork/sdkwork-im-harmony-mobile-commons",
+        "export": "Index.ets"
+      },
+      {
+        "name": "imHarmonyCommonsDesignTokens",
+        "package": "@sdkwork/sdkwork-im-harmony-mobile-commons",
+        "export": "Index.ets"
+      },
+      {
+        "name": "imHarmonyShellRouteStack",
+        "package": "@sdkwork/sdkwork-im-harmony-mobile-shell",
+        "export": "Index.ets"
+      }
+    ],
+    "sdkClients": [
+      "@sdkwork/im-app-sdk"
+    ],
+    "sdkDependencies": [
+      {
+        "workspace": "sdkwork-im-app-sdk",
+        "surface": "app-api",
+        "credentialMode": "authenticated-app-api"
+      }
+    ],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": []
+  },
+  "verification": {
+    "commands": [
+      "node ../sdkwork-specs/tools/check-frontend-composition.mjs --root ..",
+      "node ../sdkwork-specs/tools/check-component-port-bindings.mjs --root .."
+    ]
+  }
+}

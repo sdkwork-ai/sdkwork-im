@@ -1,0 +1,44 @@
+/**
+ * Global stylesheet for the IM mini program.
+ *
+ * Authority: `APP_MINI_PROGRAM_UI_SPEC.md`. Values mirror `imMpTokens` in
+ * `@sdkwork/im-mp-commons`; `.wxss` cannot import TypeScript, so the token
+ * values are restated as literals across this root's stylesheets — here and in
+ * the page stylesheets that use them — and the two are kept in sync by
+ * `tests/mini-program-surface-contract.test.mjs`, which fails when a token value
+ * is no longer restated anywhere under `src/`.
+ */
+
+page {
+  background-color: #f5f5f5;
+  color: #181818;
+  font-size: 30rpx;
+  line-height: 1.5;
+}
+
+.im-mp-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.im-mp-state {
+  padding: 80rpx 32rpx;
+  text-align: center;
+  color: #888888;
+}
+
+.im-mp-state__action {
+  margin-top: 24rpx;
+  color: #0f766e;
+}
+
+.im-mp-divider {
+  height: 1rpx;
+  background-color: #ededed;
+}
+
+.im-mp-list {
+  background-color: #ffffff;
+}

@@ -1,0 +1,49 @@
+.create-group-page {
+  padding: 24rpx;
+}
+
+.create-group__field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 24rpx;
+  padding: 24rpx;
+  border-radius: 12rpx;
+  background-color: #ffffff;
+}
+
+.create-group__label {
+  font-size: 26rpx;
+  color: #888888;
+}
+
+.create-group__input {
+  margin-top: 16rpx;
+  height: 72rpx;
+  font-size: 30rpx;
+  color: #181818;
+}
+
+.create-group__textarea {
+  margin-top: 16rpx;
+  width: 100%;
+  height: 160rpx;
+  font-size: 30rpx;
+  color: #181818;
+}
+
+.create-group__actions {
+  margin-top: 8rpx;
+}
+
+.create-group__submit {
+  background-color: #0f766e;
+  color: #ffffff;
+}
+
+.create-group__error {
+  display: block;
+  margin-top: 24rpx;
+  font-size: 24rpx;
+  color: #fa5151;
+  word-break: break-all;
+}

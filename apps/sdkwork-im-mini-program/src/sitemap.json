@@ -1,0 +1,9 @@
+{
+  "desc": "SDKWork IM mini program pages are not indexed by the WeChat search index.",
+  "rules": [
+    {
+      "action": "disallow",
+      "page": "*"
+    }
+  ]
+}

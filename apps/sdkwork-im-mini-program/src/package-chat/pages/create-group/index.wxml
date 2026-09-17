@@ -1,0 +1,35 @@
+<view class="im-mp-page create-group-page">
+  <view class="create-group__field">
+    <text class="create-group__label">{{texts.nameLabel}}</text>
+    <input
+      class="create-group__input"
+      value="{{groupName}}"
+      placeholder="{{texts.namePlaceholder}}"
+      maxlength="64"
+      bindinput="onNameInput"
+    />
+  </view>
+
+  <view class="create-group__field">
+    <text class="create-group__label">{{texts.membersLabel}}</text>
+    <textarea
+      class="create-group__textarea"
+      value="{{memberIds}}"
+      placeholder="{{texts.membersPlaceholder}}"
+      bindinput="onMembersInput"
+    />
+  </view>
+
+  <view class="create-group__actions">
+    <button
+      class="create-group__submit"
+      type="primary"
+      disabled="{{submitting}}"
+      bindtap="onSubmit"
+    >
+      {{submitting ? texts.submitting : texts.submit}}
+    </button>
+  </view>
+
+  <text wx:if="{{errorText}}" class="create-group__error">{{errorText}}</text>
+</view>

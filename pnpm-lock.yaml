@@ -4288,6 +4288,91 @@ importers:
         specifier: workspace:*
         version: link:../../../../../sdkwork-membership/apps/sdkwork-membership-common/packages/sdkwork-membership-mobile-react-subscription
 
+  apps/sdkwork-im-mini-program:
+    dependencies:
+      '@sdkwork/im-app-sdk':
+        specifier: workspace:*
+        version: link:../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript
+      '@sdkwork/im-mp-chat':
+        specifier: workspace:*
+        version: link:packages/sdkwork-im-mp-chat
+      '@sdkwork/im-mp-commons':
+        specifier: workspace:*
+        version: link:packages/sdkwork-im-mp-commons
+      '@sdkwork/im-mp-core':
+        specifier: workspace:*
+        version: link:packages/sdkwork-im-mp-core
+      '@sdkwork/im-mp-host':
+        specifier: workspace:*
+        version: link:packages/sdkwork-im-mp-host
+      '@sdkwork/im-mp-shell':
+        specifier: workspace:*
+        version: link:packages/sdkwork-im-mp-shell
+      '@sdkwork/im-sdk':
+        specifier: workspace:*
+        version: link:../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript
+      '@sdkwork/sdk-common':
+        specifier: workspace:*
+        version: link:../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript
+    devDependencies:
+      esbuild:
+        specifier: 'catalog:'
+        version: 0.28.1
+      miniprogram-api-typings:
+        specifier: ^4.1.0
+        version: 4.1.3
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
+  apps/sdkwork-im-mini-program/packages/sdkwork-im-mp-chat:
+    dependencies:
+      '@sdkwork/im-mp-commons':
+        specifier: workspace:*
+        version: link:../sdkwork-im-mp-commons
+      '@sdkwork/im-mp-core':
+        specifier: workspace:*
+        version: link:../sdkwork-im-mp-core
+      '@sdkwork/im-mp-shell':
+        specifier: workspace:*
+        version: link:../sdkwork-im-mp-shell
+
+  apps/sdkwork-im-mini-program/packages/sdkwork-im-mp-commons: {}
+
+  apps/sdkwork-im-mini-program/packages/sdkwork-im-mp-core:
+    dependencies:
+      '@sdkwork/iam-app-sdk':
+        specifier: workspace:*
+        version: link:../../../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript
+      '@sdkwork/im-app-sdk':
+        specifier: workspace:*
+        version: link:../../../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript
+      '@sdkwork/im-sdk':
+        specifier: workspace:*
+        version: link:../../../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript
+      '@sdkwork/sdk-common':
+        specifier: workspace:*
+        version: link:../../../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript
+
+  apps/sdkwork-im-mini-program/packages/sdkwork-im-mp-host:
+    dependencies:
+      '@sdkwork/im-mp-core':
+        specifier: workspace:*
+        version: link:../sdkwork-im-mp-core
+      '@sdkwork/im-sdk':
+        specifier: workspace:*
+        version: link:../../../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript
+    devDependencies:
+      miniprogram-api-typings:
+        specifier: ^4.1.0
+        version: 4.1.3
+
+  apps/sdkwork-im-mini-program/packages/sdkwork-im-mp-shell:
+    dependencies:
+      '@sdkwork/im-mp-commons':
+        specifier: workspace:*
+        version: link:../sdkwork-im-mp-commons
+
   apps/sdkwork-im-pc:
     dependencies:
       '@monaco-editor/react':
@@ -9589,6 +9674,9 @@ packages:
   minimatch@9.0.9:
     resolution: {integrity: sha512-OBwBN9AL4dqmETlpS2zasx+vTeWclWzkblfZk7KTA5j3jeOONz/tRCnZomUyvNg83wL5Zv9Ss6HMJXAgL8R2Yg==}
     engines: {node: '>=16 || 14 >=14.17'}
+
+  miniprogram-api-typings@4.1.3:
+    resolution: {integrity: sha512-5mobiXzDS3KFJMM20cIg5m7hiFSJY0YGpgm5yzFeIJ+UP15RGOtW/ztqAhRfOQIvPBD0WyYB+WFCWaeeTTEZTQ==}
 
   minisearch@7.2.0:
     resolution: {integrity: sha512-dqT2XBYUOZOiC5t2HRnwADjhNS2cecp9u+TJRiJ1Qp/f5qjkeT5APcGPjHw+bz89Ms8Jp+cG4AlE+QZ/QnDglg==}
@@ -15166,6 +15254,8 @@ snapshots:
   minimatch@9.0.9:
     dependencies:
       brace-expansion: 2.1.1
+
+  miniprogram-api-typings@4.1.3: {}
 
   minisearch@7.2.0: {}
 
