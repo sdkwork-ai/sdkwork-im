@@ -9,7 +9,6 @@ import '../services/chat_conversation_service.dart';
 import '../services/chat_media_upload_service.dart';
 import '../services/chat_realtime_service.dart';
 import '../services/chat_message_history_utils.dart';
-import '../services/client_message_id.dart';
 import '../services/offline_send_queue.dart';
 
 enum _MessageHistoryUpdateMode { replace, older, newer }

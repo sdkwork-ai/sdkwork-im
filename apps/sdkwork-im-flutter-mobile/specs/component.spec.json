@@ -7,7 +7,7 @@
     "version": "0.1.0",
     "type": "flutter-app-root",
     "root": "apps/sdkwork-im-flutter-mobile",
-    "domain": "chat",
+    "domain": "communication",
     "capability": "chat",
     "surface": "app",
     "languages": [

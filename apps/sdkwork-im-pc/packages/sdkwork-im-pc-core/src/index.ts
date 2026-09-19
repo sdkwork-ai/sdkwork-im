@@ -3,6 +3,7 @@ export * from './sdk/appbaseAppSdkClient';
 export * from './sdk/aiotPcIntegration';
 export * from './sdk/agentAppSdkClient';
 export * from './sdk/driveAppSdkClient';
+export * from './sdk/uploadDeclaration';
 export * from './sdk/notaryAppSdkClient';
 export * from './sdk/notaryPcIntegration';
 export * from './sdk/membershipAppSdkClient';

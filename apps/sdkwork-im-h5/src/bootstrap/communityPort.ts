@@ -25,7 +25,7 @@ import {
   type CircleMembershipOrder,
 } from '@sdkwork/community-mobile-react-community';
 import { getSdkClients } from './sdkClients';
-import { getDriveAppSdkClientWithSession } from '@sdkwork/im-h5-core/sdk';
+import { getDriveAppSdkClientWithSession, IM_H5_COMMUNITY_POST_UPLOAD } from '@sdkwork/im-h5-core/sdk';
 import { uuid } from '@sdkwork/utils/id';
 
 
@@ -57,11 +57,11 @@ export function bootstrapImCommunityH5Port(): void {
       for (const file of files) {
         const uploadResult = await client.uploader.uploadImage({
           file,
-          appResourceType: 'community_post',
+          appResourceType: IM_H5_COMMUNITY_POST_UPLOAD.appResourceType,
           appResourceId: 'community',
-          scene: 'community',
-          source: 'community_post',
-          uploadProfileCode: 'image',
+          scene: IM_H5_COMMUNITY_POST_UPLOAD.scene,
+          source: IM_H5_COMMUNITY_POST_UPLOAD.source,
+          uploadProfileCode: IM_H5_COMMUNITY_POST_UPLOAD.uploadProfileCode,
           ...(file.name ? { originalFileName: file.name } : {}),
           ...(file.type ? { contentType: file.type } : {}),
         });

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
+import 'package:sdkwork_im_flutter_mobile_contacts/sdkwork_im_flutter_mobile_contacts.dart';
 import 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -9,6 +10,7 @@ import 'bootstrap/app_auth.dart';
 import 'bootstrap/environment.dart';
 import 'bootstrap/sdk_clients.dart';
 import 'chat/chat_home.dart';
+import 'contacts/contacts_home.dart';
 
 class AppAuthGate extends StatefulWidget {
   const AppAuthGate({super.key});
@@ -138,7 +140,7 @@ class _AppAuthGateState extends State<AppAuthGate> {
               ),
             ),
           ),
-          Expanded(child: ChatHome(session: session)),
+          Expanded(child: _HomeTabs(session: session)),
         ],
       );
     }
@@ -218,6 +220,55 @@ class _AppAuthGateState extends State<AppAuthGate> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Bottom navigation between the capability surfaces the root hosts.
+///
+/// Both surfaces stay mounted so the chat realtime subscription and the
+/// contacts window survive tab switches; the chat package and the contacts
+/// package each keep their own state and never depend on each other.
+class _HomeTabs extends StatefulWidget {
+  const _HomeTabs({required this.session});
+
+  final ImAppSession session;
+
+  @override
+  State<_HomeTabs> createState() => _HomeTabsState();
+}
+
+class _HomeTabsState extends State<_HomeTabs> {
+  int _selectedIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = ContactsLocalizations.of(context);
+    return Scaffold(
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          ChatHome(session: widget.session),
+          ContactsHome(session: widget.session),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) =>
+            setState(() => _selectedIndex = index),
+        destinations: [
+          NavigationDestination(
+            icon: const Icon(Icons.chat_bubble_outline),
+            selectedIcon: const Icon(Icons.chat_bubble),
+            label: l10n.chatTabLabel,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.contacts_outlined),
+            selectedIcon: const Icon(Icons.contacts),
+            label: l10n.contactsTabLabel,
+          ),
+        ],
       ),
     );
   }

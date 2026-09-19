@@ -1,0 +1,268 @@
+{
+  "@@locale": "en",
+  "addressBookTitle": "Contacts",
+  "@addressBookTitle": {
+    "description": "Title of the contacts address book screen."
+  },
+  "contactsTabLabel": "Contacts",
+  "@contactsTabLabel": {
+    "description": "Bottom navigation label of the contacts tab."
+  },
+  "chatTabLabel": "Chat",
+  "@chatTabLabel": {
+    "description": "Bottom navigation label of the chat inbox tab."
+  },
+  "newFriendsTitle": "New Friends",
+  "@newFriendsTitle": {
+    "description": "Title of the friend request (new friends) screen."
+  },
+  "addFriendTitle": "Add Friend",
+  "@addFriendTitle": {
+    "description": "Title of the screen that searches users and submits a friend request."
+  },
+  "organizationDirectoryTitle": "Organization",
+  "@organizationDirectoryTitle": {
+    "description": "Title of the organization directory screen."
+  },
+  "contactsEmpty": "No contacts yet.",
+  "@contactsEmpty": {
+    "description": "Empty-state text shown when the address book has no contacts."
+  },
+  "contactsLoadError": "Unable to load contacts.",
+  "@contactsLoadError": {
+    "description": "Error shown when loading a contacts page fails."
+  },
+  "contactsPageRetainError": "Unable to retain the requested contacts page.",
+  "@contactsPageRetainError": {
+    "description": "Error shown when a fetched contacts page cannot be merged into the address book window."
+  },
+  "contactsSearchFailed": "Unable to search contacts: {error}",
+  "@contactsSearchFailed": {
+    "description": "Error shown when searching the local contact window fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "retry": "Retry",
+  "@retry": {
+    "description": "Button label to retry a failed contacts load."
+  },
+  "loadMore": "Load more",
+  "@loadMore": {
+    "description": "Button label that loads the next page of contacts."
+  },
+  "contactSearchHint": "Search contacts",
+  "@contactSearchHint": {
+    "description": "Hint text of the address book search field."
+  },
+  "contactSearchEmpty": "No matching contacts.",
+  "@contactSearchEmpty": {
+    "description": "Empty-state text shown when the contact search matches nothing."
+  },
+  "unknownContact": "Unknown contact",
+  "@unknownContact": {
+    "description": "Fallback contact name when the contact view carries no display name or remark."
+  },
+  "sendMessage": "Send message",
+  "@sendMessage": {
+    "description": "Menu action that opens a direct conversation with the contact."
+  },
+  "removeFriend": "Remove friend",
+  "@removeFriend": {
+    "description": "Menu action that removes the friendship behind the contact."
+  },
+  "removeFriendConfirmTitle": "Remove friend",
+  "@removeFriendConfirmTitle": {
+    "description": "Title of the confirmation dialog shown before removing a contact."
+  },
+  "removeFriendConfirmBody": "Remove {name} from your contacts?",
+  "@removeFriendConfirmBody": {
+    "description": "Body of the confirmation dialog shown before removing a contact.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "blockContact": "Block",
+  "@blockContact": {
+    "description": "Menu action that blocks the contact."
+  },
+  "unblockContact": "Unblock",
+  "@unblockContact": {
+    "description": "Menu action that releases a contact block."
+  },
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Generic dialog dismissal label."
+  },
+  "confirm": "Confirm",
+  "@confirm": {
+    "description": "Generic dialog confirmation label."
+  },
+  "contactBlocked": "Contact blocked.",
+  "@contactBlocked": {
+    "description": "Snackbar text shown after a contact is blocked."
+  },
+  "contactUnblocked": "Contact unblocked.",
+  "@contactUnblocked": {
+    "description": "Snackbar text shown after a contact block is released."
+  },
+  "contactPreferencesFailed": "Unable to update the contact: {error}",
+  "@contactPreferencesFailed": {
+    "description": "Snackbar text shown when updating contact preferences fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "removeFriendFailed": "Unable to remove the contact: {error}",
+  "@removeFriendFailed": {
+    "description": "Snackbar text shown when removing a friend fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "conversationStartFailed": "Unable to start the conversation: {error}",
+  "@conversationStartFailed": {
+    "description": "Snackbar text shown when starting a direct conversation fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "friendRequestsEmpty": "No friend requests.",
+  "@friendRequestsEmpty": {
+    "description": "Empty-state text shown when the friend request list is empty."
+  },
+  "friendRequestsLoadError": "Unable to load friend requests.",
+  "@friendRequestsLoadError": {
+    "description": "Error shown when loading a friend request page fails."
+  },
+  "friendRequestsPageRetainError": "Unable to retain the requested friend request page.",
+  "@friendRequestsPageRetainError": {
+    "description": "Error shown when a fetched friend request page cannot be merged into the list window."
+  },
+  "incomingRequests": "Incoming",
+  "@incomingRequests": {
+    "description": "Tab label for friend requests the current user received."
+  },
+  "outgoingRequests": "Outgoing",
+  "@outgoingRequests": {
+    "description": "Tab label for friend requests the current user submitted."
+  },
+  "acceptRequest": "Accept",
+  "@acceptRequest": {
+    "description": "Action that accepts an incoming friend request."
+  },
+  "declineRequest": "Decline",
+  "@declineRequest": {
+    "description": "Action that declines an incoming friend request."
+  },
+  "cancelRequest": "Cancel request",
+  "@cancelRequest": {
+    "description": "Action that cancels an outgoing friend request."
+  },
+  "pendingRequestCount": "{count} pending",
+  "@pendingRequestCount": {
+    "description": "Badge text showing how many incoming friend requests are pending.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "friendRequestAccepted": "Friend request accepted.",
+  "@friendRequestAccepted": {
+    "description": "Snackbar text shown after accepting a friend request."
+  },
+  "friendRequestDeclined": "Friend request declined.",
+  "@friendRequestDeclined": {
+    "description": "Snackbar text shown after declining a friend request."
+  },
+  "friendRequestCanceled": "Friend request canceled.",
+  "@friendRequestCanceled": {
+    "description": "Snackbar text shown after canceling an outgoing friend request."
+  },
+  "friendRequestSubmitted": "Friend request sent.",
+  "@friendRequestSubmitted": {
+    "description": "Snackbar text shown after submitting a friend request."
+  },
+  "friendRequestActionFailed": "Unable to update the friend request: {error}",
+  "@friendRequestActionFailed": {
+    "description": "Snackbar text shown when a friend request action fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "search": "Search",
+  "@search": {
+    "description": "Button label that runs the add friend user search."
+  },
+  "userSearchHint": "Search by user ID, email or phone",
+  "@userSearchHint": {
+    "description": "Hint text of the add friend search field."
+  },
+  "userSearchPrompt": "Enter a keyword to find people.",
+  "@userSearchPrompt": {
+    "description": "Empty-state text shown before the user types a search keyword."
+  },
+  "userSearchEmpty": "No matching users.",
+  "@userSearchEmpty": {
+    "description": "Empty-state text shown when the user search matches nothing."
+  },
+  "userSearchFailed": "Unable to search users: {error}",
+  "@userSearchFailed": {
+    "description": "Error shown when the user search fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "addFriendMessageHint": "Verification message (optional)",
+  "@addFriendMessageHint": {
+    "description": "Hint text of the optional friend request verification message field."
+  },
+  "submitFriendRequest": "Send request",
+  "@submitFriendRequest": {
+    "description": "Button label that submits the friend request."
+  },
+  "friendRequestConflictAlreadyFriend": "You are already friends with this user.",
+  "@friendRequestConflictAlreadyFriend": {
+    "description": "Conflict shown when the friend request target is already a friend."
+  },
+  "friendRequestConflictPending": "A friend request is already pending.",
+  "@friendRequestConflictPending": {
+    "description": "Conflict shown when the friend request target already has an open request."
+  },
+  "friendRequestConflictBlocked": "This user cannot receive friend requests.",
+  "@friendRequestConflictBlocked": {
+    "description": "Conflict shown when the friend request target blocks requests."
+  },
+  "friendRequestConflictUnknown": "Unable to send the friend request: {error}",
+  "@friendRequestConflictUnknown": {
+    "description": "Conflict shown when a friend request fails for an unclassified reason; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "capabilityUnavailableTitle": "Not available on this platform",
+  "@capabilityUnavailableTitle": {
+    "description": "Title of the placeholder shown when a contacts capability is not wired on this platform."
+  },
+  "organizationCapabilityUnavailable": "The organization directory reads the IAM SDK, which the Flutter mobile root does not bundle yet. Use the H5 or PC root for organization lookups.",
+  "@organizationCapabilityUnavailable": {
+    "description": "Body of the placeholder shown for the organization directory on platforms without the IAM SDK."
+  }
+}

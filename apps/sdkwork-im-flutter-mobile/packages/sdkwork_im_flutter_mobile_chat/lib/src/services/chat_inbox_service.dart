@@ -1,7 +1,5 @@
 import 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.dart';
 
-import 'chat_sdk_response_utils.dart';
-
 const int inboxPageSize = 20;
 const int maxInboxSyncPages = 10;
 const int maxInboxEntries = 200;

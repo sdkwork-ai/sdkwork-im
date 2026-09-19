@@ -128,8 +128,31 @@ Deep dive: [docs/架构/02-架构标准与总体设计.md](./docs/架构/02-架�
 | --- | --- |
 | Framework | Flutter |
 | Auth | Appbase deep link + dev credentials |
-| SDK | `im_sdk_generated` + `im_sdk_composed` |
-| Features | Inbox + conversation REST + shared WebSocket live hub (inbox + conversation) |
+| SDK | `im_sdk_generated` + `im_sdk_composed`, shared envelope/id helpers from `sdkwork_common_flutter` |
+| Capability packages | `sdkwork_im_flutter_mobile_{core,commons,shell,chat,contacts}` |
+| Features | Inbox + conversation REST + text send + shared WebSocket live hub (inbox + conversation); contacts (address book, new friends, add friend) |
+
+**Mini program (`apps/sdkwork-im-mini-program`):**
+
+| Concern | Choice |
+| --- | --- |
+| Framework | Native WeChat mini program (`MP_WEIXIN`) |
+| Capability packages | `sdkwork-im-mp-{core,commons,shell,host,chat}` |
+| SDK | `@sdkwork/im-sdk`, `@sdkwork/im-app-sdk`, `@sdkwork/iam-app-sdk` |
+| Features | WeChat session exchange, inbox, conversation, group creation; live inbox over the SDK WebSocket seam |
+| Platform gaps | `sdkwork-im-mp-host` maps `wx.request`, `wx.connectSocket`, and `wx.*StorageSync` onto the SDK seams |
+
+**HarmonyOS mobile (`apps/sdkwork-im-harmony-mobile`):**
+
+| Concern | Choice |
+| --- | --- |
+| Framework | Native HarmonyOS ArkTS/ArkUI (`APP_HARMONY`) |
+| Capability packages | `sdkwork-im-harmony-mobile-{core,commons,shell,host,chat}` |
+| SDK | Declared as core-owned ports; no ArkTS target exists in the SDK generation chain yet |
+| Features | Login, inbox, conversation, group creation |
+
+All five roots publish the same route ids for shared screens (`app.communication.*`), so one screen
+keeps one id per client architecture; only the physical page path differs.
 
 **Sibling workspace dependencies:** `sdkwork-web-framework`, `sdkwork-database`, `sdkwork-appbase`, `sdkwork-rtc`, `sdkwork-app-topology`, `sdkwork-drive`, `sdkwork-community`, `sdkwork-notary`, `sdkwork-core`, `sdkwork-ui`, `sdkwork-kernel`, `sdkwork-aiot`, `sdkwork-sdk-commons`, `sdkwork-sdk-generator`.
 
@@ -138,7 +161,7 @@ Deep dive: [docs/架构/02-架构标准与总体设计.md](./docs/架构/02-架�
 ```text
 sdkwork-im/
 ├─ apis/           OpenAPI + RPC contract authorities (app/open/backend + apis/rpc)
-├─ apps/           sdkwork-im-pc, sdkwork-im-h5, sdkwork-im-flutter-mobile application roots
+├─ apps/           client roots: pc, h5, flutter-mobile, mini-program, harmony-mobile
 ├─ crates/         domain contracts, CCP protocol, runtime, shared libraries
 ├─ sdks/           IM SDK families (RTC SDK lives in ../sdkwork-rtc)
 ├─ adapters/       storage/provider adapters (local-disk, redis, postgres, s3, push)

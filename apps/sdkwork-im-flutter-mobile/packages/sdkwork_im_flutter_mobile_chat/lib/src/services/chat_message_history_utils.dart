@@ -1,8 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.dart';
 
-import 'chat_sdk_response_utils.dart';
-
 /// Maximum message history entries retained in memory per conversation (aligned with H5).
 const int maxMessageHistoryEntries = 500;
 

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "appId": "sdkwork-im-h5",
+  "declarations": [
+    {
+      "appResourceType": "im.conversation_message_media",
+      "appResourceIdKind": "entity",
+      "scene": "chat-message-media",
+      "source": "sdkwork-im-h5",
+      "uploadProfileCode": "image",
+      "retention": "long_term",
+      "purpose": "Image attached to an IM conversation message from the H5 chat surface."
+    },
+    {
+      "appResourceType": "im.conversation_message_media",
+      "appResourceIdKind": "entity",
+      "scene": "chat-message-media",
+      "source": "sdkwork-im-h5",
+      "uploadProfileCode": "video",
+      "retention": "long_term",
+      "purpose": "Video attached to an IM conversation message from the H5 chat surface."
+    },
+    {
+      "appResourceType": "im.conversation_message_media",
+      "appResourceIdKind": "entity",
+      "scene": "chat-message-media",
+      "source": "sdkwork-im-h5",
+      "uploadProfileCode": "audio",
+      "retention": "long_term",
+      "purpose": "Voice message attached to an IM conversation from the H5 chat surface."
+    },
+    {
+      "appResourceType": "im.conversation_message_media",
+      "appResourceIdKind": "entity",
+      "scene": "chat-message-media",
+      "source": "sdkwork-im-h5",
+      "uploadProfileCode": "attachment",
+      "retention": "long_term",
+      "purpose": "Generic file attached to an IM conversation message from the H5 chat surface."
+    },
+    {
+      "appResourceType": "voice.profile_sample",
+      "appResourceIdKind": "entity",
+      "scene": "voice-profile",
+      "source": "sdkwork-im-h5",
+      "uploadProfileCode": "audio",
+      "retention": "long_term",
+      "purpose": "Voice profile sample uploaded from the H5 AI voice surface so a cloned voice can be reused."
+    },
+    {
+      "appResourceType": "community.post_media",
+      "appResourceIdKind": "entity",
+      "scene": "community-post",
+      "source": "sdkwork-im-h5",
+      "uploadProfileCode": "image",
+      "retention": "long_term",
+      "purpose": "Community post media uploaded from the IM H5 community surface."
+    }
+  ]
+}

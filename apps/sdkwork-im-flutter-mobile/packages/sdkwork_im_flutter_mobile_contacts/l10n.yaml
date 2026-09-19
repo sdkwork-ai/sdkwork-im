@@ -1,0 +1,13 @@
+# flutter gen-l10n configuration for the contacts capability package.
+# Generated delegates are committed under lib/l10n/generated (synthetic
+# packages are deprecated; output lands in the package itself).
+#
+# output-class keeps this package's delegate distinct from the chat package's
+# AppLocalizations: both capability packages register a delegate on the same
+# MaterialApp, and Localizations resolves delegates by Dart type.
+arb-dir: lib/l10n/arb
+template-arb-file: app_en.arb
+output-localization-file: contacts_localizations.dart
+output-class: ContactsLocalizations
+output-dir: lib/l10n/generated
+nullable-getter: false

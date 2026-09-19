@@ -24,6 +24,7 @@ import type {
   DriveUploaderUploadResult,
   SdkworkDriveUploader,
 } from '@sdkwork/im-pc-core/sdk/driveAppSdkClient';
+import { IM_PC_CHAT_ATTACHMENT_UPLOAD } from '@sdkwork/im-pc-core/sdk/uploadDeclaration';
 import {
   forEachCursorPage,
   SDKWORK_DEFAULT_PAGE_SIZE,
@@ -242,9 +243,6 @@ function normalizeMessagePageSize(pageSize: number | undefined): number {
   }
   return Math.min(normalizedPageSize, SDKWORK_MAX_PAGE_SIZE);
 }
-const CHAT_DRIVE_SCENE = 'im';
-const CHAT_DRIVE_SOURCE = 'chat_message';
-const CHAT_DRIVE_APP_RESOURCE_TYPE = 'im_conversation';
 const CHAT_MESSAGE_TYPES = new Set<Message['type']>([
   'applet',
   'card',
@@ -1368,10 +1366,10 @@ async function uploadChatMediaFile({
   const uploadRequest: DriveUploaderRequest = {
     file,
     ...(organizationId ? { organizationId } : {}),
-    appResourceType: CHAT_DRIVE_APP_RESOURCE_TYPE,
+    appResourceType: IM_PC_CHAT_ATTACHMENT_UPLOAD.appResourceType,
     appResourceId: chatId,
-    scene: CHAT_DRIVE_SCENE,
-    source: CHAT_DRIVE_SOURCE,
+    scene: IM_PC_CHAT_ATTACHMENT_UPLOAD.scene,
+    source: IM_PC_CHAT_ATTACHMENT_UPLOAD.source,
     ...(resolveMediaUploadProfile(type) ? { uploadProfileCode: resolveMediaUploadProfile(type) } : {}),
     originalFileName,
     ...(resolveMediaUploadContentType(type, file, extraInfo) ? { contentType: resolveMediaUploadContentType(type, file, extraInfo) } : {}),

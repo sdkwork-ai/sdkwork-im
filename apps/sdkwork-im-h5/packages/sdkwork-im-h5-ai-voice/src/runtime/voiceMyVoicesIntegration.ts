@@ -13,6 +13,7 @@ import { i18n } from '@sdkwork/im-h5-commons';
 import {
   getDriveAppSdkClient,
   getVoiceAppSdkClient,
+  IM_H5_VOICE_PROFILE_UPLOAD,
 } from '@sdkwork/im-h5-core/sdk';
 import {
   configureMyVoiceSdkPorts,
@@ -64,11 +65,11 @@ export function configureVoiceMyVoicesRuntime(): void {
     uploadAudioSample: async (file, options) => {
       const uploadResult = await driveClient.uploader.uploadAudio({
         file,
-        appResourceType: 'voice_profile',
+        appResourceType: IM_H5_VOICE_PROFILE_UPLOAD.appResourceType,
         appResourceId: 'my_voices',
-        scene: 'voice',
-        source: 'voice_profile',
-        uploadProfileCode: 'audio',
+        scene: IM_H5_VOICE_PROFILE_UPLOAD.scene,
+        source: IM_H5_VOICE_PROFILE_UPLOAD.source,
+        uploadProfileCode: IM_H5_VOICE_PROFILE_UPLOAD.uploadProfileCode,
         ...(options?.fileName ? { originalFileName: options.fileName } : {}),
         ...(options?.mimeType ? { contentType: options.mimeType } : {}),
       });

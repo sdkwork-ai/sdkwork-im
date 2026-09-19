@@ -114,6 +114,10 @@
       "types": "./src/sdk/imSdkClient.ts",
       "default": "./src/sdk/imSdkClient.ts"
     },
+    "./sdk/uploadDeclaration": {
+      "types": "./src/sdk/uploadDeclaration.ts",
+      "default": "./src/sdk/uploadDeclaration.ts"
+    },
     "./sdk/pcWelcome": {
       "types": "./src/sdk/pcWelcome.ts",
       "default": "./src/sdk/pcWelcome.ts"

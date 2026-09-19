@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "appId": "sdkwork-im-pc",
+  "declarations": [
+    {
+      "appResourceType": "im.conversation_message_media",
+      "appResourceIdKind": "entity",
+      "scene": "chat-message-media",
+      "source": "sdkwork-im-pc",
+      "uploadProfileCode": "attachment",
+      "retention": "long_term",
+      "purpose": "Media attached to an IM conversation message (image, video, voice, or file) uploaded from the desktop chat surface."
+    }
+  ]
+}

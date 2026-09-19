@@ -6,4 +6,5 @@ export * from './driveAppSdkClient';
 export * from './imSdkClient';
 export * from './orderAppSdkClient';
 export * from './knowledgebaseAppSdkClient';
+export * from './uploadDeclaration';
 export * from './voiceAppSdkClient';

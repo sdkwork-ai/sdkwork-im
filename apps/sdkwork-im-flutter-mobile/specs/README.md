@@ -13,6 +13,11 @@ Primary contracts:
 - Runtime family: Flutter mobile app
 - Surface: app/user-facing
 - SDK boundary: generated/composed IM Flutter SDKs plus appbase IAM session integration through bootstrap.
+- Shared helpers: response-envelope navigation and client-id generation are consumed
+  from `sdkwork-sdk-commons/sdkwork-sdk-common-flutter` and re-exported by
+  `sdkwork_im_flutter_mobile_core`, so no capability package re-implements them.
+- Capability package family: `packages/sdkwork_im_flutter_mobile_{core,commons,shell,chat,contacts}`,
+  each carrying its own `specs/component.spec.json`.
 
 Verification:
 

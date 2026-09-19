@@ -57,35 +57,29 @@ tracked JSON at runtime. That module is generated; edit the JSON and re-run the
 script rather than editing ArkTS. The test suite runs the generator in `--check`
 mode, so a stale projection fails the gate.
 
-## Known Shared-Tooling Gap
+## App Type Vocabulary
 
-`check-app-manifest-standard.mjs` rejects this root's `app.appType`:
+This root declares `app.appType = "APP_HARMONY"`, the value named for a native
+HarmonyOS root by `APP_MANIFEST_SPEC.md` §6.1 (`runtime.family = mobile`,
+`runtime.framework = harmony-native`, `publish.platforms` includes `APP_HARMONY`)
+and the same value every other HarmonyOS root in the workspace declares
+(`sdkwork-agents`, `sdkwork-appstore`, `sdkwork-knowledgebase`).
 
-```text
-- apps/sdkwork-im-harmony-mobile/sdkwork.app.config.json: app.appType must use a PlusProjectType value
-```
+`APP_HARMONY` is a first-class member of the frontend vocabulary, so
+`check-app-manifest-standard.mjs --workspace .` accepts this root
+(`app manifest standard ok: 6 manifest(s)`):
 
-This root declares `app.appType = "APP_HARMONY"`, matching every other HarmonyOS
-root in the workspace (`sdkwork-agents`, `sdkwork-appstore`,
-`sdkwork-knowledgebase` all declare the same value and fail the same way). The
-value is the right one: `APP_CLIENT_ARCHITECTURE_ALIGNMENT_SPEC` and
-`APP_MANIFEST_SPEC.md` §6.1 both name `APP_HARMONY` as the HarmonyOS platform, and
-the other IM roots follow the same authoring-framework convention
-(`APP_REACT` for PC, `APP_FLUTTER` for Flutter, `APP_UNIAPP` for the mini program).
-
-What is missing is the enum membership, in three places at once:
-
-| Layer | Harmony support today |
+| Layer | Harmony support |
 | --- | --- |
-| `APP_MANIFEST_SPEC.md` §4 `PlusProjectType` (`app.appType`) | absent |
-| `APP_MANIFEST_SPEC.md` §6.1 publish platform / tool `PLATFORM_VALUES` | present (`APP_HARMONY`) |
-| `check-app-manifest-standard.mjs` `APP_TYPES` | absent → rejects the value |
-| backend `sdkwork-iam` `normalize_application_type` | absent (`api`/`h5`/`pc`/`flutter` only → `"other"`) |
+| `APP_MANIFEST_SPEC.md` §4 `PlusProjectType` (`app.appType`) | present (`APP_HARMONY`) |
+| `APP_MANIFEST_SPEC.md` §6.1 publish platform (`PLATFORM_VALUES`) | present (`APP_HARMONY`) |
+| `schemas/sdkwork.app.config.schema.v3.json` | present (`APP_HARMONY`) |
+| `check-app-manifest-standard.mjs` `APP_TYPES` | present (`APP_HARMONY`) |
+| backend `sdkwork-iam` `normalize_application_type` | **absent** — `api`/`h5`/`pc`/`flutter` only, so a template declaring `APP_HARMONY` still normalizes to `"other"` |
 
-Closing it means touching the standards authority and the backend enum, so it is
-left visible here rather than worked around: declaring a different `appType` would
-silently misdescribe a native HarmonyOS root just to turn one line green. This is
-the **only** outstanding issue for this root; every other check passes.
+The remaining backend gap is a code-only change: `iam_tenant_application.application_type`
+is a plain `TEXT NOT NULL DEFAULT 'other'` column with no check constraint and no
+Postgres enum, so widening the vocabulary needs no migration.
 
 ## Blocking Prerequisites
 

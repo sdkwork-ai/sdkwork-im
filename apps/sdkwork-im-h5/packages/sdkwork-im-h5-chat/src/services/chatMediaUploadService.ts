@@ -1,14 +1,11 @@
 import {
   getDriveAppSdkClient,
+  resolveImH5ChatMediaUpload,
   type DriveUploaderBlobLike,
   type DriveUploaderProfile,
   type DriveUploaderUploadResult,
   type SdkworkDriveAppClient,
 } from '@sdkwork/im-h5-core/sdk';
-
-const CHAT_DRIVE_APP_RESOURCE_TYPE = "im_conversation";
-const CHAT_DRIVE_SCENE = "im";
-const CHAT_DRIVE_SOURCE = "chat_message";
 
 export function getDriveAppSdkClientWithSession(): SdkworkDriveAppClient {
   return getDriveAppSdkClient();
@@ -36,9 +33,10 @@ export async function uploadChatMedia(
   options: { durationSeconds?: number; fileName?: string; mimeType?: string } = {},
 ): Promise<ChatMediaUpload> {
   const client = getDriveAppSdkClientWithSession();
-  const profile: DriveUploaderProfile = kind === "image" ? "image" : kind === "video" ? "video" : kind === "voice" || kind === "audio" ? "audio" : "attachment";
+  const declared = resolveImH5ChatMediaUpload(kind);
+  const profile: DriveUploaderProfile = declared.uploadProfileCode as DriveUploaderProfile;
   const request = {
-    file, appResourceType: CHAT_DRIVE_APP_RESOURCE_TYPE, appResourceId: conversationId, scene: CHAT_DRIVE_SCENE, source: CHAT_DRIVE_SOURCE, uploadProfileCode: profile,
+    file, appResourceType: declared.appResourceType, appResourceId: conversationId, scene: declared.scene, source: declared.source, uploadProfileCode: profile,
     ...(options.fileName ? { originalFileName: options.fileName } : {}), ...(options.mimeType ? { contentType: options.mimeType } : {}),
   };
   const uploadResult = kind === "image" ? await client.uploader.uploadImage(request) : kind === "video" ? await client.uploader.uploadVideo(request) : kind === "voice" || kind === "audio" ? await client.uploader.uploadAudio(request) : await client.uploader.uploadAttachment(request);
