@@ -72,7 +72,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     createSdkworkCredentialEntryBootstrapVitePlugin({
       accessToken: process.env.SDKWORK_ACCESS_TOKEN,
-      environment: mode,
+      environment: resolveViteEnvironment(mode, process.env),
     }),
     wechatJsCompatPlugin(),
     react(),

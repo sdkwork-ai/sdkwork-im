@@ -173,6 +173,7 @@
     "@sdkwork/feeds-sdk": "workspace:*",
     "@sdkwork/iam-app-sdk": "workspace:*",
     "@sdkwork/iam-contracts": "workspace:*",
+    "@sdkwork/iam-credential-entry": "workspace:*",
     "@sdkwork/im-app-sdk": "workspace:*",
     "@sdkwork/im-pc-commons": "workspace:*",
     "@sdkwork/im-sdk": "workspace:*",

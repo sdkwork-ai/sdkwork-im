@@ -269,8 +269,8 @@ export default defineConfig(({mode}) => {
     cacheDir: path.resolve(__dirname, '.vite'),
     plugins: [
       createSdkworkCredentialEntryBootstrapVitePlugin({
-        accessToken: process.env.SDKWORK_ACCESS_TOKEN,
-        environment: mode,
+      accessToken: process.env.SDKWORK_ACCESS_TOKEN,
+      environment: resolveViteEnvironment(mode, process.env),
       }),
       sdkworkChatLocalApiPlugin(),
       // Skip the root-level `.vite` dependency cache: pre-bundled deps are
