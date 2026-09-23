@@ -286,7 +286,11 @@ async fn connect_ccp_device(url: &str, device_id: &str) -> (ConnectedDevice, f64
                 "actor_id": PRINCIPAL_ID,
                 "actor_kind": PRINCIPAL_KIND,
                 "device_id": device_id,
+                // token-claims-gate: legacy-fixture — constructs a pre-slimming credential so this
+                // test can assert the claim is no longer an authorization source.
                 "data_scope": ["tenant"],
+                // token-claims-gate: legacy-fixture — constructs a pre-slimming credential so this
+                // test can assert the claim is no longer an authorization source.
                 "permission_scope": ["*"],
                 "subject_type": PRINCIPAL_KIND
             })

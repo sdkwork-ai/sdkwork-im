@@ -167,9 +167,7 @@ mod tests {
             "deployment_mode": "private",
             "auth_level": "password",
             "actor_id": "1",
-            "actor_kind": "user",
-            "permission_scope": ["ops.read"],
-            "data_scope": ["tenant"]
+            "actor_kind": "user"
         });
         let token = local_token(claims);
         let mut headers = HeaderMap::new();

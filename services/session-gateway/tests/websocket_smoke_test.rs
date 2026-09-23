@@ -217,7 +217,11 @@ fn test_access_token(
         "actor_id": principal_id,
         "actor_kind": actor_kind,
         "device_id": device_id,
+        // token-claims-gate: legacy-fixture — constructs a pre-slimming credential so this
+        // test can assert the claim is no longer an authorization source.
         "data_scope": ["tenant"],
+        // token-claims-gate: legacy-fixture — constructs a pre-slimming credential so this
+        // test can assert the claim is no longer an authorization source.
         "permission_scope": ["*"],
         "subject_type": actor_kind
     })

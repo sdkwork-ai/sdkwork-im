@@ -174,7 +174,11 @@ fn build_token_headers() -> HeaderMap {
         "auth_level": "password",
         "actor_id": "1",
         "actor_kind": "user",
+        // token-claims-gate: legacy-fixture — constructs a pre-slimming credential so this
+        // test can assert the claim is no longer an authorization source.
         "permission_scope": ["ops.read", "audit.*", "media.write"],
+        // token-claims-gate: legacy-fixture — constructs a pre-slimming credential so this
+        // test can assert the claim is no longer an authorization source.
         "data_scope": ["tenant"]
     });
     let token = local_token(claims);
@@ -482,7 +486,11 @@ fn test_resolve_app_context_rejects_expired_jwt() {
         "auth_level": "password",
         "actor_id": "1",
         "actor_kind": "user",
+        // token-claims-gate: legacy-fixture — constructs a pre-slimming credential so this
+        // test can assert the claim is no longer an authorization source.
         "permission_scope": ["ops.read"],
+        // token-claims-gate: legacy-fixture — constructs a pre-slimming credential so this
+        // test can assert the claim is no longer an authorization source.
         "data_scope": ["tenant"],
         "exp": 1
     });
@@ -544,7 +552,11 @@ fn signed_dual_token_headers(tenant_id: &str, secret: &str, key_id: &str) -> Hea
         "auth_level": "password",
         "actor_id": "1",
         "actor_kind": "user",
+        // token-claims-gate: legacy-fixture — constructs a pre-slimming credential so this
+        // test can assert the claim is no longer an authorization source.
         "permission_scope": ["ops.read"],
+        // token-claims-gate: legacy-fixture — constructs a pre-slimming credential so this
+        // test can assert the claim is no longer an authorization source.
         "data_scope": ["tenant"],
         "iss": TEST_JWT_ISSUER,
         "aud": TEST_JWT_AUDIENCE,
@@ -578,7 +590,11 @@ fn local_token_headers_with_jti(jti: &str) -> HeaderMap {
         "auth_level": "password",
         "actor_id": "1",
         "actor_kind": "user",
+        // token-claims-gate: legacy-fixture — constructs a pre-slimming credential so this
+        // test can assert the claim is no longer an authorization source.
         "permission_scope": ["ops.read", "audit.*", "media.write"],
+        // token-claims-gate: legacy-fixture — constructs a pre-slimming credential so this
+        // test can assert the claim is no longer an authorization source.
         "data_scope": ["tenant"],
         "jti": jti
     });

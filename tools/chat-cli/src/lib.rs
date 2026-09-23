@@ -534,8 +534,6 @@ pub(crate) fn resolve_access_token(auth: &AuthInput) -> Result<String, CliError>
         "environment": "dev",
         "deployment_mode": "saas",
         "auth_level": "password",
-        "permission_scope": auth.permissions,
-        "data_scope": ["tenant"],
     }))
     .map_err(|error| CliError::runtime(format!("failed to encode local token payload: {error}")))?;
     Ok(format!(

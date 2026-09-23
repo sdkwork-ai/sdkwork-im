@@ -5969,13 +5969,16 @@ dependencies = [
 name = "sdkwork-agents-tool-cloudrouter"
 version = "0.1.0"
 dependencies = [
+ "axum 0.8.9",
  "cloudrouter-open-sdk",
  "reqwest 0.13.5",
  "sdkwork-agent-kernel",
  "sdkwork-agent-provider-rig",
  "sdkwork-agents-tool-contract",
+ "sdkwork-utils-rust",
  "serde_json",
  "tokio",
+ "tower 0.5.3",
  "tracing",
 ]
 

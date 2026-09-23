@@ -711,17 +711,12 @@ where
     S: AsRef<str>,
 {
     ensure_local_dual_token_environment_for_unconfigured_process();
-    let permission_scope = permission_scope
-        .into_iter()
-        .map(|value| value.as_ref().trim().to_owned())
-        .filter(|value| !value.is_empty())
-        .collect::<Vec<_>>();
-    let permission_scope = if permission_scope.is_empty() {
-        context.permission_scope.iter().cloned().collect::<Vec<_>>()
-    } else {
-        permission_scope
-    };
-    let data_scope = context.data_scope.iter().cloned().collect::<Vec<_>>();
+    // IAM_SPEC §5.2/§5.6: authorization scope MUST NOT be signed into a
+    // credential. The argument is retained for source compatibility only; the
+    // payload below is an identity envelope, and consumers resolve scope
+    // server-side through the framework port. Signing it here is exactly what
+    // produced `HTTP 431 Request Header Fields Too Large` at the edge.
+    let _ = (&permission_scope, &context.data_scope);
     let login_scope = if is_tenant_level_organization_id(&context.organization_id) {
         "TENANT"
     } else {
@@ -760,8 +755,6 @@ where
         "actor_id": context.actor_id,
         "actor_kind": context.actor_kind,
         "device_id": context.device_id,
-        "data_scope": data_scope,
-        "permission_scope": permission_scope,
         "subject_type": context.actor_kind,
     }));
 

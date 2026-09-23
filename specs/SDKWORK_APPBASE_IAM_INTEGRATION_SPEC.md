@@ -534,7 +534,7 @@ Registered IM members use the IAM `app_user` role — not admin bootstrap scope.
 
 Client app roots declare `contracts.permissionComposition` per `APP_PERMISSION_COMPOSITION_SPEC.md`. Machine contract: `specs/im-member-capability.spec.json`.
 
-After IAM role or bootstrap changes: restart standalone gateway and re-login so JWT `permission_scope` refreshes.
+After IAM role or bootstrap changes: restart standalone gateway and re-login so the server-resolved `permission_scope` is reloaded from the session row. The JWT itself never carries scope (`IAM_SPEC.md` §5.2) — it is resolved server-side per §5.6.
 
 Reference commands:
 
