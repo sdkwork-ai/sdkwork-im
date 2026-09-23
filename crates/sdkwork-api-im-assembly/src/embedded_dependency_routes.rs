@@ -555,9 +555,10 @@ async fn bootstrap_embedded_invoice_contribution()
 /// Bootstrap the merchandise database module only.
 ///
 /// sdkwork-merchandise exposes no public App API surface of its own, but its
-/// baseline owns tables that sibling domains join at query time (e.g.
-/// membership reads `commerce_product_sku`); the standalone gateway runs its
-/// database lifecycle so those tables exist in the shared PostgreSQL profile.
+/// baseline owns tables that sibling domains read at query time (e.g. the order
+/// checkout and points-recharge paths resolve a `commerce_product_sku`); the
+/// standalone gateway runs its database lifecycle so those tables exist in the
+/// shared PostgreSQL profile.
 async fn bootstrap_embedded_merchandise_database() -> Result<(), String> {
     sdkwork_merchandise_database_host::bootstrap_merchandise_database_from_env()
         .await
