@@ -24,7 +24,7 @@ import type {
   DriveUploaderUploadResult,
   SdkworkDriveUploader,
 } from '@sdkwork/im-pc-core/sdk/driveAppSdkClient';
-import { IM_PC_CHAT_ATTACHMENT_UPLOAD } from '@sdkwork/im-pc-core/sdk/uploadDeclaration';
+import { resolveImPcChatMediaUpload } from '@sdkwork/im-pc-core/sdk/uploadDeclaration';
 import {
   forEachCursorPage,
   SDKWORK_DEFAULT_PAGE_SIZE,
@@ -58,7 +58,6 @@ import {
 import {
   SDKWORK_IM_SESSION_CHANGED_EVENT,
   readAppSdkSessionTokens,
-  resolveAppSdkOrganizationId,
   resolveAppSdkUserId,
   type SdkworkChatSession,
 } from '@sdkwork/im-pc-core/sdk/session';
@@ -1152,14 +1151,6 @@ function getDefaultDriveUploader(): Promise<SdkworkDriveUploader> {
   return driveUploaderClientPromise;
 }
 
-function resolveChatUploadUserId(session: SdkworkChatSession | null | undefined): string {
-  const userId = resolveAppSdkUserId(session ?? null);
-  if (!userId) {
-    throw new Error('Chat media upload requires user_id in the authenticated session.');
-  }
-  return userId;
-}
-
 function parseFileSizeBytes(value: string | undefined): string | undefined {
   const normalized = value?.trim();
   if (!normalized) {
@@ -1309,15 +1300,6 @@ function buildMessageRenderHints(
   };
 }
 
-function resolveMediaUploadProfile(type: SendableMediaMessageType): DriveUploaderProfile | undefined {
-  switch (type) {
-    case 'file':
-      return 'attachment';
-    default:
-      return undefined;
-  }
-}
-
 function resolveMediaUploadContentType(
   type: SendableMediaMessageType,
   file: DriveUploaderBlobLike,
@@ -1344,14 +1326,12 @@ async function uploadChatMediaFile({
   content,
   extraInfo,
   getDriveUploader,
-  getSession,
   type,
 }: {
   chatId: string;
   content: string;
   extraInfo: ChatMessageExtraInfo | undefined;
   getDriveUploader: () => Promise<SdkworkDriveUploader> | SdkworkDriveUploader;
-  getSession: () => SdkworkChatSession | null;
   type: SendableMediaMessageType;
 }): Promise<ChatMediaUploadResult> {
   const file = extraInfo?.file;
@@ -1359,20 +1339,21 @@ async function uploadChatMediaFile({
     throw new Error('Chat media messages require a File or Blob before sending.');
   }
 
-  const session = getSession();
-  const organizationId = resolveAppSdkOrganizationId(session ?? null);
-  resolveChatUploadUserId(session);
+  // Identity (tenant, organization, user, app) is derived from the verified authenticated
+  // runtime by Drive; only upload business intent is sent (`DRIVE_SPEC.md` section 18.3).
+  const declaration = resolveImPcChatMediaUpload(type);
+  const uploadProfileCode: DriveUploaderProfile = declaration.uploadProfileCode as DriveUploaderProfile;
   const originalFileName = resolveMediaUploadFileName(type, file, extraInfo);
+  const contentType = resolveMediaUploadContentType(type, file, extraInfo);
   const uploadRequest: DriveUploaderRequest = {
     file,
-    ...(organizationId ? { organizationId } : {}),
-    appResourceType: IM_PC_CHAT_ATTACHMENT_UPLOAD.appResourceType,
+    appResourceType: declaration.appResourceType,
     appResourceId: chatId,
-    scene: IM_PC_CHAT_ATTACHMENT_UPLOAD.scene,
-    source: IM_PC_CHAT_ATTACHMENT_UPLOAD.source,
-    ...(resolveMediaUploadProfile(type) ? { uploadProfileCode: resolveMediaUploadProfile(type) } : {}),
+    scene: declaration.scene,
+    source: declaration.source,
+    uploadProfileCode,
     originalFileName,
-    ...(resolveMediaUploadContentType(type, file, extraInfo) ? { contentType: resolveMediaUploadContentType(type, file, extraInfo) } : {}),
+    ...(contentType ? { contentType } : {}),
   };
 
   const uploader = await getDriveUploader();
@@ -2907,7 +2888,6 @@ class SdkworkChatService implements ChatService {
               assertCurrentGeneration();
               return uploader;
             },
-            getSession: this.getSession,
             type,
           })
         : undefined;

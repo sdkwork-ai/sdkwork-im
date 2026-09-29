@@ -7,9 +7,36 @@
       "appResourceIdKind": "entity",
       "scene": "chat-message-media",
       "source": "sdkwork-im-pc",
+      "uploadProfileCode": "image",
+      "retention": "long_term",
+      "purpose": "Image attached to an IM conversation message from the desktop chat surface."
+    },
+    {
+      "appResourceType": "im.conversation_message_media",
+      "appResourceIdKind": "entity",
+      "scene": "chat-message-media",
+      "source": "sdkwork-im-pc",
+      "uploadProfileCode": "video",
+      "retention": "long_term",
+      "purpose": "Video attached to an IM conversation message from the desktop chat surface."
+    },
+    {
+      "appResourceType": "im.conversation_message_media",
+      "appResourceIdKind": "entity",
+      "scene": "chat-message-media",
+      "source": "sdkwork-im-pc",
+      "uploadProfileCode": "audio",
+      "retention": "long_term",
+      "purpose": "Voice message attached to an IM conversation from the desktop chat surface."
+    },
+    {
+      "appResourceType": "im.conversation_message_media",
+      "appResourceIdKind": "entity",
+      "scene": "chat-message-media",
+      "source": "sdkwork-im-pc",
       "uploadProfileCode": "attachment",
       "retention": "long_term",
-      "purpose": "Media attached to an IM conversation message (image, video, voice, or file) uploaded from the desktop chat surface."
+      "purpose": "Generic file attached to an IM conversation message from the desktop chat surface."
     }
   ]
 }
