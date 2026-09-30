@@ -2757,7 +2757,9 @@ components:
           maximum: 200
         totalItems:
           type: string
+          format: int64
           pattern: ^[0-9]+$
+          x-sdkwork-int64-string: true
         totalPages:
           type: integer
           minimum: 0

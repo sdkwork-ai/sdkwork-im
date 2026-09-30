@@ -1,3 +1,3 @@
 export interface UpdateReadCursorRequest {
-  readSeq: number;
+  readSeq: string;
 }

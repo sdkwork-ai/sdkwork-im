@@ -1,7 +1,7 @@
 import { imApiPath } from './paths';
 import type { ApiRequestOptions, HttpClient } from '../http/client';
 
-import type { AckResponse, AddConversationMemberRequest, BindDirectChatRequest, ChangeConversationMemberRoleRequest, ConversationAgentAssignments, ConversationInboxEntry, ConversationMember, ConversationMessageEntry, ConversationPreferencesView, ConversationProfileView, ConversationSummaryView, CreateAgentDialogRequest, CreateAgentHandoffRequest, CreateConversationRequest, CreateConversationResult, CreateRoomRequest, CreateSystemChannelRequest, CreateThreadConversationRequest, EditMessageRequest, EnterRoomResponse, FavoriteMessageRequest, MessageFavoriteType, MessageFavoriteView, MessageInteractionSummaryView, MessageMutationResult, MessagePinMutationResult, MessageReactionMutationResult, MessageReactionRequest, MessageSearchHit, PageInfo, PostMessageRequest, PostMessageResult, ReadCursorView, RecallMessageRequest, RemoveConversationMemberRequest, RoomView, TransferConversationOwnerRequest, UpdateConversationAgentsRequest, UpdateConversationPreferencesRequest, UpdateConversationProfileRequest, UpdateReadCursorRequest, WelcomeEnsureView } from '../types';
+import type { AckResponse, AddConversationMemberRequest, BindDirectChatRequest, ChangeConversationMemberRoleRequest, ConversationAgentAssignments, ConversationBindingView, ConversationInboxEntry, ConversationMember, ConversationMessageEntry, ConversationPreferencesView, ConversationProfileView, ConversationSummaryView, CreateAgentDialogRequest, CreateAgentHandoffRequest, CreateConversationRequest, CreateConversationResult, CreateRoomRequest, CreateSystemChannelRequest, CreateThreadConversationRequest, EditMessageRequest, EnterRoomResponse, FavoriteMessageRequest, MessageFavoriteType, MessageFavoriteView, MessageInteractionSummaryView, MessageMutationResult, MessagePinMutationResult, MessageReactionMutationResult, MessageReactionRequest, MessageSearchHit, PageInfo, PostMessageRequest, PostMessageResult, ReadCursorView, RecallMessageRequest, RemoveConversationMemberRequest, RoomView, SharedChannelLinkSyncRequest, SharedChannelLinkSyncResponse, TransferConversationOwnerRequest, UpdateConversationAgentsRequest, UpdateConversationPreferencesRequest, UpdateConversationProfileRequest, UpdateReadCursorRequest, WelcomeEnsureView } from '../types';
 
 
 export class ChatRoomsApi {
@@ -103,29 +103,23 @@ export class ChatMessagesFavoritesApi {
   }
 }
 
-export interface ChatMessagesSearchParams {
+export interface ChatMessagesSearchListParams {
   q: string;
   conversationId?: string;
   pageSize?: number;
   cursor?: string;
 }
 
-export class ChatMessagesApi {
+export class ChatMessagesSearchApi {
   private client: HttpClient;
-  public readonly favorites: ChatMessagesFavoritesApi;
-  public readonly visibility: ChatMessagesVisibilityApi;
-  public readonly reactions: ChatMessagesReactionsApi;
 
   constructor(client: HttpClient) {
     this.client = client;
-    this.favorites = new ChatMessagesFavoritesApi(client);
-    this.visibility = new ChatMessagesVisibilityApi(client);
-    this.reactions = new ChatMessagesReactionsApi(client);
   }
 
 
 /** Search conversation message history */
-  async search(params: ChatMessagesSearchParams, requestOptions?: ApiRequestOptions): Promise<{ items: MessageSearchHit[]; pageInfo: PageInfo; }> {
+  async list(params: ChatMessagesSearchListParams, requestOptions?: ApiRequestOptions): Promise<{ items: MessageSearchHit[]; pageInfo: PageInfo; }> {
     const query = buildQueryString([
       { name: 'q', value: params.q, style: 'form', explode: true, allowReserved: false },
       { name: 'conversationId', value: params.conversationId, style: 'form', explode: true, allowReserved: false },
@@ -134,6 +128,23 @@ export class ChatMessagesApi {
     ]);
     return this.client.request<{ items: MessageSearchHit[]; pageInfo: PageInfo; }>(appendQueryString(imApiPath(`/chat/messages/search`), query), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'GET' as any, sdkworkUnwrapKind: 'page' });
   }
+}
+
+export class ChatMessagesApi {
+  private client: HttpClient;
+  public readonly search: ChatMessagesSearchApi;
+  public readonly favorites: ChatMessagesFavoritesApi;
+  public readonly visibility: ChatMessagesVisibilityApi;
+  public readonly reactions: ChatMessagesReactionsApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.search = new ChatMessagesSearchApi(client);
+    this.favorites = new ChatMessagesFavoritesApi(client);
+    this.visibility = new ChatMessagesVisibilityApi(client);
+    this.reactions = new ChatMessagesReactionsApi(client);
+  }
+
 
 /** Edit a message */
   async edit(messageId: string, body: EditMessageRequest, requestOptions?: ApiRequestOptions): Promise<MessageMutationResult> {
@@ -209,12 +220,12 @@ export class ChatConversationsMessagesApi {
 
 
 /** List conversation message history */
-  async list(conversationId: string, params?: ChatConversationsMessagesListParams, requestOptions?: ApiRequestOptions): Promise<{ items: ConversationMessageEntry[]; pageInfo: PageInfo; highWatermark: number; }> {
+  async list(conversationId: string, params?: ChatConversationsMessagesListParams, requestOptions?: ApiRequestOptions): Promise<{ items: ConversationMessageEntry[]; pageInfo: PageInfo; highWatermark: string; }> {
     const query = buildQueryString([
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.request<{ items: ConversationMessageEntry[]; pageInfo: PageInfo; highWatermark: number; }>(appendQueryString(imApiPath(`/chat/conversations/${serializePathParameter(conversationId, { name: 'conversationId', style: 'simple', explode: false })}/messages`), query), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'GET' as any, sdkworkUnwrapKind: 'page' });
+    return this.client.request<{ items: ConversationMessageEntry[]; pageInfo: PageInfo; highWatermark: string; }>(appendQueryString(imApiPath(`/chat/conversations/${serializePathParameter(conversationId, { name: 'conversationId', style: 'simple', explode: false })}/messages`), query), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'GET' as any, sdkworkUnwrapKind: 'page' });
   }
 
 /** Post a conversation message */
@@ -303,6 +314,20 @@ export class ChatConversationsPreferencesApi {
   }
 }
 
+export class ChatConversationsBindingApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Retrieve the business binding of a conversation */
+  async retrieve(conversationId: string, requestOptions?: ApiRequestOptions): Promise<ConversationBindingView> {
+    return this.client.request<ConversationBindingView>(imApiPath(`/chat/conversations/${serializePathParameter(conversationId, { name: 'conversationId', style: 'simple', explode: false })}/binding`), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'GET' as any, sdkworkUnwrapKind: 'item' });
+  }
+}
+
 export class ChatConversationsAgentsApi {
   private client: HttpClient;
 
@@ -388,6 +413,20 @@ export class ChatConversationsMembersApi {
 /** Accept a conversation invitation */
   async acceptInvitation(conversationId: string, requestOptions?: ApiRequestOptions): Promise<ConversationMember> {
     return this.client.request<ConversationMember>(imApiPath(`/chat/conversations/${serializePathParameter(conversationId, { name: 'conversationId', style: 'simple', explode: false })}/members/accept_invitation`), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'POST' as any, sdkworkUnwrapKind: 'item' });
+  }
+}
+
+export class ChatConversationsSharedChannelLinksApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Sync a shared-channel linked member into a conversation */
+  async sync(body: SharedChannelLinkSyncRequest, requestOptions?: ApiRequestOptions): Promise<SharedChannelLinkSyncResponse> {
+    return this.client.request<SharedChannelLinkSyncResponse>(imApiPath(`/chat/conversations/shared_channel_links/sync`), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -502,8 +541,10 @@ export class ChatConversationsApi {
   public readonly systemChannels: ChatConversationsSystemChannelsApi;
   public readonly threads: ChatConversationsThreadsApi;
   public readonly directChats: ChatConversationsDirectChatsApi;
+  public readonly sharedChannelLinks: ChatConversationsSharedChannelLinksApi;
   public readonly members: ChatConversationsMembersApi;
   public readonly agents: ChatConversationsAgentsApi;
+  public readonly binding: ChatConversationsBindingApi;
   public readonly preferences: ChatConversationsPreferencesApi;
   public readonly profile: ChatConversationsProfileApi;
   public readonly readCursor: ChatConversationsReadCursorApi;
@@ -518,8 +559,10 @@ export class ChatConversationsApi {
     this.systemChannels = new ChatConversationsSystemChannelsApi(client);
     this.threads = new ChatConversationsThreadsApi(client);
     this.directChats = new ChatConversationsDirectChatsApi(client);
+    this.sharedChannelLinks = new ChatConversationsSharedChannelLinksApi(client);
     this.members = new ChatConversationsMembersApi(client);
     this.agents = new ChatConversationsAgentsApi(client);
+    this.binding = new ChatConversationsBindingApi(client);
     this.preferences = new ChatConversationsPreferencesApi(client);
     this.profile = new ChatConversationsProfileApi(client);
     this.readCursor = new ChatConversationsReadCursorApi(client);

@@ -71,7 +71,7 @@ class CallsApi {
   }
 
   /// List IM call signaling events
-  Future<CallsSessionsSignalsListResponse?> sessionsSignalsList(String rtcSessionId, [int? afterSignalSeq, String? cursor, int? pageSize]) async {
+  Future<CallsSessionsSignalsListResponse?> sessionsSignalsList(String rtcSessionId, [String? afterSignalSeq, String? cursor, int? pageSize]) async {
     final query = buildQueryString([
       QueryParameterSpec('afterSignalSeq', afterSignalSeq, 'form', true, false, null),
       QueryParameterSpec('cursor', cursor, 'form', true, false, null),

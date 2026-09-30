@@ -1,6 +1,6 @@
 # sdkwork-im-sdk (Flutter)
 
-Generated SDKWork v3 dual-token transport SDK.
+Professional Flutter SDK for SDKWork API.
 
 ## Installation
 
@@ -16,27 +16,43 @@ dependencies:
 ```dart
 import 'package:im_sdk_generated/im_sdk_generated.dart';
 
-final client = SdkworkImClient.withBaseUrl(baseUrl: 'http://127.0.0.1:18079');
-client.setAuthToken('your-auth-token');
-client.setAccessToken('your-access-token');
+final client = SdkworkImClient.withBaseUrl(baseUrl: 'http://127.0.0.1:18089');
+client.setApiKey('your-api-key');
 
 // Use the SDK
 final result = await client.presence.meRetrieve();
 print(result);
 ```
 
-## Authentication
+## Authentication Modes (Mutually Exclusive)
 
-```text
-Authorization: Bearer <authToken>
-Access-Token: <accessToken>
+Choose exactly one mode for the same client instance.
+
+### Mode A: API Key
+
+```dart
+final client = SdkworkImClient.withBaseUrl(baseUrl: 'http://127.0.0.1:18089');
+client.setApiKey('your-api-key');
+// Sends: X-API-Key: <apiKey>
 ```
 
+### Mode B: Dual Token
+
+```dart
+final client = SdkworkImClient.withBaseUrl(baseUrl: 'http://127.0.0.1:18089');
+client.setAuthToken('your-auth-token');
+client.setAccessToken('your-access-token');
+// Sends:
+// Authorization: Bearer <authToken>
+// Access-Token: <accessToken>
+```
+
+> Do not call `setApiKey(...)` together with `setAuthToken(...)` + `setAccessToken(...)` on the same client.
 
 ## Configuration (Non-Auth)
 
 ```dart
-final client = SdkworkImClient.withBaseUrl(baseUrl: 'http://127.0.0.1:18079');
+final client = SdkworkImClient.withBaseUrl(baseUrl: 'http://127.0.0.1:18089');
 
 // Set custom headers
 client.setHeader('X-Custom-Header', 'value');
@@ -49,7 +65,6 @@ client.setHeader('X-Custom-Header', 'value');
 - `client.calls` - calls API
 - `client.social` - social API
 - `client.chat` - chat API
-- `client.streams` - streams API
 - `client.spaces` - spaces API
 
 ## Usage Examples
@@ -93,25 +108,8 @@ print(result);
 
 ### chat
 ```dart
-// List current inbox window
-final params = <String, dynamic>{
-  'page_size': 1,
-  'cursor': 'cursor',
-  'conversation_type': 'conversation-type',
-  'q': 'q',
-};
-final result = await client.chat.inboxList(params);
-print(result);
-```
-
-### streams
-```dart
-// Open a stream
-final body = OpenStreamRequest(
-  streamType: 'streamtype',
-  conversationId: '1',
-);
-final result = await client.streams.create(body);
+// Ensure the current user received the system-agent Welcome message
+final result = await client.chat.meWelcomeEnsure();
 print(result);
 ```
 

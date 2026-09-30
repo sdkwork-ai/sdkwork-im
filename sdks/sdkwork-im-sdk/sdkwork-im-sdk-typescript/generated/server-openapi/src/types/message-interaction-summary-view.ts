@@ -5,7 +5,7 @@ export interface MessageInteractionSummaryView {
   tenantId: string;
   conversationId: string;
   messageId: string;
-  messageSeq: number;
+  messageSeq: string;
   totalReactionCount: number;
   reactionCounts: MessageReactionCountView[];
   pin?: MessagePinView | null;

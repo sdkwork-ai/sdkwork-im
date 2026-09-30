@@ -1,6 +1,11 @@
 export interface DirectChat {
   tenantId: string;
   directChatId: string;
-  conversationId: string;
-  status: string;
+  leftActorId: string;
+  rightActorId: string;
+  pairHash: string;
+  status: 'active' | 'archived' | 'closed';
+  conversationId?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

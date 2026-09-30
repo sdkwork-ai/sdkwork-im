@@ -152,6 +152,16 @@ class SpacesApi {
     await _client.delete(ApiPaths.imPath('/spaces/${serializePathParameter(spaceId, const PathParameterSpec('spaceId', 'simple', false))}/groups/${serializePathParameter(groupId, const PathParameterSpec('groupId', 'simple', false))}'));
   }
 
+  /// Transfer spaces groups owner
+  Future<SpacesGroupsTransferOwnerResponse?> groupsTransferOwner(String spaceId, String groupId, SpaceGroupTransferOwnerRequest body) async {
+    final payload = body.toJson();
+    final response = await _client.post(ApiPaths.imPath('/spaces/${serializePathParameter(spaceId, const PathParameterSpec('spaceId', 'simple', false))}/groups/${serializePathParameter(groupId, const PathParameterSpec('groupId', 'simple', false))}/transfer_owner'), body: payload, contentType: 'application/json');
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : SpacesGroupsTransferOwnerResponse.fromJson(map);
+    })();
+  }
+
   /// List spaces groups members
   Future<SpacesGroupsMembersListResponse?> groupsMembersList(String spaceId, String groupId, [int? pageSize, String? cursor]) async {
     final query = buildQueryString([

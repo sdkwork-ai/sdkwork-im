@@ -7,7 +7,6 @@ import { RealtimeApi, createRealtimeApi } from './api/realtime';
 import { CallsApi, createCallsApi } from './api/calls';
 import { SocialApi, createSocialApi } from './api/social';
 import { ChatApi, createChatApi } from './api/chat';
-import { StreamsApi, createStreamsApi } from './api/streams';
 import { SpacesApi, createSpacesApi } from './api/spaces';
 
 export class SdkworkImClient {
@@ -18,7 +17,6 @@ export class SdkworkImClient {
   public readonly calls: CallsApi;
   public readonly social: SocialApi;
   public readonly chat: ChatApi;
-  public readonly streams: StreamsApi;
   public readonly spaces: SpacesApi;
 
   constructor(config: SdkworkImConfig) {
@@ -32,8 +30,6 @@ export class SdkworkImClient {
     this.social = createSocialApi(this.httpClient);
 
     this.chat = createChatApi(this.httpClient);
-
-    this.streams = createStreamsApi(this.httpClient);
 
     this.spaces = createSpacesApi(this.httpClient);
   }

@@ -837,7 +837,7 @@ class RtcSignalSender {
 class RtcSignalEvent {
   final String tenantId;
   final String rtcSessionId;
-  final int signalSeq;
+  final String signalSeq;
   final String? conversationId;
   final String rtcMode;
   final String signalType;
@@ -878,8 +878,8 @@ class RtcSignalEvent {
         return value;
       })(),
       signalSeq: (() {
-        final value = json['signalSeq'];
-        if (value is! int) {
+        final value = json['signalSeq']?.toString();
+        if (value == null) {
           throw FormatException('RtcSignalEvent.signalSeq is required');
         }
         return value;
@@ -1168,7 +1168,7 @@ class MediaResource {
   final String? title;
   final String? fileName;
   final String? mimeType;
-  final int? size;
+  final String? size;
   final String? sizeBytes;
   final String? fileSize;
   final int? durationSeconds;
@@ -1220,7 +1220,7 @@ class MediaResource {
       title: json['title']?.toString(),
       fileName: json['fileName']?.toString(),
       mimeType: json['mimeType']?.toString(),
-      size: json['size'] is int ? json['size'] : null,
+      size: json['size']?.toString(),
       sizeBytes: json['sizeBytes']?.toString(),
       fileSize: json['fileSize']?.toString(),
       durationSeconds: json['durationSeconds'] is int ? json['durationSeconds'] : null,
@@ -1362,7 +1362,7 @@ class ConversationMessageEntry {
   final String tenantId;
   final String conversationId;
   final String messageId;
-  final int messageSeq;
+  final String messageSeq;
   final String? summary;
   final Sender sender;
   final MessageBody body;
@@ -1415,8 +1415,8 @@ class ConversationMessageEntry {
         return value;
       })(),
       messageSeq: (() {
-        final value = json['messageSeq'];
-        if (value is! int) {
+        final value = json['messageSeq']?.toString();
+        if (value == null) {
           throw FormatException('ConversationMessageEntry.messageSeq is required');
         }
         return value;
@@ -1515,6 +1515,98 @@ class ConversationMessageListResponse {
         final value = json['traceId']?.toString();
         if (value == null) {
           throw FormatException('ConversationMessageListResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
+class MessageSearchHit {
+  final String conversationId;
+  final String messageId;
+  final String messageSeq;
+
+  MessageSearchHit({
+    required this.conversationId,
+    required this.messageId,
+    required this.messageSeq
+  });
+
+  factory MessageSearchHit.fromJson(Map<String, dynamic> json) {
+    return MessageSearchHit(
+      conversationId: (() {
+        final value = json['conversationId']?.toString();
+        if (value == null) {
+          throw FormatException('MessageSearchHit.conversationId is required');
+        }
+        return value;
+      })(),
+      messageId: (() {
+        final value = json['messageId']?.toString();
+        if (value == null) {
+          throw FormatException('MessageSearchHit.messageId is required');
+        }
+        return value;
+      })(),
+      messageSeq: (() {
+        final value = json['messageSeq']?.toString();
+        if (value == null) {
+          throw FormatException('MessageSearchHit.messageSeq is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'conversationId': conversationId,
+      'messageId': messageId,
+      'messageSeq': messageSeq,
+    };
+  }
+}
+
+class MessageSearchResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  MessageSearchResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory MessageSearchResponse.fromJson(Map<String, dynamic> json) {
+    return MessageSearchResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('MessageSearchResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('MessageSearchResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('MessageSearchResponse.traceId is required');
         }
         return value;
       })()
@@ -1660,9 +1752,65 @@ class RecallMessageRequest {
   }
 }
 
+class WelcomeEnsureView {
+  final String status;
+  final String conversationId;
+  final String messageId;
+  final String messageSeq;
+
+  WelcomeEnsureView({
+    required this.status,
+    required this.conversationId,
+    required this.messageId,
+    required this.messageSeq
+  });
+
+  factory WelcomeEnsureView.fromJson(Map<String, dynamic> json) {
+    return WelcomeEnsureView(
+      status: (() {
+        final value = json['status']?.toString();
+        if (value == null) {
+          throw FormatException('WelcomeEnsureView.status is required');
+        }
+        return value;
+      })(),
+      conversationId: (() {
+        final value = json['conversationId']?.toString();
+        if (value == null) {
+          throw FormatException('WelcomeEnsureView.conversationId is required');
+        }
+        return value;
+      })(),
+      messageId: (() {
+        final value = json['messageId']?.toString();
+        if (value == null) {
+          throw FormatException('WelcomeEnsureView.messageId is required');
+        }
+        return value;
+      })(),
+      messageSeq: (() {
+        final value = json['messageSeq']?.toString();
+        if (value == null) {
+          throw FormatException('WelcomeEnsureView.messageSeq is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'status': status,
+      'conversationId': conversationId,
+      'messageId': messageId,
+      'messageSeq': messageSeq,
+    };
+  }
+}
+
 class PostMessageResult {
   final String messageId;
-  final int messageSeq;
+  final String messageSeq;
   final String eventId;
   final String? requestKey;
   final String deliveryStatus;
@@ -1687,8 +1835,8 @@ class PostMessageResult {
         return value;
       })(),
       messageSeq: (() {
-        final value = json['messageSeq'];
-        if (value is! int) {
+        final value = json['messageSeq']?.toString();
+        if (value == null) {
           throw FormatException('PostMessageResult.messageSeq is required');
         }
         return value;
@@ -1727,7 +1875,7 @@ class PostMessageResult {
 class MessageMutationResult {
   final String conversationId;
   final String messageId;
-  final int messageSeq;
+  final String messageSeq;
   final String eventId;
 
   MessageMutationResult({
@@ -1754,8 +1902,8 @@ class MessageMutationResult {
         return value;
       })(),
       messageSeq: (() {
-        final value = json['messageSeq'];
-        if (value is! int) {
+        final value = json['messageSeq']?.toString();
+        if (value == null) {
           throw FormatException('MessageMutationResult.messageSeq is required');
         }
         return value;
@@ -1918,7 +2066,7 @@ class MessageInteractionSummaryView {
   final String tenantId;
   final String conversationId;
   final String messageId;
-  final int messageSeq;
+  final String messageSeq;
   final int totalReactionCount;
   final List<MessageReactionCountView> reactionCounts;
   final MessagePinView? pin;
@@ -1957,8 +2105,8 @@ class MessageInteractionSummaryView {
         return value;
       })(),
       messageSeq: (() {
-        final value = json['messageSeq'];
-        if (value is! int) {
+        final value = json['messageSeq']?.toString();
+        if (value == null) {
           throw FormatException('MessageInteractionSummaryView.messageSeq is required');
         }
         return value;
@@ -2219,7 +2367,7 @@ class MessageFavoriteView {
   final String favoriteType;
   final String conversationId;
   final String messageId;
-  final int messageSeq;
+  final String messageSeq;
   final String title;
   final String contentPreview;
   final String sourceDisplayName;
@@ -2292,8 +2440,8 @@ class MessageFavoriteView {
         return value;
       })(),
       messageSeq: (() {
-        final value = json['messageSeq'];
-        if (value is! int) {
+        final value = json['messageSeq']?.toString();
+        if (value == null) {
           throw FormatException('MessageFavoriteView.messageSeq is required');
         }
         return value;
@@ -2601,7 +2749,7 @@ class ConversationSummaryView {
   final String tenantId;
   final String conversationId;
   final int messageCount;
-  final int lastMessageSeq;
+  final String lastMessageSeq;
   final String? lastSummary;
   final String? lastMessageAt;
 
@@ -2638,8 +2786,8 @@ class ConversationSummaryView {
         return value;
       })(),
       lastMessageSeq: (() {
-        final value = json['lastMessageSeq'];
-        if (value is! int) {
+        final value = json['lastMessageSeq']?.toString();
+        if (value == null) {
           throw FormatException('ConversationSummaryView.lastMessageSeq is required');
         }
         return value;
@@ -2787,7 +2935,7 @@ class ConversationInboxEntry {
   final String? lastMessageId;
   final String? lastSenderId;
   final int messageCount;
-  final int lastMessageSeq;
+  final String lastMessageSeq;
   final String? lastSummary;
   final String? lastMessageAt;
   final int unreadCount;
@@ -2864,8 +3012,8 @@ class ConversationInboxEntry {
         return value;
       })(),
       lastMessageSeq: (() {
-        final value = json['lastMessageSeq'];
-        if (value is! int) {
+        final value = json['lastMessageSeq']?.toString();
+        if (value == null) {
           throw FormatException('ConversationInboxEntry.lastMessageSeq is required');
         }
         return value;
@@ -3693,7 +3841,7 @@ class CommitEnvelopeResponse {
   final String scopeType;
   final String scopeId;
   final String orderingKey;
-  final int orderingSeq;
+  final String orderingSeq;
   final String? causationId;
   final String? correlationId;
   final String? idempotencyKey;
@@ -3794,8 +3942,8 @@ class CommitEnvelopeResponse {
         return value;
       })(),
       orderingSeq: (() {
-        final value = json['orderingSeq'];
-        if (value is! int) {
+        final value = json['orderingSeq']?.toString();
+        if (value == null) {
           throw FormatException('CommitEnvelopeResponse.orderingSeq is required');
         }
         return value;
@@ -4043,6 +4191,8 @@ class FriendRequest {
   final String? expiredAt;
   final String createdAt;
   final String updatedAt;
+  final String? requesterDisplayName;
+  final String? requesterAvatarUrl;
 
   FriendRequest({
     required this.tenantId,
@@ -4053,7 +4203,9 @@ class FriendRequest {
     this.requestMessage,
     this.expiredAt,
     required this.createdAt,
-    required this.updatedAt
+    required this.updatedAt,
+    this.requesterDisplayName,
+    this.requesterAvatarUrl
   });
 
   factory FriendRequest.fromJson(Map<String, dynamic> json) {
@@ -4108,7 +4260,9 @@ class FriendRequest {
           throw FormatException('FriendRequest.updatedAt is required');
         }
         return value;
-      })()
+      })(),
+      requesterDisplayName: json['requesterDisplayName']?.toString(),
+      requesterAvatarUrl: json['requesterAvatarUrl']?.toString()
     );
   }
 
@@ -4123,6 +4277,8 @@ class FriendRequest {
       'expiredAt': expiredAt,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
+      'requesterDisplayName': requesterDisplayName,
+      'requesterAvatarUrl': requesterAvatarUrl,
     };
   }
 }
@@ -4131,23 +4287,21 @@ class Friendship {
   final String tenantId;
   final String friendshipId;
   final String initiatorUserId;
-  final String leftUserId;
-  final String rightUserId;
-  final String userHighId;
   final String userLowId;
+  final String userHighId;
   final String status;
-  final String createdAt;
+  final String? establishedAt;
+  final String updatedAt;
 
   Friendship({
     required this.tenantId,
     required this.friendshipId,
     required this.initiatorUserId,
-    required this.leftUserId,
-    required this.rightUserId,
-    required this.userHighId,
     required this.userLowId,
+    required this.userHighId,
     required this.status,
-    required this.createdAt
+    this.establishedAt,
+    required this.updatedAt
   });
 
   factory Friendship.fromJson(Map<String, dynamic> json) {
@@ -4173,17 +4327,10 @@ class Friendship {
         }
         return value;
       })(),
-      leftUserId: (() {
-        final value = json['leftUserId']?.toString();
+      userLowId: (() {
+        final value = json['userLowId']?.toString();
         if (value == null) {
-          throw FormatException('Friendship.leftUserId is required');
-        }
-        return value;
-      })(),
-      rightUserId: (() {
-        final value = json['rightUserId']?.toString();
-        if (value == null) {
-          throw FormatException('Friendship.rightUserId is required');
+          throw FormatException('Friendship.userLowId is required');
         }
         return value;
       })(),
@@ -4194,13 +4341,6 @@ class Friendship {
         }
         return value;
       })(),
-      userLowId: (() {
-        final value = json['userLowId']?.toString();
-        if (value == null) {
-          throw FormatException('Friendship.userLowId is required');
-        }
-        return value;
-      })(),
       status: (() {
         final value = json['status']?.toString();
         if (value == null) {
@@ -4208,10 +4348,11 @@ class Friendship {
         }
         return value;
       })(),
-      createdAt: (() {
-        final value = json['createdAt']?.toString();
+      establishedAt: json['establishedAt']?.toString(),
+      updatedAt: (() {
+        final value = json['updatedAt']?.toString();
         if (value == null) {
-          throw FormatException('Friendship.createdAt is required');
+          throw FormatException('Friendship.updatedAt is required');
         }
         return value;
       })()
@@ -4223,12 +4364,11 @@ class Friendship {
       'tenantId': tenantId,
       'friendshipId': friendshipId,
       'initiatorUserId': initiatorUserId,
-      'leftUserId': leftUserId,
-      'rightUserId': rightUserId,
-      'userHighId': userHighId,
       'userLowId': userLowId,
+      'userHighId': userHighId,
       'status': status,
-      'createdAt': createdAt,
+      'establishedAt': establishedAt,
+      'updatedAt': updatedAt,
     };
   }
 }
@@ -4236,14 +4376,24 @@ class Friendship {
 class DirectChat {
   final String tenantId;
   final String directChatId;
-  final String conversationId;
+  final String leftActorId;
+  final String rightActorId;
+  final String pairHash;
   final String status;
+  final String? conversationId;
+  final String createdAt;
+  final String updatedAt;
 
   DirectChat({
     required this.tenantId,
     required this.directChatId,
-    required this.conversationId,
-    required this.status
+    required this.leftActorId,
+    required this.rightActorId,
+    required this.pairHash,
+    required this.status,
+    this.conversationId,
+    required this.createdAt,
+    required this.updatedAt
   });
 
   factory DirectChat.fromJson(Map<String, dynamic> json) {
@@ -4262,10 +4412,24 @@ class DirectChat {
         }
         return value;
       })(),
-      conversationId: (() {
-        final value = json['conversationId']?.toString();
+      leftActorId: (() {
+        final value = json['leftActorId']?.toString();
         if (value == null) {
-          throw FormatException('DirectChat.conversationId is required');
+          throw FormatException('DirectChat.leftActorId is required');
+        }
+        return value;
+      })(),
+      rightActorId: (() {
+        final value = json['rightActorId']?.toString();
+        if (value == null) {
+          throw FormatException('DirectChat.rightActorId is required');
+        }
+        return value;
+      })(),
+      pairHash: (() {
+        final value = json['pairHash']?.toString();
+        if (value == null) {
+          throw FormatException('DirectChat.pairHash is required');
         }
         return value;
       })(),
@@ -4273,6 +4437,21 @@ class DirectChat {
         final value = json['status']?.toString();
         if (value == null) {
           throw FormatException('DirectChat.status is required');
+        }
+        return value;
+      })(),
+      conversationId: json['conversationId']?.toString(),
+      createdAt: (() {
+        final value = json['createdAt']?.toString();
+        if (value == null) {
+          throw FormatException('DirectChat.createdAt is required');
+        }
+        return value;
+      })(),
+      updatedAt: (() {
+        final value = json['updatedAt']?.toString();
+        if (value == null) {
+          throw FormatException('DirectChat.updatedAt is required');
         }
         return value;
       })()
@@ -4283,8 +4462,13 @@ class DirectChat {
     return <String, dynamic>{
       'tenantId': tenantId,
       'directChatId': directChatId,
-      'conversationId': conversationId,
+      'leftActorId': leftActorId,
+      'rightActorId': rightActorId,
+      'pairHash': pairHash,
       'status': status,
+      'conversationId': conversationId,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
     };
   }
 }
@@ -4393,6 +4577,561 @@ class SocialFriendRequestPendingCountResponse {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'count': count,
+    };
+  }
+}
+
+class SocialUserBlockSummary {
+  final String blockId;
+  final String blockerUserId;
+  final String blockedUserId;
+  final String scope;
+  final String createdAt;
+
+  SocialUserBlockSummary({
+    required this.blockId,
+    required this.blockerUserId,
+    required this.blockedUserId,
+    required this.scope,
+    required this.createdAt
+  });
+
+  factory SocialUserBlockSummary.fromJson(Map<String, dynamic> json) {
+    return SocialUserBlockSummary(
+      blockId: (() {
+        final value = json['blockId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialUserBlockSummary.blockId is required');
+        }
+        return value;
+      })(),
+      blockerUserId: (() {
+        final value = json['blockerUserId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialUserBlockSummary.blockerUserId is required');
+        }
+        return value;
+      })(),
+      blockedUserId: (() {
+        final value = json['blockedUserId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialUserBlockSummary.blockedUserId is required');
+        }
+        return value;
+      })(),
+      scope: (() {
+        final value = json['scope']?.toString();
+        if (value == null) {
+          throw FormatException('SocialUserBlockSummary.scope is required');
+        }
+        return value;
+      })(),
+      createdAt: (() {
+        final value = json['createdAt']?.toString();
+        if (value == null) {
+          throw FormatException('SocialUserBlockSummary.createdAt is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'blockId': blockId,
+      'blockerUserId': blockerUserId,
+      'blockedUserId': blockedUserId,
+      'scope': scope,
+      'createdAt': createdAt,
+    };
+  }
+}
+
+class SocialDirectChatView {
+  final String directChatId;
+  final String leftActorId;
+  final String rightActorId;
+  final String status;
+  final String? conversationId;
+  final String createdAt;
+  final String updatedAt;
+
+  SocialDirectChatView({
+    required this.directChatId,
+    required this.leftActorId,
+    required this.rightActorId,
+    required this.status,
+    this.conversationId,
+    required this.createdAt,
+    required this.updatedAt
+  });
+
+  factory SocialDirectChatView.fromJson(Map<String, dynamic> json) {
+    return SocialDirectChatView(
+      directChatId: (() {
+        final value = json['directChatId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialDirectChatView.directChatId is required');
+        }
+        return value;
+      })(),
+      leftActorId: (() {
+        final value = json['leftActorId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialDirectChatView.leftActorId is required');
+        }
+        return value;
+      })(),
+      rightActorId: (() {
+        final value = json['rightActorId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialDirectChatView.rightActorId is required');
+        }
+        return value;
+      })(),
+      status: (() {
+        final value = json['status']?.toString();
+        if (value == null) {
+          throw FormatException('SocialDirectChatView.status is required');
+        }
+        return value;
+      })(),
+      conversationId: json['conversationId']?.toString(),
+      createdAt: (() {
+        final value = json['createdAt']?.toString();
+        if (value == null) {
+          throw FormatException('SocialDirectChatView.createdAt is required');
+        }
+        return value;
+      })(),
+      updatedAt: (() {
+        final value = json['updatedAt']?.toString();
+        if (value == null) {
+          throw FormatException('SocialDirectChatView.updatedAt is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'directChatId': directChatId,
+      'leftActorId': leftActorId,
+      'rightActorId': rightActorId,
+      'status': status,
+      'conversationId': conversationId,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
+    };
+  }
+}
+
+class SocialUserProfileView {
+  final String userId;
+  final String? imNickname;
+  final String? imAvatarUrl;
+  final String? imStatusMessage;
+  final String imOnlineStatus;
+  final String? lastActiveAt;
+
+  SocialUserProfileView({
+    required this.userId,
+    this.imNickname,
+    this.imAvatarUrl,
+    this.imStatusMessage,
+    required this.imOnlineStatus,
+    this.lastActiveAt
+  });
+
+  factory SocialUserProfileView.fromJson(Map<String, dynamic> json) {
+    return SocialUserProfileView(
+      userId: (() {
+        final value = json['userId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialUserProfileView.userId is required');
+        }
+        return value;
+      })(),
+      imNickname: json['imNickname']?.toString(),
+      imAvatarUrl: json['imAvatarUrl']?.toString(),
+      imStatusMessage: json['imStatusMessage']?.toString(),
+      imOnlineStatus: (() {
+        final value = json['imOnlineStatus']?.toString();
+        if (value == null) {
+          throw FormatException('SocialUserProfileView.imOnlineStatus is required');
+        }
+        return value;
+      })(),
+      lastActiveAt: json['lastActiveAt']?.toString()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'userId': userId,
+      'imNickname': imNickname,
+      'imAvatarUrl': imAvatarUrl,
+      'imStatusMessage': imStatusMessage,
+      'imOnlineStatus': imOnlineStatus,
+      'lastActiveAt': lastActiveAt,
+    };
+  }
+}
+
+class UpdateSocialUserProfileRequest {
+  final String? imNickname;
+  final String? imAvatarUrl;
+  final String? imStatusMessage;
+
+  UpdateSocialUserProfileRequest({
+    this.imNickname,
+    this.imAvatarUrl,
+    this.imStatusMessage
+  });
+
+  factory UpdateSocialUserProfileRequest.fromJson(Map<String, dynamic> json) {
+    return UpdateSocialUserProfileRequest(
+      imNickname: json['imNickname']?.toString(),
+      imAvatarUrl: json['imAvatarUrl']?.toString(),
+      imStatusMessage: json['imStatusMessage']?.toString()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'imNickname': imNickname,
+      'imAvatarUrl': imAvatarUrl,
+      'imStatusMessage': imStatusMessage,
+    };
+  }
+}
+
+class SocialUserSettingsView {
+  final Map<String, dynamic> settings;
+
+  SocialUserSettingsView({
+    required this.settings
+  });
+
+  factory SocialUserSettingsView.fromJson(Map<String, dynamic> json) {
+    return SocialUserSettingsView(
+      settings: (() {
+        final map = _sdkworkAsMap(json['settings']);
+        if (map == null) {
+          throw FormatException('SocialUserSettingsView.settings is required');
+        }
+        return map;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'settings': settings,
+    };
+  }
+}
+
+class UpdateSocialUserSettingsRequest {
+  final Map<String, dynamic> settings;
+
+  UpdateSocialUserSettingsRequest({
+    required this.settings
+  });
+
+  factory UpdateSocialUserSettingsRequest.fromJson(Map<String, dynamic> json) {
+    return UpdateSocialUserSettingsRequest(
+      settings: (() {
+        final map = _sdkworkAsMap(json['settings']);
+        if (map == null) {
+          throw FormatException('UpdateSocialUserSettingsRequest.settings is required');
+        }
+        return map;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'settings': settings,
+    };
+  }
+}
+
+class SharedChannelLinkSyncRequest {
+  final String conversationId;
+  final String sharedChannelPolicyId;
+  final String externalConnectionId;
+  final String localActorId;
+  final String localActorKind;
+  final String externalMemberId;
+  final String? requestKey;
+
+  SharedChannelLinkSyncRequest({
+    required this.conversationId,
+    required this.sharedChannelPolicyId,
+    required this.externalConnectionId,
+    required this.localActorId,
+    required this.localActorKind,
+    required this.externalMemberId,
+    this.requestKey
+  });
+
+  factory SharedChannelLinkSyncRequest.fromJson(Map<String, dynamic> json) {
+    return SharedChannelLinkSyncRequest(
+      conversationId: (() {
+        final value = json['conversationId']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncRequest.conversationId is required');
+        }
+        return value;
+      })(),
+      sharedChannelPolicyId: (() {
+        final value = json['sharedChannelPolicyId']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncRequest.sharedChannelPolicyId is required');
+        }
+        return value;
+      })(),
+      externalConnectionId: (() {
+        final value = json['externalConnectionId']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncRequest.externalConnectionId is required');
+        }
+        return value;
+      })(),
+      localActorId: (() {
+        final value = json['localActorId']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncRequest.localActorId is required');
+        }
+        return value;
+      })(),
+      localActorKind: (() {
+        final value = json['localActorKind']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncRequest.localActorKind is required');
+        }
+        return value;
+      })(),
+      externalMemberId: (() {
+        final value = json['externalMemberId']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncRequest.externalMemberId is required');
+        }
+        return value;
+      })(),
+      requestKey: json['requestKey']?.toString()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'conversationId': conversationId,
+      'sharedChannelPolicyId': sharedChannelPolicyId,
+      'externalConnectionId': externalConnectionId,
+      'localActorId': localActorId,
+      'localActorKind': localActorKind,
+      'externalMemberId': externalMemberId,
+      'requestKey': requestKey,
+    };
+  }
+}
+
+class SharedChannelLinkSyncResponse {
+  final String tenantId;
+  final String conversationId;
+  final String memberId;
+  final String principalId;
+  final String principalKind;
+  final String role;
+  final String state;
+  final String joinedAt;
+  final String? invitedBy;
+  final String? removedAt;
+  final Map<String, String>? attributes;
+  final String proofVersion;
+  final String requestKey;
+  final String status;
+
+  SharedChannelLinkSyncResponse({
+    required this.tenantId,
+    required this.conversationId,
+    required this.memberId,
+    required this.principalId,
+    required this.principalKind,
+    required this.role,
+    required this.state,
+    required this.joinedAt,
+    this.invitedBy,
+    this.removedAt,
+    this.attributes,
+    required this.proofVersion,
+    required this.requestKey,
+    required this.status
+  });
+
+  factory SharedChannelLinkSyncResponse.fromJson(Map<String, dynamic> json) {
+    return SharedChannelLinkSyncResponse(
+      tenantId: (() {
+        final value = json['tenantId']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncResponse.tenantId is required');
+        }
+        return value;
+      })(),
+      conversationId: (() {
+        final value = json['conversationId']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncResponse.conversationId is required');
+        }
+        return value;
+      })(),
+      memberId: (() {
+        final value = json['memberId']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncResponse.memberId is required');
+        }
+        return value;
+      })(),
+      principalId: (() {
+        final value = json['principalId']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncResponse.principalId is required');
+        }
+        return value;
+      })(),
+      principalKind: (() {
+        final value = json['principalKind']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncResponse.principalKind is required');
+        }
+        return value;
+      })(),
+      role: (() {
+        final value = json['role']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncResponse.role is required');
+        }
+        return value;
+      })(),
+      state: (() {
+        final value = json['state']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncResponse.state is required');
+        }
+        return value;
+      })(),
+      joinedAt: (() {
+        final value = json['joinedAt']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncResponse.joinedAt is required');
+        }
+        return value;
+      })(),
+      invitedBy: json['invitedBy']?.toString(),
+      removedAt: json['removedAt']?.toString(),
+      attributes: (() {
+        final map = _sdkworkAsMap(json['attributes']);
+        if (map == null) {
+          return null;
+        }
+        final result = <String, String>{};
+        map.forEach((key, item) {
+          final deserialized = item?.toString();
+          if (deserialized is String) {
+            result[key] = deserialized;
+          }
+        });
+        return result;
+      })(),
+      proofVersion: (() {
+        final value = json['proofVersion']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncResponse.proofVersion is required');
+        }
+        return value;
+      })(),
+      requestKey: (() {
+        final value = json['requestKey']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncResponse.requestKey is required');
+        }
+        return value;
+      })(),
+      status: (() {
+        final value = json['status']?.toString();
+        if (value == null) {
+          throw FormatException('SharedChannelLinkSyncResponse.status is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'tenantId': tenantId,
+      'conversationId': conversationId,
+      'memberId': memberId,
+      'principalId': principalId,
+      'principalKind': principalKind,
+      'role': role,
+      'state': state,
+      'joinedAt': joinedAt,
+      'invitedBy': invitedBy,
+      'removedAt': removedAt,
+      'attributes': attributes?.map((key, item) => MapEntry(key, item)),
+      'proofVersion': proofVersion,
+      'requestKey': requestKey,
+      'status': status,
+    };
+  }
+}
+
+class ConversationBindingView {
+  final String conversationId;
+  final String businessType;
+  final String businessId;
+
+  ConversationBindingView({
+    required this.conversationId,
+    required this.businessType,
+    required this.businessId
+  });
+
+  factory ConversationBindingView.fromJson(Map<String, dynamic> json) {
+    return ConversationBindingView(
+      conversationId: (() {
+        final value = json['conversationId']?.toString();
+        if (value == null) {
+          throw FormatException('ConversationBindingView.conversationId is required');
+        }
+        return value;
+      })(),
+      businessType: (() {
+        final value = json['businessType']?.toString();
+        if (value == null) {
+          throw FormatException('ConversationBindingView.businessType is required');
+        }
+        return value;
+      })(),
+      businessId: (() {
+        final value = json['businessId']?.toString();
+        if (value == null) {
+          throw FormatException('ConversationBindingView.businessId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'conversationId': conversationId,
+      'businessType': businessType,
+      'businessId': businessId,
     };
   }
 }
@@ -4606,7 +5345,7 @@ class ConversationAgentAssignment {
 }
 
 class ConversationAgentAssignments {
-  final int generation;
+  final String generation;
   final String source;
   final List<ConversationAgentAssignment> agents;
 
@@ -4619,8 +5358,8 @@ class ConversationAgentAssignments {
   factory ConversationAgentAssignments.fromJson(Map<String, dynamic> json) {
     return ConversationAgentAssignments(
       generation: (() {
-        final value = json['generation'];
-        if (value is! int) {
+        final value = json['generation']?.toString();
+        if (value == null) {
           throw FormatException('ConversationAgentAssignments.generation is required');
         }
         return value;
@@ -4658,7 +5397,7 @@ class ConversationAgentAssignments {
 }
 
 class UpdateConversationAgentsRequest {
-  final int expectedGeneration;
+  final String expectedGeneration;
   final List<ConversationAgentAssignment> agentAssignments;
 
   UpdateConversationAgentsRequest({
@@ -4669,8 +5408,8 @@ class UpdateConversationAgentsRequest {
   factory UpdateConversationAgentsRequest.fromJson(Map<String, dynamic> json) {
     return UpdateConversationAgentsRequest(
       expectedGeneration: (() {
-        final value = json['expectedGeneration'];
-        if (value is! int) {
+        final value = json['expectedGeneration']?.toString();
+        if (value == null) {
           throw FormatException('UpdateConversationAgentsRequest.expectedGeneration is required');
         }
         return value;
@@ -5272,6 +6011,9 @@ class ConversationMember {
   final String role;
   final String state;
   final String joinedAt;
+  final String? invitedBy;
+  final String? removedAt;
+  final Map<String, String>? attributes;
 
   ConversationMember({
     required this.tenantId,
@@ -5281,7 +6023,10 @@ class ConversationMember {
     required this.principalKind,
     required this.role,
     required this.state,
-    required this.joinedAt
+    required this.joinedAt,
+    this.invitedBy,
+    this.removedAt,
+    this.attributes
   });
 
   factory ConversationMember.fromJson(Map<String, dynamic> json) {
@@ -5341,6 +6086,22 @@ class ConversationMember {
           throw FormatException('ConversationMember.joinedAt is required');
         }
         return value;
+      })(),
+      invitedBy: json['invitedBy']?.toString(),
+      removedAt: json['removedAt']?.toString(),
+      attributes: (() {
+        final map = _sdkworkAsMap(json['attributes']);
+        if (map == null) {
+          return null;
+        }
+        final result = <String, String>{};
+        map.forEach((key, item) {
+          final deserialized = item?.toString();
+          if (deserialized is String) {
+            result[key] = deserialized;
+          }
+        });
+        return result;
       })()
     );
   }
@@ -5355,6 +6116,9 @@ class ConversationMember {
       'role': role,
       'state': state,
       'joinedAt': joinedAt,
+      'invitedBy': invitedBy,
+      'removedAt': removedAt,
+      'attributes': attributes?.map((key, item) => MapEntry(key, item)),
     };
   }
 }
@@ -5363,7 +6127,7 @@ class ReadCursorView {
   final String tenantId;
   final String conversationId;
   final String principalId;
-  final int readSeq;
+  final String readSeq;
   final String updatedAt;
 
   ReadCursorView({
@@ -5398,8 +6162,8 @@ class ReadCursorView {
         return value;
       })(),
       readSeq: (() {
-        final value = json['readSeq'];
-        if (value is! int) {
+        final value = json['readSeq']?.toString();
+        if (value == null) {
           throw FormatException('ReadCursorView.readSeq is required');
         }
         return value;
@@ -5426,7 +6190,7 @@ class ReadCursorView {
 }
 
 class UpdateReadCursorRequest {
-  final int readSeq;
+  final String readSeq;
 
   UpdateReadCursorRequest({
     required this.readSeq
@@ -5435,8 +6199,8 @@ class UpdateReadCursorRequest {
   factory UpdateReadCursorRequest.fromJson(Map<String, dynamic> json) {
     return UpdateReadCursorRequest(
       readSeq: (() {
-        final value = json['readSeq'];
-        if (value is! int) {
+        final value = json['readSeq']?.toString();
+        if (value == null) {
           throw FormatException('UpdateReadCursorRequest.readSeq is required');
         }
         return value;
@@ -5447,174 +6211,6 @@ class UpdateReadCursorRequest {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'readSeq': readSeq,
-    };
-  }
-}
-
-class StreamView {
-  final String tenantId;
-  final String streamId;
-  final String state;
-  final String openedAt;
-
-  StreamView({
-    required this.tenantId,
-    required this.streamId,
-    required this.state,
-    required this.openedAt
-  });
-
-  factory StreamView.fromJson(Map<String, dynamic> json) {
-    return StreamView(
-      tenantId: (() {
-        final value = json['tenantId']?.toString();
-        if (value == null) {
-          throw FormatException('StreamView.tenantId is required');
-        }
-        return value;
-      })(),
-      streamId: (() {
-        final value = json['streamId']?.toString();
-        if (value == null) {
-          throw FormatException('StreamView.streamId is required');
-        }
-        return value;
-      })(),
-      state: (() {
-        final value = json['state']?.toString();
-        if (value == null) {
-          throw FormatException('StreamView.state is required');
-        }
-        return value;
-      })(),
-      openedAt: (() {
-        final value = json['openedAt']?.toString();
-        if (value == null) {
-          throw FormatException('StreamView.openedAt is required');
-        }
-        return value;
-      })()
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'tenantId': tenantId,
-      'streamId': streamId,
-      'state': state,
-      'openedAt': openedAt,
-    };
-  }
-}
-
-class OpenStreamRequest {
-  final String streamType;
-  final String? conversationId;
-
-  OpenStreamRequest({
-    required this.streamType,
-    this.conversationId
-  });
-
-  factory OpenStreamRequest.fromJson(Map<String, dynamic> json) {
-    return OpenStreamRequest(
-      streamType: (() {
-        final value = json['streamType']?.toString();
-        if (value == null) {
-          throw FormatException('OpenStreamRequest.streamType is required');
-        }
-        return value;
-      })(),
-      conversationId: json['conversationId']?.toString()
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'streamType': streamType,
-      'conversationId': conversationId,
-    };
-  }
-}
-
-class StreamFrameView {
-  final String streamId;
-  final int frameSeq;
-  final String payload;
-  final String createdAt;
-
-  StreamFrameView({
-    required this.streamId,
-    required this.frameSeq,
-    required this.payload,
-    required this.createdAt
-  });
-
-  factory StreamFrameView.fromJson(Map<String, dynamic> json) {
-    return StreamFrameView(
-      streamId: (() {
-        final value = json['streamId']?.toString();
-        if (value == null) {
-          throw FormatException('StreamFrameView.streamId is required');
-        }
-        return value;
-      })(),
-      frameSeq: (() {
-        final value = json['frameSeq'];
-        if (value is! int) {
-          throw FormatException('StreamFrameView.frameSeq is required');
-        }
-        return value;
-      })(),
-      payload: (() {
-        final value = json['payload']?.toString();
-        if (value == null) {
-          throw FormatException('StreamFrameView.payload is required');
-        }
-        return value;
-      })(),
-      createdAt: (() {
-        final value = json['createdAt']?.toString();
-        if (value == null) {
-          throw FormatException('StreamFrameView.createdAt is required');
-        }
-        return value;
-      })()
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'streamId': streamId,
-      'frameSeq': frameSeq,
-      'payload': payload,
-      'createdAt': createdAt,
-    };
-  }
-}
-
-class AppendStreamFrameRequest {
-  final String payload;
-
-  AppendStreamFrameRequest({
-    required this.payload
-  });
-
-  factory AppendStreamFrameRequest.fromJson(Map<String, dynamic> json) {
-    return AppendStreamFrameRequest(
-      payload: (() {
-        final value = json['payload']?.toString();
-        if (value == null) {
-          throw FormatException('AppendStreamFrameRequest.payload is required');
-        }
-        return value;
-      })()
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'payload': payload,
     };
   }
 }
@@ -6291,6 +6887,32 @@ class SpaceGroupUpdateRequest {
   }
 }
 
+class SpaceGroupTransferOwnerRequest {
+  final String newOwnerUserId;
+
+  SpaceGroupTransferOwnerRequest({
+    required this.newOwnerUserId
+  });
+
+  factory SpaceGroupTransferOwnerRequest.fromJson(Map<String, dynamic> json) {
+    return SpaceGroupTransferOwnerRequest(
+      newOwnerUserId: (() {
+        final value = json['newOwnerUserId']?.toString();
+        if (value == null) {
+          throw FormatException('SpaceGroupTransferOwnerRequest.newOwnerUserId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'newOwnerUserId': newOwnerUserId,
+    };
+  }
+}
+
 class SpaceGroupView {
   final String groupId;
   final String groupName;
@@ -6664,47 +7286,135 @@ class SpaceChannelAccessRuleView {
 }
 
 class SpaceInviteCreateRequest {
-  final int? maxUses;
+  final String? inviteeUserId;
+  final String? inviteeEmail;
+  final String? inviteePhone;
+  final String targetType;
+  final String targetId;
+  final String? role;
+  final String? message;
+  final String? expiresAt;
 
   SpaceInviteCreateRequest({
-    this.maxUses
+    this.inviteeUserId,
+    this.inviteeEmail,
+    this.inviteePhone,
+    required this.targetType,
+    required this.targetId,
+    this.role,
+    this.message,
+    this.expiresAt
   });
 
   factory SpaceInviteCreateRequest.fromJson(Map<String, dynamic> json) {
     return SpaceInviteCreateRequest(
-      maxUses: json['maxUses'] is int ? json['maxUses'] : null
+      inviteeUserId: json['inviteeUserId']?.toString(),
+      inviteeEmail: json['inviteeEmail']?.toString(),
+      inviteePhone: json['inviteePhone']?.toString(),
+      targetType: (() {
+        final value = json['targetType']?.toString();
+        if (value == null) {
+          throw FormatException('SpaceInviteCreateRequest.targetType is required');
+        }
+        return value;
+      })(),
+      targetId: (() {
+        final value = json['targetId']?.toString();
+        if (value == null) {
+          throw FormatException('SpaceInviteCreateRequest.targetId is required');
+        }
+        return value;
+      })(),
+      role: json['role']?.toString(),
+      message: json['message']?.toString(),
+      expiresAt: json['expiresAt']?.toString()
     );
   }
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
-      'maxUses': maxUses,
+      'inviteeUserId': inviteeUserId,
+      'inviteeEmail': inviteeEmail,
+      'inviteePhone': inviteePhone,
+      'targetType': targetType,
+      'targetId': targetId,
+      'role': role,
+      'message': message,
+      'expiresAt': expiresAt,
     };
   }
 }
 
 class SpaceInviteView {
-  final String inviteCode;
-  final String spaceId;
+  final String invitationId;
+  final String inviterUserId;
+  final String? inviteeUserId;
+  final String targetType;
+  final String targetId;
+  final String role;
+  final String status;
+  final String createdAt;
 
   SpaceInviteView({
-    required this.inviteCode,
-    required this.spaceId
+    required this.invitationId,
+    required this.inviterUserId,
+    this.inviteeUserId,
+    required this.targetType,
+    required this.targetId,
+    required this.role,
+    required this.status,
+    required this.createdAt
   });
 
   factory SpaceInviteView.fromJson(Map<String, dynamic> json) {
     return SpaceInviteView(
-      inviteCode: (() {
-        final value = json['inviteCode']?.toString();
+      invitationId: (() {
+        final value = json['invitationId']?.toString();
         if (value == null) {
-          throw FormatException('SpaceInviteView.inviteCode is required');
+          throw FormatException('SpaceInviteView.invitationId is required');
         }
         return value;
       })(),
-      spaceId: (() {
-        final value = json['spaceId']?.toString();
+      inviterUserId: (() {
+        final value = json['inviterUserId']?.toString();
         if (value == null) {
-          throw FormatException('SpaceInviteView.spaceId is required');
+          throw FormatException('SpaceInviteView.inviterUserId is required');
+        }
+        return value;
+      })(),
+      inviteeUserId: json['inviteeUserId']?.toString(),
+      targetType: (() {
+        final value = json['targetType']?.toString();
+        if (value == null) {
+          throw FormatException('SpaceInviteView.targetType is required');
+        }
+        return value;
+      })(),
+      targetId: (() {
+        final value = json['targetId']?.toString();
+        if (value == null) {
+          throw FormatException('SpaceInviteView.targetId is required');
+        }
+        return value;
+      })(),
+      role: (() {
+        final value = json['role']?.toString();
+        if (value == null) {
+          throw FormatException('SpaceInviteView.role is required');
+        }
+        return value;
+      })(),
+      status: (() {
+        final value = json['status']?.toString();
+        if (value == null) {
+          throw FormatException('SpaceInviteView.status is required');
+        }
+        return value;
+      })(),
+      createdAt: (() {
+        final value = json['createdAt']?.toString();
+        if (value == null) {
+          throw FormatException('SpaceInviteView.createdAt is required');
         }
         return value;
       })()
@@ -6713,8 +7423,14 @@ class SpaceInviteView {
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
-      'inviteCode': inviteCode,
-      'spaceId': spaceId,
+      'invitationId': invitationId,
+      'inviterUserId': inviterUserId,
+      'inviteeUserId': inviteeUserId,
+      'targetType': targetType,
+      'targetId': targetId,
+      'role': role,
+      'status': status,
+      'createdAt': createdAt,
     };
   }
 }
@@ -6926,7 +7642,7 @@ class MentionContentPart implements ContentPart {
   final String targetKind;
   final String targetId;
   final String displayText;
-  final int assignmentGeneration;
+  final String assignmentGeneration;
 
   MentionContentPart({
     required this.kind,
@@ -6967,8 +7683,8 @@ class MentionContentPart implements ContentPart {
         return value;
       })(),
       assignmentGeneration: (() {
-        final value = json['assignmentGeneration'];
-        if (value is! int) {
+        final value = json['assignmentGeneration']?.toString();
+        if (value == null) {
           throw FormatException('MentionContentPart.assignmentGeneration is required');
         }
         return value;
@@ -7829,6 +8545,328 @@ class SocialUsersListResponse {
   }
 }
 
+class SocialUsersProfileRetrieveResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  SocialUsersProfileRetrieveResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory SocialUsersProfileRetrieveResponse.fromJson(Map<String, dynamic> json) {
+    return SocialUsersProfileRetrieveResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('SocialUsersProfileRetrieveResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('SocialUsersProfileRetrieveResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialUsersProfileRetrieveResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
+class SocialUsersProfileUpdateResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  SocialUsersProfileUpdateResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory SocialUsersProfileUpdateResponse.fromJson(Map<String, dynamic> json) {
+    return SocialUsersProfileUpdateResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('SocialUsersProfileUpdateResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('SocialUsersProfileUpdateResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialUsersProfileUpdateResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
+class SocialUsersSettingsRetrieveResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  SocialUsersSettingsRetrieveResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory SocialUsersSettingsRetrieveResponse.fromJson(Map<String, dynamic> json) {
+    return SocialUsersSettingsRetrieveResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('SocialUsersSettingsRetrieveResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('SocialUsersSettingsRetrieveResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialUsersSettingsRetrieveResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
+class SocialUsersSettingsUpdateResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  SocialUsersSettingsUpdateResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory SocialUsersSettingsUpdateResponse.fromJson(Map<String, dynamic> json) {
+    return SocialUsersSettingsUpdateResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('SocialUsersSettingsUpdateResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('SocialUsersSettingsUpdateResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialUsersSettingsUpdateResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
+class SocialFriendshipsListResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  SocialFriendshipsListResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory SocialFriendshipsListResponse.fromJson(Map<String, dynamic> json) {
+    return SocialFriendshipsListResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('SocialFriendshipsListResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('SocialFriendshipsListResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialFriendshipsListResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
+class SocialDirectChatsListResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  SocialDirectChatsListResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory SocialDirectChatsListResponse.fromJson(Map<String, dynamic> json) {
+    return SocialDirectChatsListResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('SocialDirectChatsListResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('SocialDirectChatsListResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialDirectChatsListResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
+class SocialDirectChatsRetrieveResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  SocialDirectChatsRetrieveResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory SocialDirectChatsRetrieveResponse.fromJson(Map<String, dynamic> json) {
+    return SocialDirectChatsRetrieveResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('SocialDirectChatsRetrieveResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('SocialDirectChatsRetrieveResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialDirectChatsRetrieveResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
 class SocialFriendRequestsCreateResponse201 {
   final int code;
   final dynamic data;
@@ -8090,6 +9128,52 @@ class SocialFriendshipsRemoveResponse {
         final value = json['traceId']?.toString();
         if (value == null) {
           throw FormatException('SocialFriendshipsRemoveResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
+class SocialUserBlocksListResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  SocialUserBlocksListResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory SocialUserBlocksListResponse.fromJson(Map<String, dynamic> json) {
+    return SocialUserBlocksListResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('SocialUserBlocksListResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('SocialUserBlocksListResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('SocialUserBlocksListResponse.traceId is required');
         }
         return value;
       })()
@@ -8473,6 +9557,52 @@ class InboxListResponse {
   }
 }
 
+class ChatMeWelcomeEnsureResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  ChatMeWelcomeEnsureResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory ChatMeWelcomeEnsureResponse.fromJson(Map<String, dynamic> json) {
+    return ChatMeWelcomeEnsureResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('ChatMeWelcomeEnsureResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('ChatMeWelcomeEnsureResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('ChatMeWelcomeEnsureResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
 class ConversationsCreateResponse201 {
   final int code;
   final dynamic data;
@@ -8734,6 +9864,52 @@ class ConversationsDirectChatsBindingsCreateResponse201 {
         final value = json['traceId']?.toString();
         if (value == null) {
           throw FormatException('ConversationsDirectChatsBindingsCreateResponse201.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
+class ConversationsSharedChannelLinksSyncResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  ConversationsSharedChannelLinksSyncResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory ConversationsSharedChannelLinksSyncResponse.fromJson(Map<String, dynamic> json) {
+    return ConversationsSharedChannelLinksSyncResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('ConversationsSharedChannelLinksSyncResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('ConversationsSharedChannelLinksSyncResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('ConversationsSharedChannelLinksSyncResponse.traceId is required');
         }
         return value;
       })()
@@ -9148,6 +10324,52 @@ class ConversationsAgentsUpdateResponse {
         final value = json['traceId']?.toString();
         if (value == null) {
           throw FormatException('ConversationsAgentsUpdateResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
+class ConversationsBindingRetrieveResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  ConversationsBindingRetrieveResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory ConversationsBindingRetrieveResponse.fromJson(Map<String, dynamic> json) {
+    return ConversationsBindingRetrieveResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('ConversationsBindingRetrieveResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('ConversationsBindingRetrieveResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('ConversationsBindingRetrieveResponse.traceId is required');
         }
         return value;
       })()
@@ -10497,282 +11719,6 @@ class RoomsLeaveResponse {
   }
 }
 
-class StreamsCreateResponse201 {
-  final int code;
-  final dynamic data;
-  final String traceId;
-
-  StreamsCreateResponse201({
-    required this.code,
-    required this.data,
-    required this.traceId
-  });
-
-  factory StreamsCreateResponse201.fromJson(Map<String, dynamic> json) {
-    return StreamsCreateResponse201(
-      code: (() {
-        final value = json['code'];
-        if (value is! int) {
-          throw FormatException('StreamsCreateResponse201.code is required');
-        }
-        return value;
-      })(),
-      data: (() {
-        final map = _sdkworkAsMap(json['data']);
-        if (map == null) {
-          throw FormatException('StreamsCreateResponse201.data is required');
-        }
-        return map;
-      })(),
-      traceId: (() {
-        final value = json['traceId']?.toString();
-        if (value == null) {
-          throw FormatException('StreamsCreateResponse201.traceId is required');
-        }
-        return value;
-      })()
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'code': code,
-      'data': data,
-      'traceId': traceId,
-    };
-  }
-}
-
-class StreamsFramesListResponse {
-  final int code;
-  final dynamic data;
-  final String traceId;
-
-  StreamsFramesListResponse({
-    required this.code,
-    required this.data,
-    required this.traceId
-  });
-
-  factory StreamsFramesListResponse.fromJson(Map<String, dynamic> json) {
-    return StreamsFramesListResponse(
-      code: (() {
-        final value = json['code'];
-        if (value is! int) {
-          throw FormatException('StreamsFramesListResponse.code is required');
-        }
-        return value;
-      })(),
-      data: (() {
-        final map = _sdkworkAsMap(json['data']);
-        if (map == null) {
-          throw FormatException('StreamsFramesListResponse.data is required');
-        }
-        return map;
-      })(),
-      traceId: (() {
-        final value = json['traceId']?.toString();
-        if (value == null) {
-          throw FormatException('StreamsFramesListResponse.traceId is required');
-        }
-        return value;
-      })()
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'code': code,
-      'data': data,
-      'traceId': traceId,
-    };
-  }
-}
-
-class StreamsFramesCreateResponse201 {
-  final int code;
-  final dynamic data;
-  final String traceId;
-
-  StreamsFramesCreateResponse201({
-    required this.code,
-    required this.data,
-    required this.traceId
-  });
-
-  factory StreamsFramesCreateResponse201.fromJson(Map<String, dynamic> json) {
-    return StreamsFramesCreateResponse201(
-      code: (() {
-        final value = json['code'];
-        if (value is! int) {
-          throw FormatException('StreamsFramesCreateResponse201.code is required');
-        }
-        return value;
-      })(),
-      data: (() {
-        final map = _sdkworkAsMap(json['data']);
-        if (map == null) {
-          throw FormatException('StreamsFramesCreateResponse201.data is required');
-        }
-        return map;
-      })(),
-      traceId: (() {
-        final value = json['traceId']?.toString();
-        if (value == null) {
-          throw FormatException('StreamsFramesCreateResponse201.traceId is required');
-        }
-        return value;
-      })()
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'code': code,
-      'data': data,
-      'traceId': traceId,
-    };
-  }
-}
-
-class StreamsCheckpointResponse {
-  final int code;
-  final dynamic data;
-  final String traceId;
-
-  StreamsCheckpointResponse({
-    required this.code,
-    required this.data,
-    required this.traceId
-  });
-
-  factory StreamsCheckpointResponse.fromJson(Map<String, dynamic> json) {
-    return StreamsCheckpointResponse(
-      code: (() {
-        final value = json['code'];
-        if (value is! int) {
-          throw FormatException('StreamsCheckpointResponse.code is required');
-        }
-        return value;
-      })(),
-      data: (() {
-        final map = _sdkworkAsMap(json['data']);
-        if (map == null) {
-          throw FormatException('StreamsCheckpointResponse.data is required');
-        }
-        return map;
-      })(),
-      traceId: (() {
-        final value = json['traceId']?.toString();
-        if (value == null) {
-          throw FormatException('StreamsCheckpointResponse.traceId is required');
-        }
-        return value;
-      })()
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'code': code,
-      'data': data,
-      'traceId': traceId,
-    };
-  }
-}
-
-class StreamsCompleteResponse {
-  final int code;
-  final dynamic data;
-  final String traceId;
-
-  StreamsCompleteResponse({
-    required this.code,
-    required this.data,
-    required this.traceId
-  });
-
-  factory StreamsCompleteResponse.fromJson(Map<String, dynamic> json) {
-    return StreamsCompleteResponse(
-      code: (() {
-        final value = json['code'];
-        if (value is! int) {
-          throw FormatException('StreamsCompleteResponse.code is required');
-        }
-        return value;
-      })(),
-      data: (() {
-        final map = _sdkworkAsMap(json['data']);
-        if (map == null) {
-          throw FormatException('StreamsCompleteResponse.data is required');
-        }
-        return map;
-      })(),
-      traceId: (() {
-        final value = json['traceId']?.toString();
-        if (value == null) {
-          throw FormatException('StreamsCompleteResponse.traceId is required');
-        }
-        return value;
-      })()
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'code': code,
-      'data': data,
-      'traceId': traceId,
-    };
-  }
-}
-
-class StreamsAbortResponse {
-  final int code;
-  final dynamic data;
-  final String traceId;
-
-  StreamsAbortResponse({
-    required this.code,
-    required this.data,
-    required this.traceId
-  });
-
-  factory StreamsAbortResponse.fromJson(Map<String, dynamic> json) {
-    return StreamsAbortResponse(
-      code: (() {
-        final value = json['code'];
-        if (value is! int) {
-          throw FormatException('StreamsAbortResponse.code is required');
-        }
-        return value;
-      })(),
-      data: (() {
-        final map = _sdkworkAsMap(json['data']);
-        if (map == null) {
-          throw FormatException('StreamsAbortResponse.data is required');
-        }
-        return map;
-      })(),
-      traceId: (() {
-        final value = json['traceId']?.toString();
-        if (value == null) {
-          throw FormatException('StreamsAbortResponse.traceId is required');
-        }
-        return value;
-      })()
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'code': code,
-      'data': data,
-      'traceId': traceId,
-    };
-  }
-}
-
 class SpacesCreateResponse201 {
   final int code;
   final dynamic data;
@@ -11310,6 +12256,52 @@ class SpacesGroupsUpdateResponse {
         final value = json['traceId']?.toString();
         if (value == null) {
           throw FormatException('SpacesGroupsUpdateResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
+class SpacesGroupsTransferOwnerResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  SpacesGroupsTransferOwnerResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory SpacesGroupsTransferOwnerResponse.fromJson(Map<String, dynamic> json) {
+    return SpacesGroupsTransferOwnerResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('SpacesGroupsTransferOwnerResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('SpacesGroupsTransferOwnerResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('SpacesGroupsTransferOwnerResponse.traceId is required');
         }
         return value;
       })()

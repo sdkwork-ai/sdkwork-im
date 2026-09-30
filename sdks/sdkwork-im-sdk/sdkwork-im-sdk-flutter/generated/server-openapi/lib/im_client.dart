@@ -5,7 +5,6 @@ import 'src/api/realtime.dart';
 import 'src/api/calls.dart';
 import 'src/api/social.dart';
 import 'src/api/chat.dart';
-import 'src/api/streams.dart';
 import 'src/api/spaces.dart';
 
 class SdkworkImClient {
@@ -16,7 +15,6 @@ class SdkworkImClient {
   late final CallsApi calls;
   late final SocialApi social;
   late final ChatApi chat;
-  late final StreamsApi streams;
   late final SpacesApi spaces;
 
   SdkworkImClient({
@@ -27,14 +25,16 @@ class SdkworkImClient {
     calls = CallsApi(_httpClient);
     social = SocialApi(_httpClient);
     chat = ChatApi(_httpClient);
-    streams = StreamsApi(_httpClient);
     spaces = SpacesApi(_httpClient);
   }
 
   factory SdkworkImClient.withBaseUrl({
     required String baseUrl,
+    String? apiKey,
     String? authToken,
     String? accessToken,
+    String apiKeyHeader = 'X-API-Key',
+    bool apiKeyAsBearer = false,
     Map<String, String>? headers,
     int timeout = 30000,
   }) {
@@ -43,10 +43,17 @@ class SdkworkImClient {
         baseUrl: baseUrl,
         timeout: timeout,
         headers: headers ?? const {},
+        apiKey: apiKey,
+        apiKeyHeader: apiKeyHeader,
+        apiKeyAsBearer: apiKeyAsBearer,
         authToken: authToken,
         accessToken: accessToken,
       ),
     );
+  }
+
+  void setApiKey(String apiKey) {
+    _httpClient.setApiKey(apiKey);
   }
 
   void setAuthToken(String token) {

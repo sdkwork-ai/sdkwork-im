@@ -1,6 +1,6 @@
 export interface PostMessageResult {
   messageId: string;
-  messageSeq: number;
+  messageSeq: string;
   eventId: string;
   requestKey?: string;
   deliveryStatus: 'applied' | 'replayed';

@@ -6,7 +6,7 @@ export interface ConversationMessageEntry {
   tenantId: string;
   conversationId: string;
   messageId: string;
-  messageSeq: number;
+  messageSeq: string;
   summary?: string | null;
   sender: Sender;
   body: MessageBody;

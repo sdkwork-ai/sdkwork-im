@@ -26,6 +26,15 @@ class ChatApi {
     })();
   }
 
+  /// Ensure the current user received the system-agent Welcome message
+  Future<ChatMeWelcomeEnsureResponse?> meWelcomeEnsure() async {
+    final response = await _client.post(ApiPaths.imPath('/chat/me/welcome/ensure'));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : ChatMeWelcomeEnsureResponse.fromJson(map);
+    })();
+  }
+
   /// Create a conversation
   Future<ConversationsCreateResponse201?> conversationsCreate(CreateConversationRequest body) async {
     final payload = body.toJson();
@@ -83,6 +92,16 @@ class ChatApi {
     return (() {
       final map = sdkworkResponseAsMap(response);
       return map == null ? null : ConversationsDirectChatsBindingsCreateResponse201.fromJson(map);
+    })();
+  }
+
+  /// Sync a shared-channel linked member into a conversation
+  Future<ConversationsSharedChannelLinksSyncResponse?> conversationsSharedChannelLinksSync(SharedChannelLinkSyncRequest body) async {
+    final payload = body.toJson();
+    final response = await _client.post(ApiPaths.imPath('/chat/conversations/shared_channel_links/sync'), body: payload, contentType: 'application/json');
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : ConversationsSharedChannelLinksSyncResponse.fromJson(map);
     })();
   }
 
@@ -169,6 +188,15 @@ class ChatApi {
     return (() {
       final map = sdkworkResponseAsMap(response);
       return map == null ? null : ConversationsAgentsUpdateResponse.fromJson(map);
+    })();
+  }
+
+  /// Retrieve the business binding of a conversation
+  Future<ConversationsBindingRetrieveResponse?> conversationsBindingRetrieve(String conversationId) async {
+    final response = await _client.get(ApiPaths.imPath('/chat/conversations/${serializePathParameter(conversationId, const PathParameterSpec('conversationId', 'simple', false))}/binding'));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : ConversationsBindingRetrieveResponse.fromJson(map);
     })();
   }
 
@@ -352,6 +380,21 @@ class ChatApi {
     return (() {
       final map = sdkworkResponseAsMap(response);
       return map == null ? null : ConversationsMessagesInteractionSummaryRetrieveResponse.fromJson(map);
+    })();
+  }
+
+  /// Search conversation message history
+  Future<MessageSearchResponse?> messagesSearchList(String q, [String? conversationId, int? pageSize, String? cursor]) async {
+    final query = buildQueryString([
+      QueryParameterSpec('q', q, 'form', true, false, null),
+      QueryParameterSpec('conversationId', conversationId, 'form', true, false, null),
+      QueryParameterSpec('page_size', pageSize, 'form', true, false, null),
+      QueryParameterSpec('cursor', cursor, 'form', true, false, null)
+    ]);
+    final response = await _client.get(ApiPaths.appendQueryString(ApiPaths.imPath('/chat/messages/search'), query));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : MessageSearchResponse.fromJson(map);
     })();
   }
 

@@ -1,7 +1,7 @@
 import { imApiPath } from './paths';
 import type { ApiRequestOptions, HttpClient } from '../http/client';
 
-import type { PageInfo, SdkWorkCommandData, SpaceBanCreateRequest, SpaceBanView, SpaceChannelAccessRuleCreateRequest, SpaceChannelAccessRuleView, SpaceChannelCreateRequest, SpaceChannelUpdateRequest, SpaceChannelView, SpaceCreateRequest, SpaceGroupCreateRequest, SpaceGroupMemberCreateRequest, SpaceGroupMemberUpdateRequest, SpaceGroupMemberView, SpaceGroupUpdateRequest, SpaceGroupView, SpaceInviteCreateRequest, SpaceInviteView, SpaceMemberCreateRequest, SpaceMemberUpdateRequest, SpaceMemberView, SpaceUpdateRequest, SpaceView } from '../types';
+import type { PageInfo, SdkWorkCommandData, SpaceBanCreateRequest, SpaceBanView, SpaceChannelAccessRuleCreateRequest, SpaceChannelAccessRuleView, SpaceChannelCreateRequest, SpaceChannelUpdateRequest, SpaceChannelView, SpaceCreateRequest, SpaceGroupCreateRequest, SpaceGroupMemberCreateRequest, SpaceGroupMemberUpdateRequest, SpaceGroupMemberView, SpaceGroupTransferOwnerRequest, SpaceGroupUpdateRequest, SpaceGroupView, SpaceInviteCreateRequest, SpaceInviteView, SpaceMemberCreateRequest, SpaceMemberUpdateRequest, SpaceMemberView, SpaceUpdateRequest, SpaceView } from '../types';
 
 
 export interface SpacesBansListParams {
@@ -250,6 +250,11 @@ export class SpacesGroupsApi {
 /** Delete spaces groups */
   async delete(spaceId: string, groupId: string, requestOptions?: ApiRequestOptions): Promise<void> {
     return this.client.request<void>(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/groups/${serializePathParameter(groupId, { name: 'groupId', style: 'simple', explode: false })}`), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'DELETE' as any });
+  }
+
+/** Transfer spaces groups owner */
+  async transferOwner(spaceId: string, groupId: string, body: SpaceGroupTransferOwnerRequest, requestOptions?: ApiRequestOptions): Promise<SpaceGroupView> {
+    return this.client.request<SpaceGroupView>(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/groups/${serializePathParameter(groupId, { name: 'groupId', style: 'simple', explode: false })}/transfer_owner`), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 

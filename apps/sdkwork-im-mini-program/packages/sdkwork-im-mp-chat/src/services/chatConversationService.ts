@@ -31,8 +31,8 @@ export interface ImMpChatMessagePage extends ImMpChatPage<ImMpChatMessageItem> {
 
 export interface ImMpChatSendTextResult {
   readonly messageId: string;
-  /** int64 per the wire contract. */
-  readonly messageSeq: number;
+  /** int64 wire field; crosses the wire as a decimal string (API_SPEC 13.6). */
+  readonly messageSeq: string;
   readonly deliveryStatus: "applied" | "replayed";
 }
 

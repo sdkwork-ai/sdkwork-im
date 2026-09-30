@@ -5,8 +5,6 @@ info:
   description: >-
     IM standardized development OpenAPI contract for conversations, messages, realtime, media, social IM flows, and
     communication spaces.
-
-    Derived sdkgen input excludes the realtime websocket upgrade route. Websocket transport stays manual-owned.
 tags:
   - name: presence
   - name: realtime
@@ -10262,7 +10260,9 @@ components:
           maximum: 200
         totalItems:
           type: string
+          format: int64
           pattern: ^[0-9]+$
+          x-sdkwork-int64-string: true
         totalPages:
           type: integer
           minimum: 0

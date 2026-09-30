@@ -75,7 +75,6 @@ const client = new SdkworkImClient({
 - `client.calls` - calls API
 - `client.social` - social API
 - `client.chat` - chat API
-- `client.streams` - streams API
 - `client.spaces` - spaces API
 
 ## Usage Examples
@@ -124,17 +123,6 @@ const result = await client.social.friendRequests.pending.count.retrieve();
 const result = await client.chat.me.welcome.ensure();
 ```
 
-### streams
-
-```typescript
-// Open a stream
-const body = {
-  streamType: 'streamType',
-  conversationId: 'conversationId',
-};
-const result = await client.streams.create(body);
-```
-
 ### spaces
 
 ```typescript
@@ -173,7 +161,7 @@ This SDK includes cross-platform publish scripts in `bin/`:
 - `bin/publish.sh`
 - `bin/publish.ps1`
 
-TypeScript check and publish commands use pnpm to materialize workspace dependency versions in a temporary tarball. They reject local-only dependency protocols before npm publication and do not rewrite the source `package.json`.
+TypeScript check and publish commands materialize workspace dependency versions in a temporary tarball with pnpm. They reject local-only dependency protocols before npm publication and do not rewrite the source `package.json`.
 
 ### Check
 

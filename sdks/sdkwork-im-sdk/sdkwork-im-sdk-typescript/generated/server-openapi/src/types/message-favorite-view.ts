@@ -8,7 +8,7 @@ export interface MessageFavoriteView {
   favoriteType: MessageFavoriteType;
   conversationId: string;
   messageId: string;
-  messageSeq: number;
+  messageSeq: string;
   title: string;
   contentPreview: string;
   sourceDisplayName: string;

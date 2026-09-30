@@ -25,6 +25,79 @@ class SocialApi {
     })();
   }
 
+  /// Retrieve a social user profile
+  Future<SocialUsersProfileRetrieveResponse?> usersProfileRetrieve(String userId) async {
+    final response = await _client.get(ApiPaths.imPath('/social/users/${serializePathParameter(userId, const PathParameterSpec('userId', 'simple', false))}/profile'));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : SocialUsersProfileRetrieveResponse.fromJson(map);
+    })();
+  }
+
+  /// Update the authenticated user profile
+  Future<SocialUsersProfileUpdateResponse?> usersProfileUpdate(String userId, UpdateSocialUserProfileRequest body) async {
+    final payload = body.toJson();
+    final response = await _client.patch(ApiPaths.imPath('/social/users/${serializePathParameter(userId, const PathParameterSpec('userId', 'simple', false))}/profile'), body: payload, contentType: 'application/json');
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : SocialUsersProfileUpdateResponse.fromJson(map);
+    })();
+  }
+
+  /// Retrieve social user settings
+  Future<SocialUsersSettingsRetrieveResponse?> usersSettingsRetrieve(String userId) async {
+    final response = await _client.get(ApiPaths.imPath('/social/users/${serializePathParameter(userId, const PathParameterSpec('userId', 'simple', false))}/settings'));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : SocialUsersSettingsRetrieveResponse.fromJson(map);
+    })();
+  }
+
+  /// Update social user settings
+  Future<SocialUsersSettingsUpdateResponse?> usersSettingsUpdate(String userId, UpdateSocialUserSettingsRequest body) async {
+    final payload = body.toJson();
+    final response = await _client.patch(ApiPaths.imPath('/social/users/${serializePathParameter(userId, const PathParameterSpec('userId', 'simple', false))}/settings'), body: payload, contentType: 'application/json');
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : SocialUsersSettingsUpdateResponse.fromJson(map);
+    })();
+  }
+
+  /// List friendships of the authenticated user
+  Future<SocialFriendshipsListResponse?> friendshipsList([int? pageSize, String? cursor]) async {
+    final query = buildQueryString([
+      QueryParameterSpec('page_size', pageSize, 'form', true, false, null),
+      QueryParameterSpec('cursor', cursor, 'form', true, false, null)
+    ]);
+    final response = await _client.get(ApiPaths.appendQueryString(ApiPaths.imPath('/social/friendships'), query));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : SocialFriendshipsListResponse.fromJson(map);
+    })();
+  }
+
+  /// List direct chats of the authenticated user
+  Future<SocialDirectChatsListResponse?> directChatsList([int? pageSize, String? cursor]) async {
+    final query = buildQueryString([
+      QueryParameterSpec('page_size', pageSize, 'form', true, false, null),
+      QueryParameterSpec('cursor', cursor, 'form', true, false, null)
+    ]);
+    final response = await _client.get(ApiPaths.appendQueryString(ApiPaths.imPath('/social/direct_chats'), query));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : SocialDirectChatsListResponse.fromJson(map);
+    })();
+  }
+
+  /// Retrieve a direct chat
+  Future<SocialDirectChatsRetrieveResponse?> directChatsRetrieve(String directChatId) async {
+    final response = await _client.get(ApiPaths.imPath('/social/direct_chats/${serializePathParameter(directChatId, const PathParameterSpec('directChatId', 'simple', false))}'));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : SocialDirectChatsRetrieveResponse.fromJson(map);
+    })();
+  }
+
   /// List friend requests
   Future<SdkWorkListResponse?> friendRequestsList([String? direction, String? status, int? pageSize, String? cursor]) async {
     final query = buildQueryString([
@@ -92,6 +165,19 @@ class SocialApi {
     return (() {
       final map = sdkworkResponseAsMap(response);
       return map == null ? null : SocialFriendshipsRemoveResponse.fromJson(map);
+    })();
+  }
+
+  /// List user blocks created by the authenticated user
+  Future<SocialUserBlocksListResponse?> userBlocksList([int? pageSize, String? cursor]) async {
+    final query = buildQueryString([
+      QueryParameterSpec('page_size', pageSize, 'form', true, false, null),
+      QueryParameterSpec('cursor', cursor, 'form', true, false, null)
+    ]);
+    final response = await _client.get(ApiPaths.appendQueryString(ApiPaths.imPath('/social/user_blocks'), query));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : SocialUserBlocksListResponse.fromJson(map);
     })();
   }
 

@@ -33,8 +33,8 @@ export interface ImMpChatInboxItem {
   readonly lastSummary?: string;
   readonly lastActivityAt: string;
   readonly unreadCount: number;
-  /** int64 per the wire contract; for display and echo only. */
-  readonly lastMessageSeq: number;
+  /** int64 wire field; crosses the wire as a decimal string (API_SPEC 13.6). */
+  readonly lastMessageSeq: string;
 }
 
 /** Projected message row rendered by the conversation page. */
@@ -44,16 +44,16 @@ export interface ImMpChatMessageItem {
   readonly senderDisplayName?: string;
   readonly text: string;
   readonly occurredAt: string;
-  /** int64 per the wire contract. */
-  readonly messageSeq: number;
+  /** int64 wire field; crosses the wire as a decimal string (API_SPEC 13.6). */
+  readonly messageSeq: string;
 }
 
 /** Projected conversation summary used by the conversation page header. */
 export interface ImMpChatConversationSummary {
   readonly conversationId: string;
   readonly messageCount: number;
-  /** int64 per the wire contract. */
-  readonly lastMessageSeq: number;
+  /** int64 wire field; crosses the wire as a decimal string (API_SPEC 13.6). */
+  readonly lastMessageSeq: string;
   readonly lastSummary?: string;
   readonly lastMessageAt?: string;
 }
