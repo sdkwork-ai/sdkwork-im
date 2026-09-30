@@ -12,6 +12,14 @@ int _normalizeMessagePageSize(int pageSize) {
   return pageSize > _maxMessagePageSize ? _maxMessagePageSize : pageSize;
 }
 
+/// Conversation read/send surface for the Flutter chat.
+///
+/// Send is text-only on purpose: the app has no media upload pipeline wired.
+/// `DRIVE_SPEC.md` section 9 requires client media uploads to go through the
+/// generated Drive app SDK uploader, which publishes no Flutter target yet, so
+/// the previous hand-rolled Drive Uploader App API client was removed. Media
+/// support belongs to the same `chat-media-upload` boundary the H5 client uses
+/// and returns when a Dart `sdkwork-drive-app-sdk` target exists.
 class ChatConversationService {
   ChatConversationService(this._client);
 
@@ -71,44 +79,6 @@ class ChatConversationService {
       conversationId,
       UpdateConversationPreferencesRequest(isMarkedUnread: false),
     );
-  }
-
-  Future<PostMessageResult?> sendImageMessage({
-    required String conversationId,
-    required String driveUri,
-    required String spaceId,
-    required String nodeId,
-    required String fileName,
-    required String mimeType,
-    required int sizeBytes,
-  }) async {
-    final response = await _client.chat.conversationsMessagesCreate(
-      conversationId,
-      PostMessageRequest(
-        clientMsgId: newClientMessageId(),
-        summary: fileName,
-        parts: [
-          MediaContentPart(
-            kind: 'media',
-            drive: DriveReference(
-              driveUri: driveUri,
-              spaceId: spaceId,
-              nodeId: nodeId,
-            ),
-            resource: MediaResource(
-              source: 'drive',
-              uri: driveUri,
-              fileName: fileName,
-              mimeType: mimeType,
-              sizeBytes: '$sizeBytes',
-              kind: 'image',
-            ),
-            mediaRole: 'attachment',
-          ),
-        ],
-      ),
-    );
-    return readPostMessageResultFromSdkResponse(response);
   }
 }
 
