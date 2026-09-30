@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 import '../services/chat_conversation_service.dart';
+import '../services/chat_media_upload_service.dart';
 import '../services/chat_realtime_service.dart';
 import '../services/chat_message_history_utils.dart';
 import '../services/offline_send_queue.dart';
@@ -49,6 +52,7 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
 
   bool _loading = true;
   bool _loadingOlder = false;
+  bool _uploading = false;
   bool _sending = false;
   bool _liveConnected = false;
   _ErrorMessageBuilder? _error;
@@ -332,6 +336,64 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
     }
   }
 
+  Future<void> _handleImageUpload() async {
+    if (_uploading) {
+      return;
+    }
+
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    final file = picked?.files.firstOrNull;
+    final bytes = file?.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      return;
+    }
+
+    setState(() => _uploading = true);
+    try {
+      // Bytes enter Drive through the composed Drive Uploader; only the
+      // stable Drive reference travels in the message record.
+      final upload = await ChatMediaUploadService().uploadChatImage(
+        applicationPublicHttpUrl: widget.applicationPublicHttpUrl,
+        bytes: Uint8List.fromList(bytes),
+        accessToken: widget.session.accessToken,
+        authToken: widget.session.authToken,
+        conversationId: widget.conversationId,
+        originalFileName: file?.name,
+        contentType: file?.extension == null
+            ? 'image/jpeg'
+            : 'image/${file!.extension}',
+      );
+      await widget.conversationService.sendImageMessage(
+        conversationId: widget.conversationId,
+        driveUri: upload.driveUri,
+        spaceId: upload.spaceId,
+        nodeId: upload.nodeId,
+        fileName: upload.fileName,
+        mimeType: upload.mimeType,
+        sizeBytes: upload.sizeBytes,
+      );
+      await _appendNewMessageEntries();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)
+                  .failedToUploadImage(error.toString()),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _uploading = false);
+      }
+    }
+  }
+
   String _entryLabel(ConversationMessageEntry entry) {
     return entry.sender.displayName ?? entry.sender.id;
   }
@@ -411,6 +473,16 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
               padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
+                  IconButton(
+                    onPressed: _uploading ? null : _handleImageUpload,
+                    icon: _uploading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.image_outlined),
+                  ),
                   Expanded(
                     child: TextField(
                       controller: _composerController,

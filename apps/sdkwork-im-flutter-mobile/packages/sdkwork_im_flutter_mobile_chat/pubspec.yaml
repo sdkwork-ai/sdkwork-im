@@ -8,6 +8,9 @@ environment:
   flutter: ">=3.24.0"
 
 dependencies:
+  drive_uploader_composed:
+    path: ../../../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-flutter/composed/drive_uploader_composed
+  file_picker: ^8.1.7
   flutter:
     sdk: flutter
   flutter_localizations:
@@ -26,3 +29,12 @@ dependencies:
 flutter:
   generate: true
   uses-material-design: true
+
+# Workspace path resolution: the common flutter package is a sibling
+# checkout, not a published artifact.
+dependency_overrides:
+  sdkwork_common_flutter:
+    path: ../../../../../sdkwork-sdk-commons/sdkwork-sdk-common-flutter
+
+dev_dependencies:
+  test: ^1.24.0
