@@ -1,6 +1,6 @@
 import React, { RefObject } from "react";
 import { useNavigate } from "react-router";
-import { Search, Contact } from "lucide-react";
+import { Search, Contact, UserRound } from "lucide-react";
 import { IconButton } from "@sdkwork/im-h5-commons";
 import { AddMenu } from "./AddMenu";
 
@@ -8,12 +8,14 @@ interface ChatListHeaderProps {
   menuRef: RefObject<HTMLDivElement | null>;
   isMenuOpen: boolean;
   setIsMenuOpen: (open: boolean) => void;
+  onOpenAccount: () => void;
 }
 
 export const ChatListHeader: React.FC<ChatListHeaderProps> = ({
   menuRef,
   isMenuOpen,
   setIsMenuOpen,
+  onOpenAccount,
 }) => {
   const navigate = useNavigate();
 
@@ -27,12 +29,20 @@ export const ChatListHeader: React.FC<ChatListHeaderProps> = ({
         <IconButton
           icon={<Search className="w-5 h-5 text-text-main" />}
           className="bg-black/5 dark:bg-white/5 w-8 h-8 p-0"
+          aria-label="Search"
           onClick={() => navigate("/search")}
         />
         <IconButton
           icon={<Contact className="w-5 h-5 text-text-main" />}
           className="bg-black/5 dark:bg-white/5 w-8 h-8 p-0"
+          aria-label="Contacts"
           onClick={() => navigate("/workspace/contacts")}
+        />
+        <IconButton
+          icon={<UserRound className="w-5 h-5 text-text-main" />}
+          className="bg-black/5 dark:bg-white/5 w-8 h-8 p-0"
+          aria-label="Account"
+          onClick={onOpenAccount}
         />
         <AddMenu isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
       </div>

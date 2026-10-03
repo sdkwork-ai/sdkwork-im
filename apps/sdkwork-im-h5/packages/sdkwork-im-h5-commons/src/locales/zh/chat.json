@@ -160,5 +160,13 @@
     "slide_to_cancel": "上滑 取消",
     "miniapp_title": "小程序",
     "system_agent_name": "系统智能体"
+  },
+  "account": {
+    "title": "账号",
+    "sign_out": "退出登录",
+    "signing_out": "正在退出…",
+    "sign_out_confirm": "确定退出 Sdkwork IM 吗？",
+    "sign_out_failed": "退出失败，请重试",
+    "profile_load_failed": "资料加载失败"
   }
 }

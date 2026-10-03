@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { ChatListContextMenu } from "../components/Chat/ChatListContextMenu";
 import { ChatListItem } from "../components/Chat/ChatListItem";
 import { ChatListHeader } from "../components/Chat/ChatListHeader";
+import { AccountSheet } from "../components/Chat/AccountSheet";
 import { useTranslation } from "react-i18next";
 import { subscribeInboxLiveRefresh } from "../services/chatRealtimeService";
 import { ensureChatWelcomeMessage } from "../services/chatConversationService";
@@ -21,6 +22,7 @@ function isSystemAgentChat(chat: Chat): boolean {
 export const ChatList: React.FC = () => {
   const { t } = useTranslation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
   const [chats, setChats] = useState<Chat[]>([]);
   const [nextCursor, setNextCursor] = useState<string>();
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -212,6 +214,11 @@ export const ChatList: React.FC = () => {
         menuRef={menuRef}
         isMenuOpen={isMenuOpen}
         setIsMenuOpen={setIsMenuOpen}
+        onOpenAccount={() => setIsAccountSheetOpen(true)}
+      />
+      <AccountSheet
+        isOpen={isAccountSheetOpen}
+        onClose={() => setIsAccountSheetOpen(false)}
       />
 
       {/* Chat List */}

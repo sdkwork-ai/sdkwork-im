@@ -160,5 +160,13 @@
     "slide_to_cancel": "Slide up to Cancel",
     "miniapp_title": "Mini App",
     "system_agent_name": "System Agent"
+  },
+  "account": {
+    "title": "Account",
+    "sign_out": "Sign out",
+    "signing_out": "Signing out…",
+    "sign_out_confirm": "Sign out of Sdkwork IM?",
+    "sign_out_failed": "Sign-out failed, please retry",
+    "profile_load_failed": "Unable to load profile"
   }
 }

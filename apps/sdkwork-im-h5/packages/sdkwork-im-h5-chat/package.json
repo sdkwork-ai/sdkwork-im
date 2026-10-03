@@ -22,6 +22,7 @@
     "@sdkwork/drive-app-sdk": "workspace:*",
     "@sdkwork/drive-upload-image-core": "workspace:*",
     "@sdkwork/im-h5-types": "workspace:*",
+    "@sdkwork/im-h5-user": "workspace:*",
     "@sdkwork/music-mobile-react-playback": "workspace:*",
     "@sdkwork/utils": "workspace:*",
     "motion": "catalog:",
