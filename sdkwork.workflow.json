@@ -204,7 +204,14 @@
       "ref": "main",
       "refInput": "SDKWORK_MERCHANDISE_REF",
       "tokenSecret": "SDKWORK_RELEASE_TOKEN"
+    },    {
+      "id": "sdkwork-models",
+      "repository": "sdkwork-ai/sdkwork-models",
+      "ref": "main",
+      "refInput": "SDKWORK_MODELS_REF",
+      "tokenSecret": "SDKWORK_RELEASE_TOKEN"
     },
+
     {
       "id": "sdkwork-music",
       "repository": "sdkwork-ai/sdkwork-music",

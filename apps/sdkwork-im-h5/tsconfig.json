@@ -18,7 +18,7 @@
     "locally and git-ignored (`**/types/siblings/`); regenerate them with",
     "the //regen command below after a sibling's public surface changes."
   ],
-  "//regen": "node scripts/dev/gen-sibling-type-decls.mjs --app apps/sdkwork-im-h5 --out types/siblings --package @sdkwork/rtc-h5-call --package @sdkwork/order-app-sdk --package @sdkwork/community-mobile-react-community --package @sdkwork/i18n-pc-react",
+  "//regen": "node scripts/dev/gen-sibling-type-decls.mjs --app apps/sdkwork-im-h5 --out types/siblings --package @sdkwork/rtc-h5-call --package @sdkwork/order-app-sdk --package @sdkwork/community-mobile-react-community --package @sdkwork/i18n-pc-react --package @sdkwork/agents-h5-agents --package @sdkwork/agents-app-sdk --package @sdkwork/notary-h5-notary",
   "compilerOptions": {
     "target": "ES2022",
     "experimentalDecorators": true,
@@ -42,6 +42,24 @@
       ],
       "@sdkwork/rtc-h5-call/*": [
         "./types/siblings/@sdkwork/rtc-h5-call/src/*"
+      ],
+      "@sdkwork/agents-h5-agents": [
+        "./types/siblings/@sdkwork/agents-h5-agents/src/index.d.ts"
+      ],
+      "@sdkwork/agents-h5-agents/*": [
+        "./types/siblings/@sdkwork/agents-h5-agents/src/*"
+      ],
+      "@sdkwork/agents-app-sdk": [
+        "./types/siblings/@sdkwork/agents-app-sdk/src/index.d.ts"
+      ],
+      "@sdkwork/agents-app-sdk/*": [
+        "./types/siblings/@sdkwork/agents-app-sdk/src/*"
+      ],
+      "@sdkwork/notary-h5-notary": [
+        "./types/siblings/@sdkwork/notary-h5-notary/src/index.d.ts"
+      ],
+      "@sdkwork/notary-h5-notary/*": [
+        "./types/siblings/@sdkwork/notary-h5-notary/src/*"
       ],
       "@sdkwork/order-app-sdk": [
         "./types/siblings/@sdkwork/order-app-sdk/src/index.d.ts"

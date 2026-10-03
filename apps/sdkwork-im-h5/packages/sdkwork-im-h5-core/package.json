@@ -14,29 +14,33 @@
       "import": "./src/sdk/index.ts",
       "types": "./src/sdk/index.ts"
     },
-    "./realtime": {
-      "import": "./src/realtime/index.ts",
-      "types": "./src/realtime/index.ts"
+    "./host": {
+      "import": "./src/host/index.ts",
+      "types": "./src/host/index.ts"
+    },
+    "./sdk/*": {
+      "import": "./src/sdk/*.ts",
+      "types": "./src/sdk/*.ts"
+    },
+    "./routes": {
+      "import": "./src/routes/index.ts",
+      "types": "./src/routes/index.ts"
     },
     "./modules": {
       "import": "./src/modules/index.ts",
       "types": "./src/modules/index.ts"
     },
-    "./host": {
-      "import": "./src/host/index.ts",
-      "types": "./src/host/index.ts"
-    },
     "./session": {
       "import": "./src/session/index.ts",
       "types": "./src/session/index.ts"
     },
+    "./realtime": {
+      "import": "./src/realtime/index.ts",
+      "types": "./src/realtime/index.ts"
+    },
     "./composition": {
       "import": "./src/composition/index.ts",
       "types": "./src/composition/index.ts"
-    },
-    "./routes": {
-      "import": "./src/routes/index.ts",
-      "types": "./src/routes/index.ts"
     }
   },
   "dependencies": {

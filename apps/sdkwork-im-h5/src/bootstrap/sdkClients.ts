@@ -22,9 +22,6 @@ import {
   initKnowledgebaseAppSdkClient,
   resetKnowledgebaseAppSdkClient,
   createKnowledgebaseAppSdkClientConfig,
-  initAgentsAppSdkClient,
-  resetAgentsAppSdkClient,
-  createAgentsAppSdkClientConfig,
   initVoiceAppSdkClient,
   resetVoiceAppSdkClient,
   createVoiceAppSdkClientConfig,
@@ -37,9 +34,16 @@ import {
   type SdkworkAppClient as SdkworkOrderAppClient,
   type SdkworkAccountAppClient,
   type SdkworkKnowledgebaseAppClient,
-  type SdkworkAgentsAppClient,
   type SdkworkVoiceAppClient,
 } from '@sdkwork/im-h5-core/sdk';
+// The agents client module statically imports @sdkwork/agents-app-sdk; import
+// it by subpath so loading the sdk barrel does not evaluate that sibling.
+import {
+  initAgentsAppSdkClient,
+  resetAgentsAppSdkClient,
+  createAgentsAppSdkClientConfig,
+  type SdkworkAgentsAppClient,
+} from '@sdkwork/im-h5-core/sdk/agentsAppSdkClient';
 import {
   createCommunityAppSdkClient,
   createGeneratedCommunityAppSdkPort,

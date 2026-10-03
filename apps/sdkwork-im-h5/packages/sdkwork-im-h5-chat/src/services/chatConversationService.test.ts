@@ -76,7 +76,11 @@ test("ensureWelcome calls the self-service welcome endpoint", async () => {
 test("posts text with a unique client message id", async () => {
   let options: { clientMsgId?: string | null } | undefined;
   const sdk = createSdk();
-  sdk.conversations.postText = async (_conversationId, _text, body) => {
+  sdk.conversations.postText = async (
+    _conversationId: string,
+    _text: string,
+    body?: { clientMsgId?: string | null },
+  ) => {
     options = body;
     return {
       deliveryStatus: "applied" as const,
