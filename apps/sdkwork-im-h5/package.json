@@ -57,6 +57,8 @@
     "@sdkwork/course-runtime": "workspace:*",
     "@sdkwork/course-sdk-ports": "workspace:*",
     "@sdkwork/drive-mobile-react-drive": "workspace:*",
+    "@sdkwork/drive-upload-image-core": "workspace:*",
+    "@sdkwork/feeds-sdk": "workspace:*",
     "@sdkwork/iam-app-sdk": "workspace:*",
     "@sdkwork/iam-contracts": "workspace:*",
     "@sdkwork/iam-credential-entry": "workspace:*",
@@ -130,8 +132,7 @@
     "tailwind-merge": "catalog:",
     "tailwindcss": "catalog:",
     "vite": "catalog:",
-    "zustand": "catalog:",
-    "@sdkwork/feeds-sdk": "workspace:*"
+    "zustand": "catalog:"
   },
   "devDependencies": {
     "@types/express": "catalog:",

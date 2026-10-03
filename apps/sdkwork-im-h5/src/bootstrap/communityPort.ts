@@ -25,6 +25,7 @@ import {
   type CircleMembershipOrder,
 } from '@sdkwork/community-mobile-react-community';
 import { getSdkClients } from './sdkClients';
+import { createDriveUploadImageService } from '@sdkwork/drive-upload-image-core';
 import { getDriveAppSdkClientWithSession, IM_H5_COMMUNITY_POST_UPLOAD } from '@sdkwork/im-h5-core/sdk';
 import { uuid } from '@sdkwork/utils/id';
 
@@ -48,29 +49,23 @@ export function bootstrapImCommunityH5Port(): void {
   // surface) instead of the deprecated community feed.list surface.
   configureCommunityFeedsPort(getSdkClients().feedsOpenSdkClient);
 
-  // Post images upload through the platform drive uploader (same transport as
-  // chat media); the backend stores the returned drive:// URLs on the entry.
+  // Post images upload through the shared drive upload-image service (same
+  // declaration as chat media); the backend stores the returned drive:// URLs
+  // on the entry.
   configureCommunityMediaRuntimePort({
     async uploadImages(files: File[]): Promise<string[]> {
       const client = getDriveAppSdkClientWithSession();
+      const imageService = createDriveUploadImageService({
+        uploader: client.uploader,
+        declaration: IM_H5_COMMUNITY_POST_UPLOAD,
+      });
       const urls: string[] = [];
       for (const file of files) {
-        const uploadResult = await client.uploader.uploadImage({
+        const value = await imageService.upload({
           file,
-          appResourceType: IM_H5_COMMUNITY_POST_UPLOAD.appResourceType,
           appResourceId: 'community',
-          scene: IM_H5_COMMUNITY_POST_UPLOAD.scene,
-          source: IM_H5_COMMUNITY_POST_UPLOAD.source,
-          uploadProfileCode: IM_H5_COMMUNITY_POST_UPLOAD.uploadProfileCode,
-          ...(file.name ? { originalFileName: file.name } : {}),
-          ...(file.type ? { contentType: file.type } : {}),
         });
-        const spaceId = uploadResult.uploadItem.spaceId || uploadResult.uploadSession.spaceId;
-        const nodeId = uploadResult.uploadItem.nodeId || uploadResult.uploadSession.nodeId;
-        if (!spaceId || !nodeId) {
-          throw new Error('drive upload did not return a space or node id');
-        }
-        urls.push(`drive://spaces/${spaceId}/nodes/${nodeId}`);
+        urls.push(value.uri);
       }
       return urls;
     },
