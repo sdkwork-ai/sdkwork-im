@@ -51,7 +51,8 @@ export function bootstrapImCommunityH5Port(): void {
 
   // Post images upload through the shared drive upload-image service (same
   // declaration as chat media); the backend stores the returned drive:// URLs
-  // on the entry.
+  // on the entry. Circle covers/avatars reuse the port and resolve stored
+  // drive:// URIs into short-lived download-grant URLs for display.
   configureCommunityMediaRuntimePort({
     async uploadImages(files: File[]): Promise<string[]> {
       const client = getDriveAppSdkClientWithSession();
@@ -68,6 +69,26 @@ export function bootstrapImCommunityH5Port(): void {
         urls.push(value.uri);
       }
       return urls;
+    },
+    async resolveDisplayUrl(uri: string): Promise<string | null> {
+      if (!uri.startsWith('drive://')) {
+        return uri;
+      }
+      const matched = /^drive:\/\/spaces\/([^/]+)\/nodes\/([^/?#]+)/.exec(uri);
+      const nodeId = matched?.[2];
+      if (!nodeId) {
+        return null;
+      }
+      const client = getDriveAppSdkClientWithSession();
+      const grant = await client.drive.downloadGrants.create(nodeId, {
+        requestedTtlSeconds: 900,
+      });
+      const downloadUrl =
+        (grant as { downloadUrl?: unknown; data?: { downloadUrl?: unknown } }).downloadUrl ??
+        (grant as { data?: { downloadUrl?: unknown } }).data?.downloadUrl;
+      return typeof downloadUrl === 'string' && downloadUrl.startsWith('http')
+        ? downloadUrl
+        : null;
     },
   });
 
