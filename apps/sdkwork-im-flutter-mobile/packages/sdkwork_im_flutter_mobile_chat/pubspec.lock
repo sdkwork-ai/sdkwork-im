@@ -105,6 +105,13 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.0.7"
+  drive_upload_image_composed:
+    dependency: "direct main"
+    description:
+      path: "../../../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-flutter/composed/drive_upload_image_composed"
+      relative: true
+    source: path
+    version: "0.1.0"
   drive_uploader_composed:
     dependency: "direct main"
     description:

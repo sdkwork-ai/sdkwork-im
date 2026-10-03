@@ -10,6 +10,8 @@ environment:
 dependencies:
   drive_uploader_composed:
     path: ../../../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-flutter/composed/drive_uploader_composed
+  drive_upload_image_composed:
+    path: ../../../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-flutter/composed/drive_upload_image_composed
   file_picker: ^8.1.7
   flutter:
     sdk: flutter

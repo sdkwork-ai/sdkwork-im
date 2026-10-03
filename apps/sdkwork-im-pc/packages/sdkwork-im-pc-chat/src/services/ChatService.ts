@@ -24,7 +24,8 @@ import type {
   DriveUploaderUploadResult,
   SdkworkDriveUploader,
 } from '@sdkwork/im-pc-core/sdk/driveAppSdkClient';
-import { resolveImPcChatMediaUpload } from '@sdkwork/im-pc-core/sdk/uploadDeclaration';
+import { createDriveUploadImageService, type DriveUploadImageFileLike } from '@sdkwork/drive-upload-image-core';
+import { IM_PC_CHAT_IMAGE_UPLOAD, resolveImPcChatMediaUpload } from '@sdkwork/im-pc-core/sdk/uploadDeclaration';
 import {
   forEachCursorPage,
   SDKWORK_DEFAULT_PAGE_SIZE,
@@ -1321,6 +1322,84 @@ function resolveMediaUploadFileName(
   return pickString(extraInfo?.fileName, file.name, fallback) ?? fallback;
 }
 
+/**
+ * Bridges the chat composer blob onto the shared Drive image-upload file
+ * contract, keeping the composer's resolved identity (name/type) as the
+ * declared upload metadata.
+ */
+function toDriveUploadImageFileLike(
+  file: DriveUploaderBlobLike,
+  fileName: string,
+  contentType: string | undefined,
+): DriveUploadImageFileLike {
+  const arrayBuffer = file.arrayBuffer?.bind(file);
+  const readRange = file.readRange?.bind(file);
+  return {
+    size: file.size,
+    name: fileName,
+    ...(contentType === undefined ? {} : { type: contentType }),
+    ...(arrayBuffer === undefined ? {} : { arrayBuffer }),
+    ...(readRange === undefined ? {} : { readRange }),
+  };
+}
+
+/**
+ * Image media enters Drive through the shared image-upload service
+ * (`DRIVE_SPEC.md` section 18.3): the declared intent (`IM_PC_CHAT_IMAGE_UPLOAD`)
+ * is bound with the composed uploader and the persist-safe value is mapped back
+ * onto `ChatMediaUploadResult` so the send flow and UI stay unchanged.
+ */
+async function uploadChatImageFileViaDriveImageService({
+  chatId,
+  content,
+  extraInfo,
+  getDriveUploader,
+  file,
+  originalFileName,
+  contentType,
+}: {
+  chatId: string;
+  content: string;
+  extraInfo: ChatMessageExtraInfo | undefined;
+  getDriveUploader: () => Promise<SdkworkDriveUploader> | SdkworkDriveUploader;
+  file: DriveUploaderBlobLike;
+  originalFileName: string;
+  contentType: string | undefined;
+}): Promise<ChatMediaUploadResult> {
+  const imageService = createDriveUploadImageService({
+    uploader: await getDriveUploader(),
+    declaration: IM_PC_CHAT_IMAGE_UPLOAD,
+  });
+  const value = await imageService.upload({
+    file: toDriveUploadImageFileLike(file, originalFileName, contentType),
+    appResourceId: chatId,
+  });
+  const driveMeta = value.metadata?.drive;
+  if (!driveMeta) {
+    throw new Error('Drive image upload did not return drive metadata.');
+  }
+  const drive: DriveReference = {
+    driveUri: value.uri,
+    spaceId: driveMeta.spaceId,
+    nodeId: driveMeta.nodeId,
+  };
+  const resource: MediaResource = {
+    id: driveMeta.nodeId,
+    kind: 'image',
+    source: 'drive',
+    uri: drive.driveUri,
+    fileName: driveMeta.originalFileName ?? extraInfo?.fileName,
+    mimeType: driveMeta.contentType ?? extraInfo?.mimeType,
+    sizeBytes: driveMeta.contentLength ?? parseFileSizeBytes(extraInfo?.fileSize),
+    durationSeconds: extraInfo?.duration,
+  };
+  return {
+    content: pickString(content, drive.driveUri) ?? drive.driveUri,
+    drive,
+    resource,
+  };
+}
+
 async function uploadChatMediaFile({
   chatId,
   content,
@@ -1345,6 +1424,19 @@ async function uploadChatMediaFile({
   const uploadProfileCode: DriveUploaderProfile = declaration.uploadProfileCode as DriveUploaderProfile;
   const originalFileName = resolveMediaUploadFileName(type, file, extraInfo);
   const contentType = resolveMediaUploadContentType(type, file, extraInfo);
+
+  if (type === 'image') {
+    return uploadChatImageFileViaDriveImageService({
+      chatId,
+      content,
+      extraInfo,
+      getDriveUploader,
+      file,
+      originalFileName,
+      contentType,
+    });
+  }
+
   const uploadRequest: DriveUploaderRequest = {
     file,
     appResourceType: declaration.appResourceType,
@@ -1357,13 +1449,11 @@ async function uploadChatMediaFile({
   };
 
   const uploader = await getDriveUploader();
-  const uploadResult = type === 'image'
-    ? await uploader.uploadImage(uploadRequest)
-    : type === 'voice'
-      ? await uploader.uploadAudio(uploadRequest)
-      : type === 'video'
-        ? await uploader.uploadVideo(uploadRequest)
-        : await uploader.uploadAttachment(uploadRequest);
+  const uploadResult = type === 'voice'
+    ? await uploader.uploadAudio(uploadRequest)
+    : type === 'video'
+      ? await uploader.uploadVideo(uploadRequest)
+      : await uploader.uploadAttachment(uploadRequest);
   const drive = normalizeDriveUploadResult(uploadResult);
   const resource = buildDriveMediaResource(drive, type, {
     ...extraInfo,

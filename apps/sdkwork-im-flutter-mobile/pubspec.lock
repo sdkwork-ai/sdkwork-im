@@ -89,6 +89,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.19.1"
+  cross_file:
+    dependency: transitive
+    description:
+      name: cross_file
+      sha256: f141ea4f277af142a0356955707f6556f37b03947d39d55585981a06ca437bd6
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.3.5+5"
   crypto:
     dependency: transitive
     description:
@@ -97,6 +105,20 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.0.7"
+  drive_upload_image_composed:
+    dependency: transitive
+    description:
+      path: "../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-flutter/composed/drive_upload_image_composed"
+      relative: true
+    source: path
+    version: "0.1.0"
+  drive_uploader_composed:
+    dependency: transitive
+    description:
+      path: "../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-flutter/composed/drive_uploader_composed"
+      relative: true
+    source: path
+    version: "0.1.0"
   fake_async:
     dependency: transitive
     description:
@@ -121,6 +143,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "7.0.1"
+  file_picker:
+    dependency: transitive
+    description:
+      name: file_picker
+      sha256: ab13ae8ef5580a411c458d6207b6774a6c237d77ac37011b13994879f68a8810
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "8.3.7"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -139,6 +169,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_plugin_android_lifecycle:
+    dependency: transitive
+    description:
+      name: flutter_plugin_android_lifecycle
+      sha256: "3854fe5e3bff0b113c658f260b90c95dea17c92db0f2addeac2e343dd9969785"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "2.0.35"
   flutter_secure_storage:
     dependency: "direct main"
     description:
@@ -450,6 +488,13 @@ packages:
       relative: true
     source: path
     version: "1.1.0"
+  sdkwork_drive_app_sdk_generated_flutter:
+    dependency: transitive
+    description:
+      path: "../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-flutter/generated/server-openapi"
+      relative: true
+    source: path
+    version: "0.1.0"
   sdkwork_im_flutter_mobile_chat:
     dependency: "direct main"
     description:

@@ -1,3 +1,4 @@
+import 'package:drive_upload_image_composed/drive_upload_image_composed.dart';
 import 'package:drive_uploader_composed/drive_uploader_composed.dart';
 import 'package:flutter/foundation.dart';
 
@@ -85,28 +86,42 @@ class ChatMediaUploadService {
       accessToken: accessToken,
       authToken: authToken,
     );
-    final result = await client.uploader.uploadImage(
-      DriveUploaderRequest(
-        blob: DriveUploaderBlob(
-          bytes: bytes,
-          fileName: fileName,
-          contentType: resolvedContentType,
-        ),
+    // Image media enters Drive through the shared composed image-upload
+    // service (`DRIVE_SPEC.md` section 18.3): the declared intent
+    // ([ImFlutterChatImageUpload]) is bound with the composed uploader here
+    // and the persist-safe value is mapped back onto [ChatMediaUpload] so
+    // callers stay unchanged. `uploadByProfile('image')` is the same dispatch
+    // the previous direct `uploadImage` call performed.
+    final imageService = DriveUploaderImageService(
+      uploader: client.uploader,
+      declaration: DriveUploadImageDeclaration(
         appResourceType: ImFlutterChatImageUpload.appResourceType,
-        appResourceId: conversationId,
+        appResourceIdKind: ImFlutterChatImageUpload.appResourceIdKind,
         scene: ImFlutterChatImageUpload.scene,
         source: ImFlutterChatImageUpload.source,
-        uploadProfileCode: ImFlutterChatImageUpload.uploadProfileCode,
-        retention: const DriveUploaderRetention.longTerm(),
+        uploadProfileCode: DriveUploadImageProfile.image,
+        retention: ImFlutterChatImageUpload.retention,
+        purpose: ImFlutterChatImageUpload.purpose,
       ),
     );
+    final result = await imageService.upload(
+      file: DriveUploadImageSource(
+        bytes: bytes,
+        fileName: fileName,
+        contentType: resolvedContentType,
+      ),
+      appResourceId: conversationId,
+    );
+    final driveMetadata = result.driveMetadata ?? const <String, dynamic>{};
     return ChatMediaUpload(
-      driveUri: result.driveUri,
-      spaceId: result.spaceId,
-      nodeId: result.nodeId,
-      fileName: fileName,
-      mimeType: resolvedContentType,
-      sizeBytes: bytes.length,
+      driveUri: result.uri,
+      spaceId: driveMetadata['spaceId'] as String? ?? '',
+      nodeId: driveMetadata['nodeId'] as String? ?? '',
+      fileName: driveMetadata['originalFileName'] as String? ?? fileName,
+      mimeType: driveMetadata['contentType'] as String? ?? resolvedContentType,
+      sizeBytes:
+          int.tryParse(driveMetadata['contentLength'] as String? ?? '') ??
+              bytes.length,
     );
   }
 }

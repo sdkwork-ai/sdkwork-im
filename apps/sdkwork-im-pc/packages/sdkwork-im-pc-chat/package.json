@@ -30,7 +30,8 @@
     "i18next": "catalog:",
     "react-router-dom": "catalog:",
     "@sdkwork/notary-pc-core": "workspace:*",
-    "@sdkwork/im-pc-workspace": "workspace:*"
+    "@sdkwork/im-pc-workspace": "workspace:*",
+    "@sdkwork/drive-upload-image-core": "workspace:*"
   },
   "publishConfig": {
     "access": "public",

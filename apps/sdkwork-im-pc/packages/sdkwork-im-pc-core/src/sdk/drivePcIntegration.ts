@@ -34,9 +34,17 @@ export type {
   DriveUploaderRequest,
   DriveUploaderUploadResult,
 };
+// The full composed uploader surface: the image-profile methods are part of
+// the runtime client and are required to bind the shared Drive image-upload
+// service (`DriveUploadImageUploaderLike`).
 export type SdkworkDriveUploader = Pick<
   DriveUploaderClient,
-  'uploadAudio' | 'uploadAttachment' | 'uploadImage' | 'uploadVideo'
+  | 'uploadAudio'
+  | 'uploadAttachment'
+  | 'uploadAvatar'
+  | 'uploadImage'
+  | 'uploadThumbnail'
+  | 'uploadVideo'
 >;
 
 let driveAppSdkClient: SdkworkDriveAppClient | null = null;
