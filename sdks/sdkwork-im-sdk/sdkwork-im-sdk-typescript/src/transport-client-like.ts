@@ -1,5 +1,7 @@
 import type {
   AckResponse,
+  PresenceHeartbeatRequest,
+  PresenceView,
   AddConversationMemberRequest,
   BindDirectChatRequest,
   BlockUserRequest,
@@ -101,6 +103,13 @@ export type ImReplaceConversationAgentAssignmentsRequest = Omit<
 export type ImReplaceConversationAgentAssignmentsResult = ImConversationAgentAssignmentSet;
 
 export interface ImTransportClientLike {
+  presence: {
+    /** Publishes the current client's presence heartbeat. */
+    heartbeat(body: PresenceHeartbeatRequest): Promise<PresenceView>;
+    me: {
+      retrieve(): Promise<PresenceView>;
+    };
+  };
   chat: {
     contacts: {
       list(params?: QueryParams): Promise<ContactsResponse>;

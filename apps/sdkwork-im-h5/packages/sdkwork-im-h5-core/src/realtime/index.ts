@@ -64,6 +64,12 @@ let nextLeaseSequence = 0;
 // Recovery and reconnect state.
 let reconnectAttempt = 0;
 let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+/**
+ * Presence heartbeat cadence while the live connection is open
+ * (`POST /presence/heartbeat`, same stable device id as the socket upgrade).
+ */
+const PRESENCE_HEARTBEAT_INTERVAL_MS = 60_000;
+let presenceHeartbeatTimer: ReturnType<typeof setInterval> | undefined;
 let consecutiveFailures = 0;
 let circuitOpenUntil = 0;
 let totalConnectionsCreated = 0;
@@ -234,6 +240,34 @@ function recordConnectionFailure(): void {
   }
 }
 
+/**
+ * Publishes the presence heartbeat while the live connection is open.
+ *
+ * Failures are logged and never touch the connection: a failed heartbeat is a
+ * data-point loss for one interval, not a socket problem.
+ */
+function startPresenceHeartbeat(): void {
+  stopPresenceHeartbeat();
+  const publish = (): void => {
+    void getImSdkClient()
+      .presence.heartbeat({
+        ...(resolveDeviceId() ? { deviceId: resolveDeviceId() } : {}),
+      })
+      .catch((error) => {
+        console.warn('[sdkwork-im-h5] presence heartbeat failed', error);
+      });
+  };
+  publish();
+  presenceHeartbeatTimer = setInterval(publish, PRESENCE_HEARTBEAT_INTERVAL_MS);
+}
+
+function stopPresenceHeartbeat(): void {
+  if (presenceHeartbeatTimer) {
+    clearInterval(presenceHeartbeatTimer);
+    presenceHeartbeatTimer = undefined;
+  }
+}
+
 function scheduleReconnect(): void {
   if (
     reconnectTimer
@@ -368,6 +402,7 @@ async function openSharedConnection(refreshInboxOnOpen: boolean): Promise<ImLive
       // inbox refresh (the page just loaded its own data); reconnects opened
       // by the recovery machinery refresh subscribers whose data went stale.
       syncLiveSubscriptions(connection, refreshInboxOnOpen);
+      startPresenceHeartbeat();
       notifyConnectionOpen(connection);
       return;
     }
@@ -377,6 +412,7 @@ async function openSharedConnection(refreshInboxOnOpen: boolean): Promise<ImLive
     }
     if (state.status === 'error') {
       connectionStatus = 'error';
+      stopPresenceHeartbeat();
       if (state.reason && isAuthenticationFailure({ message: state.reason })) {
         // Definitive credential rejection: wait for the next session change
         // instead of hammering the gateway with invalid tokens.
@@ -386,6 +422,7 @@ async function openSharedConnection(refreshInboxOnOpen: boolean): Promise<ImLive
       return;
     }
     if (state.status === 'closed') {
+      stopPresenceHeartbeat();
       handleConnectionLost(connection, generation);
     }
   });
@@ -640,6 +677,7 @@ function removeScopeRegistrationIfUnused(scopeKey: string): void {
 
 export function disposeImLiveConnection(): void {
   clearReconnectTimer();
+  stopPresenceHeartbeat();
   connectionGeneration += 1;
   connectionLeases.clear();
   conversationLeaseIds.clear();

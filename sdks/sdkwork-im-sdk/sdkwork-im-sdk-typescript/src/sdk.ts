@@ -235,6 +235,7 @@ function assertCredentialMode(options: ImSdkClientOptions): void {
 
 export class ImSdkClient {
   readonly chat: ImTransportClientLike['chat'];
+  readonly presence: ImTransportClientLike['presence'];
   readonly calls: ImCallsModule;
   readonly conversations: ImConversationsModule;
   readonly messages: ImMessagesModule;
@@ -251,6 +252,7 @@ export class ImSdkClient {
     const generatedClient = new GeneratedSdkworkImClient(toGeneratedConfig(options));
     this.transportClient = generatedClient as unknown as ImTransportClientLike;
     this.chat = this.transportClient.chat;
+    this.presence = this.transportClient.presence;
     this.social = composeSocialSurface(generatedClient.social);
     this.messages = new ImMessagesModule(this.transportClient);
     this.conversations = new ImConversationsModule(this.transportClient);

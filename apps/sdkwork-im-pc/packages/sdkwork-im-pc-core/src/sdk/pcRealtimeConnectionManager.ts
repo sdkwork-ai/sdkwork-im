@@ -47,6 +47,8 @@ const RECONNECT_MAX_DELAY_MS = 30000;
 const RECONNECT_JITTER_RATIO = 0.2;
 const CIRCUIT_BREAKER_FAILURE_THRESHOLD = 5;
 const CIRCUIT_BREAKER_COOLDOWN_MS = 60_000;
+/** Server presence heartbeat cadence while the live connection is open. */
+const PRESENCE_HEARTBEAT_INTERVAL_MS = 60_000;
 
 let managerConfig: PcRealtimeConnectionManagerConfig = {};
 let sharedConnection: ImLiveConnection | null = null;
@@ -56,6 +58,7 @@ let connectionStatus: PcLiveConnectionStatus = 'idle';
 let connectionGeneration = 0;
 let reconnectAttempt = 0;
 let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+let presenceHeartbeatTimer: ReturnType<typeof setInterval> | undefined;
 let consecutiveFailures = 0;
 let circuitOpenUntil = 0;
 let totalConnectionsCreated = 0;
@@ -425,12 +428,43 @@ function scheduleReconnect(): void {
   }, computeReconnectDelay(reconnectAttempt));
 }
 
+/**
+ * Publishes the presence heartbeat while the live connection is open.
+ *
+ * `POST /presence/heartbeat` carries the same stable device id the socket
+ * upgrade uses, so the server can key presence per device. Failures are
+ * logged and never touch the connection: a failed heartbeat is a data-point
+ * loss for one interval, not a socket problem.
+ */
+function startPresenceHeartbeat(): void {
+  stopPresenceHeartbeat();
+  const publish = (): void => {
+    void (async () => {
+      const resolvedClient = resolveClient();
+      const client = isPromiseLike(resolvedClient) ? await resolvedClient : resolvedClient;
+      await client.presence.heartbeat({
+        ...(resolveDeviceId() ? { deviceId: resolveDeviceId() } : {}),
+      });
+    })().catch((error) => {
+      console.warn('[sdkwork-im-pc] presence heartbeat failed', error);
+    });
+  };
+  publish();
+  presenceHeartbeatTimer = setInterval(publish, PRESENCE_HEARTBEAT_INTERVAL_MS);
+}
+
+function stopPresenceHeartbeat(): void {
+  if (presenceHeartbeatTimer) {
+    clearInterval(presenceHeartbeatTimer);
+    presenceHeartbeatTimer = undefined;
+  }
+}
+
 function bindConnection(connection: ImLiveConnection, generation: number): void {
   detachConnectionListeners();
   sharedConnection = connection;
   connectionStatus = 'connecting';
   let failureRecorded = false;
-
   const recordCurrentConnectionFailure = (): void => {
     if (failureRecorded) {
       return;
@@ -449,6 +483,7 @@ function bindConnection(connection: ImLiveConnection, generation: number): void 
       consecutiveFailures = 0;
       circuitOpenUntil = 0;
       syncWireSubscriptions(connection);
+      startPresenceHeartbeat();
       notifyConnectionOpen(connection);
       return;
     }
@@ -458,6 +493,7 @@ function bindConnection(connection: ImLiveConnection, generation: number): void 
     }
     if (state.status === 'error') {
       connectionStatus = 'error';
+      stopPresenceHeartbeat();
       if (state.reason && isAuthenticationFailure({ message: state.reason })) {
         notifyAuthenticationFailure(state.reason);
         disposePcLiveConnection('websocket authentication failed');
@@ -468,6 +504,7 @@ function bindConnection(connection: ImLiveConnection, generation: number): void 
       return;
     }
     if (state.status === 'closed') {
+      stopPresenceHeartbeat();
       recordCurrentConnectionFailure();
       handleConnectionLost(connection, generation, true);
     }
@@ -694,6 +731,7 @@ export function recoverPcLiveConnection(
 
 function invalidatePcLiveConnection(reason: string): void {
   clearReconnectTimer();
+  stopPresenceHeartbeat();
   connectionGeneration += 1;
   clearWireSubscriptions();
   sharedConnection?.disconnect(1000, reason);
