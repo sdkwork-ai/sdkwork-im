@@ -33,6 +33,7 @@ Page({
   },
 
   unsubscribeStore: null,
+  unsubscribeRealtime: null,
   store: null,
 
   onLoad(options) {
@@ -50,6 +51,13 @@ Page({
     this.unsubscribeStore = this.store.subscribe((state) => {
       this.renderState(state);
     });
+    // Live delivery: a lease on this thread merges pushed messages via a
+    // delta refresh; the lease is released in `onUnload`.
+    this.unsubscribeRealtime = runtime
+      .realtime()
+      .subscribeConversation(conversationId, () => {
+        void this.store?.syncNew();
+      });
     void this.store.load({
       conversationId,
       ...(fallbackTitle ? { fallbackTitle } : {}),
@@ -60,6 +68,10 @@ Page({
     if (typeof this.unsubscribeStore === "function") {
       this.unsubscribeStore();
       this.unsubscribeStore = null;
+    }
+    if (typeof this.unsubscribeRealtime === "function") {
+      this.unsubscribeRealtime();
+      this.unsubscribeRealtime = null;
     }
   },
 

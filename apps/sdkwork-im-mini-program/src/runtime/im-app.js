@@ -439,6 +439,14 @@ function resolveImMpPageSize(requested = IM_MP_CHAT_PAGE_SIZE) {
   }
   return Math.min(Math.trunc(requested), IM_MP_MAX_LIST_PAGE_SIZE);
 }
+function compareImMpSeqStrings(a, b) {
+  const left = a.trim();
+  const right = b.trim();
+  if (left.length !== right.length) {
+    return left.length - right.length;
+  }
+  return left < right ? -1 : left > right ? 1 : 0;
+}
 function normalizeString(value) {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized.length > 0 ? normalized : void 0;
@@ -599,6 +607,210 @@ function prependImMpChatMessages(existing, older) {
   return prefix.length > 0 ? [...prefix, ...existing] : existing;
 }
 
+// packages/sdkwork-im-mp-chat/src/services/chatRealtimeService.ts
+var INITIAL_BACKOFF_MS = 1e3;
+var MAX_BACKOFF_MS = 3e4;
+var AUTH_FAILURE_PATTERN = /(?:^|_)(?:auth|session|token).*(?:failed|expired|invalid|required)|websocket_auth/iu;
+function createImMpChatRealtimeService(resolveClient) {
+  let connection = null;
+  let connecting = null;
+  let disposed = false;
+  let authFailed = false;
+  let reconnectAttempts = 0;
+  let reconnectTimer = null;
+  const connectionUnsubs = [];
+  const conversationLeases = /* @__PURE__ */ new Map();
+  const conversationUnsubs = /* @__PURE__ */ new Map();
+  const refreshHandlers = /* @__PURE__ */ new Set();
+  const notifyRefresh = () => {
+    for (const handler of refreshHandlers) {
+      try {
+        handler();
+      } catch {
+      }
+    }
+  };
+  const scheduleReconnect = () => {
+    if (disposed || authFailed || reconnectTimer) {
+      return;
+    }
+    const ceiling = Math.min(MAX_BACKOFF_MS, INITIAL_BACKOFF_MS * 2 ** reconnectAttempts);
+    const delay = Math.round(Math.random() * ceiling);
+    reconnectAttempts += 1;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      void ensureConnection();
+    }, delay);
+  };
+  const attachConversation = (conversationId) => {
+    if (!connection || conversationUnsubs.has(conversationId)) {
+      return;
+    }
+    const unsubscribe = connection.messages.onConversation(
+      conversationId,
+      (message, context) => {
+        const handlers = conversationLeases.get(conversationId);
+        if (handlers) {
+          for (const handler of handlers) {
+            try {
+              handler(message, context);
+            } catch {
+            }
+          }
+        }
+        notifyRefresh();
+      }
+    );
+    conversationUnsubs.set(conversationId, unsubscribe);
+  };
+  const detachConnection = () => {
+    for (const unsubscribe of connectionUnsubs.splice(0)) {
+      try {
+        unsubscribe();
+      } catch {
+      }
+    }
+    for (const unsubscribe of conversationUnsubs.values()) {
+      try {
+        unsubscribe();
+      } catch {
+      }
+    }
+    conversationUnsubs.clear();
+    if (connection) {
+      connection.disconnect();
+      connection = null;
+    }
+  };
+  const handleStateChange = (state) => {
+    if (disposed) {
+      return;
+    }
+    if (state.status === "open") {
+      reconnectAttempts = 0;
+      notifyRefresh();
+      return;
+    }
+    if (state.status === "closed" || state.status === "error") {
+      detachConnection();
+      scheduleReconnect();
+    }
+  };
+  const handleConnectionError = (error) => {
+    if (disposed) {
+      return;
+    }
+    const code = typeof error === "object" && error !== null ? error.code : void 0;
+    if (typeof code === "string" && AUTH_FAILURE_PATTERN.test(code)) {
+      authFailed = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      detachConnection();
+    }
+  };
+  async function ensureConnection() {
+    if (disposed || authFailed || connection || connecting) {
+      return;
+    }
+    connecting = (async () => {
+      try {
+        const options = {
+          subscriptions: {
+            conversations: [...conversationLeases.keys()]
+          }
+        };
+        const opened = await resolveClient().connect(options);
+        if (disposed) {
+          opened.disconnect();
+          return;
+        }
+        connection = opened;
+        connectionUnsubs.push(
+          opened.lifecycle.onStateChange(handleStateChange),
+          opened.lifecycle.onError(handleConnectionError)
+        );
+        for (const conversationId of conversationLeases.keys()) {
+          attachConversation(conversationId);
+        }
+      } catch {
+        scheduleReconnect();
+      } finally {
+        connecting = null;
+      }
+    })();
+    await connecting;
+  }
+  return {
+    subscribeConversation(conversationId, handler) {
+      let leases = conversationLeases.get(conversationId);
+      if (!leases) {
+        leases = /* @__PURE__ */ new Set();
+        conversationLeases.set(conversationId, leases);
+      }
+      leases.add(handler);
+      if (connection) {
+        attachConversation(conversationId);
+        connection.subscriptions.syncConversations([...conversationLeases.keys()]);
+      } else {
+        void ensureConnection();
+      }
+      return () => {
+        const current = conversationLeases.get(conversationId);
+        if (!current) {
+          return;
+        }
+        current.delete(handler);
+        if (current.size > 0) {
+          return;
+        }
+        conversationLeases.delete(conversationId);
+        const unsubscribe = conversationUnsubs.get(conversationId);
+        if (unsubscribe) {
+          unsubscribe();
+          conversationUnsubs.delete(conversationId);
+        }
+        connection == null ? void 0 : connection.subscriptions.syncConversations([...conversationLeases.keys()]);
+      };
+    },
+    subscribeRefresh(handler) {
+      refreshHandlers.add(handler);
+      if (!connection) {
+        void ensureConnection();
+      }
+      return () => {
+        refreshHandlers.delete(handler);
+      };
+    },
+    isLiveConnected() {
+      return connection !== null;
+    },
+    recover() {
+      if (disposed) {
+        return;
+      }
+      authFailed = false;
+      if (!connection) {
+        void ensureConnection();
+      }
+    },
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      detachConnection();
+      conversationLeases.clear();
+      refreshHandlers.clear();
+    }
+  };
+}
+
 // packages/sdkwork-im-mp-chat/src/state/chatInboxStore.ts
 var initialImMpChatInboxState = {
   status: "loading",
@@ -749,6 +961,31 @@ function createImMpChatConversationStore(service, resolveCachedTitle) {
           loadingEarlier: false,
           errorMessage: resolveImMpErrorMessage(error)
         });
+      }
+    },
+    async syncNew() {
+      const state = store.getState();
+      if (state.status === "loading" || !state.conversationId) {
+        return;
+      }
+      try {
+        const page = await service.listMessages(state.conversationId);
+        const current = store.getState();
+        const seen = new Set(current.messages.map((item) => item.messageId));
+        const merged = [
+          ...current.messages,
+          ...page.items.filter((item) => !seen.has(item.messageId))
+        ].sort((a, b) => compareImMpSeqStrings(a.messageSeq, b.messageSeq));
+        store.replaceState({
+          ...current,
+          status: resolveImMpScreenStatus(merged.length, false),
+          messages: merged,
+          // The newest page may extend past the loaded window: refresh the
+          // forward boundary but keep the loaded older cursor intact.
+          hasMore: current.hasMore || page.hasMore,
+          ...page.nextCursor && !current.nextCursor ? { nextCursor: page.nextCursor } : {}
+        });
+      } catch {
       }
     },
     async sendText(text) {
@@ -2358,7 +2595,7 @@ function removeTrailingSlash(url) {
   }
 }
 
-// ../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript/dist/sdkwork-webserver/node_modules/.pnpm/@sdkwork_utils@0.11.0/node_modules/@sdkwork/utils/dist/runtime/random.js
+// ../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript/dist/sdkwork-mall/node_modules/.pnpm/@sdkwork_utils@0.11.0/node_modules/@sdkwork/utils/dist/runtime/random.js
 function getCrypto() {
   const crypto = globalThis.crypto;
   if (!(crypto == null ? void 0 : crypto.getRandomValues)) throw new Error("Web Crypto API is not available in this environment.");
@@ -2379,7 +2616,7 @@ function randomUuid() {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-// ../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript/dist/sdkwork-webserver/node_modules/.pnpm/@sdkwork_utils@0.11.0/node_modules/@sdkwork/utils/dist/id.js
+// ../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript/dist/sdkwork-mall/node_modules/.pnpm/@sdkwork_utils@0.11.0/node_modules/@sdkwork/utils/dist/id.js
 function uuid() {
   return randomUuid();
 }
@@ -2395,21 +2632,21 @@ var StringUtils;
     return !isEmpty(value);
   }
   _StringUtils.isNotEmpty = isNotEmpty;
-  function isBlank4(value) {
+  function isBlank2(value) {
     if (isEmpty(value)) return true;
     if (typeof value !== "string") return false;
     return value.trim().length === 0;
   }
-  _StringUtils.isBlank = isBlank4;
+  _StringUtils.isBlank = isBlank2;
   function isNotBlank(value) {
-    return !isBlank4(value);
+    return !isBlank2(value);
   }
   _StringUtils.isNotBlank = isNotBlank;
-  function trim4(value) {
+  function trim2(value) {
     var _a;
     return (_a = value == null ? void 0 : value.trim()) != null ? _a : "";
   }
-  _StringUtils.trim = trim4;
+  _StringUtils.trim = trim2;
   function trimStart(value) {
     var _a;
     return (_a = value == null ? void 0 : value.trimStart()) != null ? _a : "";
@@ -3214,7 +3451,7 @@ var StringUtils;
 // ../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript/dist/utils/encoding.js
 var Encoding;
 (function(_Encoding) {
-  function base64Encode4(input) {
+  function base64Encode2(input) {
     var _a, _b, _c;
     let bytes;
     if (typeof input === "string") bytes = new TextEncoder().encode(input);
@@ -3234,8 +3471,8 @@ var Encoding;
     }
     return result;
   }
-  _Encoding.base64Encode = base64Encode4;
-  function base64Decode4(input) {
+  _Encoding.base64Encode = base64Encode2;
+  function base64Decode2(input) {
     var _a, _b, _c, _d;
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     input = input.replace(/[^A-Za-z0-9+/]/g, "");
@@ -3254,18 +3491,18 @@ var Encoding;
     }
     return result;
   }
-  _Encoding.base64Decode = base64Decode4;
-  function base64UrlEncode4(input) {
-    return base64Encode4(input).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  _Encoding.base64Decode = base64Decode2;
+  function base64UrlEncode2(input) {
+    return base64Encode2(input).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
   }
-  _Encoding.base64UrlEncode = base64UrlEncode4;
-  function base64UrlDecode4(input) {
+  _Encoding.base64UrlEncode = base64UrlEncode2;
+  function base64UrlDecode2(input) {
     input = input.replace(/-/g, "+").replace(/_/g, "/");
     const pad2 = input.length % 4;
     if (pad2) input += "=".repeat(4 - pad2);
-    return base64Decode4(input);
+    return base64Decode2(input);
   }
-  _Encoding.base64UrlDecode = base64UrlDecode4;
+  _Encoding.base64UrlDecode = base64UrlDecode2;
   function base64ToBytes(base64) {
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
@@ -3288,17 +3525,17 @@ var Encoding;
     return new TextDecoder().decode(input);
   }
   _Encoding.utf8Decode = utf8Decode;
-  function hexEncode4(input) {
+  function hexEncode2(input) {
     const bytes = typeof input === "string" ? utf8Encode(input) : input;
     return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, "0")).join("");
   }
-  _Encoding.hexEncode = hexEncode4;
-  function hexDecode4(input) {
+  _Encoding.hexEncode = hexEncode2;
+  function hexDecode2(input) {
     const bytes = new Uint8Array(input.length / 2);
     for (let i = 0; i < input.length; i += 2) bytes[i / 2] = parseInt(input.substr(i, 2), 16);
     return utf8Decode(bytes);
   }
-  _Encoding.hexDecode = hexDecode4;
+  _Encoding.hexDecode = hexDecode2;
   function hexToBytes(hex) {
     const bytes = new Uint8Array(hex.length / 2);
     for (let i = 0; i < hex.length; i += 2) bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
@@ -4348,7 +4585,7 @@ var BaseHttpClient = class {
   }
 };
 
-// ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/utils/dist/runtime/binary.js
+// ../../../sdkwork-utils/packages/sdkwork-utils-typescript/src/runtime/binary.js
 var textEncoder = new TextEncoder();
 function toUtf8(value) {
   return textEncoder.encode(value);
@@ -4358,13 +4595,16 @@ function hexEncode(bytes) {
   let result = "";
   for (let index = 0; index < bytes.length; index += 1) {
     const byte = bytes[index];
+    if (byte === void 0) {
+      continue;
+    }
     result += HEX[byte >> 4];
     result += HEX[byte & 15];
   }
   return result;
 }
 
-// ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/utils/dist/runtime/sha256.js
+// ../../../sdkwork-utils/packages/sdkwork-utils-typescript/src/runtime/sha256.js
 var K = new Uint32Array([
   1116352408,
   1899447441,
@@ -4435,16 +4675,22 @@ var BLOCK_SIZE = 64;
 function rotr(value, shift) {
   return value >>> shift | value << 32 - shift;
 }
+function readBlockU32(block, byteOffset) {
+  return block[byteOffset] << 24 | block[byteOffset + 1] << 16 | block[byteOffset + 2] << 8 | block[byteOffset + 3];
+}
 function sha256Block(state, block, offset) {
   const words = new Uint32Array(64);
   for (let index = 0; index < 16; index += 1) {
-    const start = offset + index * 4;
-    words[index] = block[start] << 24 | block[start + 1] << 16 | block[start + 2] << 8 | block[start + 3];
+    words[index] = readBlockU32(block, offset + index * 4);
   }
   for (let index = 16; index < 64; index += 1) {
-    const s0 = rotr(words[index - 15], 7) ^ rotr(words[index - 15], 18) ^ words[index - 15] >>> 3;
-    const s1 = rotr(words[index - 2], 17) ^ rotr(words[index - 2], 19) ^ words[index - 2] >>> 10;
-    words[index] = words[index - 16] + s0 + words[index - 7] + s1 >>> 0;
+    const wordMinus15 = words[index - 15];
+    const wordMinus2 = words[index - 2];
+    const wordMinus16 = words[index - 16];
+    const wordMinus7 = words[index - 7];
+    const s0 = rotr(wordMinus15, 7) ^ rotr(wordMinus15, 18) ^ wordMinus15 >>> 3;
+    const s1 = rotr(wordMinus2, 17) ^ rotr(wordMinus2, 19) ^ wordMinus2 >>> 10;
+    words[index] = wordMinus16 + s0 + wordMinus7 + s1 >>> 0;
   }
   let a = state[0];
   let b = state[1];
@@ -4523,12 +4769,269 @@ function sha256Hex(value) {
   return hexEncode(sha256Digest(bytes));
 }
 
-// ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/utils/dist/crypto.js
+// ../../../sdkwork-utils/packages/sdkwork-utils-typescript/src/crypto.js
 function sha256Hash(value) {
   return sha256Hex(value);
 }
 
-// ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/dist/index.js
+// ../../../sdkwork-utils/packages/sdkwork-utils-typescript/src/money.js
+var LOCALE_RULES = {
+  "en-us": {
+    prefix: true,
+    decimal: ".",
+    grouping: ",",
+    nameSpace: true,
+    compact: [
+      { exponent: 12, unit: "T" },
+      { exponent: 9, unit: "B" },
+      { exponent: 6, unit: "M" },
+      { exponent: 3, unit: "K" }
+    ]
+  },
+  "zh-cn": {
+    prefix: true,
+    decimal: ".",
+    grouping: ",",
+    nameSpace: false,
+    compact: [
+      { exponent: 12, unit: "\u5146" },
+      { exponent: 8, unit: "\u4EBF" },
+      { exponent: 4, unit: "\u4E07" }
+    ]
+  },
+  "ja-jp": {
+    prefix: true,
+    decimal: ".",
+    grouping: ",",
+    nameSpace: false,
+    compact: [
+      { exponent: 12, unit: "\u5146" },
+      { exponent: 8, unit: "\u5104" },
+      { exponent: 4, unit: "\u4E07" }
+    ]
+  },
+  "ko-kr": {
+    prefix: true,
+    decimal: ".",
+    grouping: ",",
+    nameSpace: false,
+    compact: [
+      { exponent: 12, unit: "\uC870" },
+      { exponent: 8, unit: "\uC5B5" },
+      { exponent: 4, unit: "\uB9CC" }
+    ]
+  },
+  "de-de": {
+    prefix: false,
+    decimal: ",",
+    grouping: ".",
+    nameSpace: true,
+    compact: [
+      { exponent: 12, unit: "Bio." },
+      { exponent: 9, unit: "Mrd." },
+      { exponent: 6, unit: "Mio." },
+      { exponent: 3, unit: "Tsd." }
+    ]
+  },
+  "fr-fr": {
+    prefix: false,
+    decimal: ",",
+    grouping: " ",
+    nameSpace: true,
+    compact: [
+      { exponent: 12, unit: "B" },
+      { exponent: 9, unit: "Md" },
+      { exponent: 6, unit: "M" },
+      { exponent: 3, unit: "k" }
+    ]
+  },
+  "it-it": {
+    prefix: false,
+    decimal: ",",
+    grouping: ".",
+    nameSpace: true,
+    compact: [
+      { exponent: 12, unit: "Bio." },
+      { exponent: 9, unit: "Mrd." },
+      { exponent: 6, unit: "M" },
+      { exponent: 3, unit: "k" }
+    ]
+  },
+  "es-es": {
+    prefix: false,
+    decimal: ",",
+    grouping: ".",
+    nameSpace: true,
+    compact: [
+      { exponent: 12, unit: "T" },
+      { exponent: 9, unit: "B" },
+      { exponent: 6, unit: "M" },
+      { exponent: 3, unit: "k" }
+    ]
+  },
+  "ru-ru": {
+    prefix: false,
+    decimal: ",",
+    grouping: " ",
+    nameSpace: true,
+    compact: [
+      { exponent: 12, unit: "\u0442\u0440\u043B\u043D" },
+      { exponent: 9, unit: "\u043C\u043B\u0440\u0434" },
+      { exponent: 6, unit: "\u043C\u043B\u043D" },
+      { exponent: 3, unit: "\u0442\u044B\u0441." }
+    ]
+  }
+};
+var CURRENCY_NAMES = {
+  "en-us": {
+    USD: "US dollars",
+    EUR: "euros",
+    GBP: "British pounds",
+    CNY: "Chinese yuan",
+    JPY: "Japanese yen",
+    KRW: "South Korean won",
+    HKD: "Hong Kong dollars",
+    TWD: "New Taiwan dollars",
+    CHF: "Swiss francs",
+    CAD: "Canadian dollars",
+    AUD: "Australian dollars",
+    INR: "Indian rupees",
+    BHD: "Bahraini dinars",
+    KWD: "Kuwaiti dinars"
+  },
+  "zh-cn": {
+    USD: "\u7F8E\u5143",
+    EUR: "\u6B27\u5143",
+    GBP: "\u82F1\u9563",
+    CNY: "\u4EBA\u6C11\u5E01",
+    JPY: "\u65E5\u5143",
+    KRW: "\u97E9\u5143",
+    HKD: "\u6E2F\u5E01",
+    TWD: "\u65B0\u53F0\u5E01",
+    CHF: "\u745E\u58EB\u6CD5\u90CE",
+    CAD: "\u52A0\u62FF\u5927\u5143",
+    AUD: "\u6FB3\u5927\u5229\u4E9A\u5143",
+    INR: "\u5370\u5EA6\u5362\u6BD4",
+    BHD: "\u5DF4\u6797\u7B2C\u7EB3\u5C14",
+    KWD: "\u79D1\u5A01\u7279\u7B2C\u7EB3\u5C14"
+  },
+  "de-de": {
+    USD: "US-Dollar",
+    EUR: "Euro",
+    GBP: "Britisches Pfund",
+    CNY: "Chinesischer Yuan",
+    JPY: "Japanischer Yen",
+    KRW: "S\xFCdkoreanischer Won",
+    HKD: "Hongkong-Dollar",
+    TWD: "Neuer Taiwan-Dollar",
+    CHF: "Schweizer Franken",
+    CAD: "Kanadischer Dollar",
+    AUD: "Australischer Dollar",
+    INR: "Indische Rupie",
+    BHD: "Bahrainischer Dinar",
+    KWD: "Kuwaitischer Dinar"
+  },
+  "fr-fr": {
+    USD: "dollar am\xE9ricain",
+    EUR: "euro",
+    GBP: "livre sterling",
+    CNY: "yuan chinois",
+    JPY: "yen japonais",
+    KRW: "won sud-cor\xE9en",
+    HKD: "dollar de Hong Kong",
+    TWD: "nouveau dollar de Ta\xEFwan",
+    CHF: "franc suisse",
+    CAD: "dollar canadien",
+    AUD: "dollar australien",
+    INR: "roupie indienne",
+    BHD: "dinar bahre\xEFni",
+    KWD: "dinar kowe\xEFtien"
+  },
+  "it-it": {
+    USD: "dollaro statunitense",
+    EUR: "euro",
+    GBP: "sterlina britannica",
+    CNY: "yuan cinese",
+    JPY: "yen giapponese",
+    KRW: "won sudcoreano",
+    HKD: "dollaro di Hong Kong",
+    TWD: "nuovo dollaro taiwanese",
+    CHF: "franco svizzero",
+    CAD: "dollaro canadese",
+    AUD: "dollaro australiano",
+    INR: "rupia indiana",
+    BHD: "dinaro bahreinita",
+    KWD: "dinaro kuwaitiano"
+  },
+  "es-es": {
+    USD: "d\xF3lar estadounidense",
+    EUR: "euro",
+    GBP: "libra esterlina",
+    CNY: "yuan chino",
+    JPY: "yen japon\xE9s",
+    KRW: "won surcoreano",
+    HKD: "d\xF3lar de Hong Kong",
+    TWD: "nuevo d\xF3lar taiwan\xE9s",
+    CHF: "franco suizo",
+    CAD: "d\xF3lar canadiense",
+    AUD: "d\xF3lar australiano",
+    INR: "rupia india",
+    BHD: "dinar bahrein\xED",
+    KWD: "dinar kuwait\xED"
+  },
+  "ja-jp": {
+    USD: "\u7C73\u30C9\u30EB",
+    EUR: "\u30E6\u30FC\u30ED",
+    GBP: "\u82F1\u30DD\u30F3\u30C9",
+    CNY: "\u4E2D\u56FD\u4EBA\u6C11\u5143",
+    JPY: "\u65E5\u672C\u5186",
+    KRW: "\u97D3\u56FD\u30A6\u30A9\u30F3",
+    HKD: "\u9999\u6E2F\u30C9\u30EB",
+    TWD: "\u53F0\u6E7E\u30C9\u30EB",
+    CHF: "\u30B9\u30A4\u30B9\u30D5\u30E9\u30F3",
+    CAD: "\u30AB\u30CA\u30C0\u30C9\u30EB",
+    AUD: "\u30AA\u30FC\u30B9\u30C8\u30E9\u30EA\u30A2\u30C9\u30EB",
+    INR: "\u30A4\u30F3\u30C9\u30EB\u30D4\u30FC",
+    BHD: "\u30D0\u30FC\u30EC\u30FC\u30F3\u30C7\u30A3\u30FC\u30CA\u30FC\u30EB",
+    KWD: "\u30AF\u30A6\u30A7\u30FC\u30C8\u30C7\u30A3\u30CA\u30FC\u30EB"
+  },
+  "ko-kr": {
+    USD: "\uBBF8\uAD6D \uB2EC\uB7EC",
+    EUR: "\uC720\uB85C",
+    GBP: "\uC601\uAD6D \uD30C\uC6B4\uB4DC",
+    CNY: "\uC911\uAD6D \uC704\uC548",
+    JPY: "\uC77C\uBCF8 \uC5D4",
+    KRW: "\uB300\uD55C\uBBFC\uAD6D \uC6D0",
+    HKD: "\uD64D\uCF69 \uB2EC\uB7EC",
+    TWD: "\uC2E0 \uB300\uB9CC \uB2EC\uB7EC",
+    CHF: "\uC2A4\uC704\uC2A4 \uD504\uB791",
+    CAD: "\uCE90\uB098\uB2E4 \uB2EC\uB7EC",
+    AUD: "\uD638\uC8FC \uB2EC\uB7EC",
+    INR: "\uC778\uB3C4 \uB8E8\uD53C",
+    BHD: "\uBC14\uB808\uC778 \uB514\uB098\uB974",
+    KWD: "\uCFE0\uC6E8\uC774\uD2B8 \uB514\uB098\uB974"
+  },
+  "ru-ru": {
+    USD: "\u0434\u043E\u043B\u043B\u0430\u0440 \u0421\u0428\u0410",
+    EUR: "\u0435\u0432\u0440\u043E",
+    GBP: "\u0431\u0440\u0438\u0442\u0430\u043D\u0441\u043A\u0438\u0439 \u0444\u0443\u043D\u0442",
+    CNY: "\u043A\u0438\u0442\u0430\u0439\u0441\u043A\u0438\u0439 \u044E\u0430\u043D\u044C",
+    JPY: "\u044F\u043F\u043E\u043D\u0441\u043A\u0430\u044F \u0438\u0435\u043D\u0430",
+    KRW: "\u044E\u0436\u043D\u043E\u043A\u043E\u0440\u0435\u0439\u0441\u043A\u0430\u044F \u0432\u043E\u043D\u0430",
+    HKD: "\u0433\u043E\u043D\u043A\u043E\u043D\u0433\u0441\u043A\u0438\u0439 \u0434\u043E\u043B\u043B\u0430\u0440",
+    TWD: "\u043D\u043E\u0432\u044B\u0439 \u0442\u0430\u0439\u0432\u0430\u043D\u044C\u0441\u043A\u0438\u0439 \u0434\u043E\u043B\u043B\u0430\u0440",
+    CHF: "\u0448\u0432\u0435\u0439\u0446\u0430\u0440\u0441\u043A\u0438\u0439 \u0444\u0440\u0430\u043D\u043A",
+    CAD: "\u043A\u0430\u043D\u0430\u0434\u0441\u043A\u0438\u0439 \u0434\u043E\u043B\u043B\u0430\u0440",
+    AUD: "\u0430\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u0439\u0441\u043A\u0438\u0439 \u0434\u043E\u043B\u043B\u0430\u0440",
+    INR: "\u0438\u043D\u0434\u0438\u0439\u0441\u043A\u0430\u044F \u0440\u0443\u043F\u0438\u044F",
+    BHD: "\u0431\u0430\u0445\u0440\u0435\u0439\u043D\u0441\u043A\u0438\u0439 \u0434\u0438\u043D\u0430\u0440",
+    KWD: "\u043A\u0443\u0432\u0435\u0439\u0442\u0441\u043A\u0438\u0439 \u0434\u0438\u043D\u0430\u0440"
+  }
+};
+var DEFAULT_LOCALE_RULES = LOCALE_RULES["en-us"];
+var DEFAULT_CURRENCY_NAMES = CURRENCY_NAMES["en-us"];
+
+// ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/dist/http/client.js
 var _HttpClient = class _HttpClient extends BaseHttpClient {
   constructor(config) {
     _HttpClient.assertInitialCredentialMode(config);
@@ -5039,6 +5542,8 @@ var HttpClient = _HttpClient;
 function createHttpClient(config) {
   return new HttpClient(config);
 }
+
+// ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/dist/api/paths.js
 var IM_API_PREFIX = "/im/v3/api";
 function imApiPath(path) {
   if (!path) {
@@ -5047,7 +5552,7 @@ function imApiPath(path) {
   if (/^https?:\/\//i.test(path)) {
     return path;
   }
-  const normalizedPrefixRaw = IM_API_PREFIX.trim();
+  const normalizedPrefixRaw = (IM_API_PREFIX || "").trim();
   const normalizedPrefix = normalizedPrefixRaw ? `/${normalizedPrefixRaw.replace(/^\/+|\/+$/g, "")}` : "";
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   if (!normalizedPrefix || normalizedPrefix === "/") {
@@ -5058,6 +5563,8 @@ function imApiPath(path) {
   }
   return `${normalizedPrefix}${normalizedPath}`;
 }
+
+// ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/dist/api/presence.js
 var PresenceMeApi = class {
   constructor(client) {
     __publicField(this, "client");
@@ -5083,6 +5590,8 @@ var PresenceApi = class {
 function createPresenceApi(client) {
   return new PresenceApi(client);
 }
+
+// ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/dist/api/realtime.js
 var RealtimeEventsApi = class {
   constructor(client) {
     __publicField(this, "client");
@@ -5094,11 +5603,11 @@ var RealtimeEventsApi = class {
   }
   /** List pending realtime events */
   async list(params, requestOptions) {
-    const query = buildQueryString$4([
+    const query = buildQueryString([
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString$4(imApiPath(`/realtime/events`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString(imApiPath(`/realtime/events`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
   }
 };
 var RealtimeSubscriptionsApi = class {
@@ -5122,1643 +5631,12 @@ var RealtimeApi = class {
 function createRealtimeApi(client) {
   return new RealtimeApi(client);
 }
-function appendQueryString$4(path, rawQueryString) {
-  const query = rawQueryString.replace(/^\?+/, "");
-  if (!query) {
-    return path;
-  }
-  return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
-}
-function buildQueryString$4(parameters) {
-  const pairs = [];
-  for (const parameter of parameters) {
-    appendSerializedParameter$4(pairs, parameter);
-  }
-  return pairs.join("&");
-}
-function appendSerializedParameter$4(pairs, parameter) {
-  if (parameter.value === void 0 || parameter.value === null) {
-    return;
-  }
-  if (parameter.contentType) {
-    pairs.push(`${encodeQueryComponent$4(parameter.name)}=${encodeQueryValue$4(JSON.stringify(parameter.value), parameter.allowReserved)}`);
-    return;
-  }
-  const style = parameter.style || "form";
-  if (style === "deepObject") {
-    appendDeepObjectParameter$4(pairs, parameter.name, parameter.value, parameter.allowReserved);
-    return;
-  }
-  if (Array.isArray(parameter.value)) {
-    appendArrayParameter$4(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
-    return;
-  }
-  if (typeof parameter.value === "object") {
-    appendObjectParameter$4(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
-    return;
-  }
-  pairs.push(`${encodeQueryComponent$4(parameter.name)}=${encodeQueryValue$4(serializePrimitive$4(parameter.value), parameter.allowReserved)}`);
-}
-function appendArrayParameter$4(pairs, name, value, style, explode, allowReserved) {
-  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive$4(item));
-  if (values.length === 0) {
-    return;
-  }
-  if (style === "form" && explode) {
-    for (const item of values) {
-      pairs.push(`${encodeQueryComponent$4(name)}=${encodeQueryValue$4(item, allowReserved)}`);
-    }
-    return;
-  }
-  pairs.push(`${encodeQueryComponent$4(name)}=${encodeQueryValue$4(values.join(","), allowReserved)}`);
-}
-function appendObjectParameter$4(pairs, name, value, style, explode, allowReserved) {
-  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
-  if (entries.length === 0) {
-    return;
-  }
-  if (style === "form" && explode) {
-    for (const [key, entryValue] of entries) {
-      pairs.push(`${encodeQueryComponent$4(key)}=${encodeQueryValue$4(serializePrimitive$4(entryValue), allowReserved)}`);
-    }
-    return;
-  }
-  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive$4(entryValue)]).join(",");
-  pairs.push(`${encodeQueryComponent$4(name)}=${encodeQueryValue$4(serialized, allowReserved)}`);
-}
-function appendDeepObjectParameter$4(pairs, name, value, allowReserved) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    pairs.push(`${encodeQueryComponent$4(name)}=${encodeQueryValue$4(serializePrimitive$4(value), allowReserved)}`);
-    return;
-  }
-  for (const [key, entryValue] of Object.entries(value)) {
-    if (entryValue === void 0 || entryValue === null) {
-      continue;
-    }
-    pairs.push(`${encodeQueryComponent$4(`${name}[${key}]`)}=${encodeQueryValue$4(serializePrimitive$4(entryValue), allowReserved)}`);
-  }
-}
-function serializePrimitive$4(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
-function encodeQueryComponent$4(value) {
-  return encodeURIComponent(value);
-}
-function encodeQueryValue$4(value, allowReserved) {
-  const encoded = encodeURIComponent(value);
-  if (!allowReserved) {
-    return encoded;
-  }
-  return encoded.replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%23/gi, "#").replace(/%5B/gi, "[").replace(/%5D/gi, "]").replace(/%40/gi, "@").replace(/%21/gi, "!").replace(/%24/gi, "$").replace(/%26/gi, "&").replace(/%27/gi, "'").replace(/%28/gi, "(").replace(/%29/gi, ")").replace(/%2A/gi, "*").replace(/%2B/gi, "+").replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%3D/gi, "=");
-}
-var CallsSessionsCredentialsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Issue an RTC media participant credential for an IM call */
-  async create(rtcSessionId, body, requestOptions) {
-    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter$3(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/credentials`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Refresh an expiring RTC media participant credential */
-  async refresh(rtcSessionId, body, requestOptions) {
-    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter$3(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/credentials/refresh`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var CallsSessionsSignalsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List IM call signaling events */
-  async list(rtcSessionId, params, requestOptions) {
-    const query = buildQueryString$3([
-      { name: "afterSignalSeq", value: params == null ? void 0 : params.afterSignalSeq, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$3(imApiPath(`/calls/sessions/${serializePathParameter$3(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/signals`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Post an IM call signaling event */
-  async create(rtcSessionId, body, requestOptions) {
-    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter$3(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/signals`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var CallsSessionsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "signals");
-    __publicField(this, "credentials");
-    this.client = client;
-    this.signals = new CallsSessionsSignalsApi(client);
-    this.credentials = new CallsSessionsCredentialsApi(client);
-  }
-  /** Create an IM call signaling session */
-  async create(body, requestOptions) {
-    return this.client.request(imApiPath(`/calls/sessions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Retrieve IM call signaling session state */
-  async retrieve(rtcSessionId, requestOptions) {
-    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter$3(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Invite participants into an IM call signaling session */
-  async invite(rtcSessionId, body, requestOptions) {
-    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter$3(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/invite`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Accept an IM call signaling session */
-  async accept(rtcSessionId, body, requestOptions) {
-    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter$3(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/accept`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Reject an IM call signaling session */
-  async reject(rtcSessionId, body, requestOptions) {
-    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter$3(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/reject`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** End an IM call signaling session */
-  async end(rtcSessionId, body, requestOptions) {
-    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter$3(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/end`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var CallsApi = class {
-  constructor(client) {
-    __publicField(this, "sessions");
-    this.sessions = new CallsSessionsApi(client);
-  }
-};
-function createCallsApi(client) {
-  return new CallsApi(client);
-}
-function appendQueryString$3(path, rawQueryString) {
-  const query = rawQueryString.replace(/^\?+/, "");
-  if (!query) {
-    return path;
-  }
-  return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
-}
-function serializePathParameter$3(value, spec) {
-  if (value === void 0 || value === null) {
-    return "";
-  }
-  const style = spec.style || "simple";
-  if (Array.isArray(value)) {
-    return serializePathArray$3(spec.name, value, style, spec.explode);
-  }
-  if (typeof value === "object") {
-    return serializePathObject$3(spec.name, value, style, spec.explode);
-  }
-  return pathPrefix$3(spec.name, style) + encodePathValue$3(serializePathPrimitive$3(value));
-}
-function serializePathArray$3(name, values, style, explode) {
-  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue$3(serializePathPrimitive$3(item)));
-  if (serialized.length === 0) {
-    return pathPrefix$3(name, style);
-  }
-  if (style === "matrix") {
-    return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
-  }
-  return pathPrefix$3(name, style) + serialized.join(explode ? "." : ",");
-}
-function serializePathObject$3(name, value, style, explode) {
-  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
-  if (entries.length === 0) {
-    return pathPrefix$3(name, style);
-  }
-  if (style === "matrix") {
-    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue$3(key)}=${encodePathValue$3(serializePathPrimitive$3(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue$3(key), encodePathValue$3(serializePathPrimitive$3(entryValue))]).join(",")}`;
-  }
-  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue$3(key)}=${encodePathValue$3(serializePathPrimitive$3(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue$3(key), encodePathValue$3(serializePathPrimitive$3(entryValue))]).join(",");
-  return pathPrefix$3(name, style) + serialized;
-}
-function pathPrefix$3(name, style, _objectValue) {
-  if (style === "label")
-    return ".";
-  if (style === "matrix")
-    return `;${name}`;
-  return "";
-}
-function encodePathValue$3(value) {
-  return encodeURIComponent(value);
-}
-function serializePathPrimitive$3(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
-function buildQueryString$3(parameters) {
-  const pairs = [];
-  for (const parameter of parameters) {
-    appendSerializedParameter$3(pairs, parameter);
-  }
-  return pairs.join("&");
-}
-function appendSerializedParameter$3(pairs, parameter) {
-  if (parameter.value === void 0 || parameter.value === null) {
-    return;
-  }
-  if (parameter.contentType) {
-    pairs.push(`${encodeQueryComponent$3(parameter.name)}=${encodeQueryValue$3(JSON.stringify(parameter.value), parameter.allowReserved)}`);
-    return;
-  }
-  const style = parameter.style || "form";
-  if (style === "deepObject") {
-    appendDeepObjectParameter$3(pairs, parameter.name, parameter.value, parameter.allowReserved);
-    return;
-  }
-  if (Array.isArray(parameter.value)) {
-    appendArrayParameter$3(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
-    return;
-  }
-  if (typeof parameter.value === "object") {
-    appendObjectParameter$3(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
-    return;
-  }
-  pairs.push(`${encodeQueryComponent$3(parameter.name)}=${encodeQueryValue$3(serializePrimitive$3(parameter.value), parameter.allowReserved)}`);
-}
-function appendArrayParameter$3(pairs, name, value, style, explode, allowReserved) {
-  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive$3(item));
-  if (values.length === 0) {
-    return;
-  }
-  if (style === "form" && explode) {
-    for (const item of values) {
-      pairs.push(`${encodeQueryComponent$3(name)}=${encodeQueryValue$3(item, allowReserved)}`);
-    }
-    return;
-  }
-  pairs.push(`${encodeQueryComponent$3(name)}=${encodeQueryValue$3(values.join(","), allowReserved)}`);
-}
-function appendObjectParameter$3(pairs, name, value, style, explode, allowReserved) {
-  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
-  if (entries.length === 0) {
-    return;
-  }
-  if (style === "form" && explode) {
-    for (const [key, entryValue] of entries) {
-      pairs.push(`${encodeQueryComponent$3(key)}=${encodeQueryValue$3(serializePrimitive$3(entryValue), allowReserved)}`);
-    }
-    return;
-  }
-  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive$3(entryValue)]).join(",");
-  pairs.push(`${encodeQueryComponent$3(name)}=${encodeQueryValue$3(serialized, allowReserved)}`);
-}
-function appendDeepObjectParameter$3(pairs, name, value, allowReserved) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    pairs.push(`${encodeQueryComponent$3(name)}=${encodeQueryValue$3(serializePrimitive$3(value), allowReserved)}`);
-    return;
-  }
-  for (const [key, entryValue] of Object.entries(value)) {
-    if (entryValue === void 0 || entryValue === null) {
-      continue;
-    }
-    pairs.push(`${encodeQueryComponent$3(`${name}[${key}]`)}=${encodeQueryValue$3(serializePrimitive$3(entryValue), allowReserved)}`);
-  }
-}
-function serializePrimitive$3(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
-function encodeQueryComponent$3(value) {
-  return encodeURIComponent(value);
-}
-function encodeQueryValue$3(value, allowReserved) {
-  const encoded = encodeURIComponent(value);
-  if (!allowReserved) {
-    return encoded;
-  }
-  return encoded.replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%23/gi, "#").replace(/%5B/gi, "[").replace(/%5D/gi, "]").replace(/%40/gi, "@").replace(/%21/gi, "!").replace(/%24/gi, "$").replace(/%26/gi, "&").replace(/%27/gi, "'").replace(/%28/gi, "(").replace(/%29/gi, ")").replace(/%2A/gi, "*").replace(/%2B/gi, "+").replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%3D/gi, "=");
-}
-var SocialContactsPreferencesApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve contact preferences */
-  async retrieve(targetUserId, requestOptions) {
-    return this.client.request(imApiPath(`/social/contacts/${serializePathParameter$2(targetUserId, { name: "targetUserId", style: "simple", explode: false })}/preferences`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Update contact preferences */
-  async update(targetUserId, body, requestOptions) {
-    return this.client.request(imApiPath(`/social/contacts/${serializePathParameter$2(targetUserId, { name: "targetUserId", style: "simple", explode: false })}/preferences`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var SocialContactsRecommendationsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Create a contact recommendation */
-  async create(targetUserId, body, requestOptions) {
-    return this.client.request(imApiPath(`/social/contacts/${serializePathParameter$2(targetUserId, { name: "targetUserId", style: "simple", explode: false })}/recommendations`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var SocialContactsTagsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List contact tags */
-  async list(params, requestOptions) {
-    const query = buildQueryString$2([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$2(imApiPath(`/social/contacts/tags`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Create a contact tag */
-  async create(body, requestOptions) {
-    return this.client.request(imApiPath(`/social/contacts/tags`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Update a contact tag */
-  async update(tagId, body, requestOptions) {
-    return this.client.request(imApiPath(`/social/contacts/tags/${serializePathParameter$2(tagId, { name: "tagId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Delete a contact tag */
-  async delete(tagId, requestOptions) {
-    return this.client.request(imApiPath(`/social/contacts/tags/${serializePathParameter$2(tagId, { name: "tagId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-};
-var SocialContactsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "tags");
-    __publicField(this, "recommendations");
-    __publicField(this, "preferences");
-    this.client = client;
-    this.tags = new SocialContactsTagsApi(client);
-    this.recommendations = new SocialContactsRecommendationsApi(client);
-    this.preferences = new SocialContactsPreferencesApi(client);
-  }
-  /** List social contacts */
-  async list(params, requestOptions) {
-    const query = buildQueryString$2([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$2(imApiPath(`/social/contacts`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-};
-var SocialUserBlocksApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List user blocks created by the authenticated user */
-  async list(params, requestOptions) {
-    const query = buildQueryString$2([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$2(imApiPath(`/social/user_blocks`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Block a social user */
-  async create(body, requestOptions) {
-    return this.client.request(imApiPath(`/social/user_blocks`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Release a social user block */
-  async delete(blockId, requestOptions) {
-    return this.client.request(imApiPath(`/social/user_blocks/${serializePathParameter$2(blockId, { name: "blockId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-};
-var SocialFriendRequestsPendingCountApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve pending incoming friend request count */
-  async retrieve(requestOptions) {
-    return this.client.request(imApiPath(`/social/friend_requests/pending/count`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var SocialFriendRequestsPendingApi = class {
-  constructor(client) {
-    __publicField(this, "count");
-    this.count = new SocialFriendRequestsPendingCountApi(client);
-  }
-};
-var SocialFriendRequestsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "pending");
-    this.client = client;
-    this.pending = new SocialFriendRequestsPendingApi(client);
-  }
-  /** List friend requests */
-  async list(params, requestOptions) {
-    const query = buildQueryString$2([
-      { name: "direction", value: params == null ? void 0 : params.direction, style: "form", explode: true, allowReserved: false },
-      { name: "status", value: params == null ? void 0 : params.status, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$2(imApiPath(`/social/friend_requests`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Create a friend request */
-  async create(body, requestOptions) {
-    return this.client.request(imApiPath(`/social/friend_requests`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Accept a friend request */
-  async accept(friendRequestId, requestOptions) {
-    return this.client.request(imApiPath(`/social/friend_requests/${serializePathParameter$2(friendRequestId, { name: "friendRequestId", style: "simple", explode: false })}/accept`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-  /** Decline a friend request */
-  async decline(friendRequestId, requestOptions) {
-    return this.client.request(imApiPath(`/social/friend_requests/${serializePathParameter$2(friendRequestId, { name: "friendRequestId", style: "simple", explode: false })}/decline`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-  /** Cancel a friend request */
-  async cancel(friendRequestId, requestOptions) {
-    return this.client.request(imApiPath(`/social/friend_requests/${serializePathParameter$2(friendRequestId, { name: "friendRequestId", style: "simple", explode: false })}/cancel`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-};
-var SocialDirectChatsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List direct chats of the authenticated user */
-  async list(params, requestOptions) {
-    const query = buildQueryString$2([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$2(imApiPath(`/social/direct_chats`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Retrieve a direct chat */
-  async retrieve(directChatId, requestOptions) {
-    return this.client.request(imApiPath(`/social/direct_chats/${serializePathParameter$2(directChatId, { name: "directChatId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var SocialFriendshipsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List friendships of the authenticated user */
-  async list(params, requestOptions) {
-    const query = buildQueryString$2([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$2(imApiPath(`/social/friendships`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Remove a friendship */
-  async remove(friendshipId, requestOptions) {
-    return this.client.request(imApiPath(`/social/friendships/${serializePathParameter$2(friendshipId, { name: "friendshipId", style: "simple", explode: false })}/remove`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-};
-var SocialUsersSettingsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve social user settings */
-  async retrieve(userId, requestOptions) {
-    return this.client.request(imApiPath(`/social/users/${serializePathParameter$2(userId, { name: "userId", style: "simple", explode: false })}/settings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Update social user settings */
-  async update(userId, body, requestOptions) {
-    return this.client.request(imApiPath(`/social/users/${serializePathParameter$2(userId, { name: "userId", style: "simple", explode: false })}/settings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var SocialUsersProfileApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve a social user profile */
-  async retrieve(userId, requestOptions) {
-    return this.client.request(imApiPath(`/social/users/${serializePathParameter$2(userId, { name: "userId", style: "simple", explode: false })}/profile`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Update the authenticated user profile */
-  async update(userId, body, requestOptions) {
-    return this.client.request(imApiPath(`/social/users/${serializePathParameter$2(userId, { name: "userId", style: "simple", explode: false })}/profile`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var SocialUsersApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "profile");
-    __publicField(this, "settings");
-    this.client = client;
-    this.profile = new SocialUsersProfileApi(client);
-    this.settings = new SocialUsersSettingsApi(client);
-  }
-  /** Search social users */
-  async list(params, requestOptions) {
-    const query = buildQueryString$2([
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$2(imApiPath(`/social/users`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-};
-var SocialApi = class {
-  constructor(client) {
-    __publicField(this, "users");
-    __publicField(this, "friendships");
-    __publicField(this, "directChats");
-    __publicField(this, "friendRequests");
-    __publicField(this, "userBlocks");
-    __publicField(this, "contacts");
-    this.users = new SocialUsersApi(client);
-    this.friendships = new SocialFriendshipsApi(client);
-    this.directChats = new SocialDirectChatsApi(client);
-    this.friendRequests = new SocialFriendRequestsApi(client);
-    this.userBlocks = new SocialUserBlocksApi(client);
-    this.contacts = new SocialContactsApi(client);
-  }
-};
-function createSocialApi(client) {
-  return new SocialApi(client);
-}
-function appendQueryString$2(path, rawQueryString) {
-  const query = rawQueryString.replace(/^\?+/, "");
-  if (!query) {
-    return path;
-  }
-  return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
-}
-function serializePathParameter$2(value, spec) {
-  if (value === void 0 || value === null) {
-    return "";
-  }
-  const style = spec.style || "simple";
-  if (Array.isArray(value)) {
-    return serializePathArray$2(spec.name, value, style, spec.explode);
-  }
-  if (typeof value === "object") {
-    return serializePathObject$2(spec.name, value, style, spec.explode);
-  }
-  return pathPrefix$2(spec.name, style) + encodePathValue$2(serializePathPrimitive$2(value));
-}
-function serializePathArray$2(name, values, style, explode) {
-  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue$2(serializePathPrimitive$2(item)));
-  if (serialized.length === 0) {
-    return pathPrefix$2(name, style);
-  }
-  if (style === "matrix") {
-    return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
-  }
-  return pathPrefix$2(name, style) + serialized.join(explode ? "." : ",");
-}
-function serializePathObject$2(name, value, style, explode) {
-  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
-  if (entries.length === 0) {
-    return pathPrefix$2(name, style);
-  }
-  if (style === "matrix") {
-    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue$2(key)}=${encodePathValue$2(serializePathPrimitive$2(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue$2(key), encodePathValue$2(serializePathPrimitive$2(entryValue))]).join(",")}`;
-  }
-  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue$2(key)}=${encodePathValue$2(serializePathPrimitive$2(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue$2(key), encodePathValue$2(serializePathPrimitive$2(entryValue))]).join(",");
-  return pathPrefix$2(name, style) + serialized;
-}
-function pathPrefix$2(name, style, _objectValue) {
-  if (style === "label")
-    return ".";
-  if (style === "matrix")
-    return `;${name}`;
-  return "";
-}
-function encodePathValue$2(value) {
-  return encodeURIComponent(value);
-}
-function serializePathPrimitive$2(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
-function buildQueryString$2(parameters) {
-  const pairs = [];
-  for (const parameter of parameters) {
-    appendSerializedParameter$2(pairs, parameter);
-  }
-  return pairs.join("&");
-}
-function appendSerializedParameter$2(pairs, parameter) {
-  if (parameter.value === void 0 || parameter.value === null) {
-    return;
-  }
-  if (parameter.contentType) {
-    pairs.push(`${encodeQueryComponent$2(parameter.name)}=${encodeQueryValue$2(JSON.stringify(parameter.value), parameter.allowReserved)}`);
-    return;
-  }
-  const style = parameter.style || "form";
-  if (style === "deepObject") {
-    appendDeepObjectParameter$2(pairs, parameter.name, parameter.value, parameter.allowReserved);
-    return;
-  }
-  if (Array.isArray(parameter.value)) {
-    appendArrayParameter$2(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
-    return;
-  }
-  if (typeof parameter.value === "object") {
-    appendObjectParameter$2(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
-    return;
-  }
-  pairs.push(`${encodeQueryComponent$2(parameter.name)}=${encodeQueryValue$2(serializePrimitive$2(parameter.value), parameter.allowReserved)}`);
-}
-function appendArrayParameter$2(pairs, name, value, style, explode, allowReserved) {
-  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive$2(item));
-  if (values.length === 0) {
-    return;
-  }
-  if (style === "form" && explode) {
-    for (const item of values) {
-      pairs.push(`${encodeQueryComponent$2(name)}=${encodeQueryValue$2(item, allowReserved)}`);
-    }
-    return;
-  }
-  pairs.push(`${encodeQueryComponent$2(name)}=${encodeQueryValue$2(values.join(","), allowReserved)}`);
-}
-function appendObjectParameter$2(pairs, name, value, style, explode, allowReserved) {
-  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
-  if (entries.length === 0) {
-    return;
-  }
-  if (style === "form" && explode) {
-    for (const [key, entryValue] of entries) {
-      pairs.push(`${encodeQueryComponent$2(key)}=${encodeQueryValue$2(serializePrimitive$2(entryValue), allowReserved)}`);
-    }
-    return;
-  }
-  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive$2(entryValue)]).join(",");
-  pairs.push(`${encodeQueryComponent$2(name)}=${encodeQueryValue$2(serialized, allowReserved)}`);
-}
-function appendDeepObjectParameter$2(pairs, name, value, allowReserved) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    pairs.push(`${encodeQueryComponent$2(name)}=${encodeQueryValue$2(serializePrimitive$2(value), allowReserved)}`);
-    return;
-  }
-  for (const [key, entryValue] of Object.entries(value)) {
-    if (entryValue === void 0 || entryValue === null) {
-      continue;
-    }
-    pairs.push(`${encodeQueryComponent$2(`${name}[${key}]`)}=${encodeQueryValue$2(serializePrimitive$2(entryValue), allowReserved)}`);
-  }
-}
-function serializePrimitive$2(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
-function encodeQueryComponent$2(value) {
-  return encodeURIComponent(value);
-}
-function encodeQueryValue$2(value, allowReserved) {
-  const encoded = encodeURIComponent(value);
-  if (!allowReserved) {
-    return encoded;
-  }
-  return encoded.replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%23/gi, "#").replace(/%5B/gi, "[").replace(/%5D/gi, "]").replace(/%40/gi, "@").replace(/%21/gi, "!").replace(/%24/gi, "$").replace(/%26/gi, "&").replace(/%27/gi, "'").replace(/%28/gi, "(").replace(/%29/gi, ")").replace(/%2A/gi, "*").replace(/%2B/gi, "+").replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%3D/gi, "=");
-}
-var ChatRoomsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Create a live, chat, or game room bound to a group conversation */
-  async create(body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/rooms`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Retrieve room metadata and active member count */
-  async retrieve(roomId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/rooms/${serializePathParameter$1(roomId, { name: "roomId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Enter a room as the authenticated principal */
-  async enter(roomId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/rooms/${serializePathParameter$1(roomId, { name: "roomId", style: "simple", explode: false })}/enter`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-  /** Leave a room as the authenticated principal */
-  async leave(roomId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/rooms/${serializePathParameter$1(roomId, { name: "roomId", style: "simple", explode: false })}/leave`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatMessagesReactionsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Add a message reaction */
-  async create(messageId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter$1(messageId, { name: "messageId", style: "simple", explode: false })}/reactions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Remove a message reaction */
-  async remove(messageId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter$1(messageId, { name: "messageId", style: "simple", explode: false })}/reactions/remove`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatMessagesVisibilityApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Delete message visibility for the current principal */
-  async delete(messageId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter$1(messageId, { name: "messageId", style: "simple", explode: false })}/visibility`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-};
-var ChatMessagesFavoritesApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List message favorites */
-  async list(params, requestOptions) {
-    const query = buildQueryString$1([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "favoriteType", value: params == null ? void 0 : params.favoriteType, style: "form", explode: true, allowReserved: false },
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$1(imApiPath(`/chat/messages/favorites`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Favorite a message */
-  async create(messageId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter$1(messageId, { name: "messageId", style: "simple", explode: false })}/favorites`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Delete a message favorite */
-  async delete(favoriteId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/messages/favorites/${serializePathParameter$1(favoriteId, { name: "favoriteId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-};
-var ChatMessagesSearchApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Search conversation message history */
-  async list(params, requestOptions) {
-    const query = buildQueryString$1([
-      { name: "q", value: params.q, style: "form", explode: true, allowReserved: false },
-      { name: "conversationId", value: params.conversationId, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$1(imApiPath(`/chat/messages/search`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-};
-var ChatMessagesApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "search");
-    __publicField(this, "favorites");
-    __publicField(this, "visibility");
-    __publicField(this, "reactions");
-    this.client = client;
-    this.search = new ChatMessagesSearchApi(client);
-    this.favorites = new ChatMessagesFavoritesApi(client);
-    this.visibility = new ChatMessagesVisibilityApi(client);
-    this.reactions = new ChatMessagesReactionsApi(client);
-  }
-  /** Edit a message */
-  async edit(messageId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter$1(messageId, { name: "messageId", style: "simple", explode: false })}/edit`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Recall a message */
-  async recall(messageId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter$1(messageId, { name: "messageId", style: "simple", explode: false })}/recall`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Pin a message */
-  async pin(messageId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter$1(messageId, { name: "messageId", style: "simple", explode: false })}/pin`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-  /** Unpin a message */
-  async unpin(messageId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter$1(messageId, { name: "messageId", style: "simple", explode: false })}/unpin`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsPinsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List pinned messages */
-  async list(conversationId, params, requestOptions) {
-    const query = buildQueryString$1([
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$1(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/pins`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-};
-var ChatConversationsMessagesInteractionSummaryApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve message interaction summary */
-  async retrieve(conversationId, messageId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/messages/${serializePathParameter$1(messageId, { name: "messageId", style: "simple", explode: false })}/interaction_summary`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsMessagesApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "interactionSummary");
-    this.client = client;
-    this.interactionSummary = new ChatConversationsMessagesInteractionSummaryApi(client);
-  }
-  /** List conversation message history */
-  async list(conversationId, params, requestOptions) {
-    const query = buildQueryString$1([
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$1(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/messages`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Post a conversation message */
-  async create(conversationId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/messages`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsMemberDirectoryApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List member directory */
-  async list(conversationId, params, requestOptions) {
-    const query = buildQueryString$1([
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$1(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/member_directory`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-};
-var ChatConversationsReadCursorApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve read cursor */
-  async retrieve(conversationId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/read_cursor`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Update read cursor */
-  async update(conversationId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/read_cursor`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsProfileApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve conversation profile */
-  async retrieve(conversationId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/profile`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Update conversation profile */
-  async update(conversationId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/profile`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsPreferencesApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve conversation preferences */
-  async retrieve(conversationId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/preferences`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Update conversation preferences */
-  async update(conversationId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/preferences`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsBindingApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve the business binding of a conversation */
-  async retrieve(conversationId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/binding`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsAgentsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve assigned group agents */
-  async retrieve(conversationId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/agents`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Update assigned group agents */
-  async update(conversationId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/agents`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PUT", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsMembersCurrentApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve the current conversation member */
-  async retrieve(conversationId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/current`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsMembersApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "current");
-    this.client = client;
-    this.current = new ChatConversationsMembersCurrentApi(client);
-  }
-  /** List conversation members */
-  async list(conversationId, params, requestOptions) {
-    const query = buildQueryString$1([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$1(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/members`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Add a conversation member */
-  async add(conversationId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/add`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Remove a conversation member */
-  async remove(conversationId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/remove`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Transfer conversation owner */
-  async transferOwner(conversationId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/transfer_owner`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Change conversation member role */
-  async changeRole(conversationId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/change_role`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Leave a conversation */
-  async leave(conversationId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/leave`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-  /** Accept a conversation invitation */
-  async acceptInvitation(conversationId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/accept_invitation`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsSharedChannelLinksApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Sync a shared-channel linked member into a conversation */
-  async sync(body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/shared_channel_links/sync`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsDirectChatsBindingsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Create a direct chat conversation binding */
-  async create(body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/direct_chats/bindings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsDirectChatsApi = class {
-  constructor(client) {
-    __publicField(this, "bindings");
-    this.bindings = new ChatConversationsDirectChatsBindingsApi(client);
-  }
-};
-var ChatConversationsThreadsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Create a thread conversation */
-  async create(body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/threads`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsSystemChannelsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Create a system channel */
-  async create(body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/system_channels`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Publish a system channel message */
-  async publish(conversationId, body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/system_channel/publish`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsAgentHandoffsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Create an agent handoff */
-  async create(body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/agent_handoffs`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Retrieve agent handoff state */
-  async retrieve(conversationId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/agent_handoff`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Accept agent handoff */
-  async accept(conversationId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/agent_handoff/accept`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-  /** Resolve agent handoff */
-  async resolve(conversationId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/agent_handoff/resolve`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-  /** Close agent handoff */
-  async close(conversationId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}/agent_handoff/close`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsAgentDialogsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Create an agent dialog */
-  async create(body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/agent_dialogs`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "agentDialogs");
-    __publicField(this, "agentHandoffs");
-    __publicField(this, "systemChannels");
-    __publicField(this, "threads");
-    __publicField(this, "directChats");
-    __publicField(this, "sharedChannelLinks");
-    __publicField(this, "members");
-    __publicField(this, "agents");
-    __publicField(this, "binding");
-    __publicField(this, "preferences");
-    __publicField(this, "profile");
-    __publicField(this, "readCursor");
-    __publicField(this, "memberDirectory");
-    __publicField(this, "messages");
-    __publicField(this, "pins");
-    this.client = client;
-    this.agentDialogs = new ChatConversationsAgentDialogsApi(client);
-    this.agentHandoffs = new ChatConversationsAgentHandoffsApi(client);
-    this.systemChannels = new ChatConversationsSystemChannelsApi(client);
-    this.threads = new ChatConversationsThreadsApi(client);
-    this.directChats = new ChatConversationsDirectChatsApi(client);
-    this.sharedChannelLinks = new ChatConversationsSharedChannelLinksApi(client);
-    this.members = new ChatConversationsMembersApi(client);
-    this.agents = new ChatConversationsAgentsApi(client);
-    this.binding = new ChatConversationsBindingApi(client);
-    this.preferences = new ChatConversationsPreferencesApi(client);
-    this.profile = new ChatConversationsProfileApi(client);
-    this.readCursor = new ChatConversationsReadCursorApi(client);
-    this.memberDirectory = new ChatConversationsMemberDirectoryApi(client);
-    this.messages = new ChatConversationsMessagesApi(client);
-    this.pins = new ChatConversationsPinsApi(client);
-  }
-  /** Create a conversation */
-  async create(body, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Retrieve conversation summary */
-  async retrieve(conversationId, requestOptions) {
-    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter$1(conversationId, { name: "conversationId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatMeWelcomeApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Ensure the current user received the system-agent Welcome message */
-  async ensure(requestOptions) {
-    return this.client.request(imApiPath(`/chat/me/welcome/ensure`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatMeApi = class {
-  constructor(client) {
-    __publicField(this, "welcome");
-    this.welcome = new ChatMeWelcomeApi(client);
-  }
-};
-var ChatInboxApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List current inbox window */
-  async list(params, requestOptions) {
-    const query = buildQueryString$1([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "conversation_type", value: params == null ? void 0 : params.conversationType, style: "form", explode: true, allowReserved: false },
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString$1(imApiPath(`/chat/inbox`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-};
-var ChatApi = class {
-  constructor(client) {
-    __publicField(this, "inbox");
-    __publicField(this, "me");
-    __publicField(this, "conversations");
-    __publicField(this, "messages");
-    __publicField(this, "rooms");
-    this.inbox = new ChatInboxApi(client);
-    this.me = new ChatMeApi(client);
-    this.conversations = new ChatConversationsApi(client);
-    this.messages = new ChatMessagesApi(client);
-    this.rooms = new ChatRoomsApi(client);
-  }
-};
-function createChatApi(client) {
-  return new ChatApi(client);
-}
-function appendQueryString$1(path, rawQueryString) {
-  const query = rawQueryString.replace(/^\?+/, "");
-  if (!query) {
-    return path;
-  }
-  return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
-}
-function serializePathParameter$1(value, spec) {
-  if (value === void 0 || value === null) {
-    return "";
-  }
-  const style = spec.style || "simple";
-  if (Array.isArray(value)) {
-    return serializePathArray$1(spec.name, value, style, spec.explode);
-  }
-  if (typeof value === "object") {
-    return serializePathObject$1(spec.name, value, style, spec.explode);
-  }
-  return pathPrefix$1(spec.name, style) + encodePathValue$1(serializePathPrimitive$1(value));
-}
-function serializePathArray$1(name, values, style, explode) {
-  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue$1(serializePathPrimitive$1(item)));
-  if (serialized.length === 0) {
-    return pathPrefix$1(name, style);
-  }
-  if (style === "matrix") {
-    return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
-  }
-  return pathPrefix$1(name, style) + serialized.join(explode ? "." : ",");
-}
-function serializePathObject$1(name, value, style, explode) {
-  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
-  if (entries.length === 0) {
-    return pathPrefix$1(name, style);
-  }
-  if (style === "matrix") {
-    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue$1(key)}=${encodePathValue$1(serializePathPrimitive$1(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue$1(key), encodePathValue$1(serializePathPrimitive$1(entryValue))]).join(",")}`;
-  }
-  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue$1(key)}=${encodePathValue$1(serializePathPrimitive$1(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue$1(key), encodePathValue$1(serializePathPrimitive$1(entryValue))]).join(",");
-  return pathPrefix$1(name, style) + serialized;
-}
-function pathPrefix$1(name, style, _objectValue) {
-  if (style === "label")
-    return ".";
-  if (style === "matrix")
-    return `;${name}`;
-  return "";
-}
-function encodePathValue$1(value) {
-  return encodeURIComponent(value);
-}
-function serializePathPrimitive$1(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
-function buildQueryString$1(parameters) {
-  const pairs = [];
-  for (const parameter of parameters) {
-    appendSerializedParameter$1(pairs, parameter);
-  }
-  return pairs.join("&");
-}
-function appendSerializedParameter$1(pairs, parameter) {
-  if (parameter.value === void 0 || parameter.value === null) {
-    return;
-  }
-  if (parameter.contentType) {
-    pairs.push(`${encodeQueryComponent$1(parameter.name)}=${encodeQueryValue$1(JSON.stringify(parameter.value), parameter.allowReserved)}`);
-    return;
-  }
-  const style = parameter.style || "form";
-  if (style === "deepObject") {
-    appendDeepObjectParameter$1(pairs, parameter.name, parameter.value, parameter.allowReserved);
-    return;
-  }
-  if (Array.isArray(parameter.value)) {
-    appendArrayParameter$1(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
-    return;
-  }
-  if (typeof parameter.value === "object") {
-    appendObjectParameter$1(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
-    return;
-  }
-  pairs.push(`${encodeQueryComponent$1(parameter.name)}=${encodeQueryValue$1(serializePrimitive$1(parameter.value), parameter.allowReserved)}`);
-}
-function appendArrayParameter$1(pairs, name, value, style, explode, allowReserved) {
-  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive$1(item));
-  if (values.length === 0) {
-    return;
-  }
-  if (style === "form" && explode) {
-    for (const item of values) {
-      pairs.push(`${encodeQueryComponent$1(name)}=${encodeQueryValue$1(item, allowReserved)}`);
-    }
-    return;
-  }
-  pairs.push(`${encodeQueryComponent$1(name)}=${encodeQueryValue$1(values.join(","), allowReserved)}`);
-}
-function appendObjectParameter$1(pairs, name, value, style, explode, allowReserved) {
-  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
-  if (entries.length === 0) {
-    return;
-  }
-  if (style === "form" && explode) {
-    for (const [key, entryValue] of entries) {
-      pairs.push(`${encodeQueryComponent$1(key)}=${encodeQueryValue$1(serializePrimitive$1(entryValue), allowReserved)}`);
-    }
-    return;
-  }
-  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive$1(entryValue)]).join(",");
-  pairs.push(`${encodeQueryComponent$1(name)}=${encodeQueryValue$1(serialized, allowReserved)}`);
-}
-function appendDeepObjectParameter$1(pairs, name, value, allowReserved) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    pairs.push(`${encodeQueryComponent$1(name)}=${encodeQueryValue$1(serializePrimitive$1(value), allowReserved)}`);
-    return;
-  }
-  for (const [key, entryValue] of Object.entries(value)) {
-    if (entryValue === void 0 || entryValue === null) {
-      continue;
-    }
-    pairs.push(`${encodeQueryComponent$1(`${name}[${key}]`)}=${encodeQueryValue$1(serializePrimitive$1(entryValue), allowReserved)}`);
-  }
-}
-function serializePrimitive$1(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
-function encodeQueryComponent$1(value) {
-  return encodeURIComponent(value);
-}
-function encodeQueryValue$1(value, allowReserved) {
-  const encoded = encodeURIComponent(value);
-  if (!allowReserved) {
-    return encoded;
-  }
-  return encoded.replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%23/gi, "#").replace(/%5B/gi, "[").replace(/%5D/gi, "]").replace(/%40/gi, "@").replace(/%21/gi, "!").replace(/%24/gi, "$").replace(/%26/gi, "&").replace(/%27/gi, "'").replace(/%28/gi, "(").replace(/%29/gi, ")").replace(/%2A/gi, "*").replace(/%2B/gi, "+").replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%3D/gi, "=");
-}
-var SpacesBansApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List spaces bans */
-  async list(spaceId, params, requestOptions) {
-    const query = buildQueryString([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/bans`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Create spaces bans */
-  async create(spaceId, body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/bans`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** retrieve spaces bans */
-  async retrieve(spaceId, userId, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/bans/${serializePathParameter(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Delete spaces bans */
-  async delete(spaceId, userId, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/bans/${serializePathParameter(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-};
-var SpacesInvitesApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List spaces invites */
-  async list(spaceId, params, requestOptions) {
-    const query = buildQueryString([
-      { name: "status", value: params == null ? void 0 : params.status, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/invites`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Create spaces invites */
-  async create(spaceId, body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/invites`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** retrieve spaces invites */
-  async retrieve(spaceId, inviteCode, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/invites/${serializePathParameter(inviteCode, { name: "inviteCode", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Delete spaces invites */
-  async delete(spaceId, inviteCode, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/invites/${serializePathParameter(inviteCode, { name: "inviteCode", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-  /** Accept spaces invites */
-  async accept(spaceId, inviteCode, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/invites/${serializePathParameter(inviteCode, { name: "inviteCode", style: "simple", explode: false })}/accept`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "command" });
-  }
-};
-var SpacesChannelsAccessRulesApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List spaces channels access Rules */
-  async list(spaceId, channelId, params, requestOptions) {
-    const query = buildQueryString([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels/${serializePathParameter(channelId, { name: "channelId", style: "simple", explode: false })}/access_rules`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Create spaces channels access Rules */
-  async create(spaceId, channelId, body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels/${serializePathParameter(channelId, { name: "channelId", style: "simple", explode: false })}/access_rules`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Delete spaces channels access Rules */
-  async delete(spaceId, channelId, ruleId, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels/${serializePathParameter(channelId, { name: "channelId", style: "simple", explode: false })}/access_rules/${serializePathParameter(ruleId, { name: "ruleId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-};
-var SpacesChannelsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "accessRules");
-    this.client = client;
-    this.accessRules = new SpacesChannelsAccessRulesApi(client);
-  }
-  /** List spaces channels */
-  async list(spaceId, params, requestOptions) {
-    const query = buildQueryString([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Create spaces channels */
-  async create(spaceId, body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** retrieve spaces channels */
-  async retrieve(spaceId, channelId, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels/${serializePathParameter(channelId, { name: "channelId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Update spaces channels */
-  async update(spaceId, channelId, body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels/${serializePathParameter(channelId, { name: "channelId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Delete spaces channels */
-  async delete(spaceId, channelId, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels/${serializePathParameter(channelId, { name: "channelId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-};
-var SpacesGroupsMembersApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List spaces groups members */
-  async list(spaceId, groupId, params, requestOptions) {
-    const query = buildQueryString([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter(groupId, { name: "groupId", style: "simple", explode: false })}/members`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Create spaces groups members */
-  async create(spaceId, groupId, body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter(groupId, { name: "groupId", style: "simple", explode: false })}/members`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** retrieve spaces groups members */
-  async retrieve(spaceId, groupId, userId, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter(groupId, { name: "groupId", style: "simple", explode: false })}/members/${serializePathParameter(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Update spaces groups members */
-  async update(spaceId, groupId, userId, body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter(groupId, { name: "groupId", style: "simple", explode: false })}/members/${serializePathParameter(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Delete spaces groups members */
-  async delete(spaceId, groupId, userId, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter(groupId, { name: "groupId", style: "simple", explode: false })}/members/${serializePathParameter(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-};
-var SpacesGroupsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "members");
-    this.client = client;
-    this.members = new SpacesGroupsMembersApi(client);
-  }
-  /** List spaces groups */
-  async list(spaceId, params, requestOptions) {
-    const query = buildQueryString([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Create spaces groups */
-  async create(spaceId, body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** retrieve spaces groups */
-  async retrieve(spaceId, groupId, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter(groupId, { name: "groupId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Update spaces groups */
-  async update(spaceId, groupId, body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter(groupId, { name: "groupId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Delete spaces groups */
-  async delete(spaceId, groupId, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter(groupId, { name: "groupId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-  /** Transfer spaces groups owner */
-  async transferOwner(spaceId, groupId, body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter(groupId, { name: "groupId", style: "simple", explode: false })}/transfer_owner`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var SpacesMembersApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** List spaces members */
-  async list(spaceId, params, requestOptions) {
-    const query = buildQueryString([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/members`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Create spaces members */
-  async create(spaceId, body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/members`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** retrieve spaces members */
-  async retrieve(spaceId, userId, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/members/${serializePathParameter(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Update spaces members */
-  async update(spaceId, userId, body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/members/${serializePathParameter(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Delete spaces members */
-  async delete(spaceId, userId, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}/members/${serializePathParameter(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-};
-var SpacesApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "members");
-    __publicField(this, "groups");
-    __publicField(this, "channels");
-    __publicField(this, "invites");
-    __publicField(this, "bans");
-    this.client = client;
-    this.members = new SpacesMembersApi(client);
-    this.groups = new SpacesGroupsApi(client);
-    this.channels = new SpacesChannelsApi(client);
-    this.invites = new SpacesInvitesApi(client);
-    this.bans = new SpacesBansApi(client);
-  }
-  /** Create a space */
-  async create(body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** List spaces */
-  async list(params, requestOptions) {
-    const query = buildQueryString([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString(imApiPath(`/spaces`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Retrieve a space */
-  async retrieve(spaceId, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Update a space */
-  async update(spaceId, body, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Delete a space */
-  async delete(spaceId, requestOptions) {
-    return this.client.request(imApiPath(`/spaces/${serializePathParameter(spaceId, { name: "spaceId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-};
-function createSpacesApi(client) {
-  return new SpacesApi(client);
-}
 function appendQueryString(path, rawQueryString) {
   const query = rawQueryString.replace(/^\?+/, "");
   if (!query) {
     return path;
   }
   return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
-}
-function serializePathParameter(value, spec) {
-  if (value === void 0 || value === null) {
-    return "";
-  }
-  const style = spec.style || "simple";
-  if (Array.isArray(value)) {
-    return serializePathArray(spec.name, value, style, spec.explode);
-  }
-  if (typeof value === "object") {
-    return serializePathObject(spec.name, value, style, spec.explode);
-  }
-  return pathPrefix(spec.name, style) + encodePathValue(serializePathPrimitive(value));
-}
-function serializePathArray(name, values, style, explode) {
-  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue(serializePathPrimitive(item)));
-  if (serialized.length === 0) {
-    return pathPrefix(name, style);
-  }
-  if (style === "matrix") {
-    return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
-  }
-  return pathPrefix(name, style) + serialized.join(explode ? "." : ",");
-}
-function serializePathObject(name, value, style, explode) {
-  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
-  if (entries.length === 0) {
-    return pathPrefix(name, style);
-  }
-  if (style === "matrix") {
-    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue(key)}=${encodePathValue(serializePathPrimitive(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue(key), encodePathValue(serializePathPrimitive(entryValue))]).join(",")}`;
-  }
-  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue(key)}=${encodePathValue(serializePathPrimitive(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue(key), encodePathValue(serializePathPrimitive(entryValue))]).join(",");
-  return pathPrefix(name, style) + serialized;
-}
-function pathPrefix(name, style, _objectValue) {
-  if (style === "label")
-    return ".";
-  if (style === "matrix")
-    return `;${name}`;
-  return "";
-}
-function encodePathValue(value) {
-  return encodeURIComponent(value);
-}
-function serializePathPrimitive(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
 }
 function buildQueryString(parameters) {
   const pairs = [];
@@ -6848,6 +5726,1647 @@ function encodeQueryValue(value, allowReserved) {
   }
   return encoded.replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%23/gi, "#").replace(/%5B/gi, "[").replace(/%5D/gi, "]").replace(/%40/gi, "@").replace(/%21/gi, "!").replace(/%24/gi, "$").replace(/%26/gi, "&").replace(/%27/gi, "'").replace(/%28/gi, "(").replace(/%29/gi, ")").replace(/%2A/gi, "*").replace(/%2B/gi, "+").replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%3D/gi, "=");
 }
+
+// ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/dist/api/calls.js
+var CallsSessionsCredentialsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Issue an RTC media participant credential for an IM call */
+  async create(rtcSessionId, body, requestOptions) {
+    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/credentials`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Refresh an expiring RTC media participant credential */
+  async refresh(rtcSessionId, body, requestOptions) {
+    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/credentials/refresh`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var CallsSessionsSignalsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List IM call signaling events */
+  async list(rtcSessionId, params, requestOptions) {
+    const query = buildQueryString2([
+      { name: "afterSignalSeq", value: params == null ? void 0 : params.afterSignalSeq, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString2(imApiPath(`/calls/sessions/${serializePathParameter(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/signals`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Post an IM call signaling event */
+  async create(rtcSessionId, body, requestOptions) {
+    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/signals`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var CallsSessionsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "signals");
+    __publicField(this, "credentials");
+    this.client = client;
+    this.signals = new CallsSessionsSignalsApi(client);
+    this.credentials = new CallsSessionsCredentialsApi(client);
+  }
+  /** Create an IM call signaling session */
+  async create(body, requestOptions) {
+    return this.client.request(imApiPath(`/calls/sessions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Retrieve IM call signaling session state */
+  async retrieve(rtcSessionId, requestOptions) {
+    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Invite participants into an IM call signaling session */
+  async invite(rtcSessionId, body, requestOptions) {
+    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/invite`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Accept an IM call signaling session */
+  async accept(rtcSessionId, body, requestOptions) {
+    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/accept`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Reject an IM call signaling session */
+  async reject(rtcSessionId, body, requestOptions) {
+    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/reject`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** End an IM call signaling session */
+  async end(rtcSessionId, body, requestOptions) {
+    return this.client.request(imApiPath(`/calls/sessions/${serializePathParameter(rtcSessionId, { name: "rtcSessionId", style: "simple", explode: false })}/end`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var CallsApi = class {
+  constructor(client) {
+    __publicField(this, "sessions");
+    this.sessions = new CallsSessionsApi(client);
+  }
+};
+function createCallsApi(client) {
+  return new CallsApi(client);
+}
+function appendQueryString2(path, rawQueryString) {
+  const query = rawQueryString.replace(/^\?+/, "");
+  if (!query) {
+    return path;
+  }
+  return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
+}
+function serializePathParameter(value, spec) {
+  if (value === void 0 || value === null) {
+    return "";
+  }
+  const style = spec.style || "simple";
+  if (Array.isArray(value)) {
+    return serializePathArray(spec.name, value, style, spec.explode);
+  }
+  if (typeof value === "object") {
+    return serializePathObject(spec.name, value, style, spec.explode);
+  }
+  return pathPrefix(spec.name, style, false) + encodePathValue(serializePathPrimitive(value));
+}
+function serializePathArray(name, values, style, explode) {
+  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue(serializePathPrimitive(item)));
+  if (serialized.length === 0) {
+    return pathPrefix(name, style, false);
+  }
+  if (style === "matrix") {
+    return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
+  }
+  return pathPrefix(name, style, false) + serialized.join(explode ? "." : ",");
+}
+function serializePathObject(name, value, style, explode) {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
+  if (entries.length === 0) {
+    return pathPrefix(name, style, true);
+  }
+  if (style === "matrix") {
+    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue(key)}=${encodePathValue(serializePathPrimitive(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue(key), encodePathValue(serializePathPrimitive(entryValue))]).join(",")}`;
+  }
+  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue(key)}=${encodePathValue(serializePathPrimitive(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue(key), encodePathValue(serializePathPrimitive(entryValue))]).join(",");
+  return pathPrefix(name, style, true) + serialized;
+}
+function pathPrefix(name, style, _objectValue) {
+  if (style === "label")
+    return ".";
+  if (style === "matrix")
+    return `;${name}`;
+  return "";
+}
+function encodePathValue(value) {
+  return encodeURIComponent(value);
+}
+function serializePathPrimitive(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+function buildQueryString2(parameters) {
+  const pairs = [];
+  for (const parameter of parameters) {
+    appendSerializedParameter2(pairs, parameter);
+  }
+  return pairs.join("&");
+}
+function appendSerializedParameter2(pairs, parameter) {
+  if (parameter.value === void 0 || parameter.value === null) {
+    return;
+  }
+  if (parameter.contentType) {
+    pairs.push(`${encodeQueryComponent2(parameter.name)}=${encodeQueryValue2(JSON.stringify(parameter.value), parameter.allowReserved)}`);
+    return;
+  }
+  const style = parameter.style || "form";
+  if (style === "deepObject") {
+    appendDeepObjectParameter2(pairs, parameter.name, parameter.value, parameter.allowReserved);
+    return;
+  }
+  if (Array.isArray(parameter.value)) {
+    appendArrayParameter2(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    return;
+  }
+  if (typeof parameter.value === "object") {
+    appendObjectParameter2(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    return;
+  }
+  pairs.push(`${encodeQueryComponent2(parameter.name)}=${encodeQueryValue2(serializePrimitive2(parameter.value), parameter.allowReserved)}`);
+}
+function appendArrayParameter2(pairs, name, value, style, explode, allowReserved) {
+  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive2(item));
+  if (values.length === 0) {
+    return;
+  }
+  if (style === "form" && explode) {
+    for (const item of values) {
+      pairs.push(`${encodeQueryComponent2(name)}=${encodeQueryValue2(item, allowReserved)}`);
+    }
+    return;
+  }
+  pairs.push(`${encodeQueryComponent2(name)}=${encodeQueryValue2(values.join(","), allowReserved)}`);
+}
+function appendObjectParameter2(pairs, name, value, style, explode, allowReserved) {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
+  if (entries.length === 0) {
+    return;
+  }
+  if (style === "form" && explode) {
+    for (const [key, entryValue] of entries) {
+      pairs.push(`${encodeQueryComponent2(key)}=${encodeQueryValue2(serializePrimitive2(entryValue), allowReserved)}`);
+    }
+    return;
+  }
+  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive2(entryValue)]).join(",");
+  pairs.push(`${encodeQueryComponent2(name)}=${encodeQueryValue2(serialized, allowReserved)}`);
+}
+function appendDeepObjectParameter2(pairs, name, value, allowReserved) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    pairs.push(`${encodeQueryComponent2(name)}=${encodeQueryValue2(serializePrimitive2(value), allowReserved)}`);
+    return;
+  }
+  for (const [key, entryValue] of Object.entries(value)) {
+    if (entryValue === void 0 || entryValue === null) {
+      continue;
+    }
+    pairs.push(`${encodeQueryComponent2(`${name}[${key}]`)}=${encodeQueryValue2(serializePrimitive2(entryValue), allowReserved)}`);
+  }
+}
+function serializePrimitive2(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+function encodeQueryComponent2(value) {
+  return encodeURIComponent(value);
+}
+function encodeQueryValue2(value, allowReserved) {
+  const encoded = encodeURIComponent(value);
+  if (!allowReserved) {
+    return encoded;
+  }
+  return encoded.replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%23/gi, "#").replace(/%5B/gi, "[").replace(/%5D/gi, "]").replace(/%40/gi, "@").replace(/%21/gi, "!").replace(/%24/gi, "$").replace(/%26/gi, "&").replace(/%27/gi, "'").replace(/%28/gi, "(").replace(/%29/gi, ")").replace(/%2A/gi, "*").replace(/%2B/gi, "+").replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%3D/gi, "=");
+}
+
+// ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/dist/api/social.js
+var SocialContactsPreferencesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Retrieve contact preferences */
+  async retrieve(targetUserId, requestOptions) {
+    return this.client.request(imApiPath(`/social/contacts/${serializePathParameter2(targetUserId, { name: "targetUserId", style: "simple", explode: false })}/preferences`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Update contact preferences */
+  async update(targetUserId, body, requestOptions) {
+    return this.client.request(imApiPath(`/social/contacts/${serializePathParameter2(targetUserId, { name: "targetUserId", style: "simple", explode: false })}/preferences`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var SocialContactsRecommendationsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Create a contact recommendation */
+  async create(targetUserId, body, requestOptions) {
+    return this.client.request(imApiPath(`/social/contacts/${serializePathParameter2(targetUserId, { name: "targetUserId", style: "simple", explode: false })}/recommendations`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var SocialContactsTagsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List contact tags */
+  async list(params, requestOptions) {
+    const query = buildQueryString3([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString3(imApiPath(`/social/contacts/tags`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Create a contact tag */
+  async create(body, requestOptions) {
+    return this.client.request(imApiPath(`/social/contacts/tags`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Update a contact tag */
+  async update(tagId, body, requestOptions) {
+    return this.client.request(imApiPath(`/social/contacts/tags/${serializePathParameter2(tagId, { name: "tagId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Delete a contact tag */
+  async delete(tagId, requestOptions) {
+    return this.client.request(imApiPath(`/social/contacts/tags/${serializePathParameter2(tagId, { name: "tagId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var SocialContactsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "tags");
+    __publicField(this, "recommendations");
+    __publicField(this, "preferences");
+    this.client = client;
+    this.tags = new SocialContactsTagsApi(client);
+    this.recommendations = new SocialContactsRecommendationsApi(client);
+    this.preferences = new SocialContactsPreferencesApi(client);
+  }
+  /** List social contacts */
+  async list(params, requestOptions) {
+    const query = buildQueryString3([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString3(imApiPath(`/social/contacts`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var SocialUserBlocksApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List user blocks created by the authenticated user */
+  async list(params, requestOptions) {
+    const query = buildQueryString3([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString3(imApiPath(`/social/user_blocks`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Block a social user */
+  async create(body, requestOptions) {
+    return this.client.request(imApiPath(`/social/user_blocks`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Release a social user block */
+  async delete(blockId, requestOptions) {
+    return this.client.request(imApiPath(`/social/user_blocks/${serializePathParameter2(blockId, { name: "blockId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var SocialFriendRequestsPendingCountApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Retrieve pending incoming friend request count */
+  async retrieve(requestOptions) {
+    return this.client.request(imApiPath(`/social/friend_requests/pending/count`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var SocialFriendRequestsPendingApi = class {
+  constructor(client) {
+    __publicField(this, "count");
+    this.count = new SocialFriendRequestsPendingCountApi(client);
+  }
+};
+var SocialFriendRequestsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "pending");
+    this.client = client;
+    this.pending = new SocialFriendRequestsPendingApi(client);
+  }
+  /** List friend requests */
+  async list(params, requestOptions) {
+    const query = buildQueryString3([
+      { name: "direction", value: params == null ? void 0 : params.direction, style: "form", explode: true, allowReserved: false },
+      { name: "status", value: params == null ? void 0 : params.status, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString3(imApiPath(`/social/friend_requests`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Create a friend request */
+  async create(body, requestOptions) {
+    return this.client.request(imApiPath(`/social/friend_requests`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Accept a friend request */
+  async accept(friendRequestId, requestOptions) {
+    return this.client.request(imApiPath(`/social/friend_requests/${serializePathParameter2(friendRequestId, { name: "friendRequestId", style: "simple", explode: false })}/accept`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+  /** Decline a friend request */
+  async decline(friendRequestId, requestOptions) {
+    return this.client.request(imApiPath(`/social/friend_requests/${serializePathParameter2(friendRequestId, { name: "friendRequestId", style: "simple", explode: false })}/decline`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+  /** Cancel a friend request */
+  async cancel(friendRequestId, requestOptions) {
+    return this.client.request(imApiPath(`/social/friend_requests/${serializePathParameter2(friendRequestId, { name: "friendRequestId", style: "simple", explode: false })}/cancel`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+};
+var SocialDirectChatsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List direct chats of the authenticated user */
+  async list(params, requestOptions) {
+    const query = buildQueryString3([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString3(imApiPath(`/social/direct_chats`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Retrieve a direct chat */
+  async retrieve(directChatId, requestOptions) {
+    return this.client.request(imApiPath(`/social/direct_chats/${serializePathParameter2(directChatId, { name: "directChatId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var SocialFriendshipsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List friendships of the authenticated user */
+  async list(params, requestOptions) {
+    const query = buildQueryString3([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString3(imApiPath(`/social/friendships`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Remove a friendship */
+  async remove(friendshipId, requestOptions) {
+    return this.client.request(imApiPath(`/social/friendships/${serializePathParameter2(friendshipId, { name: "friendshipId", style: "simple", explode: false })}/remove`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+};
+var SocialUsersSettingsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Retrieve social user settings */
+  async retrieve(userId, requestOptions) {
+    return this.client.request(imApiPath(`/social/users/${serializePathParameter2(userId, { name: "userId", style: "simple", explode: false })}/settings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Update social user settings */
+  async update(userId, body, requestOptions) {
+    return this.client.request(imApiPath(`/social/users/${serializePathParameter2(userId, { name: "userId", style: "simple", explode: false })}/settings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var SocialUsersProfileApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Retrieve a social user profile */
+  async retrieve(userId, requestOptions) {
+    return this.client.request(imApiPath(`/social/users/${serializePathParameter2(userId, { name: "userId", style: "simple", explode: false })}/profile`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Update the authenticated user profile */
+  async update(userId, body, requestOptions) {
+    return this.client.request(imApiPath(`/social/users/${serializePathParameter2(userId, { name: "userId", style: "simple", explode: false })}/profile`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var SocialUsersApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "profile");
+    __publicField(this, "settings");
+    this.client = client;
+    this.profile = new SocialUsersProfileApi(client);
+    this.settings = new SocialUsersSettingsApi(client);
+  }
+  /** Search social users */
+  async list(params, requestOptions) {
+    const query = buildQueryString3([
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString3(imApiPath(`/social/users`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var SocialApi = class {
+  constructor(client) {
+    __publicField(this, "users");
+    __publicField(this, "friendships");
+    __publicField(this, "directChats");
+    __publicField(this, "friendRequests");
+    __publicField(this, "userBlocks");
+    __publicField(this, "contacts");
+    this.users = new SocialUsersApi(client);
+    this.friendships = new SocialFriendshipsApi(client);
+    this.directChats = new SocialDirectChatsApi(client);
+    this.friendRequests = new SocialFriendRequestsApi(client);
+    this.userBlocks = new SocialUserBlocksApi(client);
+    this.contacts = new SocialContactsApi(client);
+  }
+};
+function createSocialApi(client) {
+  return new SocialApi(client);
+}
+function appendQueryString3(path, rawQueryString) {
+  const query = rawQueryString.replace(/^\?+/, "");
+  if (!query) {
+    return path;
+  }
+  return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
+}
+function serializePathParameter2(value, spec) {
+  if (value === void 0 || value === null) {
+    return "";
+  }
+  const style = spec.style || "simple";
+  if (Array.isArray(value)) {
+    return serializePathArray2(spec.name, value, style, spec.explode);
+  }
+  if (typeof value === "object") {
+    return serializePathObject2(spec.name, value, style, spec.explode);
+  }
+  return pathPrefix2(spec.name, style, false) + encodePathValue2(serializePathPrimitive2(value));
+}
+function serializePathArray2(name, values, style, explode) {
+  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue2(serializePathPrimitive2(item)));
+  if (serialized.length === 0) {
+    return pathPrefix2(name, style, false);
+  }
+  if (style === "matrix") {
+    return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
+  }
+  return pathPrefix2(name, style, false) + serialized.join(explode ? "." : ",");
+}
+function serializePathObject2(name, value, style, explode) {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
+  if (entries.length === 0) {
+    return pathPrefix2(name, style, true);
+  }
+  if (style === "matrix") {
+    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue2(key)}=${encodePathValue2(serializePathPrimitive2(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue2(key), encodePathValue2(serializePathPrimitive2(entryValue))]).join(",")}`;
+  }
+  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue2(key)}=${encodePathValue2(serializePathPrimitive2(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue2(key), encodePathValue2(serializePathPrimitive2(entryValue))]).join(",");
+  return pathPrefix2(name, style, true) + serialized;
+}
+function pathPrefix2(name, style, _objectValue) {
+  if (style === "label")
+    return ".";
+  if (style === "matrix")
+    return `;${name}`;
+  return "";
+}
+function encodePathValue2(value) {
+  return encodeURIComponent(value);
+}
+function serializePathPrimitive2(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+function buildQueryString3(parameters) {
+  const pairs = [];
+  for (const parameter of parameters) {
+    appendSerializedParameter3(pairs, parameter);
+  }
+  return pairs.join("&");
+}
+function appendSerializedParameter3(pairs, parameter) {
+  if (parameter.value === void 0 || parameter.value === null) {
+    return;
+  }
+  if (parameter.contentType) {
+    pairs.push(`${encodeQueryComponent3(parameter.name)}=${encodeQueryValue3(JSON.stringify(parameter.value), parameter.allowReserved)}`);
+    return;
+  }
+  const style = parameter.style || "form";
+  if (style === "deepObject") {
+    appendDeepObjectParameter3(pairs, parameter.name, parameter.value, parameter.allowReserved);
+    return;
+  }
+  if (Array.isArray(parameter.value)) {
+    appendArrayParameter3(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    return;
+  }
+  if (typeof parameter.value === "object") {
+    appendObjectParameter3(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    return;
+  }
+  pairs.push(`${encodeQueryComponent3(parameter.name)}=${encodeQueryValue3(serializePrimitive3(parameter.value), parameter.allowReserved)}`);
+}
+function appendArrayParameter3(pairs, name, value, style, explode, allowReserved) {
+  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive3(item));
+  if (values.length === 0) {
+    return;
+  }
+  if (style === "form" && explode) {
+    for (const item of values) {
+      pairs.push(`${encodeQueryComponent3(name)}=${encodeQueryValue3(item, allowReserved)}`);
+    }
+    return;
+  }
+  pairs.push(`${encodeQueryComponent3(name)}=${encodeQueryValue3(values.join(","), allowReserved)}`);
+}
+function appendObjectParameter3(pairs, name, value, style, explode, allowReserved) {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
+  if (entries.length === 0) {
+    return;
+  }
+  if (style === "form" && explode) {
+    for (const [key, entryValue] of entries) {
+      pairs.push(`${encodeQueryComponent3(key)}=${encodeQueryValue3(serializePrimitive3(entryValue), allowReserved)}`);
+    }
+    return;
+  }
+  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive3(entryValue)]).join(",");
+  pairs.push(`${encodeQueryComponent3(name)}=${encodeQueryValue3(serialized, allowReserved)}`);
+}
+function appendDeepObjectParameter3(pairs, name, value, allowReserved) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    pairs.push(`${encodeQueryComponent3(name)}=${encodeQueryValue3(serializePrimitive3(value), allowReserved)}`);
+    return;
+  }
+  for (const [key, entryValue] of Object.entries(value)) {
+    if (entryValue === void 0 || entryValue === null) {
+      continue;
+    }
+    pairs.push(`${encodeQueryComponent3(`${name}[${key}]`)}=${encodeQueryValue3(serializePrimitive3(entryValue), allowReserved)}`);
+  }
+}
+function serializePrimitive3(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+function encodeQueryComponent3(value) {
+  return encodeURIComponent(value);
+}
+function encodeQueryValue3(value, allowReserved) {
+  const encoded = encodeURIComponent(value);
+  if (!allowReserved) {
+    return encoded;
+  }
+  return encoded.replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%23/gi, "#").replace(/%5B/gi, "[").replace(/%5D/gi, "]").replace(/%40/gi, "@").replace(/%21/gi, "!").replace(/%24/gi, "$").replace(/%26/gi, "&").replace(/%27/gi, "'").replace(/%28/gi, "(").replace(/%29/gi, ")").replace(/%2A/gi, "*").replace(/%2B/gi, "+").replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%3D/gi, "=");
+}
+
+// ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/dist/api/chat.js
+var ChatRoomsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Create a live, chat, or game room bound to a group conversation */
+  async create(body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/rooms`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Retrieve room metadata and active member count */
+  async retrieve(roomId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/rooms/${serializePathParameter3(roomId, { name: "roomId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Enter a room as the authenticated principal */
+  async enter(roomId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/rooms/${serializePathParameter3(roomId, { name: "roomId", style: "simple", explode: false })}/enter`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+  /** Leave a room as the authenticated principal */
+  async leave(roomId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/rooms/${serializePathParameter3(roomId, { name: "roomId", style: "simple", explode: false })}/leave`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatMessagesReactionsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Add a message reaction */
+  async create(messageId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter3(messageId, { name: "messageId", style: "simple", explode: false })}/reactions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Remove a message reaction */
+  async remove(messageId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter3(messageId, { name: "messageId", style: "simple", explode: false })}/reactions/remove`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatMessagesVisibilityApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Delete message visibility for the current principal */
+  async delete(messageId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter3(messageId, { name: "messageId", style: "simple", explode: false })}/visibility`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var ChatMessagesFavoritesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List message favorites */
+  async list(params, requestOptions) {
+    const query = buildQueryString4([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "favoriteType", value: params == null ? void 0 : params.favoriteType, style: "form", explode: true, allowReserved: false },
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString4(imApiPath(`/chat/messages/favorites`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Favorite a message */
+  async create(messageId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter3(messageId, { name: "messageId", style: "simple", explode: false })}/favorites`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Delete a message favorite */
+  async delete(favoriteId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/messages/favorites/${serializePathParameter3(favoriteId, { name: "favoriteId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var ChatMessagesSearchApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Search conversation message history */
+  async list(params, requestOptions) {
+    const query = buildQueryString4([
+      { name: "q", value: params.q, style: "form", explode: true, allowReserved: false },
+      { name: "conversationId", value: params.conversationId, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString4(imApiPath(`/chat/messages/search`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var ChatMessagesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "search");
+    __publicField(this, "favorites");
+    __publicField(this, "visibility");
+    __publicField(this, "reactions");
+    this.client = client;
+    this.search = new ChatMessagesSearchApi(client);
+    this.favorites = new ChatMessagesFavoritesApi(client);
+    this.visibility = new ChatMessagesVisibilityApi(client);
+    this.reactions = new ChatMessagesReactionsApi(client);
+  }
+  /** Edit a message */
+  async edit(messageId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter3(messageId, { name: "messageId", style: "simple", explode: false })}/edit`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Recall a message */
+  async recall(messageId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter3(messageId, { name: "messageId", style: "simple", explode: false })}/recall`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Pin a message */
+  async pin(messageId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter3(messageId, { name: "messageId", style: "simple", explode: false })}/pin`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+  /** Unpin a message */
+  async unpin(messageId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/messages/${serializePathParameter3(messageId, { name: "messageId", style: "simple", explode: false })}/unpin`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsPinsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List pinned messages */
+  async list(conversationId, params, requestOptions) {
+    const query = buildQueryString4([
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString4(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/pins`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var ChatConversationsMessagesInteractionSummaryApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Retrieve message interaction summary */
+  async retrieve(conversationId, messageId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/messages/${serializePathParameter3(messageId, { name: "messageId", style: "simple", explode: false })}/interaction_summary`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsMessagesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "interactionSummary");
+    this.client = client;
+    this.interactionSummary = new ChatConversationsMessagesInteractionSummaryApi(client);
+  }
+  /** List conversation message history */
+  async list(conversationId, params, requestOptions) {
+    const query = buildQueryString4([
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString4(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/messages`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Post a conversation message */
+  async create(conversationId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/messages`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsMemberDirectoryApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List member directory */
+  async list(conversationId, params, requestOptions) {
+    const query = buildQueryString4([
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString4(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/member_directory`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var ChatConversationsReadCursorApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Retrieve read cursor */
+  async retrieve(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/read_cursor`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Update read cursor */
+  async update(conversationId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/read_cursor`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsProfileApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Retrieve conversation profile */
+  async retrieve(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/profile`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Update conversation profile */
+  async update(conversationId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/profile`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsPreferencesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Retrieve conversation preferences */
+  async retrieve(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/preferences`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Update conversation preferences */
+  async update(conversationId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/preferences`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsBindingApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Retrieve the business binding of a conversation */
+  async retrieve(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/binding`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsAgentsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Retrieve assigned group agents */
+  async retrieve(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/agents`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Update assigned group agents */
+  async update(conversationId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/agents`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PUT", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsMembersCurrentApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Retrieve the current conversation member */
+  async retrieve(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/current`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsMembersApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "current");
+    this.client = client;
+    this.current = new ChatConversationsMembersCurrentApi(client);
+  }
+  /** List conversation members */
+  async list(conversationId, params, requestOptions) {
+    const query = buildQueryString4([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString4(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/members`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Add a conversation member */
+  async add(conversationId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/add`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Remove a conversation member */
+  async remove(conversationId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/remove`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Transfer conversation owner */
+  async transferOwner(conversationId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/transfer_owner`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Change conversation member role */
+  async changeRole(conversationId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/change_role`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Leave a conversation */
+  async leave(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/leave`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+  /** Accept a conversation invitation */
+  async acceptInvitation(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/members/accept_invitation`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsSharedChannelLinksApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Sync a shared-channel linked member into a conversation */
+  async sync(body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/shared_channel_links/sync`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsDirectChatsBindingsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Create a direct chat conversation binding */
+  async create(body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/direct_chats/bindings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsDirectChatsApi = class {
+  constructor(client) {
+    __publicField(this, "bindings");
+    this.bindings = new ChatConversationsDirectChatsBindingsApi(client);
+  }
+};
+var ChatConversationsThreadsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Create a thread conversation */
+  async create(body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/threads`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsSystemChannelsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Create a system channel */
+  async create(body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/system_channels`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Publish a system channel message */
+  async publish(conversationId, body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/system_channel/publish`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsAgentHandoffsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Create an agent handoff */
+  async create(body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/agent_handoffs`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Retrieve agent handoff state */
+  async retrieve(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/agent_handoff`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Accept agent handoff */
+  async accept(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/agent_handoff/accept`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+  /** Resolve agent handoff */
+  async resolve(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/agent_handoff/resolve`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+  /** Close agent handoff */
+  async close(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/agent_handoff/close`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsAgentDialogsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Create an agent dialog */
+  async create(body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/agent_dialogs`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "agentDialogs");
+    __publicField(this, "agentHandoffs");
+    __publicField(this, "systemChannels");
+    __publicField(this, "threads");
+    __publicField(this, "directChats");
+    __publicField(this, "sharedChannelLinks");
+    __publicField(this, "members");
+    __publicField(this, "agents");
+    __publicField(this, "binding");
+    __publicField(this, "preferences");
+    __publicField(this, "profile");
+    __publicField(this, "readCursor");
+    __publicField(this, "memberDirectory");
+    __publicField(this, "messages");
+    __publicField(this, "pins");
+    this.client = client;
+    this.agentDialogs = new ChatConversationsAgentDialogsApi(client);
+    this.agentHandoffs = new ChatConversationsAgentHandoffsApi(client);
+    this.systemChannels = new ChatConversationsSystemChannelsApi(client);
+    this.threads = new ChatConversationsThreadsApi(client);
+    this.directChats = new ChatConversationsDirectChatsApi(client);
+    this.sharedChannelLinks = new ChatConversationsSharedChannelLinksApi(client);
+    this.members = new ChatConversationsMembersApi(client);
+    this.agents = new ChatConversationsAgentsApi(client);
+    this.binding = new ChatConversationsBindingApi(client);
+    this.preferences = new ChatConversationsPreferencesApi(client);
+    this.profile = new ChatConversationsProfileApi(client);
+    this.readCursor = new ChatConversationsReadCursorApi(client);
+    this.memberDirectory = new ChatConversationsMemberDirectoryApi(client);
+    this.messages = new ChatConversationsMessagesApi(client);
+    this.pins = new ChatConversationsPinsApi(client);
+  }
+  /** Create a conversation */
+  async create(body, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Retrieve conversation summary */
+  async retrieve(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatMeWelcomeApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Ensure the current user received the system-agent Welcome message */
+  async ensure(requestOptions) {
+    return this.client.request(imApiPath(`/chat/me/welcome/ensure`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatMeApi = class {
+  constructor(client) {
+    __publicField(this, "welcome");
+    this.welcome = new ChatMeWelcomeApi(client);
+  }
+};
+var ChatInboxApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List current inbox window */
+  async list(params, requestOptions) {
+    const query = buildQueryString4([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "conversation_type", value: params == null ? void 0 : params.conversationType, style: "form", explode: true, allowReserved: false },
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString4(imApiPath(`/chat/inbox`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var ChatApi = class {
+  constructor(client) {
+    __publicField(this, "inbox");
+    __publicField(this, "me");
+    __publicField(this, "conversations");
+    __publicField(this, "messages");
+    __publicField(this, "rooms");
+    this.inbox = new ChatInboxApi(client);
+    this.me = new ChatMeApi(client);
+    this.conversations = new ChatConversationsApi(client);
+    this.messages = new ChatMessagesApi(client);
+    this.rooms = new ChatRoomsApi(client);
+  }
+};
+function createChatApi(client) {
+  return new ChatApi(client);
+}
+function appendQueryString4(path, rawQueryString) {
+  const query = rawQueryString.replace(/^\?+/, "");
+  if (!query) {
+    return path;
+  }
+  return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
+}
+function serializePathParameter3(value, spec) {
+  if (value === void 0 || value === null) {
+    return "";
+  }
+  const style = spec.style || "simple";
+  if (Array.isArray(value)) {
+    return serializePathArray3(spec.name, value, style, spec.explode);
+  }
+  if (typeof value === "object") {
+    return serializePathObject3(spec.name, value, style, spec.explode);
+  }
+  return pathPrefix3(spec.name, style, false) + encodePathValue3(serializePathPrimitive3(value));
+}
+function serializePathArray3(name, values, style, explode) {
+  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue3(serializePathPrimitive3(item)));
+  if (serialized.length === 0) {
+    return pathPrefix3(name, style, false);
+  }
+  if (style === "matrix") {
+    return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
+  }
+  return pathPrefix3(name, style, false) + serialized.join(explode ? "." : ",");
+}
+function serializePathObject3(name, value, style, explode) {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
+  if (entries.length === 0) {
+    return pathPrefix3(name, style, true);
+  }
+  if (style === "matrix") {
+    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue3(key)}=${encodePathValue3(serializePathPrimitive3(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue3(key), encodePathValue3(serializePathPrimitive3(entryValue))]).join(",")}`;
+  }
+  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue3(key)}=${encodePathValue3(serializePathPrimitive3(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue3(key), encodePathValue3(serializePathPrimitive3(entryValue))]).join(",");
+  return pathPrefix3(name, style, true) + serialized;
+}
+function pathPrefix3(name, style, _objectValue) {
+  if (style === "label")
+    return ".";
+  if (style === "matrix")
+    return `;${name}`;
+  return "";
+}
+function encodePathValue3(value) {
+  return encodeURIComponent(value);
+}
+function serializePathPrimitive3(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+function buildQueryString4(parameters) {
+  const pairs = [];
+  for (const parameter of parameters) {
+    appendSerializedParameter4(pairs, parameter);
+  }
+  return pairs.join("&");
+}
+function appendSerializedParameter4(pairs, parameter) {
+  if (parameter.value === void 0 || parameter.value === null) {
+    return;
+  }
+  if (parameter.contentType) {
+    pairs.push(`${encodeQueryComponent4(parameter.name)}=${encodeQueryValue4(JSON.stringify(parameter.value), parameter.allowReserved)}`);
+    return;
+  }
+  const style = parameter.style || "form";
+  if (style === "deepObject") {
+    appendDeepObjectParameter4(pairs, parameter.name, parameter.value, parameter.allowReserved);
+    return;
+  }
+  if (Array.isArray(parameter.value)) {
+    appendArrayParameter4(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    return;
+  }
+  if (typeof parameter.value === "object") {
+    appendObjectParameter4(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    return;
+  }
+  pairs.push(`${encodeQueryComponent4(parameter.name)}=${encodeQueryValue4(serializePrimitive4(parameter.value), parameter.allowReserved)}`);
+}
+function appendArrayParameter4(pairs, name, value, style, explode, allowReserved) {
+  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive4(item));
+  if (values.length === 0) {
+    return;
+  }
+  if (style === "form" && explode) {
+    for (const item of values) {
+      pairs.push(`${encodeQueryComponent4(name)}=${encodeQueryValue4(item, allowReserved)}`);
+    }
+    return;
+  }
+  pairs.push(`${encodeQueryComponent4(name)}=${encodeQueryValue4(values.join(","), allowReserved)}`);
+}
+function appendObjectParameter4(pairs, name, value, style, explode, allowReserved) {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
+  if (entries.length === 0) {
+    return;
+  }
+  if (style === "form" && explode) {
+    for (const [key, entryValue] of entries) {
+      pairs.push(`${encodeQueryComponent4(key)}=${encodeQueryValue4(serializePrimitive4(entryValue), allowReserved)}`);
+    }
+    return;
+  }
+  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive4(entryValue)]).join(",");
+  pairs.push(`${encodeQueryComponent4(name)}=${encodeQueryValue4(serialized, allowReserved)}`);
+}
+function appendDeepObjectParameter4(pairs, name, value, allowReserved) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    pairs.push(`${encodeQueryComponent4(name)}=${encodeQueryValue4(serializePrimitive4(value), allowReserved)}`);
+    return;
+  }
+  for (const [key, entryValue] of Object.entries(value)) {
+    if (entryValue === void 0 || entryValue === null) {
+      continue;
+    }
+    pairs.push(`${encodeQueryComponent4(`${name}[${key}]`)}=${encodeQueryValue4(serializePrimitive4(entryValue), allowReserved)}`);
+  }
+}
+function serializePrimitive4(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+function encodeQueryComponent4(value) {
+  return encodeURIComponent(value);
+}
+function encodeQueryValue4(value, allowReserved) {
+  const encoded = encodeURIComponent(value);
+  if (!allowReserved) {
+    return encoded;
+  }
+  return encoded.replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%23/gi, "#").replace(/%5B/gi, "[").replace(/%5D/gi, "]").replace(/%40/gi, "@").replace(/%21/gi, "!").replace(/%24/gi, "$").replace(/%26/gi, "&").replace(/%27/gi, "'").replace(/%28/gi, "(").replace(/%29/gi, ")").replace(/%2A/gi, "*").replace(/%2B/gi, "+").replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%3D/gi, "=");
+}
+
+// ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/dist/api/spaces.js
+var SpacesBansApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List spaces bans */
+  async list(spaceId, params, requestOptions) {
+    const query = buildQueryString5([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString5(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/bans`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Create spaces bans */
+  async create(spaceId, body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/bans`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** retrieve spaces bans */
+  async retrieve(spaceId, userId, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/bans/${serializePathParameter4(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Delete spaces bans */
+  async delete(spaceId, userId, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/bans/${serializePathParameter4(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var SpacesInvitesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List spaces invites */
+  async list(spaceId, params, requestOptions) {
+    const query = buildQueryString5([
+      { name: "status", value: params == null ? void 0 : params.status, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString5(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/invites`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Create spaces invites */
+  async create(spaceId, body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/invites`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** retrieve spaces invites */
+  async retrieve(spaceId, inviteCode, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/invites/${serializePathParameter4(inviteCode, { name: "inviteCode", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Delete spaces invites */
+  async delete(spaceId, inviteCode, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/invites/${serializePathParameter4(inviteCode, { name: "inviteCode", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+  /** Accept spaces invites */
+  async accept(spaceId, inviteCode, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/invites/${serializePathParameter4(inviteCode, { name: "inviteCode", style: "simple", explode: false })}/accept`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "command" });
+  }
+};
+var SpacesChannelsAccessRulesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List spaces channels access Rules */
+  async list(spaceId, channelId, params, requestOptions) {
+    const query = buildQueryString5([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString5(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels/${serializePathParameter4(channelId, { name: "channelId", style: "simple", explode: false })}/access_rules`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Create spaces channels access Rules */
+  async create(spaceId, channelId, body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels/${serializePathParameter4(channelId, { name: "channelId", style: "simple", explode: false })}/access_rules`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Delete spaces channels access Rules */
+  async delete(spaceId, channelId, ruleId, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels/${serializePathParameter4(channelId, { name: "channelId", style: "simple", explode: false })}/access_rules/${serializePathParameter4(ruleId, { name: "ruleId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var SpacesChannelsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "accessRules");
+    this.client = client;
+    this.accessRules = new SpacesChannelsAccessRulesApi(client);
+  }
+  /** List spaces channels */
+  async list(spaceId, params, requestOptions) {
+    const query = buildQueryString5([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString5(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Create spaces channels */
+  async create(spaceId, body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** retrieve spaces channels */
+  async retrieve(spaceId, channelId, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels/${serializePathParameter4(channelId, { name: "channelId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Update spaces channels */
+  async update(spaceId, channelId, body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels/${serializePathParameter4(channelId, { name: "channelId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Delete spaces channels */
+  async delete(spaceId, channelId, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/channels/${serializePathParameter4(channelId, { name: "channelId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var SpacesGroupsMembersApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List spaces groups members */
+  async list(spaceId, groupId, params, requestOptions) {
+    const query = buildQueryString5([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString5(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter4(groupId, { name: "groupId", style: "simple", explode: false })}/members`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Create spaces groups members */
+  async create(spaceId, groupId, body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter4(groupId, { name: "groupId", style: "simple", explode: false })}/members`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** retrieve spaces groups members */
+  async retrieve(spaceId, groupId, userId, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter4(groupId, { name: "groupId", style: "simple", explode: false })}/members/${serializePathParameter4(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Update spaces groups members */
+  async update(spaceId, groupId, userId, body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter4(groupId, { name: "groupId", style: "simple", explode: false })}/members/${serializePathParameter4(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Delete spaces groups members */
+  async delete(spaceId, groupId, userId, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter4(groupId, { name: "groupId", style: "simple", explode: false })}/members/${serializePathParameter4(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var SpacesGroupsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "members");
+    this.client = client;
+    this.members = new SpacesGroupsMembersApi(client);
+  }
+  /** List spaces groups */
+  async list(spaceId, params, requestOptions) {
+    const query = buildQueryString5([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString5(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Create spaces groups */
+  async create(spaceId, body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** retrieve spaces groups */
+  async retrieve(spaceId, groupId, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter4(groupId, { name: "groupId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Update spaces groups */
+  async update(spaceId, groupId, body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter4(groupId, { name: "groupId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Delete spaces groups */
+  async delete(spaceId, groupId, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter4(groupId, { name: "groupId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+  /** Transfer spaces groups owner */
+  async transferOwner(spaceId, groupId, body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/groups/${serializePathParameter4(groupId, { name: "groupId", style: "simple", explode: false })}/transfer_owner`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var SpacesMembersApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List spaces members */
+  async list(spaceId, params, requestOptions) {
+    const query = buildQueryString5([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString5(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/members`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Create spaces members */
+  async create(spaceId, body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/members`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** retrieve spaces members */
+  async retrieve(spaceId, userId, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/members/${serializePathParameter4(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Update spaces members */
+  async update(spaceId, userId, body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/members/${serializePathParameter4(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Delete spaces members */
+  async delete(spaceId, userId, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}/members/${serializePathParameter4(userId, { name: "userId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var SpacesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "members");
+    __publicField(this, "groups");
+    __publicField(this, "channels");
+    __publicField(this, "invites");
+    __publicField(this, "bans");
+    this.client = client;
+    this.members = new SpacesMembersApi(client);
+    this.groups = new SpacesGroupsApi(client);
+    this.channels = new SpacesChannelsApi(client);
+    this.invites = new SpacesInvitesApi(client);
+    this.bans = new SpacesBansApi(client);
+  }
+  /** Create a space */
+  async create(body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** List spaces */
+  async list(params, requestOptions) {
+    const query = buildQueryString5([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString5(imApiPath(`/spaces`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Retrieve a space */
+  async retrieve(spaceId, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Update a space */
+  async update(spaceId, body, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Delete a space */
+  async delete(spaceId, requestOptions) {
+    return this.client.request(imApiPath(`/spaces/${serializePathParameter4(spaceId, { name: "spaceId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+function createSpacesApi(client) {
+  return new SpacesApi(client);
+}
+function appendQueryString5(path, rawQueryString) {
+  const query = rawQueryString.replace(/^\?+/, "");
+  if (!query) {
+    return path;
+  }
+  return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
+}
+function serializePathParameter4(value, spec) {
+  if (value === void 0 || value === null) {
+    return "";
+  }
+  const style = spec.style || "simple";
+  if (Array.isArray(value)) {
+    return serializePathArray4(spec.name, value, style, spec.explode);
+  }
+  if (typeof value === "object") {
+    return serializePathObject4(spec.name, value, style, spec.explode);
+  }
+  return pathPrefix4(spec.name, style, false) + encodePathValue4(serializePathPrimitive4(value));
+}
+function serializePathArray4(name, values, style, explode) {
+  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue4(serializePathPrimitive4(item)));
+  if (serialized.length === 0) {
+    return pathPrefix4(name, style, false);
+  }
+  if (style === "matrix") {
+    return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
+  }
+  return pathPrefix4(name, style, false) + serialized.join(explode ? "." : ",");
+}
+function serializePathObject4(name, value, style, explode) {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
+  if (entries.length === 0) {
+    return pathPrefix4(name, style, true);
+  }
+  if (style === "matrix") {
+    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue4(key)}=${encodePathValue4(serializePathPrimitive4(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue4(key), encodePathValue4(serializePathPrimitive4(entryValue))]).join(",")}`;
+  }
+  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue4(key)}=${encodePathValue4(serializePathPrimitive4(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue4(key), encodePathValue4(serializePathPrimitive4(entryValue))]).join(",");
+  return pathPrefix4(name, style, true) + serialized;
+}
+function pathPrefix4(name, style, _objectValue) {
+  if (style === "label")
+    return ".";
+  if (style === "matrix")
+    return `;${name}`;
+  return "";
+}
+function encodePathValue4(value) {
+  return encodeURIComponent(value);
+}
+function serializePathPrimitive4(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+function buildQueryString5(parameters) {
+  const pairs = [];
+  for (const parameter of parameters) {
+    appendSerializedParameter5(pairs, parameter);
+  }
+  return pairs.join("&");
+}
+function appendSerializedParameter5(pairs, parameter) {
+  if (parameter.value === void 0 || parameter.value === null) {
+    return;
+  }
+  if (parameter.contentType) {
+    pairs.push(`${encodeQueryComponent5(parameter.name)}=${encodeQueryValue5(JSON.stringify(parameter.value), parameter.allowReserved)}`);
+    return;
+  }
+  const style = parameter.style || "form";
+  if (style === "deepObject") {
+    appendDeepObjectParameter5(pairs, parameter.name, parameter.value, parameter.allowReserved);
+    return;
+  }
+  if (Array.isArray(parameter.value)) {
+    appendArrayParameter5(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    return;
+  }
+  if (typeof parameter.value === "object") {
+    appendObjectParameter5(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    return;
+  }
+  pairs.push(`${encodeQueryComponent5(parameter.name)}=${encodeQueryValue5(serializePrimitive5(parameter.value), parameter.allowReserved)}`);
+}
+function appendArrayParameter5(pairs, name, value, style, explode, allowReserved) {
+  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive5(item));
+  if (values.length === 0) {
+    return;
+  }
+  if (style === "form" && explode) {
+    for (const item of values) {
+      pairs.push(`${encodeQueryComponent5(name)}=${encodeQueryValue5(item, allowReserved)}`);
+    }
+    return;
+  }
+  pairs.push(`${encodeQueryComponent5(name)}=${encodeQueryValue5(values.join(","), allowReserved)}`);
+}
+function appendObjectParameter5(pairs, name, value, style, explode, allowReserved) {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
+  if (entries.length === 0) {
+    return;
+  }
+  if (style === "form" && explode) {
+    for (const [key, entryValue] of entries) {
+      pairs.push(`${encodeQueryComponent5(key)}=${encodeQueryValue5(serializePrimitive5(entryValue), allowReserved)}`);
+    }
+    return;
+  }
+  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive5(entryValue)]).join(",");
+  pairs.push(`${encodeQueryComponent5(name)}=${encodeQueryValue5(serialized, allowReserved)}`);
+}
+function appendDeepObjectParameter5(pairs, name, value, allowReserved) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    pairs.push(`${encodeQueryComponent5(name)}=${encodeQueryValue5(serializePrimitive5(value), allowReserved)}`);
+    return;
+  }
+  for (const [key, entryValue] of Object.entries(value)) {
+    if (entryValue === void 0 || entryValue === null) {
+      continue;
+    }
+    pairs.push(`${encodeQueryComponent5(`${name}[${key}]`)}=${encodeQueryValue5(serializePrimitive5(entryValue), allowReserved)}`);
+  }
+}
+function serializePrimitive5(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+function encodeQueryComponent5(value) {
+  return encodeURIComponent(value);
+}
+function encodeQueryValue5(value, allowReserved) {
+  const encoded = encodeURIComponent(value);
+  if (!allowReserved) {
+    return encoded;
+  }
+  return encoded.replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%23/gi, "#").replace(/%5B/gi, "[").replace(/%5D/gi, "]").replace(/%40/gi, "@").replace(/%21/gi, "!").replace(/%24/gi, "$").replace(/%26/gi, "&").replace(/%27/gi, "'").replace(/%28/gi, "(").replace(/%29/gi, ")").replace(/%2A/gi, "*").replace(/%2B/gi, "+").replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%3D/gi, "=");
+}
+
+// ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi/dist/sdk.js
 var SdkworkImClient = class {
   constructor(config) {
     __publicField(this, "httpClient");
@@ -10214,452 +10733,6 @@ function initImSdkClient(options) {
   return imSdkClient;
 }
 
-// ../../../sdkwork-utils/packages/sdkwork-utils-typescript/src/runtime/binary.js
-var textEncoder2 = new TextEncoder();
-function toUtf82(value) {
-  return textEncoder2.encode(value);
-}
-var HEX2 = "0123456789abcdef";
-function hexEncode2(bytes) {
-  let result = "";
-  for (let index = 0; index < bytes.length; index += 1) {
-    const byte = bytes[index];
-    if (byte === void 0) {
-      continue;
-    }
-    result += HEX2[byte >> 4];
-    result += HEX2[byte & 15];
-  }
-  return result;
-}
-
-// ../../../sdkwork-utils/packages/sdkwork-utils-typescript/src/runtime/sha256.js
-var K2 = new Uint32Array([
-  1116352408,
-  1899447441,
-  3049323471,
-  3921009573,
-  961987163,
-  1508970993,
-  2453635748,
-  2870763221,
-  3624381080,
-  310598401,
-  607225278,
-  1426881987,
-  1925078388,
-  2162078206,
-  2614888103,
-  3248222580,
-  3835390401,
-  4022224774,
-  264347078,
-  604807628,
-  770255983,
-  1249150122,
-  1555081692,
-  1996064986,
-  2554220882,
-  2821834349,
-  2952996808,
-  3210313671,
-  3336571891,
-  3584528711,
-  113926993,
-  338241895,
-  666307205,
-  773529912,
-  1294757372,
-  1396182291,
-  1695183700,
-  1986661051,
-  2177026350,
-  2456956037,
-  2730485921,
-  2820302411,
-  3259730800,
-  3345764771,
-  3516065817,
-  3600352804,
-  4094571909,
-  275423344,
-  430227734,
-  506948616,
-  659060556,
-  883997877,
-  958139571,
-  1322822218,
-  1537002063,
-  1747873779,
-  1955562222,
-  2024104815,
-  2227730452,
-  2361852424,
-  2428436474,
-  2756734187,
-  3204031479,
-  3329325298
-]);
-var BLOCK_SIZE2 = 64;
-function rotr2(value, shift) {
-  return value >>> shift | value << 32 - shift;
-}
-function readBlockU32(block, byteOffset) {
-  return block[byteOffset] << 24 | block[byteOffset + 1] << 16 | block[byteOffset + 2] << 8 | block[byteOffset + 3];
-}
-function sha256Block2(state, block, offset) {
-  const words = new Uint32Array(64);
-  for (let index = 0; index < 16; index += 1) {
-    words[index] = readBlockU32(block, offset + index * 4);
-  }
-  for (let index = 16; index < 64; index += 1) {
-    const wordMinus15 = words[index - 15];
-    const wordMinus2 = words[index - 2];
-    const wordMinus16 = words[index - 16];
-    const wordMinus7 = words[index - 7];
-    const s0 = rotr2(wordMinus15, 7) ^ rotr2(wordMinus15, 18) ^ wordMinus15 >>> 3;
-    const s1 = rotr2(wordMinus2, 17) ^ rotr2(wordMinus2, 19) ^ wordMinus2 >>> 10;
-    words[index] = wordMinus16 + s0 + wordMinus7 + s1 >>> 0;
-  }
-  let a = state[0];
-  let b = state[1];
-  let c = state[2];
-  let d = state[3];
-  let e = state[4];
-  let f = state[5];
-  let g = state[6];
-  let h = state[7];
-  for (let index = 0; index < 64; index += 1) {
-    const s1 = rotr2(e, 6) ^ rotr2(e, 11) ^ rotr2(e, 25);
-    const ch = e & f ^ ~e & g;
-    const temp1 = h + s1 + ch + K2[index] + words[index] >>> 0;
-    const s0 = rotr2(a, 2) ^ rotr2(a, 13) ^ rotr2(a, 22);
-    const maj = a & b ^ a & c ^ b & c;
-    const temp2 = s0 + maj >>> 0;
-    h = g;
-    g = f;
-    f = e;
-    e = d + temp1 >>> 0;
-    d = c;
-    c = b;
-    b = a;
-    a = temp1 + temp2 >>> 0;
-  }
-  state[0] = state[0] + a >>> 0;
-  state[1] = state[1] + b >>> 0;
-  state[2] = state[2] + c >>> 0;
-  state[3] = state[3] + d >>> 0;
-  state[4] = state[4] + e >>> 0;
-  state[5] = state[5] + f >>> 0;
-  state[6] = state[6] + g >>> 0;
-  state[7] = state[7] + h >>> 0;
-}
-function sha256Digest2(value) {
-  const bitLength = value.length * 8;
-  const paddingLength = (BLOCK_SIZE2 - (value.length + 9) % BLOCK_SIZE2) % BLOCK_SIZE2 + 9;
-  const padded = new Uint8Array(value.length + paddingLength);
-  padded.set(value);
-  padded[value.length] = 128;
-  const view = new DataView(padded.buffer);
-  view.setUint32(padded.length - 4, bitLength >>> 0, false);
-  view.setUint32(padded.length - 8, Math.floor(bitLength / 4294967296), false);
-  const state = new Uint32Array([
-    1779033703,
-    3144134277,
-    1013904242,
-    2773480762,
-    1359893119,
-    2600822924,
-    528734635,
-    1541459225
-  ]);
-  for (let offset = 0; offset < padded.length; offset += BLOCK_SIZE2) {
-    sha256Block2(state, padded, offset);
-  }
-  const digest = new Uint8Array(32);
-  const digestView = new DataView(digest.buffer);
-  for (let index = 0; index < state.length; index += 1) {
-    digestView.setUint32(index * 4, state[index], false);
-  }
-  return digest;
-}
-var SHA256_INITIAL_STATE2 = new Uint32Array([
-  1779033703,
-  3144134277,
-  1013904242,
-  2773480762,
-  1359893119,
-  2600822924,
-  528734635,
-  1541459225
-]);
-function sha256Hex2(value) {
-  const bytes = typeof value === "string" ? toUtf82(value) : value;
-  return hexEncode2(sha256Digest2(bytes));
-}
-
-// ../../../sdkwork-utils/packages/sdkwork-utils-typescript/src/crypto.js
-function sha256Hash2(value) {
-  return sha256Hex2(value);
-}
-
-// ../../../sdkwork-utils/packages/sdkwork-utils-typescript/src/money.js
-var LOCALE_RULES = {
-  "en-us": {
-    prefix: true,
-    decimal: ".",
-    grouping: ",",
-    nameSpace: true,
-    compact: [
-      { exponent: 12, unit: "T" },
-      { exponent: 9, unit: "B" },
-      { exponent: 6, unit: "M" },
-      { exponent: 3, unit: "K" }
-    ]
-  },
-  "zh-cn": {
-    prefix: true,
-    decimal: ".",
-    grouping: ",",
-    nameSpace: false,
-    compact: [
-      { exponent: 12, unit: "\u5146" },
-      { exponent: 8, unit: "\u4EBF" },
-      { exponent: 4, unit: "\u4E07" }
-    ]
-  },
-  "ja-jp": {
-    prefix: true,
-    decimal: ".",
-    grouping: ",",
-    nameSpace: false,
-    compact: [
-      { exponent: 12, unit: "\u5146" },
-      { exponent: 8, unit: "\u5104" },
-      { exponent: 4, unit: "\u4E07" }
-    ]
-  },
-  "ko-kr": {
-    prefix: true,
-    decimal: ".",
-    grouping: ",",
-    nameSpace: false,
-    compact: [
-      { exponent: 12, unit: "\uC870" },
-      { exponent: 8, unit: "\uC5B5" },
-      { exponent: 4, unit: "\uB9CC" }
-    ]
-  },
-  "de-de": {
-    prefix: false,
-    decimal: ",",
-    grouping: ".",
-    nameSpace: true,
-    compact: [
-      { exponent: 12, unit: "Bio." },
-      { exponent: 9, unit: "Mrd." },
-      { exponent: 6, unit: "Mio." },
-      { exponent: 3, unit: "Tsd." }
-    ]
-  },
-  "fr-fr": {
-    prefix: false,
-    decimal: ",",
-    grouping: " ",
-    nameSpace: true,
-    compact: [
-      { exponent: 12, unit: "B" },
-      { exponent: 9, unit: "Md" },
-      { exponent: 6, unit: "M" },
-      { exponent: 3, unit: "k" }
-    ]
-  },
-  "it-it": {
-    prefix: false,
-    decimal: ",",
-    grouping: ".",
-    nameSpace: true,
-    compact: [
-      { exponent: 12, unit: "Bio." },
-      { exponent: 9, unit: "Mrd." },
-      { exponent: 6, unit: "M" },
-      { exponent: 3, unit: "k" }
-    ]
-  },
-  "es-es": {
-    prefix: false,
-    decimal: ",",
-    grouping: ".",
-    nameSpace: true,
-    compact: [
-      { exponent: 12, unit: "T" },
-      { exponent: 9, unit: "B" },
-      { exponent: 6, unit: "M" },
-      { exponent: 3, unit: "k" }
-    ]
-  },
-  "ru-ru": {
-    prefix: false,
-    decimal: ",",
-    grouping: " ",
-    nameSpace: true,
-    compact: [
-      { exponent: 12, unit: "\u0442\u0440\u043B\u043D" },
-      { exponent: 9, unit: "\u043C\u043B\u0440\u0434" },
-      { exponent: 6, unit: "\u043C\u043B\u043D" },
-      { exponent: 3, unit: "\u0442\u044B\u0441." }
-    ]
-  }
-};
-var CURRENCY_NAMES = {
-  "en-us": {
-    USD: "US dollars",
-    EUR: "euros",
-    GBP: "British pounds",
-    CNY: "Chinese yuan",
-    JPY: "Japanese yen",
-    KRW: "South Korean won",
-    HKD: "Hong Kong dollars",
-    TWD: "New Taiwan dollars",
-    CHF: "Swiss francs",
-    CAD: "Canadian dollars",
-    AUD: "Australian dollars",
-    INR: "Indian rupees",
-    BHD: "Bahraini dinars",
-    KWD: "Kuwaiti dinars"
-  },
-  "zh-cn": {
-    USD: "\u7F8E\u5143",
-    EUR: "\u6B27\u5143",
-    GBP: "\u82F1\u9563",
-    CNY: "\u4EBA\u6C11\u5E01",
-    JPY: "\u65E5\u5143",
-    KRW: "\u97E9\u5143",
-    HKD: "\u6E2F\u5E01",
-    TWD: "\u65B0\u53F0\u5E01",
-    CHF: "\u745E\u58EB\u6CD5\u90CE",
-    CAD: "\u52A0\u62FF\u5927\u5143",
-    AUD: "\u6FB3\u5927\u5229\u4E9A\u5143",
-    INR: "\u5370\u5EA6\u5362\u6BD4",
-    BHD: "\u5DF4\u6797\u7B2C\u7EB3\u5C14",
-    KWD: "\u79D1\u5A01\u7279\u7B2C\u7EB3\u5C14"
-  },
-  "de-de": {
-    USD: "US-Dollar",
-    EUR: "Euro",
-    GBP: "Britisches Pfund",
-    CNY: "Chinesischer Yuan",
-    JPY: "Japanischer Yen",
-    KRW: "S\xFCdkoreanischer Won",
-    HKD: "Hongkong-Dollar",
-    TWD: "Neuer Taiwan-Dollar",
-    CHF: "Schweizer Franken",
-    CAD: "Kanadischer Dollar",
-    AUD: "Australischer Dollar",
-    INR: "Indische Rupie",
-    BHD: "Bahrainischer Dinar",
-    KWD: "Kuwaitischer Dinar"
-  },
-  "fr-fr": {
-    USD: "dollar am\xE9ricain",
-    EUR: "euro",
-    GBP: "livre sterling",
-    CNY: "yuan chinois",
-    JPY: "yen japonais",
-    KRW: "won sud-cor\xE9en",
-    HKD: "dollar de Hong Kong",
-    TWD: "nouveau dollar de Ta\xEFwan",
-    CHF: "franc suisse",
-    CAD: "dollar canadien",
-    AUD: "dollar australien",
-    INR: "roupie indienne",
-    BHD: "dinar bahre\xEFni",
-    KWD: "dinar kowe\xEFtien"
-  },
-  "it-it": {
-    USD: "dollaro statunitense",
-    EUR: "euro",
-    GBP: "sterlina britannica",
-    CNY: "yuan cinese",
-    JPY: "yen giapponese",
-    KRW: "won sudcoreano",
-    HKD: "dollaro di Hong Kong",
-    TWD: "nuovo dollaro taiwanese",
-    CHF: "franco svizzero",
-    CAD: "dollaro canadese",
-    AUD: "dollaro australiano",
-    INR: "rupia indiana",
-    BHD: "dinaro bahreinita",
-    KWD: "dinaro kuwaitiano"
-  },
-  "es-es": {
-    USD: "d\xF3lar estadounidense",
-    EUR: "euro",
-    GBP: "libra esterlina",
-    CNY: "yuan chino",
-    JPY: "yen japon\xE9s",
-    KRW: "won surcoreano",
-    HKD: "d\xF3lar de Hong Kong",
-    TWD: "nuevo d\xF3lar taiwan\xE9s",
-    CHF: "franco suizo",
-    CAD: "d\xF3lar canadiense",
-    AUD: "d\xF3lar australiano",
-    INR: "rupia india",
-    BHD: "dinar bahrein\xED",
-    KWD: "dinar kuwait\xED"
-  },
-  "ja-jp": {
-    USD: "\u7C73\u30C9\u30EB",
-    EUR: "\u30E6\u30FC\u30ED",
-    GBP: "\u82F1\u30DD\u30F3\u30C9",
-    CNY: "\u4E2D\u56FD\u4EBA\u6C11\u5143",
-    JPY: "\u65E5\u672C\u5186",
-    KRW: "\u97D3\u56FD\u30A6\u30A9\u30F3",
-    HKD: "\u9999\u6E2F\u30C9\u30EB",
-    TWD: "\u53F0\u6E7E\u30C9\u30EB",
-    CHF: "\u30B9\u30A4\u30B9\u30D5\u30E9\u30F3",
-    CAD: "\u30AB\u30CA\u30C0\u30C9\u30EB",
-    AUD: "\u30AA\u30FC\u30B9\u30C8\u30E9\u30EA\u30A2\u30C9\u30EB",
-    INR: "\u30A4\u30F3\u30C9\u30EB\u30D4\u30FC",
-    BHD: "\u30D0\u30FC\u30EC\u30FC\u30F3\u30C7\u30A3\u30FC\u30CA\u30FC\u30EB",
-    KWD: "\u30AF\u30A6\u30A7\u30FC\u30C8\u30C7\u30A3\u30CA\u30FC\u30EB"
-  },
-  "ko-kr": {
-    USD: "\uBBF8\uAD6D \uB2EC\uB7EC",
-    EUR: "\uC720\uB85C",
-    GBP: "\uC601\uAD6D \uD30C\uC6B4\uB4DC",
-    CNY: "\uC911\uAD6D \uC704\uC548",
-    JPY: "\uC77C\uBCF8 \uC5D4",
-    KRW: "\uB300\uD55C\uBBFC\uAD6D \uC6D0",
-    HKD: "\uD64D\uCF69 \uB2EC\uB7EC",
-    TWD: "\uC2E0 \uB300\uB9CC \uB2EC\uB7EC",
-    CHF: "\uC2A4\uC704\uC2A4 \uD504\uB791",
-    CAD: "\uCE90\uB098\uB2E4 \uB2EC\uB7EC",
-    AUD: "\uD638\uC8FC \uB2EC\uB7EC",
-    INR: "\uC778\uB3C4 \uB8E8\uD53C",
-    BHD: "\uBC14\uB808\uC778 \uB514\uB098\uB974",
-    KWD: "\uCFE0\uC6E8\uC774\uD2B8 \uB514\uB098\uB974"
-  },
-  "ru-ru": {
-    USD: "\u0434\u043E\u043B\u043B\u0430\u0440 \u0421\u0428\u0410",
-    EUR: "\u0435\u0432\u0440\u043E",
-    GBP: "\u0431\u0440\u0438\u0442\u0430\u043D\u0441\u043A\u0438\u0439 \u0444\u0443\u043D\u0442",
-    CNY: "\u043A\u0438\u0442\u0430\u0439\u0441\u043A\u0438\u0439 \u044E\u0430\u043D\u044C",
-    JPY: "\u044F\u043F\u043E\u043D\u0441\u043A\u0430\u044F \u0438\u0435\u043D\u0430",
-    KRW: "\u044E\u0436\u043D\u043E\u043A\u043E\u0440\u0435\u0439\u0441\u043A\u0430\u044F \u0432\u043E\u043D\u0430",
-    HKD: "\u0433\u043E\u043D\u043A\u043E\u043D\u0433\u0441\u043A\u0438\u0439 \u0434\u043E\u043B\u043B\u0430\u0440",
-    TWD: "\u043D\u043E\u0432\u044B\u0439 \u0442\u0430\u0439\u0432\u0430\u043D\u044C\u0441\u043A\u0438\u0439 \u0434\u043E\u043B\u043B\u0430\u0440",
-    CHF: "\u0448\u0432\u0435\u0439\u0446\u0430\u0440\u0441\u043A\u0438\u0439 \u0444\u0440\u0430\u043D\u043A",
-    CAD: "\u043A\u0430\u043D\u0430\u0434\u0441\u043A\u0438\u0439 \u0434\u043E\u043B\u043B\u0430\u0440",
-    AUD: "\u0430\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u0439\u0441\u043A\u0438\u0439 \u0434\u043E\u043B\u043B\u0430\u0440",
-    INR: "\u0438\u043D\u0434\u0438\u0439\u0441\u043A\u0430\u044F \u0440\u0443\u043F\u0438\u044F",
-    BHD: "\u0431\u0430\u0445\u0440\u0435\u0439\u043D\u0441\u043A\u0438\u0439 \u0434\u0438\u043D\u0430\u0440",
-    KWD: "\u043A\u0443\u0432\u0435\u0439\u0442\u0441\u043A\u0438\u0439 \u0434\u0438\u043D\u0430\u0440"
-  }
-};
-var DEFAULT_LOCALE_RULES = LOCALE_RULES["en-us"];
-var DEFAULT_CURRENCY_NAMES = CURRENCY_NAMES["en-us"];
-
 // ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/http/client.ts
 var _HttpClient2 = class _HttpClient2 extends BaseHttpClient {
   constructor(config) {
@@ -10769,7 +10842,7 @@ var _HttpClient2 = class _HttpClient2 extends BaseHttpClient {
     return JSON.stringify(parts);
   }
   async sha256Hex(bytes) {
-    return sha256Hash2(bytes);
+    return sha256Hash(bytes);
   }
   buildHeaders(config, skipAuth = false) {
     const headers = super.buildHeaders(config, skipAuth);
@@ -11148,7 +11221,7 @@ var AutomationExecutionsApi = class {
   }
   /** Get an automation execution */
   async retrieve(executionId, requestOptions) {
-    return this.client.request(appApiPath(`/automation/executions/${serializePathParameter2(executionId, { name: "executionId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath(`/automation/executions/${serializePathParameter5(executionId, { name: "executionId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
 var AutomationAgentToolCallsApi = class {
@@ -11162,7 +11235,7 @@ var AutomationAgentToolCallsApi = class {
   }
   /** Complete an agent tool call */
   async complete(executionId, toolCallId, body, requestOptions) {
-    return this.client.request(appApiPath(`/automation/executions/${serializePathParameter2(executionId, { name: "executionId", style: "simple", explode: false })}/agent_tool_calls/${serializePathParameter2(toolCallId, { name: "toolCallId", style: "simple", explode: false })}/complete`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath(`/automation/executions/${serializePathParameter5(executionId, { name: "executionId", style: "simple", explode: false })}/agent_tool_calls/${serializePathParameter5(toolCallId, { name: "toolCallId", style: "simple", explode: false })}/complete`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
   }
 };
 var AutomationAgentResponsesFramesApi = class {
@@ -11172,7 +11245,7 @@ var AutomationAgentResponsesFramesApi = class {
   }
   /** Append a frame to an agent response stream */
   async create(streamId, body, requestOptions) {
-    return this.client.request(appApiPath(`/automation/agent_responses/${serializePathParameter2(streamId, { name: "streamId", style: "simple", explode: false })}/frames`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath(`/automation/agent_responses/${serializePathParameter5(streamId, { name: "streamId", style: "simple", explode: false })}/frames`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
   }
 };
 var AutomationAgentResponsesApi = class {
@@ -11188,7 +11261,7 @@ var AutomationAgentResponsesApi = class {
   }
   /** Complete an agent response stream */
   async complete(streamId, body, requestOptions) {
-    return this.client.request(appApiPath(`/automation/agent_responses/${serializePathParameter2(streamId, { name: "streamId", style: "simple", explode: false })}/complete`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath(`/automation/agent_responses/${serializePathParameter5(streamId, { name: "streamId", style: "simple", explode: false })}/complete`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
   }
 };
 var AutomationApi = class {
@@ -11204,49 +11277,49 @@ var AutomationApi = class {
 function createAutomationApi(client) {
   return new AutomationApi(client);
 }
-function serializePathParameter2(value, spec) {
+function serializePathParameter5(value, spec) {
   if (value === void 0 || value === null) {
     return "";
   }
   const style = spec.style || "simple";
   if (Array.isArray(value)) {
-    return serializePathArray2(spec.name, value, style, spec.explode);
+    return serializePathArray5(spec.name, value, style, spec.explode);
   }
   if (typeof value === "object") {
-    return serializePathObject2(spec.name, value, style, spec.explode);
+    return serializePathObject5(spec.name, value, style, spec.explode);
   }
-  return pathPrefix2(spec.name, style, false) + encodePathValue2(serializePathPrimitive2(value));
+  return pathPrefix5(spec.name, style, false) + encodePathValue5(serializePathPrimitive5(value));
 }
-function serializePathArray2(name, values, style, explode) {
-  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue2(serializePathPrimitive2(item)));
+function serializePathArray5(name, values, style, explode) {
+  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue5(serializePathPrimitive5(item)));
   if (serialized.length === 0) {
-    return pathPrefix2(name, style, false);
+    return pathPrefix5(name, style, false);
   }
   if (style === "matrix") {
     return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
   }
-  return pathPrefix2(name, style, false) + serialized.join(explode ? "." : ",");
+  return pathPrefix5(name, style, false) + serialized.join(explode ? "." : ",");
 }
-function serializePathObject2(name, value, style, explode) {
+function serializePathObject5(name, value, style, explode) {
   const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
   if (entries.length === 0) {
-    return pathPrefix2(name, style, true);
+    return pathPrefix5(name, style, true);
   }
   if (style === "matrix") {
-    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue2(key)}=${encodePathValue2(serializePathPrimitive2(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue2(key), encodePathValue2(serializePathPrimitive2(entryValue))]).join(",")}`;
+    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue5(key)}=${encodePathValue5(serializePathPrimitive5(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue5(key), encodePathValue5(serializePathPrimitive5(entryValue))]).join(",")}`;
   }
-  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue2(key)}=${encodePathValue2(serializePathPrimitive2(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue2(key), encodePathValue2(serializePathPrimitive2(entryValue))]).join(",");
-  return pathPrefix2(name, style, true) + serialized;
+  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue5(key)}=${encodePathValue5(serializePathPrimitive5(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue5(key), encodePathValue5(serializePathPrimitive5(entryValue))]).join(",");
+  return pathPrefix5(name, style, true) + serialized;
 }
-function pathPrefix2(name, style, _objectValue) {
+function pathPrefix5(name, style, _objectValue) {
   if (style === "label") return ".";
   if (style === "matrix") return `;${name}`;
   return "";
 }
-function encodePathValue2(value) {
+function encodePathValue5(value) {
   return encodeURIComponent(value);
 }
-function serializePathPrimitive2(value) {
+function serializePathPrimitive5(value) {
   if (value instanceof Date) {
     return value.toISOString();
   }
@@ -11276,70 +11349,70 @@ var NotificationsApi = class {
   }
   /** List notifications for the current principal */
   async list(params, requestOptions) {
-    const query = buildQueryString2([
+    const query = buildQueryString6([
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString2(appApiPath(`/notifications`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString6(appApiPath(`/notifications`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
   }
   /** Get a notification task */
   async retrieve(notificationId, requestOptions) {
-    return this.client.request(appApiPath(`/notifications/${serializePathParameter3(notificationId, { name: "notificationId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath(`/notifications/${serializePathParameter6(notificationId, { name: "notificationId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
 function createNotificationsApi(client) {
   return new NotificationsApi(client);
 }
-function appendQueryString2(path, rawQueryString) {
+function appendQueryString6(path, rawQueryString) {
   const query = rawQueryString.replace(/^\?+/, "");
   if (!query) {
     return path;
   }
   return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
 }
-function serializePathParameter3(value, spec) {
+function serializePathParameter6(value, spec) {
   if (value === void 0 || value === null) {
     return "";
   }
   const style = spec.style || "simple";
   if (Array.isArray(value)) {
-    return serializePathArray3(spec.name, value, style, spec.explode);
+    return serializePathArray6(spec.name, value, style, spec.explode);
   }
   if (typeof value === "object") {
-    return serializePathObject3(spec.name, value, style, spec.explode);
+    return serializePathObject6(spec.name, value, style, spec.explode);
   }
-  return pathPrefix3(spec.name, style, false) + encodePathValue3(serializePathPrimitive3(value));
+  return pathPrefix6(spec.name, style, false) + encodePathValue6(serializePathPrimitive6(value));
 }
-function serializePathArray3(name, values, style, explode) {
-  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue3(serializePathPrimitive3(item)));
+function serializePathArray6(name, values, style, explode) {
+  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue6(serializePathPrimitive6(item)));
   if (serialized.length === 0) {
-    return pathPrefix3(name, style, false);
+    return pathPrefix6(name, style, false);
   }
   if (style === "matrix") {
     return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
   }
-  return pathPrefix3(name, style, false) + serialized.join(explode ? "." : ",");
+  return pathPrefix6(name, style, false) + serialized.join(explode ? "." : ",");
 }
-function serializePathObject3(name, value, style, explode) {
+function serializePathObject6(name, value, style, explode) {
   const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
   if (entries.length === 0) {
-    return pathPrefix3(name, style, true);
+    return pathPrefix6(name, style, true);
   }
   if (style === "matrix") {
-    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue3(key)}=${encodePathValue3(serializePathPrimitive3(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue3(key), encodePathValue3(serializePathPrimitive3(entryValue))]).join(",")}`;
+    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue6(key)}=${encodePathValue6(serializePathPrimitive6(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue6(key), encodePathValue6(serializePathPrimitive6(entryValue))]).join(",")}`;
   }
-  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue3(key)}=${encodePathValue3(serializePathPrimitive3(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue3(key), encodePathValue3(serializePathPrimitive3(entryValue))]).join(",");
-  return pathPrefix3(name, style, true) + serialized;
+  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue6(key)}=${encodePathValue6(serializePathPrimitive6(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue6(key), encodePathValue6(serializePathPrimitive6(entryValue))]).join(",");
+  return pathPrefix6(name, style, true) + serialized;
 }
-function pathPrefix3(name, style, _objectValue) {
+function pathPrefix6(name, style, _objectValue) {
   if (style === "label") return ".";
   if (style === "matrix") return `;${name}`;
   return "";
 }
-function encodePathValue3(value) {
+function encodePathValue6(value) {
   return encodeURIComponent(value);
 }
-function serializePathPrimitive3(value) {
+function serializePathPrimitive6(value) {
   if (value instanceof Date) {
     return value.toISOString();
   }
@@ -11348,76 +11421,76 @@ function serializePathPrimitive3(value) {
   }
   return String(value);
 }
-function buildQueryString2(parameters) {
+function buildQueryString6(parameters) {
   const pairs = [];
   for (const parameter of parameters) {
-    appendSerializedParameter2(pairs, parameter);
+    appendSerializedParameter6(pairs, parameter);
   }
   return pairs.join("&");
 }
-function appendSerializedParameter2(pairs, parameter) {
+function appendSerializedParameter6(pairs, parameter) {
   if (parameter.value === void 0 || parameter.value === null) {
     return;
   }
   if (parameter.contentType) {
-    pairs.push(`${encodeQueryComponent2(parameter.name)}=${encodeQueryValue2(JSON.stringify(parameter.value), parameter.allowReserved)}`);
+    pairs.push(`${encodeQueryComponent6(parameter.name)}=${encodeQueryValue6(JSON.stringify(parameter.value), parameter.allowReserved)}`);
     return;
   }
   const style = parameter.style || "form";
   if (style === "deepObject") {
-    appendDeepObjectParameter2(pairs, parameter.name, parameter.value, parameter.allowReserved);
+    appendDeepObjectParameter6(pairs, parameter.name, parameter.value, parameter.allowReserved);
     return;
   }
   if (Array.isArray(parameter.value)) {
-    appendArrayParameter2(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    appendArrayParameter6(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
     return;
   }
   if (typeof parameter.value === "object") {
-    appendObjectParameter2(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    appendObjectParameter6(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
     return;
   }
-  pairs.push(`${encodeQueryComponent2(parameter.name)}=${encodeQueryValue2(serializePrimitive2(parameter.value), parameter.allowReserved)}`);
+  pairs.push(`${encodeQueryComponent6(parameter.name)}=${encodeQueryValue6(serializePrimitive6(parameter.value), parameter.allowReserved)}`);
 }
-function appendArrayParameter2(pairs, name, value, style, explode, allowReserved) {
-  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive2(item));
+function appendArrayParameter6(pairs, name, value, style, explode, allowReserved) {
+  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive6(item));
   if (values.length === 0) {
     return;
   }
   if (style === "form" && explode) {
     for (const item of values) {
-      pairs.push(`${encodeQueryComponent2(name)}=${encodeQueryValue2(item, allowReserved)}`);
+      pairs.push(`${encodeQueryComponent6(name)}=${encodeQueryValue6(item, allowReserved)}`);
     }
     return;
   }
-  pairs.push(`${encodeQueryComponent2(name)}=${encodeQueryValue2(values.join(","), allowReserved)}`);
+  pairs.push(`${encodeQueryComponent6(name)}=${encodeQueryValue6(values.join(","), allowReserved)}`);
 }
-function appendObjectParameter2(pairs, name, value, style, explode, allowReserved) {
+function appendObjectParameter6(pairs, name, value, style, explode, allowReserved) {
   const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
   if (entries.length === 0) {
     return;
   }
   if (style === "form" && explode) {
     for (const [key, entryValue] of entries) {
-      pairs.push(`${encodeQueryComponent2(key)}=${encodeQueryValue2(serializePrimitive2(entryValue), allowReserved)}`);
+      pairs.push(`${encodeQueryComponent6(key)}=${encodeQueryValue6(serializePrimitive6(entryValue), allowReserved)}`);
     }
     return;
   }
-  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive2(entryValue)]).join(",");
-  pairs.push(`${encodeQueryComponent2(name)}=${encodeQueryValue2(serialized, allowReserved)}`);
+  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive6(entryValue)]).join(",");
+  pairs.push(`${encodeQueryComponent6(name)}=${encodeQueryValue6(serialized, allowReserved)}`);
 }
-function appendDeepObjectParameter2(pairs, name, value, allowReserved) {
+function appendDeepObjectParameter6(pairs, name, value, allowReserved) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    pairs.push(`${encodeQueryComponent2(name)}=${encodeQueryValue2(serializePrimitive2(value), allowReserved)}`);
+    pairs.push(`${encodeQueryComponent6(name)}=${encodeQueryValue6(serializePrimitive6(value), allowReserved)}`);
     return;
   }
   for (const [key, entryValue] of Object.entries(value)) {
     if (entryValue === void 0 || entryValue === null) {
       continue;
     }
-    pairs.push(`${encodeQueryComponent2(`${name}[${key}]`)}=${encodeQueryValue2(serializePrimitive2(entryValue), allowReserved)}`);
+    pairs.push(`${encodeQueryComponent6(`${name}[${key}]`)}=${encodeQueryValue6(serializePrimitive6(entryValue), allowReserved)}`);
   }
 }
-function serializePrimitive2(value) {
+function serializePrimitive6(value) {
   if (value instanceof Date) {
     return value.toISOString();
   }
@@ -11426,10 +11499,10 @@ function serializePrimitive2(value) {
   }
   return String(value);
 }
-function encodeQueryComponent2(value) {
+function encodeQueryComponent6(value) {
   return encodeURIComponent(value);
 }
-function encodeQueryValue2(value, allowReserved) {
+function encodeQueryValue6(value, allowReserved) {
   const encoded = encodeURIComponent(value);
   if (!allowReserved) {
     return encoded;
@@ -11595,7 +11668,7 @@ var ChatConversationsKnowledgebaseApi = class {
   }
   /** Retrieve the group knowledgebase link */
   async retrieve(conversationId, requestOptions) {
-    return this.client.request(appApiPath(`/chat/conversations/${serializePathParameter4(conversationId, { name: "conversationId", style: "simple", explode: false })}/knowledgebase`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath(`/chat/conversations/${serializePathParameter7(conversationId, { name: "conversationId", style: "simple", explode: false })}/knowledgebase`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
   /** Lazily create the group knowledgebase */
   async create(conversationId, body, params, requestOptions) {
@@ -11605,7 +11678,7 @@ var ChatConversationsKnowledgebaseApi = class {
       },
       {}
     );
-    return this.client.request(appApiPath(`/chat/conversations/${serializePathParameter4(conversationId, { name: "conversationId", style: "simple", explode: false })}/knowledgebase`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath(`/chat/conversations/${serializePathParameter7(conversationId, { name: "conversationId", style: "simple", explode: false })}/knowledgebase`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
   }
   /** Issue a one-time group knowledgebase launch ticket */
   async launch(conversationId, body, params, requestOptions) {
@@ -11615,7 +11688,7 @@ var ChatConversationsKnowledgebaseApi = class {
       },
       {}
     );
-    return this.client.request(appApiPath(`/chat/conversations/${serializePathParameter4(conversationId, { name: "conversationId", style: "simple", explode: false })}/knowledgebase/launch`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath(`/chat/conversations/${serializePathParameter7(conversationId, { name: "conversationId", style: "simple", explode: false })}/knowledgebase/launch`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
   }
 };
 var ChatConversationsApi2 = class {
@@ -11633,7 +11706,7 @@ var ChatConversationsApi2 = class {
       },
       {}
     );
-    return this.client.request(appApiPath(`/chat/conversations/${serializePathParameter4(conversationId, { name: "conversationId", style: "simple", explode: false })}/archive`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "command" });
+    return this.client.request(appApiPath(`/chat/conversations/${serializePathParameter7(conversationId, { name: "conversationId", style: "simple", explode: false })}/archive`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "command" });
   }
 };
 var ChatApi2 = class {
@@ -11645,49 +11718,49 @@ var ChatApi2 = class {
 function createChatApi2(client) {
   return new ChatApi2(client);
 }
-function serializePathParameter4(value, spec) {
+function serializePathParameter7(value, spec) {
   if (value === void 0 || value === null) {
     return "";
   }
   const style = spec.style || "simple";
   if (Array.isArray(value)) {
-    return serializePathArray4(spec.name, value, style, spec.explode);
+    return serializePathArray7(spec.name, value, style, spec.explode);
   }
   if (typeof value === "object") {
-    return serializePathObject4(spec.name, value, style, spec.explode);
+    return serializePathObject7(spec.name, value, style, spec.explode);
   }
-  return pathPrefix4(spec.name, style, false) + encodePathValue4(serializePathPrimitive4(value));
+  return pathPrefix7(spec.name, style, false) + encodePathValue7(serializePathPrimitive7(value));
 }
-function serializePathArray4(name, values, style, explode) {
-  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue4(serializePathPrimitive4(item)));
+function serializePathArray7(name, values, style, explode) {
+  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue7(serializePathPrimitive7(item)));
   if (serialized.length === 0) {
-    return pathPrefix4(name, style, false);
+    return pathPrefix7(name, style, false);
   }
   if (style === "matrix") {
     return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
   }
-  return pathPrefix4(name, style, false) + serialized.join(explode ? "." : ",");
+  return pathPrefix7(name, style, false) + serialized.join(explode ? "." : ",");
 }
-function serializePathObject4(name, value, style, explode) {
+function serializePathObject7(name, value, style, explode) {
   const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
   if (entries.length === 0) {
-    return pathPrefix4(name, style, true);
+    return pathPrefix7(name, style, true);
   }
   if (style === "matrix") {
-    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue4(key)}=${encodePathValue4(serializePathPrimitive4(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue4(key), encodePathValue4(serializePathPrimitive4(entryValue))]).join(",")}`;
+    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue7(key)}=${encodePathValue7(serializePathPrimitive7(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue7(key), encodePathValue7(serializePathPrimitive7(entryValue))]).join(",")}`;
   }
-  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue4(key)}=${encodePathValue4(serializePathPrimitive4(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue4(key), encodePathValue4(serializePathPrimitive4(entryValue))]).join(",");
-  return pathPrefix4(name, style, true) + serialized;
+  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue7(key)}=${encodePathValue7(serializePathPrimitive7(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue7(key), encodePathValue7(serializePathPrimitive7(entryValue))]).join(",");
+  return pathPrefix7(name, style, true) + serialized;
 }
-function pathPrefix4(name, style, _objectValue) {
+function pathPrefix7(name, style, _objectValue) {
   if (style === "label") return ".";
   if (style === "matrix") return `;${name}`;
   return "";
 }
-function encodePathValue4(value) {
+function encodePathValue7(value) {
   return encodeURIComponent(value);
 }
-function serializePathPrimitive4(value) {
+function serializePathPrimitive7(value) {
   if (value instanceof Date) {
     return value.toISOString();
   }
@@ -11785,13 +11858,13 @@ var SdkworkImAppClient = class {
     return this.httpClient;
   }
 };
-function createClient2(config) {
+function createClient3(config) {
   return new SdkworkImAppClient(config);
 }
 
 // ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/src/index.ts
-function createClient3(config) {
-  return createClient2(config);
+function createClient4(config) {
+  return createClient3(config);
 }
 
 // packages/sdkwork-im-mp-core/src/sdk/imAppSdkClient.ts
@@ -11815,2740 +11888,12 @@ function createImAppSdkClientConfig(baseUrl, overrides = {}) {
   return config;
 }
 function initImAppSdkClient(config) {
-  imAppSdkClient = createClient3(config);
+  imAppSdkClient = createClient4(config);
   return imAppSdkClient;
 }
 
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/sdk-common/dist/core/types.js
-var DEFAULT_RETRY_CONFIG2 = {
-  maxRetries: 3,
-  retryDelay: 1e3,
-  retryBackoff: "exponential",
-  maxRetryDelay: 3e4
-};
-var DEFAULT_CACHE_CONFIG2 = {
-  enabled: false,
-  ttl: 300 * 1e3,
-  maxSize: 100
-};
-var SUCCESS_CODES2 = [
-  0,
-  200,
-  2e3,
-  "0",
-  "200",
-  "2000"
-];
-var HTTP_STATUS2 = {
-  OK: 200,
-  CREATED: 201,
-  NO_CONTENT: 204,
-  BAD_REQUEST: 400,
-  UNAUTHORIZED: 401,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  METHOD_NOT_ALLOWED: 405,
-  CONFLICT: 409,
-  UNPROCESSABLE_ENTITY: 422,
-  TOO_MANY_REQUESTS: 429,
-  INTERNAL_SERVER_ERROR: 500,
-  BAD_GATEWAY: 502,
-  SERVICE_UNAVAILABLE: 503,
-  GATEWAY_TIMEOUT: 504
-};
-var MIME_TYPES2 = {
-  JSON: "application/json",
-  FORM_DATA: "multipart/form-data",
-  URL_ENCODED: "application/x-www-form-urlencoded",
-  OCTET_STREAM: "application/octet-stream",
-  TEXT_PLAIN: "text/plain",
-  TEXT_HTML: "text/html"
-};
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/sdk-common/dist/auth/token-manager.js
-var DefaultAuthTokenManager2 = class {
-  constructor(initialTokens, events) {
-    __publicField(this, "tokens", {});
-    __publicField(this, "events");
-    if (initialTokens) {
-      this.tokens = { ...initialTokens };
-      if (initialTokens.expiresIn && !initialTokens.expiresAt) this.tokens.expiresAt = Date.now() + initialTokens.expiresIn * 1e3;
-    }
-    this.events = events;
-  }
-  getAccessToken() {
-    return this.tokens.accessToken;
-  }
-  getAuthToken() {
-    return this.tokens.authToken;
-  }
-  getRefreshToken() {
-    return this.tokens.refreshToken;
-  }
-  getTokens() {
-    return { ...this.tokens };
-  }
-  setTokens(tokens) {
-    var _a, _b;
-    this.tokens = { ...tokens };
-    if (tokens.expiresIn && !tokens.expiresAt) this.tokens.expiresAt = Date.now() + tokens.expiresIn * 1e3;
-    (_b = (_a = this.events) == null ? void 0 : _a.onTokenSet) == null ? void 0 : _b.call(_a, this.tokens);
-  }
-  setAccessToken(token) {
-    var _a, _b;
-    this.tokens.accessToken = token;
-    (_b = (_a = this.events) == null ? void 0 : _a.onTokenSet) == null ? void 0 : _b.call(_a, this.tokens);
-  }
-  setAuthToken(token) {
-    var _a, _b;
-    this.tokens.authToken = token;
-    (_b = (_a = this.events) == null ? void 0 : _a.onTokenSet) == null ? void 0 : _b.call(_a, this.tokens);
-  }
-  setRefreshToken(token) {
-    this.tokens.refreshToken = token;
-  }
-  clearTokens() {
-    var _a, _b;
-    this.tokens = {};
-    (_b = (_a = this.events) == null ? void 0 : _a.onTokenCleared) == null ? void 0 : _b.call(_a);
-  }
-  clearAuthToken() {
-    delete this.tokens.authToken;
-  }
-  clearAccessToken() {
-    delete this.tokens.accessToken;
-  }
-  isExpired() {
-    var _a, _b;
-    if (!this.tokens.expiresAt) return false;
-    const expired = Date.now() >= this.tokens.expiresAt;
-    if (expired) (_b = (_a = this.events) == null ? void 0 : _a.onTokenExpired) == null ? void 0 : _b.call(_a);
-    return expired;
-  }
-  isValid() {
-    return this.hasToken() && !this.isExpired();
-  }
-  hasToken() {
-    return !!(this.tokens.accessToken || this.tokens.authToken);
-  }
-  hasAuthToken() {
-    return !!this.tokens.authToken;
-  }
-  hasAccessToken() {
-    return !!this.tokens.accessToken;
-  }
-  willExpireIn(seconds) {
-    if (!this.tokens.expiresAt) return false;
-    return Date.now() + seconds * 1e3 >= this.tokens.expiresAt;
-  }
-};
-function buildAuthHeaders2(authMode, apiKey, tokenManager) {
-  const headers = {};
-  if (authMode === "apikey") {
-    if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
-  } else if (authMode === "dual-token") {
-    if (tokenManager) {
-      const accessToken = tokenManager.getAccessToken();
-      const authToken = tokenManager.getAuthToken();
-      if (accessToken) headers["Access-Token"] = accessToken;
-      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
-    }
-  }
-  return headers;
-}
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/sdk-common/dist/utils/logger.js
-var LOG_LEVELS2 = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
-  silent: 4
-};
-var ConsoleLogger2 = class {
-  constructor(config = {}) {
-    __publicField(this, "level");
-    __publicField(this, "prefix");
-    __publicField(this, "timestamp");
-    __publicField(this, "colors");
-    var _a, _b, _c, _d;
-    this.level = (_a = config.level) != null ? _a : "info";
-    this.prefix = (_b = config.prefix) != null ? _b : "[SDK]";
-    this.timestamp = (_c = config.timestamp) != null ? _c : true;
-    this.colors = (_d = config.colors) != null ? _d : true;
-  }
-  formatMessage(level, message) {
-    const parts = [];
-    if (this.timestamp) parts.push((/* @__PURE__ */ new Date()).toISOString());
-    parts.push(this.prefix);
-    parts.push(`[${level.toUpperCase()}]`);
-    parts.push(message);
-    return parts.join(" ");
-  }
-  getColorCode(level) {
-    if (!this.colors) return "";
-    return {
-      debug: "\x1B[36m",
-      info: "\x1B[32m",
-      warn: "\x1B[33m",
-      error: "\x1B[31m",
-      silent: ""
-    }[level];
-  }
-  getResetCode() {
-    return this.colors ? "\x1B[0m" : "";
-  }
-  log(level, message, ...args) {
-    if (LOG_LEVELS2[level] < LOG_LEVELS2[this.level]) return;
-    const formattedMessage = this.formatMessage(level, message);
-    const output = `${this.getColorCode(level)}${formattedMessage}${this.getResetCode()}`;
-    switch (level) {
-      case "debug":
-        console.debug(output, ...args);
-        break;
-      case "info":
-        console.info(output, ...args);
-        break;
-      case "warn":
-        console.warn(output, ...args);
-        break;
-      case "error":
-        console.error(output, ...args);
-        break;
-    }
-  }
-  debug(message, ...args) {
-    this.log("debug", message, ...args);
-  }
-  info(message, ...args) {
-    this.log("info", message, ...args);
-  }
-  warn(message, ...args) {
-    this.log("warn", message, ...args);
-  }
-  error(message, ...args) {
-    this.log("error", message, ...args);
-  }
-  setLevel(level) {
-    this.level = level;
-  }
-};
-var noopLogger2 = {
-  debug: () => {
-  },
-  info: () => {
-  },
-  warn: () => {
-  },
-  error: () => {
-  },
-  log: () => {
-  },
-  setLevel: () => {
-  }
-};
-function createLogger2(config) {
-  if ((config == null ? void 0 : config.level) === "silent") return noopLogger2;
-  return new ConsoleLogger2(config);
-}
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/sdk-common/dist/utils/cache.js
-var MemoryCacheStore2 = class {
-  constructor(config = {}) {
-    __publicField(this, "cache", /* @__PURE__ */ new Map());
-    __publicField(this, "maxSize");
-    __publicField(this, "defaultTtl");
-    var _a, _b;
-    this.maxSize = (_a = config.maxSize) != null ? _a : DEFAULT_CACHE_CONFIG2.maxSize;
-    this.defaultTtl = (_b = config.ttl) != null ? _b : DEFAULT_CACHE_CONFIG2.ttl;
-  }
-  get(key) {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-    if (Date.now() > entry.expiresAt) {
-      this.cache.delete(key);
-      return null;
-    }
-    return entry.value;
-  }
-  set(key, value, ttl) {
-    if (this.cache.size >= this.maxSize) this.evictOldest();
-    const expiresAt = Date.now() + (ttl != null ? ttl : this.defaultTtl);
-    this.cache.set(key, {
-      value,
-      expiresAt
-    });
-  }
-  has(key) {
-    const entry = this.cache.get(key);
-    if (!entry) return false;
-    if (Date.now() > entry.expiresAt) {
-      this.cache.delete(key);
-      return false;
-    }
-    return true;
-  }
-  delete(key) {
-    return this.cache.delete(key);
-  }
-  clear() {
-    this.cache.clear();
-  }
-  size() {
-    return this.cache.size;
-  }
-  evictOldest() {
-    let oldestKey = null;
-    let oldestTime = Infinity;
-    for (const [key, entry] of this.cache) if (entry.expiresAt < oldestTime) {
-      oldestTime = entry.expiresAt;
-      oldestKey = key;
-    }
-    if (oldestKey) this.cache.delete(oldestKey);
-  }
-};
-function createCacheStore2(config) {
-  return new MemoryCacheStore2(config);
-}
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/sdk-common/dist/errors/index.js
-var SdkError2 = class extends Error {
-  constructor(message, code = "UNKNOWN", httpStatus, options) {
-    var _a, _b;
-    super(message, { cause: options == null ? void 0 : options.cause });
-    __publicField(this, "code");
-    __publicField(this, "httpStatus");
-    __publicField(this, "details");
-    __publicField(this, "timestamp");
-    __publicField(this, "traceId");
-    __publicField(this, "problem");
-    __publicField(this, "metadata");
-    this.name = this.constructor.name;
-    this.code = code;
-    this.httpStatus = httpStatus;
-    this.details = options == null ? void 0 : options.details;
-    this.timestamp = Date.now();
-    this.traceId = (_b = options == null ? void 0 : options.traceId) != null ? _b : (_a = options == null ? void 0 : options.problem) == null ? void 0 : _a.traceId;
-    this.problem = options == null ? void 0 : options.problem;
-    this.metadata = options == null ? void 0 : options.metadata;
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-  static fromApiResult(result, httpStatus) {
-    const code = String(result.code);
-    const message = result.msg || result.message || "Unknown error";
-    switch (code) {
-      case "400":
-      case "4000":
-        return new ValidationError2(message);
-      case "401":
-      case "4010":
-        return new AuthenticationError2(message);
-      case "403":
-      case "4030":
-        return new ForbiddenError2(message);
-      case "404":
-      case "4040":
-        return new NotFoundError2(message);
-      case "409":
-      case "4090":
-        return new ConflictError2(message);
-      case "429":
-      case "4290":
-        return new RateLimitError2(message);
-      default:
-        if (code.startsWith("5")) return new ServerError2(message, httpStatus != null ? httpStatus : HTTP_STATUS2.INTERNAL_SERVER_ERROR);
-        return new BusinessError2(message, result.code, result.data);
-    }
-  }
-  static fromHttpStatus(status, message, options) {
-    const defaultMessage = message != null ? message : `HTTP Error ${status}`;
-    switch (status) {
-      case HTTP_STATUS2.BAD_REQUEST:
-      case HTTP_STATUS2.UNPROCESSABLE_ENTITY:
-        return new ValidationError2(defaultMessage, void 0, options);
-      case HTTP_STATUS2.UNAUTHORIZED:
-        return new AuthenticationError2(defaultMessage, options);
-      case HTTP_STATUS2.FORBIDDEN:
-        return new ForbiddenError2(defaultMessage, options);
-      case HTTP_STATUS2.NOT_FOUND:
-        return new NotFoundError2(defaultMessage, options);
-      case HTTP_STATUS2.METHOD_NOT_ALLOWED:
-        return new ValidationError2(defaultMessage, void 0, options);
-      case HTTP_STATUS2.CONFLICT:
-        return new ConflictError2(defaultMessage, options);
-      case HTTP_STATUS2.TOO_MANY_REQUESTS:
-        return new RateLimitError2(defaultMessage, void 0, options);
-      case HTTP_STATUS2.INTERNAL_SERVER_ERROR:
-        return new ServerError2(defaultMessage, status, options);
-      case HTTP_STATUS2.BAD_GATEWAY:
-        return new BadGatewayError2(defaultMessage, options);
-      case HTTP_STATUS2.SERVICE_UNAVAILABLE:
-        return new ServiceUnavailableError2(defaultMessage, options);
-      case HTTP_STATUS2.GATEWAY_TIMEOUT:
-        return new GatewayTimeoutError2(defaultMessage, options);
-      default:
-        if (status >= 500) return new ServerError2(defaultMessage, status, options);
-        return new NetworkError2(defaultMessage, options);
-    }
-  }
-  toJSON() {
-    return {
-      name: this.name,
-      message: this.message,
-      code: this.code,
-      httpStatus: this.httpStatus,
-      details: this.details,
-      timestamp: this.timestamp,
-      traceId: this.traceId,
-      problem: this.problem,
-      metadata: this.metadata
-    };
-  }
-  toString() {
-    return `${this.name}: ${this.message} (code: ${this.code})`;
-  }
-  isRetryable() {
-    return isRetryableError2(this);
-  }
-  isAuthError() {
-    return this.code === "UNAUTHORIZED" || this.code === "TOKEN_EXPIRED" || this.code === "TOKEN_INVALID";
-  }
-  isNetworkError() {
-    return this.code === "NETWORK_ERROR" || this.code === "TIMEOUT";
-  }
-  isClientError() {
-    return this.httpStatus !== void 0 && this.httpStatus >= 400 && this.httpStatus < 500;
-  }
-  isServerError() {
-    return this.httpStatus !== void 0 && this.httpStatus >= 500;
-  }
-};
-var NetworkError2 = class extends SdkError2 {
-  constructor(message = "Network error", options) {
-    super(message, "NETWORK_ERROR", void 0, options);
-  }
-};
-var TimeoutError2 = class extends SdkError2 {
-  constructor(message = "Request timeout", timeout, options) {
-    super(message, "TIMEOUT", void 0, options);
-    __publicField(this, "timeout");
-    this.timeout = timeout;
-  }
-  toJSON() {
-    return {
-      ...super.toJSON(),
-      timeout: this.timeout
-    };
-  }
-};
-var CancelledError2 = class extends SdkError2 {
-  constructor(message = "Request cancelled", options) {
-    super(message, "CANCELLED", void 0, options);
-  }
-};
-var AuthenticationError2 = class extends SdkError2 {
-  constructor(message = "Authentication failed", options) {
-    super(message, "UNAUTHORIZED", HTTP_STATUS2.UNAUTHORIZED, options);
-  }
-};
-var ForbiddenError2 = class extends SdkError2 {
-  constructor(message = "Access forbidden", options) {
-    super(message, "FORBIDDEN", HTTP_STATUS2.FORBIDDEN, options);
-  }
-};
-var NotFoundError2 = class extends SdkError2 {
-  constructor(message = "Resource not found", options) {
-    super(message, "NOT_FOUND", HTTP_STATUS2.NOT_FOUND, options);
-  }
-};
-var ValidationError2 = class extends SdkError2 {
-  constructor(message = "Validation error", details, options) {
-    super(message, "VALIDATION_ERROR", HTTP_STATUS2.BAD_REQUEST, details === void 0 ? options : {
-      ...options,
-      details
-    });
-  }
-};
-var ConflictError2 = class extends SdkError2 {
-  constructor(message = "Resource conflict", options) {
-    super(message, "CONFLICT", HTTP_STATUS2.CONFLICT, options);
-  }
-};
-var RateLimitError2 = class extends SdkError2 {
-  constructor(message = "Rate limit exceeded", retryAfter, options) {
-    super(message, "RATE_LIMIT", HTTP_STATUS2.TOO_MANY_REQUESTS, options);
-    __publicField(this, "retryAfter");
-    this.retryAfter = retryAfter;
-  }
-  toJSON() {
-    return {
-      ...super.toJSON(),
-      retryAfter: this.retryAfter
-    };
-  }
-};
-var ServerError2 = class extends SdkError2 {
-  constructor(message = "Server error", httpStatus = HTTP_STATUS2.INTERNAL_SERVER_ERROR, options) {
-    super(message, "SERVER_ERROR", httpStatus, options);
-  }
-};
-var BadGatewayError2 = class extends ServerError2 {
-  constructor(message = "Bad gateway", options) {
-    super(message, HTTP_STATUS2.BAD_GATEWAY, options);
-    this.code = "BAD_GATEWAY";
-  }
-};
-var ServiceUnavailableError2 = class extends ServerError2 {
-  constructor(message = "Service unavailable", options) {
-    super(message, HTTP_STATUS2.SERVICE_UNAVAILABLE, options);
-    this.code = "SERVICE_UNAVAILABLE";
-  }
-};
-var GatewayTimeoutError2 = class extends ServerError2 {
-  constructor(message = "Gateway timeout", options) {
-    super(message, HTTP_STATUS2.GATEWAY_TIMEOUT, options);
-    this.code = "GATEWAY_TIMEOUT";
-  }
-};
-var BusinessError2 = class extends SdkError2 {
-  constructor(message, code, data, options) {
-    super(message, "BUSINESS_ERROR", void 0, options);
-    __publicField(this, "businessCode");
-    __publicField(this, "data");
-    this.businessCode = code;
-    this.data = data;
-  }
-  toJSON() {
-    return {
-      ...super.toJSON(),
-      businessCode: this.businessCode,
-      data: this.data
-    };
-  }
-};
-function isRetryableError2(error) {
-  if (!(error instanceof SdkError2)) return false;
-  return error instanceof NetworkError2 || error instanceof TimeoutError2 || error instanceof ServerError2 || error instanceof RateLimitError2 || error instanceof BadGatewayError2 || error instanceof ServiceUnavailableError2 || error instanceof GatewayTimeoutError2;
-}
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/sdk-common/dist/utils/retry.js
-function sleep2(ms) {
-  return new Promise((resolve2) => setTimeout(resolve2, ms));
-}
-function calculateDelay2(attempt, baseDelay, backoff, maxDelay) {
-  let delay;
-  switch (backoff) {
-    case "fixed":
-      delay = baseDelay;
-      break;
-    case "linear":
-      delay = baseDelay * attempt;
-      break;
-    case "exponential":
-      delay = baseDelay * Math.pow(2, attempt - 1);
-      break;
-    default:
-      delay = baseDelay;
-  }
-  return Math.min(delay, maxDelay);
-}
-function shouldRetry2(error, attempt, config) {
-  if (attempt >= config.maxRetries) return false;
-  if (config.retryCondition) return config.retryCondition(error, attempt);
-  return isRetryableError2(error);
-}
-async function withRetry2(fn, config = {}) {
-  const fullConfig = {
-    ...DEFAULT_RETRY_CONFIG2,
-    ...config
-  };
-  let lastError;
-  let attempt = 0;
-  while (attempt <= fullConfig.maxRetries) try {
-    return await fn();
-  } catch (error) {
-    lastError = error;
-    attempt++;
-    if (!shouldRetry2(lastError, attempt, fullConfig)) throw lastError;
-    await sleep2(calculateDelay2(attempt, fullConfig.retryDelay, fullConfig.retryBackoff, fullConfig.maxRetryDelay));
-  }
-  throw lastError;
-}
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/sdk-common/dist/sdkwork-utils/packages/sdkwork-utils-typescript/src/runtime/random.js
-function getCrypto2() {
-  const crypto = globalThis.crypto;
-  if (!(crypto == null ? void 0 : crypto.getRandomValues)) throw new Error("Web Crypto API is not available in this environment.");
-  return crypto;
-}
-function randomBytes4(length) {
-  const bytes = new Uint8Array(length);
-  getCrypto2().getRandomValues(bytes);
-  return bytes;
-}
-function randomUuid4() {
-  var _a, _b;
-  const crypto = getCrypto2();
-  if (typeof crypto.randomUUID === "function") try {
-    return crypto.randomUUID.call(crypto);
-  } catch {
-  }
-  const bytes = randomBytes4(16);
-  bytes[6] = ((_a = bytes[6]) != null ? _a : 0) & 15 | 64;
-  bytes[8] = ((_b = bytes[8]) != null ? _b : 0) & 63 | 128;
-  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/sdk-common/dist/sdkwork-utils/packages/sdkwork-utils-typescript/src/id.js
-function uuid2() {
-  return randomUuid4();
-}
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/sdk-common/dist/utils/string.js
-var StringUtils2;
-(function(StringUtils3) {
-  function isEmpty(value) {
-    return value === null || value === void 0 || value === "";
-  }
-  StringUtils3.isEmpty = isEmpty;
-  function isNotEmpty(value) {
-    return !isEmpty(value);
-  }
-  StringUtils3.isNotEmpty = isNotEmpty;
-  function isBlank4(value) {
-    if (isEmpty(value)) return true;
-    if (typeof value !== "string") return false;
-    return value.trim().length === 0;
-  }
-  StringUtils3.isBlank = isBlank4;
-  function isNotBlank(value) {
-    return !isBlank4(value);
-  }
-  StringUtils3.isNotBlank = isNotBlank;
-  function trim4(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.trim()) != null ? _a : "";
-  }
-  StringUtils3.trim = trim4;
-  function trimStart(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.trimStart()) != null ? _a : "";
-  }
-  StringUtils3.trimStart = trimStart;
-  function trimEnd(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.trimEnd()) != null ? _a : "";
-  }
-  StringUtils3.trimEnd = trimEnd;
-  function toLowerCase(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.toLowerCase()) != null ? _a : "";
-  }
-  StringUtils3.toLowerCase = toLowerCase;
-  function toUpperCase(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.toUpperCase()) != null ? _a : "";
-  }
-  StringUtils3.toUpperCase = toUpperCase;
-  function capitalize(value) {
-    if (isEmpty(value)) return "";
-    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
-  }
-  StringUtils3.capitalize = capitalize;
-  function capitalizeWords(value) {
-    if (isEmpty(value)) return "";
-    return value.split(/\s+/).map(capitalize).join(" ");
-  }
-  StringUtils3.capitalizeWords = capitalizeWords;
-  function camelCase(value) {
-    if (isEmpty(value)) return "";
-    return value.replace(/[-_\s]+(.)?/g, (_, char) => char ? char.toUpperCase() : "").replace(/^(.)/, (char) => char.toLowerCase());
-  }
-  StringUtils3.camelCase = camelCase;
-  function pascalCase(value) {
-    if (isEmpty(value)) return "";
-    const camel = camelCase(value);
-    return camel.charAt(0).toUpperCase() + camel.slice(1);
-  }
-  StringUtils3.pascalCase = pascalCase;
-  function kebabCase(value) {
-    if (isEmpty(value)) return "";
-    return value.replace(/([a-z])([A-Z])/g, "$1-$2").replace(/[\s_]+/g, "-").toLowerCase();
-  }
-  StringUtils3.kebabCase = kebabCase;
-  function snakeCase(value) {
-    if (isEmpty(value)) return "";
-    return value.replace(/([a-z])([A-Z])/g, "$1_$2").replace(/[\s-]+/g, "_").toLowerCase();
-  }
-  StringUtils3.snakeCase = snakeCase;
-  function constantCase(value) {
-    return snakeCase(value).toUpperCase();
-  }
-  StringUtils3.constantCase = constantCase;
-  function truncate(value, length, suffix = "...") {
-    if (isEmpty(value) || value.length <= length) return value != null ? value : "";
-    return value.slice(0, length - suffix.length) + suffix;
-  }
-  StringUtils3.truncate = truncate;
-  function truncateWords(value, wordCount2, suffix = "...") {
-    if (isEmpty(value)) return "";
-    const words2 = value.split(/\s+/);
-    if (words2.length <= wordCount2) return value;
-    return words2.slice(0, wordCount2).join(" ") + suffix;
-  }
-  StringUtils3.truncateWords = truncateWords;
-  function padStart(value, length, padChar = " ") {
-    var _a;
-    return (_a = value == null ? void 0 : value.padStart(length, padChar)) != null ? _a : "";
-  }
-  StringUtils3.padStart = padStart;
-  function padEnd(value, length, padChar = " ") {
-    var _a;
-    return (_a = value == null ? void 0 : value.padEnd(length, padChar)) != null ? _a : "";
-  }
-  StringUtils3.padEnd = padEnd;
-  function repeat(value, count) {
-    if (isEmpty(value) || count <= 0) return "";
-    return value.repeat(count);
-  }
-  StringUtils3.repeat = repeat;
-  function reverse(value) {
-    if (isEmpty(value)) return "";
-    return value.split("").reverse().join("");
-  }
-  StringUtils3.reverse = reverse;
-  function startsWith(value, prefix) {
-    var _a;
-    return (_a = value == null ? void 0 : value.startsWith(prefix)) != null ? _a : false;
-  }
-  StringUtils3.startsWith = startsWith;
-  function endsWith(value, suffix) {
-    var _a;
-    return (_a = value == null ? void 0 : value.endsWith(suffix)) != null ? _a : false;
-  }
-  StringUtils3.endsWith = endsWith;
-  function contains(value, search) {
-    var _a;
-    return (_a = value == null ? void 0 : value.includes(search)) != null ? _a : false;
-  }
-  StringUtils3.contains = contains;
-  function containsIgnoreCase(value, search) {
-    var _a;
-    return (_a = value == null ? void 0 : value.toLowerCase().includes(search.toLowerCase())) != null ? _a : false;
-  }
-  StringUtils3.containsIgnoreCase = containsIgnoreCase;
-  function indexOf(value, search) {
-    var _a;
-    return (_a = value == null ? void 0 : value.indexOf(search)) != null ? _a : -1;
-  }
-  StringUtils3.indexOf = indexOf;
-  function lastIndexOf(value, search) {
-    var _a;
-    return (_a = value == null ? void 0 : value.lastIndexOf(search)) != null ? _a : -1;
-  }
-  StringUtils3.lastIndexOf = lastIndexOf;
-  function substring(value, start, end) {
-    if (isEmpty(value)) return "";
-    return end !== void 0 ? value.slice(start, end) : value.slice(start);
-  }
-  StringUtils3.substring = substring;
-  function slice(value, start, end) {
-    return substring(value, start, end);
-  }
-  StringUtils3.slice = slice;
-  function split(value, separator, limit) {
-    if (isEmpty(value)) return [];
-    return value.split(separator, limit);
-  }
-  StringUtils3.split = split;
-  function join2(values, separator = "") {
-    var _a;
-    return (_a = values == null ? void 0 : values.join(separator)) != null ? _a : "";
-  }
-  StringUtils3.join = join2;
-  function replace2(value, search, replacement) {
-    var _a;
-    return (_a = value == null ? void 0 : value.replace(search, replacement)) != null ? _a : "";
-  }
-  StringUtils3.replace = replace2;
-  function replaceAll(value, search, replacement) {
-    var _a;
-    return (_a = value == null ? void 0 : value.replaceAll(search, replacement)) != null ? _a : "";
-  }
-  StringUtils3.replaceAll = replaceAll;
-  function remove(value, search) {
-    var _a;
-    return (_a = value == null ? void 0 : value.replace(search, "")) != null ? _a : "";
-  }
-  StringUtils3.remove = remove;
-  function removeAll(value, search) {
-    var _a;
-    const regex = typeof search === "string" ? new RegExp(search, "g") : new RegExp(search.source, `${search.flags}g`);
-    return (_a = value == null ? void 0 : value.replace(regex, "")) != null ? _a : "";
-  }
-  StringUtils3.removeAll = removeAll;
-  function countOccurrences(value, search) {
-    if (isEmpty(value) || isEmpty(search)) return 0;
-    return (value.match(new RegExp(escapeRegex(search), "g")) || []).length;
-  }
-  StringUtils3.countOccurrences = countOccurrences;
-  function escapeHtml(value) {
-    var _a;
-    const htmlEntities = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    };
-    return (_a = value == null ? void 0 : value.replace(/[&<>"']/g, (char) => htmlEntities[char] || char)) != null ? _a : "";
-  }
-  StringUtils3.escapeHtml = escapeHtml;
-  function unescapeHtml(value) {
-    var _a;
-    const htmlEntities = {
-      "&amp;": "&",
-      "&lt;": "<",
-      "&gt;": ">",
-      "&quot;": '"',
-      "&#39;": "'",
-      "&#x27;": "'",
-      "&apos;": "'"
-    };
-    return (_a = value == null ? void 0 : value.replace(/&(?:amp|lt|gt|quot|#39|#x27|apos);/g, (entity) => htmlEntities[entity] || entity)) != null ? _a : "";
-  }
-  StringUtils3.unescapeHtml = unescapeHtml;
-  function escapeRegex(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) != null ? _a : "";
-  }
-  StringUtils3.escapeRegex = escapeRegex;
-  function isNumeric(value) {
-    if (isEmpty(value)) return false;
-    return !isNaN(Number(value)) && !isNaN(parseFloat(value));
-  }
-  StringUtils3.isNumeric = isNumeric;
-  function isAlpha(value) {
-    if (isEmpty(value)) return false;
-    return /^[a-zA-Z]+$/.test(value);
-  }
-  StringUtils3.isAlpha = isAlpha;
-  function isAlphanumeric(value) {
-    if (isEmpty(value)) return false;
-    return /^[a-zA-Z0-9]+$/.test(value);
-  }
-  StringUtils3.isAlphanumeric = isAlphanumeric;
-  function isHex(value) {
-    if (isEmpty(value)) return false;
-    return /^[0-9a-fA-F]+$/.test(value);
-  }
-  StringUtils3.isHex = isHex;
-  function isUuid(value) {
-    if (isEmpty(value)) return false;
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-  }
-  StringUtils3.isUuid = isUuid;
-  function isEmail(value) {
-    if (isEmpty(value)) return false;
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  }
-  StringUtils3.isEmail = isEmail;
-  function isUrl(value) {
-    if (isEmpty(value)) return false;
-    try {
-      new URL(value);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  StringUtils3.isUrl = isUrl;
-  function isPhoneNumber(value) {
-    if (isEmpty(value)) return false;
-    return /^\+?[\d\s-()]{10,}$/.test(value);
-  }
-  StringUtils3.isPhoneNumber = isPhoneNumber;
-  function mask(value, start, end, maskChar = "*") {
-    if (isEmpty(value)) return "";
-    const actualStart = Math.max(0, start);
-    const actualEnd = Math.min(value.length, end);
-    if (actualStart >= actualEnd) return value;
-    const masked = maskChar.repeat(actualEnd - actualStart);
-    return value.slice(0, actualStart) + masked + value.slice(actualEnd);
-  }
-  StringUtils3.mask = mask;
-  function maskEmail(value) {
-    if (!isEmail(value)) return value;
-    const parts = value.split("@");
-    const localPart = parts[0];
-    const domain = parts[1];
-    if (!localPart || !domain) return value;
-    return `${mask(localPart, 2, localPart.length - 2)}@${domain}`;
-  }
-  StringUtils3.maskEmail = maskEmail;
-  function maskPhone(value) {
-    if (isEmpty(value)) return value;
-    const digits = value.replace(/\D/g, "");
-    if (digits.length < 7) return value;
-    return mask(digits, 3, digits.length - 4);
-  }
-  StringUtils3.maskPhone = maskPhone;
-  function maskCreditCard(value) {
-    if (isEmpty(value)) return value;
-    const digits = value.replace(/\D/g, "");
-    if (digits.length < 8) return value;
-    return mask(digits, 4, digits.length - 4);
-  }
-  StringUtils3.maskCreditCard = maskCreditCard;
-  function formatNumber(value, options) {
-    const num = typeof value === "string" ? parseFloat(value) : value;
-    if (isNaN(num)) return "";
-    return num.toLocaleString(void 0, options);
-  }
-  StringUtils3.formatNumber = formatNumber;
-  function formatCurrency(value, currency = "USD", locale) {
-    const num = typeof value === "string" ? parseFloat(value) : value;
-    if (isNaN(num)) return "";
-    return num.toLocaleString(locale, {
-      style: "currency",
-      currency
-    });
-  }
-  StringUtils3.formatCurrency = formatCurrency;
-  function formatPercentage(value, decimals = 0) {
-    const num = typeof value === "string" ? parseFloat(value) : value;
-    if (isNaN(num)) return "";
-    return `${(num * 100).toFixed(decimals)}%`;
-  }
-  StringUtils3.formatPercentage = formatPercentage;
-  function formatBytes(bytes, decimals = 2) {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = [
-      "Bytes",
-      "KB",
-      "MB",
-      "GB",
-      "TB",
-      "PB"
-    ];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${sizes[i]}`;
-  }
-  StringUtils3.formatBytes = formatBytes;
-  function random(length = 16, charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") {
-    let result = "";
-    for (let i = 0; i < length; i++) result += charset.charAt(Math.floor(Math.random() * charset.length));
-    return result;
-  }
-  StringUtils3.random = random;
-  function uuid$1() {
-    return uuid2();
-  }
-  StringUtils3.uuid = uuid$1;
-  function slugify(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "")) != null ? _a : "";
-  }
-  StringUtils3.slugify = slugify;
-  function unslugify(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())) != null ? _a : "";
-  }
-  StringUtils3.unslugify = unslugify;
-  function levenshteinDistance(a, b) {
-    const matrix = [];
-    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-    for (let j = 0; j <= a.length; j++) if (matrix[0]) matrix[0][j] = j;
-    for (let i = 1; i <= b.length; i++) for (let j = 1; j <= a.length; j++) if (b.charAt(i - 1) === a.charAt(j - 1)) matrix[i][j] = matrix[i - 1][j - 1];
-    else matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
-    return matrix[b.length][a.length];
-  }
-  StringUtils3.levenshteinDistance = levenshteinDistance;
-  function similarity(a, b) {
-    if (isEmpty(a) && isEmpty(b)) return 1;
-    if (isEmpty(a) || isEmpty(b)) return 0;
-    return 1 - levenshteinDistance(a, b) / Math.max(a.length, b.length);
-  }
-  StringUtils3.similarity = similarity;
-  function fuzzyMatch(text, pattern, threshold = 0.6) {
-    return similarity(text, pattern) >= threshold;
-  }
-  StringUtils3.fuzzyMatch = fuzzyMatch;
-  function equals(a, b, ignoreCase = false) {
-    if (ignoreCase) return (a == null ? void 0 : a.toLowerCase()) === (b == null ? void 0 : b.toLowerCase());
-    return a === b;
-  }
-  StringUtils3.equals = equals;
-  function equalsIgnoreCase(a, b) {
-    return equals(a, b, true);
-  }
-  StringUtils3.equalsIgnoreCase = equalsIgnoreCase;
-  function wordCount(value) {
-    if (isEmpty(value)) return 0;
-    return value.trim().split(/\s+/).filter(Boolean).length;
-  }
-  StringUtils3.wordCount = wordCount;
-  function characterCount(value, includeSpaces = true) {
-    if (isEmpty(value)) return 0;
-    return includeSpaces ? value.length : value.replace(/\s/g, "").length;
-  }
-  StringUtils3.characterCount = characterCount;
-  function lineCount(value) {
-    if (isEmpty(value)) return 0;
-    return value.split(/\r?\n/).length;
-  }
-  StringUtils3.lineCount = lineCount;
-  function splitLines(value) {
-    if (isEmpty(value)) return [];
-    return value.split(/\r?\n/);
-  }
-  StringUtils3.splitLines = splitLines;
-  function words(value) {
-    if (isEmpty(value)) return [];
-    return value.trim().split(/\s+/).filter(Boolean);
-  }
-  StringUtils3.words = words;
-  function charAt(value, index) {
-    var _a;
-    return (_a = value == null ? void 0 : value.charAt(index)) != null ? _a : "";
-  }
-  StringUtils3.charAt = charAt;
-  function charCodeAt(value, index) {
-    var _a;
-    return (_a = value == null ? void 0 : value.charCodeAt(index)) != null ? _a : NaN;
-  }
-  StringUtils3.charCodeAt = charCodeAt;
-  function fromCharCode(...codes) {
-    return String.fromCharCode(...codes);
-  }
-  StringUtils3.fromCharCode = fromCharCode;
-  function insert(value, index, insertValue) {
-    if (isEmpty(value)) return insertValue;
-    return value.slice(0, index) + insertValue + value.slice(index);
-  }
-  StringUtils3.insert = insert;
-  function swapCase(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.replace(/[a-zA-Z]/g, (char) => {
-      return char === char.toUpperCase() ? char.toLowerCase() : char.toUpperCase();
-    })) != null ? _a : "";
-  }
-  StringUtils3.swapCase = swapCase;
-  function surround(value, wrapper) {
-    return `${wrapper}${value}${wrapper}`;
-  }
-  StringUtils3.surround = surround;
-  function quote(value, quoteChar = '"') {
-    return `${quoteChar}${value}${quoteChar}`;
-  }
-  StringUtils3.quote = quote;
-  function unquote(value) {
-    if (isEmpty(value)) return "";
-    if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'") || value.startsWith("`") && value.endsWith("`")) return value.slice(1, -1);
-    return value;
-  }
-  StringUtils3.unquote = unquote;
-  function wrap(value, prefix, suffix = prefix) {
-    return `${prefix}${value}${suffix}`;
-  }
-  StringUtils3.wrap = wrap;
-  function unwrap(value, prefix, suffix = prefix) {
-    if (isEmpty(value)) return "";
-    if (value.startsWith(prefix) && value.endsWith(suffix)) return value.slice(prefix.length, -suffix.length);
-    return value;
-  }
-  StringUtils3.unwrap = unwrap;
-  function template(templateStr, values) {
-    var _a;
-    return (_a = templateStr == null ? void 0 : templateStr.replace(/\{\{(\w+)\}\}/g, (_, key) => {
-      var _a2;
-      return String((_a2 = values[key]) != null ? _a2 : "");
-    })) != null ? _a : "";
-  }
-  StringUtils3.template = template;
-  function interpolate(templateStr, values) {
-    return template(templateStr, values);
-  }
-  StringUtils3.interpolate = interpolate;
-  function dedent(value) {
-    const lines = value.split("\n");
-    const minIndent = Math.min(...lines.filter((line) => line.trim().length > 0).map((line) => {
-      var _a, _b;
-      return (_b = (_a = line.match(/^\s*/)) == null ? void 0 : _a[0].length) != null ? _b : 0;
-    }));
-    return lines.map((line) => line.slice(minIndent)).join("\n");
-  }
-  StringUtils3.dedent = dedent;
-  function indent(value, spaces = 2) {
-    const indentation = " ".repeat(spaces);
-    return value.split("\n").map((line) => indentation + line).join("\n");
-  }
-  StringUtils3.indent = indent;
-  function center(value, width, padChar = " ") {
-    if (isEmpty(value) || value.length >= width) return value != null ? value : "";
-    const padding = width - value.length;
-    const leftPad = Math.floor(padding / 2);
-    const rightPad = padding - leftPad;
-    return padChar.repeat(leftPad) + value + padChar.repeat(rightPad);
-  }
-  StringUtils3.center = center;
-  function alignLeft(value, width, padChar = " ") {
-    return padEnd(value, width, padChar);
-  }
-  StringUtils3.alignLeft = alignLeft;
-  function alignRight(value, width, padChar = " ") {
-    return padStart(value, width, padChar);
-  }
-  StringUtils3.alignRight = alignRight;
-  function alignCenter(value, width, padChar = " ") {
-    return center(value, width, padChar);
-  }
-  StringUtils3.alignCenter = alignCenter;
-  function toBoolean(value) {
-    return [
-      "true",
-      "1",
-      "yes",
-      "on",
-      "y"
-    ].includes(value == null ? void 0 : value.toLowerCase().trim());
-  }
-  StringUtils3.toBoolean = toBoolean;
-  function toNumber(value, defaultValue = 0) {
-    const num = parseFloat(value);
-    return isNaN(num) ? defaultValue : num;
-  }
-  StringUtils3.toNumber = toNumber;
-  function toArray(value, separator = ",") {
-    return split(value, separator);
-  }
-  StringUtils3.toArray = toArray;
-  function hashCode(value) {
-    let hash = 0;
-    for (let i = 0; i < value.length; i++) {
-      const char = value.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash;
-    }
-    return hash;
-  }
-  StringUtils3.hashCode = hashCode;
-  function isPalindrome(value) {
-    const cleaned = value.toLowerCase().replace(/[^a-z0-9]/g, "");
-    return cleaned === cleaned.split("").reverse().join("");
-  }
-  StringUtils3.isPalindrome = isPalindrome;
-  function isAnagram(a, b) {
-    const normalize2 = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "").split("").sort().join("");
-    return normalize2(a) === normalize2(b);
-  }
-  StringUtils3.isAnagram = isAnagram;
-  function reverseWords(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.split(/\s+/).reverse().join(" ")) != null ? _a : "";
-  }
-  StringUtils3.reverseWords = reverseWords;
-  function sortCharacters(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.split("").sort().join("")) != null ? _a : "";
-  }
-  StringUtils3.sortCharacters = sortCharacters;
-  function uniqueCharacters(value) {
-    return [...new Set(value)].join("");
-  }
-  StringUtils3.uniqueCharacters = uniqueCharacters;
-  function removeDuplicates(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.split("").filter((char, index, arr) => arr.indexOf(char) === index).join("")) != null ? _a : "";
-  }
-  StringUtils3.removeDuplicates = removeDuplicates;
-  function longestCommonSubstring(a, b) {
-    if (isEmpty(a) || isEmpty(b)) return "";
-    const matrix = Array(a.length + 1).fill(null).map(() => Array(b.length + 1).fill(0));
-    let maxLength = 0;
-    let endIndex = 0;
-    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) if (a[i - 1] === b[j - 1]) {
-      matrix[i][j] = matrix[i - 1][j - 1] + 1;
-      if (matrix[i][j] > maxLength) {
-        maxLength = matrix[i][j];
-        endIndex = i;
-      }
-    }
-    return a.slice(endIndex - maxLength, endIndex);
-  }
-  StringUtils3.longestCommonSubstring = longestCommonSubstring;
-  function longestCommonPrefix(strings) {
-    var _a, _b, _c;
-    if (strings.length === 0) return "";
-    if (strings.length === 1) return (_a = strings[0]) != null ? _a : "";
-    const sorted = [...strings].sort();
-    const first = (_b = sorted[0]) != null ? _b : "";
-    const last = (_c = sorted[sorted.length - 1]) != null ? _c : "";
-    let i = 0;
-    while (i < first.length && first[i] === last[i]) i++;
-    return first.slice(0, i);
-  }
-  StringUtils3.longestCommonPrefix = longestCommonPrefix;
-  function longestCommonSuffix(strings) {
-    return longestCommonPrefix(strings.map((s) => {
-      var _a;
-      return (_a = s == null ? void 0 : s.split("").reverse().join("")) != null ? _a : "";
-    })).split("").reverse().join("");
-  }
-  StringUtils3.longestCommonSuffix = longestCommonSuffix;
-  function truncateMiddle(value, maxLength, separator = "...") {
-    if (isEmpty(value) || value.length <= maxLength) return value != null ? value : "";
-    const charsToShow = maxLength - separator.length;
-    const frontChars = Math.ceil(charsToShow / 2);
-    const backChars = Math.floor(charsToShow / 2);
-    return value.slice(0, frontChars) + separator + value.slice(-backChars);
-  }
-  StringUtils3.truncateMiddle = truncateMiddle;
-  function ellipsis(value, maxLength) {
-    return truncate(value, maxLength, "...");
-  }
-  StringUtils3.ellipsis = ellipsis;
-  function ellipsisMiddle(value, maxLength) {
-    return truncateMiddle(value, maxLength, "...");
-  }
-  StringUtils3.ellipsisMiddle = ellipsisMiddle;
-  function pad2(value, length, padChar = " ") {
-    return center(value, length, padChar);
-  }
-  StringUtils3.pad = pad2;
-  function padCenter(value, length, padChar = " ") {
-    return center(value, length, padChar);
-  }
-  StringUtils3.padCenter = padCenter;
-  function isAscii(value) {
-    return /^[\x00-\x7F]*$/.test(value);
-  }
-  StringUtils3.isAscii = isAscii;
-  function isLowerCase(value) {
-    return value === value.toLowerCase();
-  }
-  StringUtils3.isLowerCase = isLowerCase;
-  function isUpperCase(value) {
-    return value === value.toUpperCase();
-  }
-  StringUtils3.isUpperCase = isUpperCase;
-  function isCapitalized(value) {
-    return value.charAt(0) === value.charAt(0).toUpperCase();
-  }
-  StringUtils3.isCapitalized = isCapitalized;
-  function swapPrefix(value, oldPrefix, newPrefix) {
-    if (value.startsWith(oldPrefix)) return newPrefix + value.slice(oldPrefix.length);
-    return value;
-  }
-  StringUtils3.swapPrefix = swapPrefix;
-  function swapSuffix(value, oldSuffix, newSuffix) {
-    if (value.endsWith(oldSuffix)) return value.slice(0, -oldSuffix.length) + newSuffix;
-    return value;
-  }
-  StringUtils3.swapSuffix = swapSuffix;
-  function ensurePrefix(value, prefix) {
-    return value.startsWith(prefix) ? value : prefix + value;
-  }
-  StringUtils3.ensurePrefix = ensurePrefix;
-  function ensureSuffix(value, suffix) {
-    return value.endsWith(suffix) ? value : value + suffix;
-  }
-  StringUtils3.ensureSuffix = ensureSuffix;
-  function removePrefix(value, prefix) {
-    return value.startsWith(prefix) ? value.slice(prefix.length) : value;
-  }
-  StringUtils3.removePrefix = removePrefix;
-  function removeSuffix(value, suffix) {
-    return value.endsWith(suffix) ? value.slice(0, -suffix.length) : value;
-  }
-  StringUtils3.removeSuffix = removeSuffix;
-  function take(value, n) {
-    var _a;
-    return (_a = value == null ? void 0 : value.slice(0, n)) != null ? _a : "";
-  }
-  StringUtils3.take = take;
-  function takeRight(value, n) {
-    var _a;
-    return (_a = value == null ? void 0 : value.slice(-n)) != null ? _a : "";
-  }
-  StringUtils3.takeRight = takeRight;
-  function takeWhile(value, predicate) {
-    let result = "";
-    for (const char of value != null ? value : "") {
-      if (!predicate(char)) break;
-      result += char;
-    }
-    return result;
-  }
-  StringUtils3.takeWhile = takeWhile;
-  function takeRightWhile(value, predicate) {
-    var _a, _b;
-    let result = "";
-    for (let i = ((_a = value == null ? void 0 : value.length) != null ? _a : 0) - 1; i >= 0; i--) {
-      const char = (_b = value == null ? void 0 : value.charAt(i)) != null ? _b : "";
-      if (!predicate(char)) break;
-      result = char + result;
-    }
-    return result;
-  }
-  StringUtils3.takeRightWhile = takeRightWhile;
-  function drop(value, n) {
-    var _a;
-    return (_a = value == null ? void 0 : value.slice(n)) != null ? _a : "";
-  }
-  StringUtils3.drop = drop;
-  function dropRight(value, n) {
-    var _a;
-    return (_a = value == null ? void 0 : value.slice(0, -n)) != null ? _a : "";
-  }
-  StringUtils3.dropRight = dropRight;
-  function dropWhile(value, predicate) {
-    var _a;
-    let i = 0;
-    for (const char of value != null ? value : "") {
-      if (!predicate(char)) break;
-      i++;
-    }
-    return (_a = value == null ? void 0 : value.slice(i)) != null ? _a : "";
-  }
-  StringUtils3.dropWhile = dropWhile;
-  function dropRightWhile(value, predicate) {
-    var _a, _b, _c;
-    let i = ((_a = value == null ? void 0 : value.length) != null ? _a : 0) - 1;
-    while (i >= 0 && predicate((_b = value == null ? void 0 : value.charAt(i)) != null ? _b : "")) i--;
-    return (_c = value == null ? void 0 : value.slice(0, i + 1)) != null ? _c : "";
-  }
-  StringUtils3.dropRightWhile = dropRightWhile;
-  function countLines(value) {
-    return lineCount(value);
-  }
-  StringUtils3.countLines = countLines;
-  function getLine(value, lineNumber) {
-    var _a;
-    return (_a = splitLines(value)[lineNumber]) != null ? _a : "";
-  }
-  StringUtils3.getLine = getLine;
-  function getLines(value) {
-    return splitLines(value);
-  }
-  StringUtils3.getLines = getLines;
-  function isSingleLine(value) {
-    return !(value == null ? void 0 : value.includes("\n"));
-  }
-  StringUtils3.isSingleLine = isSingleLine;
-  function isMultiLine(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.includes("\n")) != null ? _a : false;
-  }
-  StringUtils3.isMultiLine = isMultiLine;
-  function normalizeLineEndings(value, lineEnding = "\n") {
-    var _a;
-    return (_a = value == null ? void 0 : value.replace(/\r\n|\r|\n/g, lineEnding)) != null ? _a : "";
-  }
-  StringUtils3.normalizeLineEndings = normalizeLineEndings;
-  function toCamelCase(value) {
-    return camelCase(value);
-  }
-  StringUtils3.toCamelCase = toCamelCase;
-  function toKebabCase(value) {
-    return kebabCase(value);
-  }
-  StringUtils3.toKebabCase = toKebabCase;
-  function toSnakeCase(value) {
-    return snakeCase(value);
-  }
-  StringUtils3.toSnakeCase = toSnakeCase;
-  function toPascalCase(value) {
-    return pascalCase(value);
-  }
-  StringUtils3.toPascalCase = toPascalCase;
-  function toConstantCase(value) {
-    return constantCase(value);
-  }
-  StringUtils3.toConstantCase = toConstantCase;
-  function toSentenceCase(value) {
-    if (isEmpty(value)) return "";
-    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
-  }
-  StringUtils3.toSentenceCase = toSentenceCase;
-  function toTitleCase(value) {
-    return capitalizeWords(value);
-  }
-  StringUtils3.toTitleCase = toTitleCase;
-  function toCapitalCase(value) {
-    return capitalizeWords(value);
-  }
-  StringUtils3.toCapitalCase = toCapitalCase;
-  function toDotCase(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.replace(/([a-z])([A-Z])/g, "$1.$2").replace(/[-_\s]+/g, ".").toLowerCase()) != null ? _a : "";
-  }
-  StringUtils3.toDotCase = toDotCase;
-  function toPathCase(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.replace(/([a-z])([A-Z])/g, "$1/$2").replace(/[-_\s]+/g, "/").toLowerCase()) != null ? _a : "";
-  }
-  StringUtils3.toPathCase = toPathCase;
-  function stripTags(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.replace(/<[^>]*>/g, "")) != null ? _a : "";
-  }
-  StringUtils3.stripTags = stripTags;
-  function stripNumbers(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.replace(/\d+/g, "")) != null ? _a : "";
-  }
-  StringUtils3.stripNumbers = stripNumbers;
-  function stripWhitespace(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.replace(/\s+/g, "")) != null ? _a : "";
-  }
-  StringUtils3.stripWhitespace = stripWhitespace;
-  function stripPunctuation(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.replace(/[^\w\s]/g, "")) != null ? _a : "";
-  }
-  StringUtils3.stripPunctuation = stripPunctuation;
-  function normalizeWhitespace(value) {
-    var _a;
-    return (_a = value == null ? void 0 : value.replace(/\s+/g, " ").trim()) != null ? _a : "";
-  }
-  StringUtils3.normalizeWhitespace = normalizeWhitespace;
-  function includesAll(value, searches) {
-    return searches.every((search) => {
-      var _a;
-      return (_a = value == null ? void 0 : value.includes(search)) != null ? _a : false;
-    });
-  }
-  StringUtils3.includesAll = includesAll;
-  function includesAny(value, searches) {
-    return searches.some((search) => {
-      var _a;
-      return (_a = value == null ? void 0 : value.includes(search)) != null ? _a : false;
-    });
-  }
-  StringUtils3.includesAny = includesAny;
-})(StringUtils2 || (StringUtils2 = {}));
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/sdk-common/dist/utils/encoding.js
-var Encoding2;
-(function(Encoding3) {
-  function base64Encode4(input) {
-    var _a, _b, _c;
-    let bytes;
-    if (typeof input === "string") bytes = new TextEncoder().encode(input);
-    else bytes = input;
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let result = "";
-    let i = 0;
-    while (i < bytes.length) {
-      const a = (_a = bytes[i++]) != null ? _a : 0;
-      const b = i < bytes.length ? (_b = bytes[i++]) != null ? _b : 0 : 0;
-      const c = i < bytes.length ? (_c = bytes[i++]) != null ? _c : 0 : 0;
-      const bitmap = a << 16 | b << 8 | c;
-      result += chars[bitmap >> 18 & 63];
-      result += chars[bitmap >> 12 & 63];
-      result += i > bytes.length + 1 ? "=" : chars[bitmap >> 6 & 63];
-      result += i > bytes.length ? "=" : chars[bitmap & 63];
-    }
-    return result;
-  }
-  Encoding3.base64Encode = base64Encode4;
-  function base64Decode4(input) {
-    var _a, _b, _c, _d;
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    input = input.replace(/[^A-Za-z0-9+/]/g, "");
-    const len = input.length;
-    let result = "";
-    let i = 0;
-    while (i < len) {
-      const a = chars.indexOf((_a = input[i++]) != null ? _a : "");
-      const b = chars.indexOf((_b = input[i++]) != null ? _b : "");
-      const c = chars.indexOf((_c = input[i++]) != null ? _c : "");
-      const d = chars.indexOf((_d = input[i++]) != null ? _d : "");
-      const bitmap = a << 18 | b << 12 | c << 6 | d;
-      result += String.fromCharCode(bitmap >> 16 & 255);
-      if (c !== 64 && input[i - 2] !== "=") result += String.fromCharCode(bitmap >> 8 & 255);
-      if (d !== 64 && input[i - 1] !== "=") result += String.fromCharCode(bitmap & 255);
-    }
-    return result;
-  }
-  Encoding3.base64Decode = base64Decode4;
-  function base64UrlEncode4(input) {
-    return base64Encode4(input).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-  }
-  Encoding3.base64UrlEncode = base64UrlEncode4;
-  function base64UrlDecode4(input) {
-    input = input.replace(/-/g, "+").replace(/_/g, "/");
-    const pad2 = input.length % 4;
-    if (pad2) input += "=".repeat(4 - pad2);
-    return base64Decode4(input);
-  }
-  Encoding3.base64UrlDecode = base64UrlDecode4;
-  function base64ToBytes(base64) {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes;
-  }
-  Encoding3.base64ToBytes = base64ToBytes;
-  function bytesToBase64(bytes) {
-    var _a;
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode((_a = bytes[i]) != null ? _a : 0);
-    return btoa(binary);
-  }
-  Encoding3.bytesToBase64 = bytesToBase64;
-  function utf8Encode(input) {
-    return new TextEncoder().encode(input);
-  }
-  Encoding3.utf8Encode = utf8Encode;
-  function utf8Decode(input) {
-    return new TextDecoder().decode(input);
-  }
-  Encoding3.utf8Decode = utf8Decode;
-  function hexEncode4(input) {
-    const bytes = typeof input === "string" ? utf8Encode(input) : input;
-    return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  }
-  Encoding3.hexEncode = hexEncode4;
-  function hexDecode4(input) {
-    const bytes = new Uint8Array(input.length / 2);
-    for (let i = 0; i < input.length; i += 2) bytes[i / 2] = parseInt(input.substr(i, 2), 16);
-    return utf8Decode(bytes);
-  }
-  Encoding3.hexDecode = hexDecode4;
-  function hexToBytes(hex) {
-    const bytes = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < hex.length; i += 2) bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-    return bytes;
-  }
-  Encoding3.hexToBytes = hexToBytes;
-  function bytesToHex(bytes) {
-    return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  }
-  Encoding3.bytesToHex = bytesToHex;
-  function urlEncode(input) {
-    return encodeURIComponent(input);
-  }
-  Encoding3.urlEncode = urlEncode;
-  function urlDecode(input) {
-    return decodeURIComponent(input);
-  }
-  Encoding3.urlDecode = urlDecode;
-  function urlEncodeComponent(input) {
-    return encodeURIComponent(input);
-  }
-  Encoding3.urlEncodeComponent = urlEncodeComponent;
-  function urlDecodeComponent(input) {
-    return decodeURIComponent(input);
-  }
-  Encoding3.urlDecodeComponent = urlDecodeComponent;
-  function htmlEncode(input) {
-    const htmlEntities = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-      "/": "&#x2F;",
-      "`": "&#x60;",
-      "=": "&#x3D;"
-    };
-    return input.replace(/[&<>"'`=/]/g, (char) => htmlEntities[char] || char);
-  }
-  Encoding3.htmlEncode = htmlEncode;
-  function htmlDecode(input) {
-    const htmlEntities = {
-      "&amp;": "&",
-      "&lt;": "<",
-      "&gt;": ">",
-      "&quot;": '"',
-      "&#39;": "'",
-      "&#x27;": "'",
-      "&#x2F;": "/",
-      "&#x60;": "`",
-      "&#x3D;": "=",
-      "&nbsp;": " "
-    };
-    return input.replace(/&[^;]+;/g, (entity) => htmlEntities[entity] || entity);
-  }
-  Encoding3.htmlDecode = htmlDecode;
-  function jsonEncode(value, replacer, space) {
-    return JSON.stringify(value, replacer, space);
-  }
-  Encoding3.jsonEncode = jsonEncode;
-  function jsonDecode(input) {
-    return JSON.parse(input);
-  }
-  Encoding3.jsonDecode = jsonDecode;
-  function jsonEncodePretty(value, indent = 2) {
-    return JSON.stringify(value, null, indent);
-  }
-  Encoding3.jsonEncodePretty = jsonEncodePretty;
-  function tryJsonDecode(input, defaultValue) {
-    try {
-      return JSON.parse(input);
-    } catch {
-      return defaultValue;
-    }
-  }
-  Encoding3.tryJsonDecode = tryJsonDecode;
-  function isJson(input) {
-    try {
-      JSON.parse(input);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  Encoding3.isJson = isJson;
-  function xmlEncode(input) {
-    const xmlEntities = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&apos;"
-    };
-    return input.replace(/[&<>"']/g, (char) => xmlEntities[char] || char);
-  }
-  Encoding3.xmlEncode = xmlEncode;
-  function xmlDecode(input) {
-    const xmlEntities = {
-      "&amp;": "&",
-      "&lt;": "<",
-      "&gt;": ">",
-      "&quot;": '"',
-      "&apos;": "'"
-    };
-    return input.replace(/&[^;]+;/g, (entity) => xmlEntities[entity] || entity);
-  }
-  Encoding3.xmlDecode = xmlDecode;
-  function escapeRegex(input) {
-    return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-  Encoding3.escapeRegex = escapeRegex;
-  function escapeSql(input) {
-    return input.replace(/[\0\x08\x09\x1a\n\r"'\\\%]/g, (char) => {
-      return {
-        "\0": "\\0",
-        "\b": "\\b",
-        "	": "\\t",
-        "": "\\z",
-        "\n": "\\n",
-        "\r": "\\r",
-        '"': '\\"',
-        "'": "\\'",
-        "\\": "\\\\",
-        "%": "\\%"
-      }[char] || char;
-    });
-  }
-  Encoding3.escapeSql = escapeSql;
-  function escapeShell(input) {
-    return input.replace(/[^A-Za-z0-9_\-.,:\/@\n]/g, (char) => {
-      if (char === "\n") return "'\\n'";
-      return `\\${char}`;
-    });
-  }
-  Encoding3.escapeShell = escapeShell;
-  function escapeCString(input) {
-    return input.replace(/[\\"'\n\r\t\b\f\v\0]/g, (char) => {
-      return {
-        "\\": "\\\\",
-        '"': '\\"',
-        "'": "\\'",
-        "\n": "\\n",
-        "\r": "\\r",
-        "	": "\\t",
-        "\b": "\\b",
-        "\f": "\\f",
-        "\v": "\\v",
-        "\0": "\\0"
-      }[char] || char;
-    });
-  }
-  Encoding3.escapeCString = escapeCString;
-  function unescapeCString(input) {
-    return input.replace(/\\([\\\"'nrtbfv0])/g, (_, char) => {
-      return {
-        "\\": "\\",
-        '"': '"',
-        "'": "'",
-        "n": "\n",
-        "r": "\r",
-        "t": "	",
-        "b": "\b",
-        "f": "\f",
-        "v": "\v",
-        "0": "\0"
-      }[char] || char;
-    });
-  }
-  Encoding3.unescapeCString = unescapeCString;
-  function camelToSnake(input) {
-    return input.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-  }
-  Encoding3.camelToSnake = camelToSnake;
-  function snakeToCamel(input) {
-    return input.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-  }
-  Encoding3.snakeToCamel = snakeToCamel;
-  function camelToKebab(input) {
-    return input.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
-  }
-  Encoding3.camelToKebab = camelToKebab;
-  function kebabToCamel(input) {
-    return input.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
-  }
-  Encoding3.kebabToCamel = kebabToCamel;
-  function camelToPascal(input) {
-    return input.charAt(0).toUpperCase() + input.slice(1);
-  }
-  Encoding3.camelToPascal = camelToPascal;
-  function pascalToCamel(input) {
-    return input.charAt(0).toLowerCase() + input.slice(1);
-  }
-  Encoding3.pascalToCamel = pascalToCamel;
-  function pascalToSnake(input) {
-    return camelToSnake(input);
-  }
-  Encoding3.pascalToSnake = pascalToSnake;
-  function snakeToPascal(input) {
-    return camelToPascal(snakeToCamel(input));
-  }
-  Encoding3.snakeToPascal = snakeToPascal;
-  function pascalToKebab(input) {
-    return camelToKebab(input);
-  }
-  Encoding3.pascalToKebab = pascalToKebab;
-  function kebabToPascal(input) {
-    return camelToPascal(kebabToCamel(input));
-  }
-  Encoding3.kebabToPascal = kebabToPascal;
-  function toSnakeCase(input) {
-    return input.replace(/([a-z])([A-Z])/g, "$1_$2").replace(/[-\s]+/g, "_").toLowerCase();
-  }
-  Encoding3.toSnakeCase = toSnakeCase;
-  function toKebabCase(input) {
-    return input.replace(/([a-z])([A-Z])/g, "$1-$2").replace(/[_\s]+/g, "-").toLowerCase();
-  }
-  Encoding3.toKebabCase = toKebabCase;
-  function toCamelCase(input) {
-    return input.replace(/[-_\s]+(.)?/g, (_, char) => char ? char.toUpperCase() : "").replace(/^(.)/, (char) => char.toLowerCase());
-  }
-  Encoding3.toCamelCase = toCamelCase;
-  function toPascalCase(input) {
-    const camel = toCamelCase(input);
-    return camel.charAt(0).toUpperCase() + camel.slice(1);
-  }
-  Encoding3.toPascalCase = toPascalCase;
-  function toConstantCase(input) {
-    return toSnakeCase(input).toUpperCase();
-  }
-  Encoding3.toConstantCase = toConstantCase;
-  function toSentenceCase(input) {
-    return input.charAt(0).toUpperCase() + input.slice(1).toLowerCase();
-  }
-  Encoding3.toSentenceCase = toSentenceCase;
-  function toTitleCase(input) {
-    return input.replace(/\b\w/g, (char) => char.toUpperCase());
-  }
-  Encoding3.toTitleCase = toTitleCase;
-  function toCapitalCase(input) {
-    return input.replace(/[-_\s]+(.)?/g, (_, char) => char ? ` ${char.toUpperCase()}` : "").trim();
-  }
-  Encoding3.toCapitalCase = toCapitalCase;
-  function toDotCase(input) {
-    return input.replace(/([a-z])([A-Z])/g, "$1.$2").replace(/[-_\s]+/g, ".").toLowerCase();
-  }
-  Encoding3.toDotCase = toDotCase;
-  function toPathCase(input) {
-    return input.replace(/([a-z])([A-Z])/g, "$1/$2").replace(/[-_\s]+/g, "/").toLowerCase();
-  }
-  Encoding3.toPathCase = toPathCase;
-  function rot13(input) {
-    return input.replace(/[a-zA-Z]/g, (char) => {
-      const start = char <= "Z" ? 65 : 97;
-      return String.fromCharCode((char.charCodeAt(0) - start + 13) % 26 + start);
-    });
-  }
-  Encoding3.rot13 = rot13;
-  function caesarCipher(input, shift) {
-    return input.replace(/[a-zA-Z]/g, (char) => {
-      const start = char <= "Z" ? 65 : 97;
-      const shifted = ((char.charCodeAt(0) - start + shift) % 26 + 26) % 26;
-      return String.fromCharCode(shifted + start);
-    });
-  }
-  Encoding3.caesarCipher = caesarCipher;
-  function caesarDecipher(input, shift) {
-    return caesarCipher(input, -shift);
-  }
-  Encoding3.caesarDecipher = caesarDecipher;
-  function xorEncode(input, key) {
-    var _a, _b;
-    const inputBytes = utf8Encode(input);
-    const keyBytes = utf8Encode(key);
-    const result = new Uint8Array(inputBytes.length);
-    for (let i = 0; i < inputBytes.length; i++) result[i] = ((_a = inputBytes[i]) != null ? _a : 0) ^ ((_b = keyBytes[i % keyBytes.length]) != null ? _b : 0);
-    return bytesToHex(result);
-  }
-  Encoding3.xorEncode = xorEncode;
-  function xorDecode(input, key) {
-    var _a, _b;
-    const inputBytes = hexToBytes(input);
-    const keyBytes = utf8Encode(key);
-    const result = new Uint8Array(inputBytes.length);
-    for (let i = 0; i < inputBytes.length; i++) result[i] = ((_a = inputBytes[i]) != null ? _a : 0) ^ ((_b = keyBytes[i % keyBytes.length]) != null ? _b : 0);
-    return utf8Decode(result);
-  }
-  Encoding3.xorDecode = xorDecode;
-  function charCodeEncode(input) {
-    return Array.from(input).map((char) => char.charCodeAt(0));
-  }
-  Encoding3.charCodeEncode = charCodeEncode;
-  function charCodeDecode(codes) {
-    return String.fromCharCode(...codes);
-  }
-  Encoding3.charCodeDecode = charCodeDecode;
-  function binaryEncode(input) {
-    return Array.from(input).map((char) => char.charCodeAt(0).toString(2).padStart(8, "0")).join(" ");
-  }
-  Encoding3.binaryEncode = binaryEncode;
-  function binaryDecode(input) {
-    return input.split(/\s+/).map((byte) => String.fromCharCode(parseInt(byte, 2))).join("");
-  }
-  Encoding3.binaryDecode = binaryDecode;
-  function octalEncode(input) {
-    return Array.from(input).map((char) => char.charCodeAt(0).toString(8).padStart(3, "0")).join(" ");
-  }
-  Encoding3.octalEncode = octalEncode;
-  function octalDecode(input) {
-    return input.split(/\s+/).map((byte) => String.fromCharCode(parseInt(byte, 8))).join("");
-  }
-  Encoding3.octalDecode = octalDecode;
-  function decimalEncode(input) {
-    return Array.from(input).map((char) => char.charCodeAt(0).toString(10)).join(" ");
-  }
-  Encoding3.decimalEncode = decimalEncode;
-  function decimalDecode(input) {
-    return input.split(/\s+/).map((code) => String.fromCharCode(parseInt(code, 10))).join("");
-  }
-  Encoding3.decimalDecode = decimalDecode;
-  function punycodeEncode(input) {
-    const prefix = "xn--";
-    if (input.startsWith(prefix)) return input;
-    const asciiPart = input.replace(/[^\x00-\x7F]/g, "");
-    const nonAsciiPart = input.replace(/[\x00-\x7F]/g, "");
-    if (!nonAsciiPart) return input;
-    return prefix + asciiPart + "-" + nonAsciiPart.split("").map((c) => c.charCodeAt(0).toString(36)).join("");
-  }
-  Encoding3.punycodeEncode = punycodeEncode;
-  function slugify(input) {
-    return input.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
-  }
-  Encoding3.slugify = slugify;
-  function unslugify(input) {
-    return input.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-  }
-  Encoding3.unslugify = unslugify;
-  function queryStringEncode(params) {
-    return Object.entries(params).filter(([, value]) => value !== void 0 && value !== null).map(([key, value]) => {
-      if (Array.isArray(value)) return value.map((v) => `${urlEncode(key)}=${urlEncode(String(v))}`).join("&");
-      return `${urlEncode(key)}=${urlEncode(String(value))}`;
-    }).join("&");
-  }
-  Encoding3.queryStringEncode = queryStringEncode;
-  function queryStringDecode(query) {
-    const result = {};
-    if (!query) return result;
-    query = query.replace(/^[?#]/, "");
-    for (const pair of query.split("&")) {
-      const parts = pair.split("=");
-      const key = parts[0];
-      const value = parts[1];
-      if (!key) continue;
-      const decodedKey = urlDecode(key);
-      const decodedValue = value ? urlDecode(value) : "";
-      if (result[decodedKey]) if (Array.isArray(result[decodedKey])) result[decodedKey].push(decodedValue);
-      else result[decodedKey] = [result[decodedKey], decodedValue];
-      else result[decodedKey] = decodedValue;
-    }
-    return result;
-  }
-  Encoding3.queryStringDecode = queryStringDecode;
-  function formDataEncode(data) {
-    return Object.entries(data).filter(([, value]) => value !== void 0 && value !== null).map(([key, value]) => `${urlEncode(key)}=${urlEncode(String(value))}`).join("&");
-  }
-  Encoding3.formDataEncode = formDataEncode;
-  function mimeTypeToExtension(mimeType) {
-    return {
-      "application/json": "json",
-      "application/xml": "xml",
-      "application/pdf": "pdf",
-      "application/zip": "zip",
-      "application/gzip": "gz",
-      "application/x-tar": "tar",
-      "application/x-rar-compressed": "rar",
-      "application/x-7z-compressed": "7z",
-      "application/vnd.ms-excel": "xls",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-      "application/vnd.ms-powerpoint": "ppt",
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
-      "application/msword": "doc",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-      "text/plain": "txt",
-      "text/html": "html",
-      "text/css": "css",
-      "text/javascript": "js",
-      "text/csv": "csv",
-      "text/xml": "xml",
-      "image/jpeg": "jpg",
-      "image/png": "png",
-      "image/gif": "gif",
-      "image/svg+xml": "svg",
-      "image/webp": "webp",
-      "image/bmp": "bmp",
-      "image/tiff": "tiff",
-      "image/x-icon": "ico",
-      "audio/mpeg": "mp3",
-      "audio/wav": "wav",
-      "audio/ogg": "ogg",
-      "audio/aac": "aac",
-      "video/mp4": "mp4",
-      "video/mpeg": "mpeg",
-      "video/webm": "webm",
-      "video/ogg": "ogv",
-      "video/x-msvideo": "avi",
-      "video/quicktime": "mov"
-    }[mimeType.toLowerCase()] || "";
-  }
-  Encoding3.mimeTypeToExtension = mimeTypeToExtension;
-  function extensionToMimeType(extension) {
-    return {
-      "json": "application/json",
-      "xml": "application/xml",
-      "pdf": "application/pdf",
-      "zip": "application/zip",
-      "gz": "application/gzip",
-      "tar": "application/x-tar",
-      "rar": "application/x-rar-compressed",
-      "7z": "application/x-7z-compressed",
-      "xls": "application/vnd.ms-excel",
-      "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "ppt": "application/vnd.ms-powerpoint",
-      "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "doc": "application/msword",
-      "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "txt": "text/plain",
-      "html": "text/html",
-      "htm": "text/html",
-      "css": "text/css",
-      "js": "text/javascript",
-      "csv": "text/csv",
-      "jpg": "image/jpeg",
-      "jpeg": "image/jpeg",
-      "png": "image/png",
-      "gif": "image/gif",
-      "svg": "image/svg+xml",
-      "webp": "image/webp",
-      "bmp": "image/bmp",
-      "tiff": "image/tiff",
-      "tif": "image/tiff",
-      "ico": "image/x-icon",
-      "mp3": "audio/mpeg",
-      "wav": "audio/wav",
-      "ogg": "audio/ogg",
-      "aac": "audio/aac",
-      "mp4": "video/mp4",
-      "mpeg": "video/mpeg",
-      "mpg": "video/mpeg",
-      "webm": "video/webm",
-      "ogv": "video/ogg",
-      "avi": "video/x-msvideo",
-      "mov": "video/quicktime"
-    }[extension.toLowerCase().replace(/^\./, "")] || "application/octet-stream";
-  }
-  Encoding3.extensionToMimeType = extensionToMimeType;
-  function charsetEncode(input, _charset) {
-    return new TextEncoder().encode(input);
-  }
-  Encoding3.charsetEncode = charsetEncode;
-  function charsetDecode(input, charset) {
-    return new TextDecoder(charset).decode(input);
-  }
-  Encoding3.charsetDecode = charsetDecode;
-  function stripBom(input) {
-    if (input.charCodeAt(0) === 65279) return input.slice(1);
-    return input;
-  }
-  Encoding3.stripBom = stripBom;
-  function addBom(input, bom = "utf-8") {
-    return {
-      "utf-8": "\uFEFF",
-      "utf-16le": "\uFFFE",
-      "utf-16be": "\uFEFF"
-    }[bom] + input;
-  }
-  Encoding3.addBom = addBom;
-  function normalizeEncoding(input, fromEncoding, toEncoding) {
-    return charsetDecode(charsetEncode(input, fromEncoding), toEncoding);
-  }
-  Encoding3.normalizeEncoding = normalizeEncoding;
-  function isValidBase64(input) {
-    if (!input || input.length % 4 !== 0) return false;
-    return /^[A-Za-z0-9+/]*={0,2}$/.test(input);
-  }
-  Encoding3.isValidBase64 = isValidBase64;
-  function isValidHex(input) {
-    return /^[0-9a-fA-F]*$/.test(input) && input.length % 2 === 0;
-  }
-  Encoding3.isValidHex = isValidHex;
-  function isValidUrl(input) {
-    try {
-      new URL(input);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  Encoding3.isValidUrl = isValidUrl;
-  function isValidEmail(input) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
-  }
-  Encoding3.isValidEmail = isValidEmail;
-  function detectEncoding(input) {
-    if (input.charCodeAt(0) === 65279) return "utf-8-bom";
-    if (input.charCodeAt(0) === 65534) return "utf-16le";
-    if (input.charCodeAt(0) === 65279 && input.charCodeAt(1) === 0) return "utf-16be";
-    if (/[\u4e00-\u9fa5]/.test(input)) return "utf-8";
-    return "ascii";
-  }
-  Encoding3.detectEncoding = detectEncoding;
-})(Encoding2 || (Encoding2 = {}));
-Encoding2.base64Encode;
-Encoding2.base64Decode;
-Encoding2.base64UrlEncode;
-Encoding2.base64UrlDecode;
-Encoding2.utf8Encode;
-Encoding2.utf8Decode;
-Encoding2.hexEncode;
-Encoding2.hexDecode;
-Encoding2.urlEncode;
-Encoding2.urlDecode;
-Encoding2.htmlEncode;
-Encoding2.htmlDecode;
-Encoding2.jsonEncode;
-Encoding2.jsonDecode;
-Encoding2.xmlEncode;
-Encoding2.xmlDecode;
-Encoding2.escapeRegex;
-Encoding2.escapeSql;
-Encoding2.escapeShell;
-Encoding2.queryStringEncode;
-Encoding2.queryStringDecode;
-Encoding2.slugify;
-Encoding2.unslugify;
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/sdk-common/dist/utils/date.js
-var MILLISECONDS_IN_SECOND2 = 1e3;
-var MILLISECONDS_IN_MINUTE2 = 60 * MILLISECONDS_IN_SECOND2;
-var MILLISECONDS_IN_HOUR2 = 60 * MILLISECONDS_IN_MINUTE2;
-var MILLISECONDS_IN_DAY2 = 24 * MILLISECONDS_IN_HOUR2;
-var MILLISECONDS_IN_WEEK2 = 7 * MILLISECONDS_IN_DAY2;
-var TIME_UNITS_IN_MS2 = {
-  millisecond: 1,
-  second: MILLISECONDS_IN_SECOND2,
-  minute: MILLISECONDS_IN_MINUTE2,
-  hour: MILLISECONDS_IN_HOUR2,
-  day: MILLISECONDS_IN_DAY2,
-  week: MILLISECONDS_IN_WEEK2,
-  month: 30 * MILLISECONDS_IN_DAY2,
-  quarter: 90 * MILLISECONDS_IN_DAY2,
-  year: 365 * MILLISECONDS_IN_DAY2
-};
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/sdk-common/dist/http/stream-parser.js
-function extractStreamLines2(buffer, flush = false) {
-  const lines = [];
-  let lineStart = 0;
-  let index = 0;
-  while (index < buffer.length) {
-    const character = buffer[index];
-    if (character === "\n") {
-      lines.push(buffer.slice(lineStart, index));
-      index += 1;
-      lineStart = index;
-      continue;
-    }
-    if (character === "\r") {
-      if (!flush && index === buffer.length - 1) break;
-      lines.push(buffer.slice(lineStart, index));
-      index += buffer[index + 1] === "\n" ? 2 : 1;
-      lineStart = index;
-      continue;
-    }
-    index += 1;
-  }
-  if (flush && lineStart < buffer.length) {
-    lines.push(buffer.slice(lineStart));
-    lineStart = buffer.length;
-  }
-  return {
-    lines,
-    remainder: buffer.slice(lineStart)
-  };
-}
-var ServerSentEventDataParser2 = class {
-  constructor() {
-    __publicField(this, "dataLines", []);
-    __publicField(this, "firstLine", true);
-  }
-  pushLine(rawLine) {
-    const line = this.firstLine && rawLine.charCodeAt(0) === 65279 ? rawLine.slice(1) : rawLine;
-    this.firstLine = false;
-    if (line === "") return this.dispatch();
-    if (line.startsWith(":")) return;
-    const separatorIndex = line.indexOf(":");
-    const field = separatorIndex === -1 ? line : line.slice(0, separatorIndex);
-    let value = separatorIndex === -1 ? "" : line.slice(separatorIndex + 1);
-    if (value.startsWith(" ")) value = value.slice(1);
-    if (field === "data") this.dataLines.push(value);
-  }
-  flush() {
-    return this.dispatch();
-  }
-  dispatch() {
-    if (this.dataLines.length === 0) return;
-    const data = this.dataLines.join("\n");
-    this.dataLines = [];
-    return data === "" || data === "[DONE]" ? void 0 : data;
-  }
-};
-function normalizeLegacyStreamLine2(line) {
-  const trimmedLine = line.trim();
-  if (trimmedLine === "" || trimmedLine === "data: [DONE]") return;
-  if (trimmedLine.startsWith("data: ")) return trimmedLine.slice(6);
-  return trimmedLine;
-}
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/sdk-common/dist/http/base-client.js
-var SDKWORK_API_PREFIXES2 = [
-  "/app/v3/api",
-  "/backend/v3/api",
-  "/gateway/v3/api"
-];
-function dedupeSdkWorkApiPath2(baseUrl, path) {
-  for (const prefix of SDKWORK_API_PREFIXES2) if (baseUrl.endsWith(prefix) && path.startsWith(prefix)) {
-    const remainder = path.slice(prefix.length);
-    return remainder.startsWith("/") ? remainder : `/${remainder}`;
-  }
-  return path;
-}
-function isApiResultEnvelope2(value) {
-  return value !== null && value !== void 0 && typeof value === "object" && !Array.isArray(value) && "code" in value && ("data" in value || "msg" in value || "message" in value);
-}
-var IDENTITY_PROJECTION_HEADER_NAMES2 = /* @__PURE__ */ new Set([
-  "x-sdkwork-tenant-id",
-  "x-sdkwork-organization-id",
-  "x-sdkwork-user-id",
-  "x-sdkwork-actor-id",
-  "x-sdkwork-actor-kind",
-  "x-sdkwork-session-id",
-  "x-sdkwork-app-id",
-  "x-sdkwork-environment",
-  "x-sdkwork-deployment-profile",
-  "x-sdkwork-deployment-mode",
-  "x-sdkwork-runtime-target",
-  "x-sdkwork-auth-level",
-  "x-sdkwork-data-scope",
-  "x-sdkwork-permission-scope",
-  "x-sdkwork-device-id",
-  "x-sdkwork-context-signature",
-  "x-sdkwork-subject-tenant-id",
-  "x-sdkwork-subject-organization-id",
-  "x-sdkwork-subject-user-id",
-  "x-sdkwork-subject-timestamp",
-  "x-sdkwork-subject-signature",
-  "x-tenant-id",
-  "x-organization-id",
-  "x-platform",
-  "x-user-id"
-]);
-function stripIdentityProjectionHeaders2(headers) {
-  for (const name of Object.keys(headers)) if (IDENTITY_PROJECTION_HEADER_NAMES2.has(name.toLowerCase())) delete headers[name];
-}
-var BaseHttpClient2 = class {
-  constructor(config) {
-    __publicField(this, "config");
-    __publicField(this, "authConfig");
-    __publicField(this, "logger");
-    __publicField(this, "cache");
-    __publicField(this, "interceptors");
-    var _a, _b, _c, _d;
-    this.config = {
-      baseUrl: config.baseUrl,
-      timeout: (_a = config.timeout) != null ? _a : 3e4,
-      headers: (_b = config.headers) != null ? _b : {},
-      retry: {
-        maxRetries: 3,
-        retryDelay: 1e3,
-        retryBackoff: "exponential",
-        maxRetryDelay: 3e4,
-        ...config.retry
-      },
-      cache: {
-        enabled: false,
-        ttl: 300 * 1e3,
-        maxSize: 100,
-        ...config.cache
-      },
-      logger: {
-        level: "info",
-        prefix: "[SDK]",
-        timestamp: true,
-        colors: true,
-        ...config.logger
-      }
-    };
-    this.logger = createLogger2(this.config.logger);
-    this.cache = createCacheStore2(this.config.cache);
-    this.interceptors = (_c = config.interceptors) != null ? _c : {
-      request: [],
-      response: [],
-      error: []
-    };
-    const authMode = this.determineAuthMode(config);
-    const tokenManager = (_d = config.tokenManager) != null ? _d : new DefaultAuthTokenManager2({
-      ...config.accessToken !== void 0 ? { accessToken: config.accessToken } : {},
-      ...config.authToken !== void 0 ? { authToken: config.authToken } : {}
-    });
-    this.authConfig = {
-      authMode,
-      ...config.apiKey !== void 0 ? { apiKey: config.apiKey } : {},
-      tokenManager
-    };
-  }
-  determineAuthMode(config) {
-    if (config.apiKey) return "apikey";
-    return "dual-token";
-  }
-  getAuthMode() {
-    return this.authConfig.authMode;
-  }
-  setAuthMode(mode) {
-    this.authConfig.authMode = mode;
-  }
-  getTokenManager() {
-    return this.authConfig.tokenManager;
-  }
-  setTokenManager(manager) {
-    this.authConfig.tokenManager = manager;
-  }
-  setApiKey(apiKey) {
-    var _a;
-    this.authConfig.apiKey = apiKey;
-    this.authConfig.authMode = "apikey";
-    (_a = this.authConfig.tokenManager) == null ? void 0 : _a.clearTokens();
-  }
-  setAuthToken(token) {
-    var _a;
-    (_a = this.authConfig.tokenManager) == null ? void 0 : _a.setAuthToken(token);
-    if (this.authConfig.authMode === "apikey") {
-      this.authConfig.authMode = "dual-token";
-      delete this.authConfig.apiKey;
-    }
-  }
-  setAccessToken(token) {
-    var _a;
-    (_a = this.authConfig.tokenManager) == null ? void 0 : _a.setAccessToken(token);
-    if (this.authConfig.authMode === "apikey") {
-      this.authConfig.authMode = "dual-token";
-      delete this.authConfig.apiKey;
-    }
-  }
-  clearAuthToken() {
-    var _a;
-    (_a = this.authConfig.tokenManager) == null ? void 0 : _a.clearTokens();
-  }
-  addRequestInterceptor(interceptor) {
-    this.interceptors.request.push(interceptor);
-    return () => {
-      const index = this.interceptors.request.indexOf(interceptor);
-      if (index > -1) this.interceptors.request.splice(index, 1);
-    };
-  }
-  addResponseInterceptor(interceptor) {
-    this.interceptors.response.push(interceptor);
-    return () => {
-      const index = this.interceptors.response.indexOf(interceptor);
-      if (index > -1) this.interceptors.response.splice(index, 1);
-    };
-  }
-  addErrorInterceptor(interceptor) {
-    this.interceptors.error.push(interceptor);
-    return () => {
-      const index = this.interceptors.error.indexOf(interceptor);
-      if (index > -1) this.interceptors.error.splice(index, 1);
-    };
-  }
-  clearCache() {
-    this.cache.clear();
-  }
-  getConfig() {
-    var _a, _b;
-    return {
-      baseUrl: this.config.baseUrl,
-      timeout: this.config.timeout,
-      authMode: this.authConfig.authMode,
-      apiKey: this.authConfig.apiKey,
-      accessToken: (_a = this.authConfig.tokenManager) == null ? void 0 : _a.getAccessToken(),
-      authToken: (_b = this.authConfig.tokenManager) == null ? void 0 : _b.getAuthToken()
-    };
-  }
-  isAuthenticated() {
-    var _a, _b;
-    return (_b = (_a = this.authConfig.tokenManager) == null ? void 0 : _a.isValid()) != null ? _b : false;
-  }
-  buildBaseUrl(path, params) {
-    const baseUrl = this.config.baseUrl.replace(/\/$/, "");
-    let url = `${baseUrl}${dedupeSdkWorkApiPath2(baseUrl, path.startsWith("/") ? path : `/${path}`)}`;
-    if (params) {
-      const searchParams = new URLSearchParams();
-      Object.entries(params).forEach(([key, value]) => {
-        if (Array.isArray(value)) {
-          value.forEach((item) => {
-            if (item !== void 0 && item !== null) searchParams.append(key, String(item));
-          });
-          return;
-        }
-        if (value !== void 0 && value !== null) searchParams.append(key, String(value));
-      });
-      const queryString = searchParams.toString();
-      if (queryString) url += `?${queryString}`;
-    }
-    return url;
-  }
-  buildHeaders(config, skipAuth = false) {
-    const headers = {
-      "Content-Type": MIME_TYPES2.JSON,
-      ...this.config.headers,
-      ...config.headers
-    };
-    if (!skipAuth && !config.skipAuth) {
-      const authHeaders = buildAuthHeaders2(this.authConfig.authMode, this.authConfig.apiKey, this.authConfig.tokenManager);
-      Object.assign(headers, authHeaders);
-    }
-    stripIdentityProjectionHeaders2(headers);
-    return headers;
-  }
-  serializeRequestBody(body, headers) {
-    if (body === void 0 || body === null) return;
-    if (typeof FormData !== "undefined" && body instanceof FormData) {
-      delete headers["Content-Type"];
-      return body;
-    }
-    if (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) {
-      headers["Content-Type"] = "application/x-www-form-urlencoded;charset=UTF-8";
-      return body.toString();
-    }
-    if (typeof Blob !== "undefined" && body instanceof Blob) {
-      delete headers["Content-Type"];
-      return body;
-    }
-    if (typeof ArrayBuffer !== "undefined") {
-      if (body instanceof ArrayBuffer) {
-        delete headers["Content-Type"];
-        return body;
-      }
-      if (ArrayBuffer.isView(body)) {
-        delete headers["Content-Type"];
-        return body;
-      }
-    }
-    if (typeof body === "string") {
-      headers["Content-Type"] = headers["Content-Type"] || "text/plain;charset=UTF-8";
-      return body;
-    }
-    return JSON.stringify(body);
-  }
-  async applyRequestInterceptors(config) {
-    let processedConfig = config;
-    for (const interceptor of this.interceptors.request) processedConfig = await interceptor(processedConfig);
-    return processedConfig;
-  }
-  async applyResponseInterceptors(response, config) {
-    let processedResponse = response;
-    for (const interceptor of this.interceptors.response) processedResponse = await interceptor(processedResponse, config);
-    return processedResponse;
-  }
-  async applyErrorInterceptors(error, config) {
-    for (const interceptor of this.interceptors.error) await interceptor(error, config);
-  }
-  async handleErrorResponse(response, config) {
-    var _a;
-    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-    let problem;
-    try {
-      const result = await response.json();
-      errorMessage = String(result.detail || result.msg || result.message || result.title || errorMessage);
-      if (((_a = response.headers.get("content-type")) == null ? void 0 : _a.includes("application/problem+json")) || "status" in result && "code" in result && "traceId" in result) problem = result;
-    } catch {
-    }
-    const error = SdkError2.fromHttpStatus(response.status, errorMessage, problem === void 0 ? void 0 : { problem });
-    await this.applyErrorInterceptors(error, config);
-    throw error;
-  }
-  async processResponse(response, config) {
-    if (!response.ok) await this.handleErrorResponse(response, config);
-    if (response.status === HTTP_STATUS2.NO_CONTENT) return;
-    const contentType = response.headers.get("content-type");
-    if (contentType == null ? void 0 : contentType.includes(MIME_TYPES2.JSON)) {
-      const body = await response.text();
-      if (!body.trim()) return;
-      const result = JSON.parse(body);
-      if (!isApiResultEnvelope2(result)) return result;
-      if (!SUCCESS_CODES2.includes(result.code) && !SUCCESS_CODES2.includes(String(result.code))) throw SdkError2.fromApiResult(result, response.status);
-      return result.data;
-    }
-    if (contentType == null ? void 0 : contentType.includes("text/")) return await response.text();
-    return await response.json();
-  }
-  async executeFetch(url, options) {
-    const controller = new AbortController();
-    let timedOut = false;
-    const timeoutId = setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, options.timeout);
-    const abortHandler = () => controller.abort();
-    if (options.signal) if (options.signal.aborted) controller.abort();
-    else options.signal.addEventListener("abort", abortHandler, { once: true });
-    try {
-      this.logger.debug(`${options.method} ${url}`);
-      return await fetch(url, {
-        method: options.method,
-        headers: options.headers,
-        ...options.body !== void 0 ? { body: options.body } : {},
-        signal: controller.signal
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        if (error.name === "AbortError") {
-          if (timedOut) throw new TimeoutError2(`Request timeout after ${options.timeout}ms`, options.timeout);
-          throw new CancelledError2("Request was cancelled");
-        }
-        throw new NetworkError2(error.message);
-      }
-      throw new NetworkError2("Unknown network error");
-    } finally {
-      clearTimeout(timeoutId);
-      if (options.signal) options.signal.removeEventListener("abort", abortHandler);
-    }
-  }
-  async execute(config) {
-    var _a;
-    const processedConfig = await this.applyRequestInterceptors(config);
-    const url = this.buildBaseUrl(processedConfig.url, processedConfig.params);
-    const headers = this.buildHeaders(processedConfig);
-    const serializedBody = this.serializeRequestBody(processedConfig.body, headers);
-    const response = await this.executeFetch(url, {
-      method: processedConfig.method,
-      headers,
-      ...serializedBody !== void 0 ? { body: serializedBody } : {},
-      timeout: (_a = processedConfig.timeout) != null ? _a : this.config.timeout,
-      ...processedConfig.signal !== void 0 ? { signal: processedConfig.signal } : {}
-    });
-    return this.processResponse(response, processedConfig);
-  }
-  async upload(path, options) {
-    var _a, _b;
-    const formData = new FormData();
-    formData.append((_a = options.fieldName) != null ? _a : "file", options.file);
-    if (options.additionalData) Object.entries(options.additionalData).forEach(([key, value]) => {
-      formData.append(key, value);
-    });
-    const config = {
-      url: path,
-      method: "POST",
-      body: formData,
-      skipAuth: false
-    };
-    const processedConfig = await this.applyRequestInterceptors(config);
-    const url = this.buildBaseUrl(processedConfig.url, processedConfig.params);
-    const headers = this.buildHeaders(processedConfig);
-    delete headers["Content-Type"];
-    const response = await this.executeFetch(url, {
-      method: "POST",
-      headers,
-      body: formData,
-      timeout: (_b = processedConfig.timeout) != null ? _b : this.config.timeout,
-      ...processedConfig.signal !== void 0 ? { signal: processedConfig.signal } : {}
-    });
-    return this.processResponse(response, processedConfig);
-  }
-  async download(path, _options) {
-    var _a;
-    const config = {
-      url: path,
-      method: "GET",
-      skipAuth: false
-    };
-    const processedConfig = await this.applyRequestInterceptors(config);
-    const url = this.buildBaseUrl(processedConfig.url, processedConfig.params);
-    const headers = this.buildHeaders(processedConfig);
-    const response = await this.executeFetch(url, {
-      method: "GET",
-      headers,
-      timeout: (_a = processedConfig.timeout) != null ? _a : this.config.timeout,
-      ...processedConfig.signal !== void 0 ? { signal: processedConfig.signal } : {}
-    });
-    if (!response.ok) await this.handleErrorResponse(response, processedConfig);
-    return response.blob();
-  }
-  async *stream(path, options) {
-    var _a, _b, _c, _d;
-    const config = {
-      url: path,
-      method: (_a = options == null ? void 0 : options.method) != null ? _a : "POST",
-      ...(options == null ? void 0 : options.body) !== void 0 ? { body: options.body } : {},
-      ...(options == null ? void 0 : options.headers) !== void 0 ? { headers: options.headers } : {},
-      ...(options == null ? void 0 : options.params) !== void 0 ? { params: options.params } : {},
-      ...(options == null ? void 0 : options.timeout) !== void 0 ? { timeout: options.timeout } : {},
-      ...(options == null ? void 0 : options.signal) !== void 0 ? { signal: options.signal } : {},
-      ...(options == null ? void 0 : options.skipAuth) !== void 0 ? { skipAuth: options.skipAuth } : {},
-      ...(options == null ? void 0 : options.metadata) !== void 0 ? { metadata: options.metadata } : {}
-    };
-    const processedConfig = await this.applyRequestInterceptors(config);
-    const url = this.buildBaseUrl(processedConfig.url, processedConfig.params);
-    const headers = this.buildHeaders(processedConfig);
-    const serializedBody = this.serializeRequestBody(processedConfig.body, headers);
-    const response = await this.executeFetch(url, {
-      method: processedConfig.method,
-      headers,
-      ...serializedBody !== void 0 ? { body: serializedBody } : {},
-      timeout: (_b = processedConfig.timeout) != null ? _b : this.config.timeout,
-      ...processedConfig.signal !== void 0 ? { signal: processedConfig.signal } : {}
-    });
-    if (!response.ok) await this.handleErrorResponse(response, processedConfig);
-    const reader = (_c = response.body) == null ? void 0 : _c.getReader();
-    if (!reader) throw new NetworkError2("No response body");
-    const decoder = new TextDecoder();
-    let buffer = "";
-    const eventParser = ((_d = response.headers.get("content-type")) == null ? void 0 : _d.toLowerCase().includes("text/event-stream")) === true ? new ServerSentEventDataParser2() : void 0;
-    const parseLine = eventParser ? (line) => eventParser.pushLine(line) : normalizeLegacyStreamLine2;
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const extracted2 = extractStreamLines2(buffer);
-        buffer = extracted2.remainder;
-        for (const line of extracted2.lines) {
-          const data = parseLine(line);
-          if (data !== void 0) yield data;
-        }
-      }
-      buffer += decoder.decode();
-      const extracted = extractStreamLines2(buffer, true);
-      for (const line of extracted.lines) {
-        const data = parseLine(line);
-        if (data !== void 0) yield data;
-      }
-      const finalData = eventParser == null ? void 0 : eventParser.flush();
-      if (finalData !== void 0) yield finalData;
-    } finally {
-      reader.releaseLock();
-    }
-  }
-};
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/utils/dist/runtime/binary.js
-var textEncoder3 = new TextEncoder();
-function toUtf83(value) {
-  return textEncoder3.encode(value);
-}
-var HEX3 = "0123456789abcdef";
-function hexEncode3(bytes) {
-  let result = "";
-  for (let index = 0; index < bytes.length; index += 1) {
-    const byte = bytes[index];
-    result += HEX3[byte >> 4];
-    result += HEX3[byte & 15];
-  }
-  return result;
-}
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/utils/dist/runtime/sha256.js
-var K3 = new Uint32Array([
-  1116352408,
-  1899447441,
-  3049323471,
-  3921009573,
-  961987163,
-  1508970993,
-  2453635748,
-  2870763221,
-  3624381080,
-  310598401,
-  607225278,
-  1426881987,
-  1925078388,
-  2162078206,
-  2614888103,
-  3248222580,
-  3835390401,
-  4022224774,
-  264347078,
-  604807628,
-  770255983,
-  1249150122,
-  1555081692,
-  1996064986,
-  2554220882,
-  2821834349,
-  2952996808,
-  3210313671,
-  3336571891,
-  3584528711,
-  113926993,
-  338241895,
-  666307205,
-  773529912,
-  1294757372,
-  1396182291,
-  1695183700,
-  1986661051,
-  2177026350,
-  2456956037,
-  2730485921,
-  2820302411,
-  3259730800,
-  3345764771,
-  3516065817,
-  3600352804,
-  4094571909,
-  275423344,
-  430227734,
-  506948616,
-  659060556,
-  883997877,
-  958139571,
-  1322822218,
-  1537002063,
-  1747873779,
-  1955562222,
-  2024104815,
-  2227730452,
-  2361852424,
-  2428436474,
-  2756734187,
-  3204031479,
-  3329325298
-]);
-var BLOCK_SIZE3 = 64;
-function rotr3(value, shift) {
-  return value >>> shift | value << 32 - shift;
-}
-function sha256Block3(state, block, offset) {
-  const words = new Uint32Array(64);
-  for (let index = 0; index < 16; index += 1) {
-    const start = offset + index * 4;
-    words[index] = block[start] << 24 | block[start + 1] << 16 | block[start + 2] << 8 | block[start + 3];
-  }
-  for (let index = 16; index < 64; index += 1) {
-    const s0 = rotr3(words[index - 15], 7) ^ rotr3(words[index - 15], 18) ^ words[index - 15] >>> 3;
-    const s1 = rotr3(words[index - 2], 17) ^ rotr3(words[index - 2], 19) ^ words[index - 2] >>> 10;
-    words[index] = words[index - 16] + s0 + words[index - 7] + s1 >>> 0;
-  }
-  let a = state[0];
-  let b = state[1];
-  let c = state[2];
-  let d = state[3];
-  let e = state[4];
-  let f = state[5];
-  let g = state[6];
-  let h = state[7];
-  for (let index = 0; index < 64; index += 1) {
-    const s1 = rotr3(e, 6) ^ rotr3(e, 11) ^ rotr3(e, 25);
-    const ch = e & f ^ ~e & g;
-    const temp1 = h + s1 + ch + K3[index] + words[index] >>> 0;
-    const s0 = rotr3(a, 2) ^ rotr3(a, 13) ^ rotr3(a, 22);
-    const maj = a & b ^ a & c ^ b & c;
-    const temp2 = s0 + maj >>> 0;
-    h = g;
-    g = f;
-    f = e;
-    e = d + temp1 >>> 0;
-    d = c;
-    c = b;
-    b = a;
-    a = temp1 + temp2 >>> 0;
-  }
-  state[0] = state[0] + a >>> 0;
-  state[1] = state[1] + b >>> 0;
-  state[2] = state[2] + c >>> 0;
-  state[3] = state[3] + d >>> 0;
-  state[4] = state[4] + e >>> 0;
-  state[5] = state[5] + f >>> 0;
-  state[6] = state[6] + g >>> 0;
-  state[7] = state[7] + h >>> 0;
-}
-function sha256Digest3(value) {
-  const bitLength = value.length * 8;
-  const paddingLength = (BLOCK_SIZE3 - (value.length + 9) % BLOCK_SIZE3) % BLOCK_SIZE3 + 9;
-  const padded = new Uint8Array(value.length + paddingLength);
-  padded.set(value);
-  padded[value.length] = 128;
-  const view = new DataView(padded.buffer);
-  view.setUint32(padded.length - 4, bitLength >>> 0, false);
-  view.setUint32(padded.length - 8, Math.floor(bitLength / 4294967296), false);
-  const state = new Uint32Array([
-    1779033703,
-    3144134277,
-    1013904242,
-    2773480762,
-    1359893119,
-    2600822924,
-    528734635,
-    1541459225
-  ]);
-  for (let offset = 0; offset < padded.length; offset += BLOCK_SIZE3) {
-    sha256Block3(state, padded, offset);
-  }
-  const digest = new Uint8Array(32);
-  const digestView = new DataView(digest.buffer);
-  for (let index = 0; index < state.length; index += 1) {
-    digestView.setUint32(index * 4, state[index], false);
-  }
-  return digest;
-}
-var SHA256_INITIAL_STATE3 = new Uint32Array([
-  1779033703,
-  3144134277,
-  1013904242,
-  2773480762,
-  1359893119,
-  2600822924,
-  528734635,
-  1541459225
-]);
-function sha256Hex3(value) {
-  const bytes = typeof value === "string" ? toUtf83(value) : value;
-  return hexEncode3(sha256Digest3(bytes));
-}
-
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/node_modules/@sdkwork/utils/dist/crypto.js
-function sha256Hash3(value) {
-  return sha256Hex3(value);
-}
-
 // ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/http/client.ts
-var _HttpClient3 = class _HttpClient3 extends BaseHttpClient2 {
+var _HttpClient3 = class _HttpClient3 extends BaseHttpClient {
   constructor(config) {
     super(config);
   }
@@ -14656,7 +12001,7 @@ var _HttpClient3 = class _HttpClient3 extends BaseHttpClient2 {
     return JSON.stringify(parts);
   }
   async sha256Hex(bytes) {
-    return sha256Hash3(bytes);
+    return sha256Hash(bytes);
   }
   buildHeaders(config, skipAuth = false) {
     const headers = super.buildHeaders(config, skipAuth);
@@ -14867,7 +12212,7 @@ var _HttpClient3 = class _HttpClient3 extends BaseHttpClient2 {
     if (!accessToken && !authToken) {
       return headers;
     }
-    const authHeaders = buildAuthHeaders2("dual-token", void 0, tokenManager);
+    const authHeaders = buildAuthHeaders("dual-token", void 0, tokenManager);
     return Object.keys(authHeaders).length > 0 ? { ...headers != null ? headers : {}, ...authHeaders } : headers;
   }
   unwrapSdkworkV3Payload(payload, unwrapKind = "data") {
@@ -14914,7 +12259,7 @@ var _HttpClient3 = class _HttpClient3 extends BaseHttpClient2 {
       this.buildRequestHeaders(requestHeaders, body == null ? void 0 : contentType),
       requestBody
     );
-    const payload = await withRetry2(
+    const payload = await withRetry(
       () => execute.call(this, {
         url: path,
         method,
@@ -14932,7 +12277,7 @@ var _HttpClient3 = class _HttpClient3 extends BaseHttpClient2 {
     return this.unwrapSdkworkV3Payload(payload, sdkworkUnwrapKind);
   }
   async *streamJson(path, options = {}) {
-    const stream = BaseHttpClient2.prototype.stream;
+    const stream = BaseHttpClient.prototype.stream;
     if (typeof stream !== "function") {
       throw new Error("BaseHttpClient stream method is not available");
     }
@@ -15232,7 +12577,7 @@ var IamRoleBindingsApi = class {
   }
   /** Role Bindings list. */
   async list(params, requestOptions) {
-    const query = buildQueryString3([
+    const query = buildQueryString7([
       { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
@@ -15244,7 +12589,7 @@ var IamRoleBindingsApi = class {
       { name: "scopeKind", value: params == null ? void 0 : params.scopeKind, style: "form", explode: true, allowReserved: false },
       { name: "scopeId", value: params == null ? void 0 : params.scopeId, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString3(appApiPath2(`/iam/role_bindings`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString7(appApiPath2(`/iam/role_bindings`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
   }
 };
 var IamPositionsApi = class {
@@ -15254,14 +12599,14 @@ var IamPositionsApi = class {
   }
   /** Positions list. */
   async list(params, requestOptions) {
-    const query = buildQueryString3([
+    const query = buildQueryString7([
       { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
       { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
       { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString3(appApiPath2(`/iam/positions`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString7(appApiPath2(`/iam/positions`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
   }
 };
 var IamPositionAssignmentsApi = class {
@@ -15271,14 +12616,14 @@ var IamPositionAssignmentsApi = class {
   }
   /** Position Assignments list. */
   async list(params, requestOptions) {
-    const query = buildQueryString3([
+    const query = buildQueryString7([
       { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
       { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
       { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString3(appApiPath2(`/iam/position_assignments`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString7(appApiPath2(`/iam/position_assignments`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
   }
 };
 var IamOrganizationsTreeApi = class {
@@ -15300,14 +12645,14 @@ var IamOrganizationsApi = class {
   }
   /** Organizations list. */
   async list(params, requestOptions) {
-    const query = buildQueryString3([
+    const query = buildQueryString7([
       { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
       { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
       { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString3(appApiPath2(`/iam/organizations`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString7(appApiPath2(`/iam/organizations`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
   }
 };
 var IamOrganizationMembershipsApi = class {
@@ -15317,14 +12662,14 @@ var IamOrganizationMembershipsApi = class {
   }
   /** Organization Memberships list. */
   async list(params, requestOptions) {
-    const query = buildQueryString3([
+    const query = buildQueryString7([
       { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
       { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
       { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString3(appApiPath2(`/iam/organization_memberships`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString7(appApiPath2(`/iam/organization_memberships`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
   }
 };
 var IamDepartmentsTreeApi = class {
@@ -15346,14 +12691,14 @@ var IamDepartmentsApi = class {
   }
   /** Departments list. */
   async list(params, requestOptions) {
-    const query = buildQueryString3([
+    const query = buildQueryString7([
       { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
       { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
       { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString3(appApiPath2(`/iam/departments`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString7(appApiPath2(`/iam/departments`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
   }
 };
 var IamDepartmentAssignmentsApi = class {
@@ -15363,14 +12708,14 @@ var IamDepartmentAssignmentsApi = class {
   }
   /** Department Assignments list. */
   async list(params, requestOptions) {
-    const query = buildQueryString3([
+    const query = buildQueryString7([
       { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
       { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
       { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString3(appApiPath2(`/iam/department_assignments`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString7(appApiPath2(`/iam/department_assignments`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
   }
 };
 var IamApi = class {
@@ -15396,83 +12741,83 @@ var IamApi = class {
 function createIamApi(client) {
   return new IamApi(client);
 }
-function appendQueryString3(path, rawQueryString) {
+function appendQueryString7(path, rawQueryString) {
   const query = rawQueryString.replace(/^\?+/, "");
   if (!query) {
     return path;
   }
   return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
 }
-function buildQueryString3(parameters) {
+function buildQueryString7(parameters) {
   const pairs = [];
   for (const parameter of parameters) {
-    appendSerializedParameter3(pairs, parameter);
+    appendSerializedParameter7(pairs, parameter);
   }
   return pairs.join("&");
 }
-function appendSerializedParameter3(pairs, parameter) {
+function appendSerializedParameter7(pairs, parameter) {
   if (parameter.value === void 0 || parameter.value === null) {
     return;
   }
   if (parameter.contentType) {
-    pairs.push(`${encodeQueryComponent3(parameter.name)}=${encodeQueryValue3(JSON.stringify(parameter.value), parameter.allowReserved)}`);
+    pairs.push(`${encodeQueryComponent7(parameter.name)}=${encodeQueryValue7(JSON.stringify(parameter.value), parameter.allowReserved)}`);
     return;
   }
   const style = parameter.style || "form";
   if (style === "deepObject") {
-    appendDeepObjectParameter3(pairs, parameter.name, parameter.value, parameter.allowReserved);
+    appendDeepObjectParameter7(pairs, parameter.name, parameter.value, parameter.allowReserved);
     return;
   }
   if (Array.isArray(parameter.value)) {
-    appendArrayParameter3(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    appendArrayParameter7(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
     return;
   }
   if (typeof parameter.value === "object") {
-    appendObjectParameter3(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    appendObjectParameter7(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
     return;
   }
-  pairs.push(`${encodeQueryComponent3(parameter.name)}=${encodeQueryValue3(serializePrimitive3(parameter.value), parameter.allowReserved)}`);
+  pairs.push(`${encodeQueryComponent7(parameter.name)}=${encodeQueryValue7(serializePrimitive7(parameter.value), parameter.allowReserved)}`);
 }
-function appendArrayParameter3(pairs, name, value, style, explode, allowReserved) {
-  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive3(item));
+function appendArrayParameter7(pairs, name, value, style, explode, allowReserved) {
+  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive7(item));
   if (values.length === 0) {
     return;
   }
   if (style === "form" && explode) {
     for (const item of values) {
-      pairs.push(`${encodeQueryComponent3(name)}=${encodeQueryValue3(item, allowReserved)}`);
+      pairs.push(`${encodeQueryComponent7(name)}=${encodeQueryValue7(item, allowReserved)}`);
     }
     return;
   }
-  pairs.push(`${encodeQueryComponent3(name)}=${encodeQueryValue3(values.join(","), allowReserved)}`);
+  pairs.push(`${encodeQueryComponent7(name)}=${encodeQueryValue7(values.join(","), allowReserved)}`);
 }
-function appendObjectParameter3(pairs, name, value, style, explode, allowReserved) {
+function appendObjectParameter7(pairs, name, value, style, explode, allowReserved) {
   const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
   if (entries.length === 0) {
     return;
   }
   if (style === "form" && explode) {
     for (const [key, entryValue] of entries) {
-      pairs.push(`${encodeQueryComponent3(key)}=${encodeQueryValue3(serializePrimitive3(entryValue), allowReserved)}`);
+      pairs.push(`${encodeQueryComponent7(key)}=${encodeQueryValue7(serializePrimitive7(entryValue), allowReserved)}`);
     }
     return;
   }
-  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive3(entryValue)]).join(",");
-  pairs.push(`${encodeQueryComponent3(name)}=${encodeQueryValue3(serialized, allowReserved)}`);
+  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive7(entryValue)]).join(",");
+  pairs.push(`${encodeQueryComponent7(name)}=${encodeQueryValue7(serialized, allowReserved)}`);
 }
-function appendDeepObjectParameter3(pairs, name, value, allowReserved) {
+function appendDeepObjectParameter7(pairs, name, value, allowReserved) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    pairs.push(`${encodeQueryComponent3(name)}=${encodeQueryValue3(serializePrimitive3(value), allowReserved)}`);
+    pairs.push(`${encodeQueryComponent7(name)}=${encodeQueryValue7(serializePrimitive7(value), allowReserved)}`);
     return;
   }
   for (const [key, entryValue] of Object.entries(value)) {
     if (entryValue === void 0 || entryValue === null) {
       continue;
     }
-    pairs.push(`${encodeQueryComponent3(`${name}[${key}]`)}=${encodeQueryValue3(serializePrimitive3(entryValue), allowReserved)}`);
+    pairs.push(`${encodeQueryComponent7(`${name}[${key}]`)}=${encodeQueryValue7(serializePrimitive7(entryValue), allowReserved)}`);
   }
 }
-function serializePrimitive3(value) {
+function serializePrimitive7(value) {
   if (value instanceof Date) {
     return value.toISOString();
   }
@@ -15481,10 +12826,10 @@ function serializePrimitive3(value) {
   }
   return String(value);
 }
-function encodeQueryComponent3(value) {
+function encodeQueryComponent7(value) {
   return encodeURIComponent(value);
 }
-function encodeQueryValue3(value, allowReserved) {
+function encodeQueryValue7(value, allowReserved) {
   const encoded = encodeURIComponent(value);
   if (!allowReserved) {
     return encoded;
@@ -15504,10 +12849,10 @@ var OauthWechatPaymentOauthApi = class {
   }
   /** Wechat Payment Oauth start. */
   async start(params, requestOptions) {
-    const query = buildQueryString4([
+    const query = buildQueryString8([
       { name: "redirect", value: params.redirect, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString4(appApiPath2(`/oauth/wechat/payment/start`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+    return this.client.request(appendQueryString8(appApiPath2(`/oauth/wechat/payment/start`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
 var OauthSessionsApi = class {
@@ -15527,14 +12872,14 @@ var OauthScanLoginModesApi = class {
   }
   /** Scan Login Modes list. */
   async list(params, requestOptions) {
-    const query = buildQueryString4([
+    const query = buildQueryString8([
       { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
       { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
       { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString4(appApiPath2(`/oauth/scan_login_modes`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString8(appApiPath2(`/oauth/scan_login_modes`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "page" });
   }
 };
 var OauthProvidersApi = class {
@@ -15544,14 +12889,14 @@ var OauthProvidersApi = class {
   }
   /** Providers list. */
   async list(params, requestOptions) {
-    const query = buildQueryString4([
+    const query = buildQueryString8([
       { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
       { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
       { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString4(appApiPath2(`/oauth/providers`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString8(appApiPath2(`/oauth/providers`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "page" });
   }
 };
 var OauthMiniProgramSessionsApi = class {
@@ -15571,18 +12916,18 @@ var OauthGrantsApi = class {
   }
   /** Grants list. */
   async list(params, requestOptions) {
-    const query = buildQueryString4([
+    const query = buildQueryString8([
       { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
       { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
       { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString4(appApiPath2(`/oauth/grants`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString8(appApiPath2(`/oauth/grants`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
   }
   /** Grants delete. */
   async delete(grantId, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/grants/${serializePathParameter5(grantId, { name: "grantId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+    return this.client.request(appApiPath2(`/oauth/grants/${serializePathParameter8(grantId, { name: "grantId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
   }
 };
 var OauthDeviceAuthorizationsSessionExchangesApi = class {
@@ -15592,7 +12937,7 @@ var OauthDeviceAuthorizationsSessionExchangesApi = class {
   }
   /** Device Authorizations session Exchanges create. */
   async create(deviceAuthorizationId, body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter5(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/session_exchanges`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", skipAuth: true, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter8(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/session_exchanges`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", skipAuth: true, sdkworkUnwrapKind: "item" });
   }
 };
 var OauthDeviceAuthorizationsSessionCompletionsApi = class {
@@ -15602,7 +12947,7 @@ var OauthDeviceAuthorizationsSessionCompletionsApi = class {
   }
   /** Device Authorizations session Completions create. */
   async create(deviceAuthorizationId, body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter5(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/session_completions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter8(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/session_completions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
   }
 };
 var OauthDeviceAuthorizationsScansApi = class {
@@ -15612,7 +12957,7 @@ var OauthDeviceAuthorizationsScansApi = class {
   }
   /** Device Authorizations scans create. */
   async create(deviceAuthorizationId, body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter5(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/scans`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter8(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/scans`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
   }
 };
 var OauthDeviceAuthorizationsPasswordCompletionsApi = class {
@@ -15622,7 +12967,7 @@ var OauthDeviceAuthorizationsPasswordCompletionsApi = class {
   }
   /** Device Authorizations password Completions create. */
   async create(deviceAuthorizationId, body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter5(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/password_completions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter8(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/password_completions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
   }
 };
 var OauthDeviceAuthorizationsApi = class {
@@ -15644,7 +12989,7 @@ var OauthDeviceAuthorizationsApi = class {
   }
   /** Device Authorizations retrieve. */
   async retrieve(deviceAuthorizationId, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter5(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", skipAuth: true, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter8(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", skipAuth: true, sdkworkUnwrapKind: "item" });
   }
 };
 var OauthDesktopSessionsApi = class {
@@ -15664,11 +13009,11 @@ var OauthCallbacksApi = class {
   }
   /** Callbacks retrieve. */
   async retrieve(providerCode, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/callbacks/${serializePathParameter5(providerCode, { name: "providerCode", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath2(`/oauth/callbacks/${serializePathParameter8(providerCode, { name: "providerCode", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
   }
   /** Callbacks create. */
   async create(providerCode, body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/callbacks/${serializePathParameter5(providerCode, { name: "providerCode", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath2(`/oauth/callbacks/${serializePathParameter8(providerCode, { name: "providerCode", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
   }
 };
 var OauthAuthorizationsCompletionsApi = class {
@@ -15678,7 +13023,7 @@ var OauthAuthorizationsCompletionsApi = class {
   }
   /** Authorizations completions create. */
   async create(authorizationStateId, body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/authorizations/${serializePathParameter5(authorizationStateId, { name: "authorizationStateId", style: "simple", explode: false })}/completions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath2(`/oauth/authorizations/${serializePathParameter8(authorizationStateId, { name: "authorizationStateId", style: "simple", explode: false })}/completions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
   }
 };
 var OauthAuthorizationsApi = class {
@@ -15704,18 +13049,18 @@ var OauthAccountLinksApi = class {
   }
   /** Account Links list. */
   async list(params, requestOptions) {
-    const query = buildQueryString4([
+    const query = buildQueryString8([
       { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
       { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
       { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString4(appApiPath2(`/oauth/account_links`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString8(appApiPath2(`/oauth/account_links`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
   }
   /** Account Links delete. */
   async delete(accountLinkId, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/account_links/${serializePathParameter5(accountLinkId, { name: "accountLinkId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+    return this.client.request(appApiPath2(`/oauth/account_links/${serializePathParameter8(accountLinkId, { name: "accountLinkId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
   }
 };
 var OauthApi = class {
@@ -15749,56 +13094,56 @@ var OauthApi = class {
 function createOauthApi(client) {
   return new OauthApi(client);
 }
-function appendQueryString4(path, rawQueryString) {
+function appendQueryString8(path, rawQueryString) {
   const query = rawQueryString.replace(/^\?+/, "");
   if (!query) {
     return path;
   }
   return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
 }
-function serializePathParameter5(value, spec) {
+function serializePathParameter8(value, spec) {
   if (value === void 0 || value === null) {
     return "";
   }
   const style = spec.style || "simple";
   if (Array.isArray(value)) {
-    return serializePathArray5(spec.name, value, style, spec.explode);
+    return serializePathArray8(spec.name, value, style, spec.explode);
   }
   if (typeof value === "object") {
-    return serializePathObject5(spec.name, value, style, spec.explode);
+    return serializePathObject8(spec.name, value, style, spec.explode);
   }
-  return pathPrefix5(spec.name, style, false) + encodePathValue5(serializePathPrimitive5(value));
+  return pathPrefix8(spec.name, style, false) + encodePathValue8(serializePathPrimitive8(value));
 }
-function serializePathArray5(name, values, style, explode) {
-  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue5(serializePathPrimitive5(item)));
+function serializePathArray8(name, values, style, explode) {
+  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue8(serializePathPrimitive8(item)));
   if (serialized.length === 0) {
-    return pathPrefix5(name, style, false);
+    return pathPrefix8(name, style, false);
   }
   if (style === "matrix") {
     return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
   }
-  return pathPrefix5(name, style, false) + serialized.join(explode ? "." : ",");
+  return pathPrefix8(name, style, false) + serialized.join(explode ? "." : ",");
 }
-function serializePathObject5(name, value, style, explode) {
+function serializePathObject8(name, value, style, explode) {
   const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
   if (entries.length === 0) {
-    return pathPrefix5(name, style, true);
+    return pathPrefix8(name, style, true);
   }
   if (style === "matrix") {
-    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue5(key)}=${encodePathValue5(serializePathPrimitive5(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue5(key), encodePathValue5(serializePathPrimitive5(entryValue))]).join(",")}`;
+    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue8(key)}=${encodePathValue8(serializePathPrimitive8(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue8(key), encodePathValue8(serializePathPrimitive8(entryValue))]).join(",")}`;
   }
-  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue5(key)}=${encodePathValue5(serializePathPrimitive5(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue5(key), encodePathValue5(serializePathPrimitive5(entryValue))]).join(",");
-  return pathPrefix5(name, style, true) + serialized;
+  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue8(key)}=${encodePathValue8(serializePathPrimitive8(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue8(key), encodePathValue8(serializePathPrimitive8(entryValue))]).join(",");
+  return pathPrefix8(name, style, true) + serialized;
 }
-function pathPrefix5(name, style, _objectValue) {
+function pathPrefix8(name, style, _objectValue) {
   if (style === "label") return ".";
   if (style === "matrix") return `;${name}`;
   return "";
 }
-function encodePathValue5(value) {
+function encodePathValue8(value) {
   return encodeURIComponent(value);
 }
-function serializePathPrimitive5(value) {
+function serializePathPrimitive8(value) {
   if (value instanceof Date) {
     return value.toISOString();
   }
@@ -15807,76 +13152,76 @@ function serializePathPrimitive5(value) {
   }
   return String(value);
 }
-function buildQueryString4(parameters) {
+function buildQueryString8(parameters) {
   const pairs = [];
   for (const parameter of parameters) {
-    appendSerializedParameter4(pairs, parameter);
+    appendSerializedParameter8(pairs, parameter);
   }
   return pairs.join("&");
 }
-function appendSerializedParameter4(pairs, parameter) {
+function appendSerializedParameter8(pairs, parameter) {
   if (parameter.value === void 0 || parameter.value === null) {
     return;
   }
   if (parameter.contentType) {
-    pairs.push(`${encodeQueryComponent4(parameter.name)}=${encodeQueryValue4(JSON.stringify(parameter.value), parameter.allowReserved)}`);
+    pairs.push(`${encodeQueryComponent8(parameter.name)}=${encodeQueryValue8(JSON.stringify(parameter.value), parameter.allowReserved)}`);
     return;
   }
   const style = parameter.style || "form";
   if (style === "deepObject") {
-    appendDeepObjectParameter4(pairs, parameter.name, parameter.value, parameter.allowReserved);
+    appendDeepObjectParameter8(pairs, parameter.name, parameter.value, parameter.allowReserved);
     return;
   }
   if (Array.isArray(parameter.value)) {
-    appendArrayParameter4(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    appendArrayParameter8(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
     return;
   }
   if (typeof parameter.value === "object") {
-    appendObjectParameter4(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    appendObjectParameter8(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
     return;
   }
-  pairs.push(`${encodeQueryComponent4(parameter.name)}=${encodeQueryValue4(serializePrimitive4(parameter.value), parameter.allowReserved)}`);
+  pairs.push(`${encodeQueryComponent8(parameter.name)}=${encodeQueryValue8(serializePrimitive8(parameter.value), parameter.allowReserved)}`);
 }
-function appendArrayParameter4(pairs, name, value, style, explode, allowReserved) {
-  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive4(item));
+function appendArrayParameter8(pairs, name, value, style, explode, allowReserved) {
+  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive8(item));
   if (values.length === 0) {
     return;
   }
   if (style === "form" && explode) {
     for (const item of values) {
-      pairs.push(`${encodeQueryComponent4(name)}=${encodeQueryValue4(item, allowReserved)}`);
+      pairs.push(`${encodeQueryComponent8(name)}=${encodeQueryValue8(item, allowReserved)}`);
     }
     return;
   }
-  pairs.push(`${encodeQueryComponent4(name)}=${encodeQueryValue4(values.join(","), allowReserved)}`);
+  pairs.push(`${encodeQueryComponent8(name)}=${encodeQueryValue8(values.join(","), allowReserved)}`);
 }
-function appendObjectParameter4(pairs, name, value, style, explode, allowReserved) {
+function appendObjectParameter8(pairs, name, value, style, explode, allowReserved) {
   const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
   if (entries.length === 0) {
     return;
   }
   if (style === "form" && explode) {
     for (const [key, entryValue] of entries) {
-      pairs.push(`${encodeQueryComponent4(key)}=${encodeQueryValue4(serializePrimitive4(entryValue), allowReserved)}`);
+      pairs.push(`${encodeQueryComponent8(key)}=${encodeQueryValue8(serializePrimitive8(entryValue), allowReserved)}`);
     }
     return;
   }
-  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive4(entryValue)]).join(",");
-  pairs.push(`${encodeQueryComponent4(name)}=${encodeQueryValue4(serialized, allowReserved)}`);
+  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive8(entryValue)]).join(",");
+  pairs.push(`${encodeQueryComponent8(name)}=${encodeQueryValue8(serialized, allowReserved)}`);
 }
-function appendDeepObjectParameter4(pairs, name, value, allowReserved) {
+function appendDeepObjectParameter8(pairs, name, value, allowReserved) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    pairs.push(`${encodeQueryComponent4(name)}=${encodeQueryValue4(serializePrimitive4(value), allowReserved)}`);
+    pairs.push(`${encodeQueryComponent8(name)}=${encodeQueryValue8(serializePrimitive8(value), allowReserved)}`);
     return;
   }
   for (const [key, entryValue] of Object.entries(value)) {
     if (entryValue === void 0 || entryValue === null) {
       continue;
     }
-    pairs.push(`${encodeQueryComponent4(`${name}[${key}]`)}=${encodeQueryValue4(serializePrimitive4(entryValue), allowReserved)}`);
+    pairs.push(`${encodeQueryComponent8(`${name}[${key}]`)}=${encodeQueryValue8(serializePrimitive8(entryValue), allowReserved)}`);
   }
 }
-function serializePrimitive4(value) {
+function serializePrimitive8(value) {
   if (value instanceof Date) {
     return value.toISOString();
   }
@@ -15885,10 +13230,10 @@ function serializePrimitive4(value) {
   }
   return String(value);
 }
-function encodeQueryComponent4(value) {
+function encodeQueryComponent8(value) {
   return encodeURIComponent(value);
 }
-function encodeQueryValue4(value, allowReserved) {
+function encodeQueryValue8(value, allowReserved) {
   const encoded = encodeURIComponent(value);
   if (!allowReserved) {
     return encoded;
@@ -15977,13 +13322,13 @@ var SdkworkAppClient = class {
     return this.httpClient;
   }
 };
-function createClient4(config) {
+function createClient5(config) {
   return new SdkworkAppClient(config);
 }
 
 // ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/src/index.ts
-function createClient5(config) {
-  return createClient4(config);
+function createClient6(config) {
+  return createClient5(config);
 }
 
 // packages/sdkwork-im-mp-core/src/sdk/imIamSdkClient.ts
@@ -16039,7 +13384,7 @@ function createIamAppSdkClientConfig(options) {
 }
 function initIamAppSdkClient(options) {
   var _a;
-  iamAppSdkClient = createClient5(createIamAppSdkClientConfig(options));
+  iamAppSdkClient = createClient6(createIamAppSdkClientConfig(options));
   configuredSurfaceCode = ((_a = options.surfaceCode) == null ? void 0 : _a.trim()) || null;
   return iamAppSdkClient;
 }
@@ -16281,6 +13626,7 @@ async function bootstrapImMpRuntime(options) {
     createImMpChatInboxService(() => clients.imSdkClient)
   );
   const conversationService = createImMpChatConversationService(() => clients.imSdkClient);
+  const realtimeService = createImMpChatRealtimeService(() => clients.imSdkClient);
   runtime2 = {
     environment,
     hostAdapters,
@@ -16294,6 +13640,7 @@ async function bootstrapImMpRuntime(options) {
     t: (key, fallback) => resolveImMpChatMessage(locale, key, fallback),
     format: formatImMpChatMessage,
     inboxStore: () => inbox,
+    realtime: () => realtimeService,
     createConversationStore: () => createImMpChatConversationStore(
       conversationService,
       (conversationId) => {

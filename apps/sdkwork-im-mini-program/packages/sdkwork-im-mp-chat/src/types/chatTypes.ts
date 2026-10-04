@@ -19,6 +19,8 @@ import type {
   ConversationSummaryView,
   CreateConversationRequest,
   CreateConversationResult,
+  ImConnectOptions,
+  ImLiveConnection,
   PostMessageResult,
   QueryParams,
   SdkWorkListPageInfo,
@@ -85,7 +87,11 @@ export interface ImMpChatConversationPort {
 }
 
 /** Combined port; the root bootstrap injects one `ImSdkClient` for both. */
-export type ImMpChatSdkPort = ImMpChatInboxPort & ImMpChatConversationPort;
+export type ImMpChatSdkPort = ImMpChatInboxPort &
+  ImMpChatConversationPort & {
+    /** Opens the CCP realtime connection (wx socket factory injected). */
+    connect(options?: ImConnectOptions): Promise<ImLiveConnection>;
+  };
 
 /** Resolver injected by the root bootstrap; throws before bootstrap runs. */
 export type ImMpChatClientResolver = () => ImMpChatSdkPort;
@@ -128,6 +134,22 @@ export function resolveImMpPageSize(requested: number = IM_MP_CHAT_PAGE_SIZE): n
     return IM_MP_CHAT_PAGE_SIZE;
   }
   return Math.min(Math.trunc(requested), IM_MP_MAX_LIST_PAGE_SIZE);
+}
+
+/**
+ * Orders two int64 sequence values carried as decimal strings.
+ *
+ * `API_SPEC.md` §13.6 forbids converting ids to doubles; length-then-
+ * lexicographic comparison is exact for canonical decimal strings and never
+ * loses precision.
+ */
+export function compareImMpSeqStrings(a: string, b: string): number {
+  const left = a.trim();
+  const right = b.trim();
+  if (left.length !== right.length) {
+    return left.length - right.length;
+  }
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function normalizeString(value: unknown): string | undefined {

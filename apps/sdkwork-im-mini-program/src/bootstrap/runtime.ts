@@ -37,12 +37,14 @@ import {
   createImMpChatInboxStore,
   createImMpChatInboxService,
   createImMpChatConversationService,
+  createImMpChatRealtimeService,
   formatImMpChatMessage,
   resolveImMpChatMessage,
   type ImMpChatConversationStore,
   type ImMpChatCreateGroupInput,
   type ImMpChatCreateGroupResult,
   type ImMpChatInboxStore,
+  type ImMpChatRealtimeService,
 } from "@sdkwork/im-mp-chat";
 
 import {
@@ -79,6 +81,8 @@ export interface ImMpRuntime {
   readonly format: typeof formatImMpChatMessage;
   /** Shared inbox store; the conversation page resolves titles from it. */
   inboxStore(): ImMpChatInboxStore;
+  /** Shared live connection; pages lease conversations and refresh events. */
+  realtime(): ImMpChatRealtimeService;
   /** Fresh conversation store per opened thread. */
   createConversationStore(): ImMpChatConversationStore;
   /** Creates a group conversation; used by the create-group page. */
@@ -130,6 +134,7 @@ export async function bootstrapImMpRuntime(
     createImMpChatInboxService(() => clients.imSdkClient),
   );
   const conversationService = createImMpChatConversationService(() => clients.imSdkClient);
+  const realtimeService = createImMpChatRealtimeService(() => clients.imSdkClient);
 
   runtime = {
     environment,
@@ -144,6 +149,7 @@ export async function bootstrapImMpRuntime(
     t: (key, fallback) => resolveImMpChatMessage(locale, key, fallback),
     format: formatImMpChatMessage,
     inboxStore: () => inbox,
+    realtime: () => realtimeService,
     createConversationStore: () =>
       createImMpChatConversationStore(conversationService, (conversationId) =>
         inbox.getState().items.find((item) => item.conversationId === conversationId)

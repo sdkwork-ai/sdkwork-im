@@ -22,9 +22,10 @@ import {
   prependImMpChatMessages,
   type ImMpChatConversationService,
 } from "../services/chatConversationService";
-import type {
-  ImMpChatConversationSummary,
-  ImMpChatMessageItem,
+import {
+  compareImMpSeqStrings,
+  type ImMpChatConversationSummary,
+  type ImMpChatMessageItem,
 } from "../types/chatTypes";
 import { resolveImMpErrorMessage } from "./chatInboxStore";
 
@@ -62,6 +63,13 @@ export interface ImMpChatConversationStore
   load(input: { conversationId: string; fallbackTitle?: string }): Promise<void>;
   /** Prepends older messages; no-op when exhausted or busy. */
   loadEarlier(): Promise<void>;
+  /**
+   * Merges freshly delivered messages (realtime ping / foreground refresh).
+   *
+   * Reads the newest page and unions it into the window by message id, sorted
+   * by the string-seq comparator — never re-fetching the whole thread.
+   */
+  syncNew(): Promise<void>;
   /** Sends a text message and appends the echoed result optimistically. */
   sendText(text: string): Promise<void>;
   reset(): void;
@@ -147,6 +155,33 @@ export function createImMpChatConversationStore(
           loadingEarlier: false,
           errorMessage: resolveImMpErrorMessage(error),
         });
+      }
+    },
+
+    async syncNew(): Promise<void> {
+      const state = store.getState();
+      if (state.status === "loading" || !state.conversationId) {
+        return;
+      }
+      try {
+        const page = await service.listMessages(state.conversationId);
+        const current = store.getState();
+        const seen = new Set(current.messages.map((item) => item.messageId));
+        const merged = [
+          ...current.messages,
+          ...page.items.filter((item) => !seen.has(item.messageId)),
+        ].sort((a, b) => compareImMpSeqStrings(a.messageSeq, b.messageSeq));
+        store.replaceState({
+          ...current,
+          status: resolveImMpScreenStatus(merged.length, false),
+          messages: merged,
+          // The newest page may extend past the loaded window: refresh the
+          // forward boundary but keep the loaded older cursor intact.
+          hasMore: current.hasMore || page.hasMore,
+          ...(page.nextCursor && !current.nextCursor ? { nextCursor: page.nextCursor } : {}),
+        });
+      } catch {
+        // A failed delta refresh keeps the existing window visible.
       }
     },
 

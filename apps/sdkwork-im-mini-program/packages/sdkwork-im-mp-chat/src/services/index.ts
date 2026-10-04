@@ -15,3 +15,10 @@ export {
   type ImMpChatMessagePage,
   type ImMpChatSendTextResult,
 } from "./chatConversationService";
+
+export {
+  createImMpChatRealtimeService,
+  type ImMpChatRealtimeMessageHandler,
+  type ImMpChatRealtimeService,
+  type ImMpChatRealtimeSubscription,
+} from "./chatRealtimeService";

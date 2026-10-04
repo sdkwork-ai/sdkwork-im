@@ -31,6 +31,8 @@ Page({
 
   /** Store subscription teardown; must run in `onUnload`. */
   unsubscribeStore: null,
+  /** Live refresh subscription teardown; must run in `onUnload`. */
+  unsubscribeRealtime: null,
 
   onLoad() {
     const runtime = getImMpRuntime();
@@ -39,6 +41,11 @@ Page({
     this.unsubscribeStore = this.store.subscribe((state) => {
       this.renderState(state);
     });
+    // Live inbox: pushed messages refresh ordering and unread badges without
+    // a pull-to-refresh; foregrounds reconnect through `recover()`.
+    this.unsubscribeRealtime = runtime.realtime().subscribeRefresh(() => {
+      void this.store.refresh();
+    });
     this.renderState(this.store.getState());
   },
 
@@ -46,12 +53,17 @@ Page({
     // Refresh on every show so an unread count read while inside a thread is
     // corrected when the user comes back.
     void this.store.refresh();
+    getImMpRuntime().realtime().recover();
   },
 
   onUnload() {
     if (typeof this.unsubscribeStore === "function") {
       this.unsubscribeStore();
       this.unsubscribeStore = null;
+    }
+    if (typeof this.unsubscribeRealtime === "function") {
+      this.unsubscribeRealtime();
+      this.unsubscribeRealtime = null;
     }
   },
 
