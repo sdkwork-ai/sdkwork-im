@@ -4601,6 +4601,9 @@ importers:
 
   apps/sdkwork-im-mini-program/packages/sdkwork-im-mp-chat:
     dependencies:
+      '@sdkwork/drive-upload-image-core':
+        specifier: workspace:*
+        version: link:../../../../../sdkwork-drive/apps/sdkwork-drive-common/packages/sdkwork-drive-upload-image-core
       '@sdkwork/im-mp-commons':
         specifier: workspace:*
         version: link:../sdkwork-im-mp-commons
@@ -4615,6 +4618,9 @@ importers:
 
   apps/sdkwork-im-mini-program/packages/sdkwork-im-mp-core:
     dependencies:
+      '@sdkwork/drive-app-sdk':
+        specifier: workspace:*
+        version: link:../../../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript
       '@sdkwork/iam-app-sdk':
         specifier: workspace:*
         version: link:../../../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript
