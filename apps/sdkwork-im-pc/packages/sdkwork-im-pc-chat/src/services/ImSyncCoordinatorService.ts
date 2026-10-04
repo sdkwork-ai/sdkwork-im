@@ -1,5 +1,5 @@
 import { chatService, type ChatOfflineSyncResult, type ChatService } from './ChatService';
-import type { ContactService, ContactSyncResult } from './ContactService';
+import { contactService, type ContactService, type ContactSyncResult } from './ContactService';
 
 export interface ImStartupSyncOptions {}
 
@@ -38,9 +38,11 @@ function toErrorMessage(error: unknown): string {
 
 class SdkworkImSyncCoordinatorService implements ImSyncCoordinatorService {
   private readonly chatService: Pick<ChatService, 'syncOfflineMessages'>;
+  private readonly contactService?: Pick<ContactService, 'syncContacts'>;
 
   constructor(dependencies: ImSyncCoordinatorServiceDependencies = {}) {
     this.chatService = dependencies.chatService ?? chatService;
+    this.contactService = dependencies.contactService ?? contactService;
   }
 
   async syncStartup(_options: ImStartupSyncOptions = {}): Promise<ImStartupSyncResult> {
@@ -53,6 +55,14 @@ class SdkworkImSyncCoordinatorService implements ImSyncCoordinatorService {
       result.chat = await this.chatService.syncOfflineMessages();
     } catch (error) {
       result.errors.push({ stage: 'chat', message: toErrorMessage(error) });
+    }
+
+    if (this.contactService) {
+      try {
+        result.contacts = await this.contactService.syncContacts();
+      } catch (error) {
+        result.errors.push({ stage: 'contacts', message: toErrorMessage(error) });
+      }
     }
 
     return result;
