@@ -12,10 +12,12 @@
  */
 
 import type {
+  AddConversationMemberRequest,
   ConversationInboxEntry,
   ConversationInboxPage,
   ConversationMessageEntry,
   ConversationMessageListResponse,
+  ConversationProfileView,
   ConversationSummaryView,
   CreateConversationRequest,
   CreateConversationResult,
@@ -23,12 +25,14 @@ import type {
   ImConnectOptions,
   ImLiveConnection,
   ImPostMessageRequest,
+  ListMembersResponse,
   MessageMutationResult,
   PostMessageResult,
   QueryParams,
   RecallMessageRequest,
   SdkWorkListPageInfo,
   UpdateConversationPreferencesRequest,
+  UpdateConversationProfileRequest,
   UpdateReadCursorRequest,
 } from "@sdkwork/im-mp-core/sdk";
 
@@ -63,6 +67,13 @@ export interface ImMpChatMessageMedia {
   readonly kind: string;
   readonly nodeId: string;
   readonly fileName?: string;
+}
+
+/** Projected group member row rendered by the group profile page. */
+export interface ImMpChatGroupMember {
+  readonly memberId: string;
+  readonly userId: string;
+  readonly role: string;
 }
 
 /** Projected conversation summary used by the conversation page header. */
@@ -112,6 +123,24 @@ export interface ImMpChatConversationPort {
       conversationId: string,
       body: UpdateConversationPreferencesRequest,
     ): Promise<unknown>;
+    /** Reads the group profile (display name, notice, avatar). */
+    getProfile(conversationId: string): Promise<ConversationProfileView>;
+    /** Renames the group through the conversation profile update. */
+    updateProfile(
+      conversationId: string,
+      body: UpdateConversationProfileRequest,
+    ): Promise<unknown>;
+    /** Lists one cursor page of conversation members. */
+    listMembers(
+      conversationId: string,
+      params?: { cursor?: string; pageSize?: number },
+    ): Promise<ListMembersResponse>;
+    /** Adds one member to the conversation. */
+    addMember(conversationId: string, body: AddConversationMemberRequest): Promise<unknown>;
+    /** Removes one member (owner/admin, enforced server-side). */
+    removeMember(conversationId: string, body: { memberId: string }): Promise<unknown>;
+    /** Leaves the conversation as the current principal. */
+    leave(conversationId: string): Promise<unknown>;
     create(body: CreateConversationRequest): Promise<CreateConversationResult>;
   };
   messages: {

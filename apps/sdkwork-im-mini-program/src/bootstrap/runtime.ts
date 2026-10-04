@@ -39,6 +39,7 @@ import {
   createImMpChatConversationService,
   createImMpChatMediaService,
   createImMpChatRealtimeService,
+  createImMpChatGroupService,
   createImMpContactsService,
   formatImMpChatMessage,
   resolveImMpChatMessage,
@@ -48,6 +49,7 @@ import {
   type ImMpChatInboxStore,
   type ImMpChatMediaService,
   type ImMpChatRealtimeService,
+  type ImMpChatGroupService,
   type ImMpContactsService,
 } from "@sdkwork/im-mp-chat";
 
@@ -113,6 +115,8 @@ export interface ImMpRuntime {
   contactsService(): ImMpContactsService;
   /** Chat media service (Drive upload + download grants). */
   mediaService(): ImMpChatMediaService;
+  /** Group profile and management service. */
+  groupService(): ImMpChatGroupService;
   /**
    * The signed-in user id from the session's opaque user projection, or an
    * empty string before a session carries one. Direct-chat binding needs it
@@ -172,6 +176,7 @@ export async function bootstrapImMpRuntime(
   const conversationService = createImMpChatConversationService(() => clients.imSdkClient);
   const realtimeService = createImMpChatRealtimeService(() => clients.imSdkClient);
   const contactsService = createImMpContactsService(() => clients.imSdkClient);
+  const groupService = createImMpChatGroupService(() => clients.imSdkClient);
   const mediaService = createImMpChatMediaService(() => ({
     uploader: clients.driveAppSdkClient.uploader,
     createDownloadGrant: async (nodeId: string) => {
@@ -202,6 +207,7 @@ export async function bootstrapImMpRuntime(
     realtime: () => realtimeService,
     contactsService: () => contactsService,
     mediaService: () => mediaService,
+    groupService: () => groupService,
     currentUserId: () => resolveUserIdFromProjection(readImMpCurrentSession()?.user),
     createConversationStore: () =>
       createImMpChatConversationStore(conversationService, (conversationId) =>

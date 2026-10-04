@@ -34,3 +34,10 @@ export {
   type ImMpChatMediaService,
   type ImMpChatMediaUpload,
 } from "./chatMediaUploadService";
+
+export {
+  createImMpChatGroupService,
+  type ImMpChatGroupMemberPage,
+  type ImMpChatGroupProfile,
+  type ImMpChatGroupService,
+} from "./chatGroupService";

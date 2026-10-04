@@ -10,6 +10,7 @@
         "pages/conversation/index",
         "pages/create-group/index",
         "pages/contacts/index",
+        "pages/group-profile/index",
         "pages/settings/index"
       ]
     }

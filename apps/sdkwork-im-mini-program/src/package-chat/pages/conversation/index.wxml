@@ -58,6 +58,12 @@
       disabled="{{uploadingImage}}"
       bindtap="onPickImage"
     >{{uploadingImage ? "…" : texts.pickImage}}</button>
+    <button
+      wx:if="{{isGroup}}"
+      class="conversation-page__image"
+      size="mini"
+      bindtap="onOpenGroupProfile"
+    >{{texts.groupProfile}}</button>
     <input
       class="conversation-page__input"
       value="{{inputValue}}"

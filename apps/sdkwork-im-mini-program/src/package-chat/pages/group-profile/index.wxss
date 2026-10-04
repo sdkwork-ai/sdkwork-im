@@ -1,0 +1,142 @@
+.group-profile-page {
+  padding-bottom: 48rpx;
+}
+
+.group-profile__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 96rpx;
+  padding: 0 24rpx;
+  background: #ffffff;
+}
+
+.group-profile__row-label {
+  font-size: 28rpx;
+  color: #9a9a9a;
+}
+
+.group-profile__row-value {
+  font-size: 30rpx;
+  color: #1a1a1a;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-profile__section {
+  margin-top: 24rpx;
+  background: #ffffff;
+}
+
+.group-profile__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx 8rpx;
+}
+
+.group-profile__section-action {
+  font-size: 26rpx;
+  color: #07c160;
+}
+
+.group-profile__picker {
+  margin: 8rpx 24rpx;
+  border: 1rpx solid #e3e4e8;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.group-profile__pick-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 20rpx;
+}
+
+.group-profile__pick-check {
+  width: 32rpx;
+  height: 32rpx;
+  border: 2rpx solid #c8c9cc;
+  border-radius: 8rpx;
+  flex-shrink: 0;
+}
+
+.group-profile__pick-check--on {
+  background: #07c160;
+  border-color: #07c160;
+}
+
+.group-profile__pick-name {
+  font-size: 28rpx;
+  color: #1a1a1a;
+}
+
+.group-profile__pick-id {
+  font-size: 22rpx;
+  color: #9a9a9a;
+  margin-left: auto;
+}
+
+.group-profile__picker-confirm {
+  padding: 16rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: #ffffff;
+  background: #07c160;
+}
+
+.group-profile__member {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 16rpx 24rpx;
+}
+
+.group-profile__member-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 12rpx;
+  background: #e3e4e8;
+  flex-shrink: 0;
+}
+
+.group-profile__member-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.group-profile__member-name {
+  display: block;
+  font-size: 28rpx;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-profile__member-role {
+  display: block;
+  font-size: 22rpx;
+  color: #9a9a9a;
+}
+
+.group-profile__more {
+  padding: 16rpx 0;
+  text-align: center;
+  font-size: 24rpx;
+  color: #9a9a9a;
+}
+
+.group-profile__leave {
+  margin-top: 24rpx;
+  min-height: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  font-size: 30rpx;
+  color: #e64340;
+}

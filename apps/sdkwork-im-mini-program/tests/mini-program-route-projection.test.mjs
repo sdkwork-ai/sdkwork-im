@@ -80,7 +80,7 @@ test("the composed route set is valid and unique", () => {
 
   const composition = compose();
   assert.deepEqual(validate(composition.routes), [], "composed route set must be valid");
-  assert.equal(composition.routes.length, 6, "the default slice ships login + inbox + conversation, create-group, contacts, and settings screens");
+  assert.equal(composition.routes.length, 7, "the default slice ships login + inbox + conversation, create-group, contacts, settings, and group-profile screens");
 
   const ids = composition.routes.map((route) => route.id);
   assert.equal(new Set(ids).size, ids.length, "route ids must be unique");

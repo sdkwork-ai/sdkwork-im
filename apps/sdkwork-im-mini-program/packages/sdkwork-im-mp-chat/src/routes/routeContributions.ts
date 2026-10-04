@@ -32,6 +32,7 @@ export const IM_MP_CHAT_ROUTE_IDS = {
   createGroup: "app.communication.chat.create-group",
   contacts: "app.communication.chat.contacts",
   settings: "app.communication.chat.settings",
+  groupProfile: "app.communication.chat.group-profile",
 } as const;
 
 export const imMpChatRouteContributions: ImMpRouteContribution[] = [
@@ -94,6 +95,21 @@ export const imMpChatRouteContributions: ImMpRouteContribution[] = [
     },
   },
   {
+    id: IM_MP_CHAT_ROUTE_IDS.groupProfile,
+    surface: "app",
+    moduleId: "chat",
+    domain: "communication",
+    capability: "chat",
+    screen: "group-profile",
+    titleKey: "chat.group_profile.title",
+    auth: "required",
+    layoutGroup: "stack",
+    miniProgram: {
+      subpackage: IM_MP_CHAT_SUBPACKAGE,
+      pagePath: `${IM_MP_CHAT_SUBPACKAGE}/pages/group-profile/index`,
+    },
+  },
+  {
     id: IM_MP_CHAT_ROUTE_IDS.settings,
     surface: "app",
     moduleId: "chat",
@@ -119,4 +135,5 @@ export const imMpChatRouteContributions: ImMpRouteContribution[] = [
 export const IM_MP_CHAT_QUERY_PARAMS = {
   conversationId: "conversationId",
   conversationTitle: "title",
+  conversationType: "conversationType",
 } as const;

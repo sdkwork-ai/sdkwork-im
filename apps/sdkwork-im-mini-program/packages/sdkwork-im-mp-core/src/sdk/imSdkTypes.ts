@@ -12,6 +12,7 @@
 
 export type {
   BindDirectChatRequest,
+  AddConversationMemberRequest,
   ContactPreferencesView,
   ContactsResponse,
   ConversationInboxEntry,

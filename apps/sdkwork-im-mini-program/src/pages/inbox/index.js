@@ -92,6 +92,7 @@ Page({
       {
         [IM_MP_CHAT_QUERY_PARAMS.conversationId]: conversationId,
         ...(item ? { [IM_MP_CHAT_QUERY_PARAMS.conversationTitle]: item.displayName } : {}),
+        ...(item ? { [IM_MP_CHAT_QUERY_PARAMS.conversationType]: item.conversationType } : {}),
       },
     );
   },

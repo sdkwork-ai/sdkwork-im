@@ -6,6 +6,21 @@
  */
 
 export const imMpChatContactsMessages: Record<string, string> = {
+  "chat.group_profile.title": "Group Profile",
+  "chat.group_profile.group_name": "Group name",
+  "chat.group_profile.members": "Members",
+  "chat.group_profile.members_empty": "No members",
+  "chat.group_profile.load_more": "Load more",
+  "chat.group_profile.add_members": "Add members",
+  "chat.group_profile.add_members_empty": "No contacts to add",
+  "chat.group_profile.remove_member": "Remove",
+  "chat.group_profile.remove_confirm": "Remove this member from the group?",
+  "chat.group_profile.leave": "Leave group",
+  "chat.group_profile.leave_confirm": "Leave this group?",
+  "chat.group_profile.rename": "Change group name",
+  "chat.group_profile.action_failed": "Operation failed",
+  "chat.group_profile.confirm": "OK",
+  "chat.group_profile.cancel": "Cancel",
   "chat.contacts.title": "Contacts",
   "chat.contacts.loading": "Loading…",
   "chat.contacts.empty": "No contacts yet",

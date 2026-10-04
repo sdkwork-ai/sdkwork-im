@@ -6,6 +6,21 @@
  */
 
 export const imMpChatContactsMessages: Record<string, string> = {
+  "chat.group_profile.title": "群资料",
+  "chat.group_profile.group_name": "群名称",
+  "chat.group_profile.members": "群成员",
+  "chat.group_profile.members_empty": "暂无成员",
+  "chat.group_profile.load_more": "加载更多",
+  "chat.group_profile.add_members": "添加成员",
+  "chat.group_profile.add_members_empty": "没有可添加的联系人",
+  "chat.group_profile.remove_member": "移除",
+  "chat.group_profile.remove_confirm": "确定将该成员移出群聊？",
+  "chat.group_profile.leave": "退出群聊",
+  "chat.group_profile.leave_confirm": "确定退出群聊？",
+  "chat.group_profile.rename": "修改群名称",
+  "chat.group_profile.action_failed": "操作失败",
+  "chat.group_profile.confirm": "确定",
+  "chat.group_profile.cancel": "取消",
   "chat.contacts.title": "通讯录",
   "chat.contacts.loading": "加载中…",
   "chat.contacts.empty": "还没有联系人",

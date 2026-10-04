@@ -1,0 +1,67 @@
+<view class="im-mp-page group-profile-page">
+  <view wx:if="{{status === 'loading'}}" class="im-mp-state">{{texts.title}}</view>
+
+  <view wx:elif="{{status === 'error'}}" class="im-mp-state">
+    <text>{{errorText}}</text>
+    <text class="im-mp-state__action" bindtap="onRetry">{{texts.confirm}}</text>
+  </view>
+
+  <block wx:else>
+    <view class="group-profile__row" bindtap="onRename">
+      <text class="group-profile__row-label">{{texts.groupName}}</text>
+      <text class="group-profile__row-value">{{groupName}}</text>
+    </view>
+
+    <view class="group-profile__section">
+      <view class="group-profile__section-head">
+        <text class="group-profile__row-label">{{texts.members}}</text>
+        <text class="group-profile__section-action" bindtap="onToggleAddMembers">{{texts.addMembers}}</text>
+      </view>
+
+      <view wx:if="{{contactPickerOpen}}" class="group-profile__picker">
+        <view wx:if="{{contactCandidates.length === 0}}" class="im-mp-state">{{texts.addMembersEmpty}}</view>
+        <view
+          wx:for="{{contactCandidates}}"
+          wx:key="userId"
+          class="group-profile__pick-row"
+          data-user-id="{{item.userId}}"
+          bindtap="onToggleCandidate"
+        >
+          <view class="group-profile__pick-check {{item.selected ? 'group-profile__pick-check--on' : ''}}" />
+          <text class="group-profile__pick-name">{{item.displayName}}</text>
+          <text class="group-profile__pick-id">{{item.userId}}</text>
+        </view>
+        <view
+          wx:if="{{selectedUserIds.length > 0}}"
+          class="group-profile__picker-confirm"
+          bindtap="onConfirmAddMembers"
+        >
+          {{texts.addMembers}} ({{selectedUserIds.length}})
+        </view>
+      </view>
+
+      <view wx:if="{{members.length === 0}}" class="im-mp-state">{{texts.membersEmpty}}</view>
+      <view
+        wx:for="{{members}}"
+        wx:key="memberId"
+        class="group-profile__member"
+        data-member-id="{{item.memberId}}"
+        data-user-id="{{item.userId}}"
+        bindlongpress="onRemoveMember"
+      >
+        <view class="group-profile__member-avatar" />
+        <view class="group-profile__member-body">
+          <text class="group-profile__member-name">{{item.userId}}</text>
+          <text wx:if="{{item.role && item.role !== 'member'}}" class="group-profile__member-role">{{item.role}}</text>
+        </view>
+      </view>
+      <view
+        wx:if="{{hasMore}}"
+        class="group-profile__more"
+        bindtap="onLoadMoreMembers"
+      >{{loadingMore ? '…' : texts.loadMore}}</view>
+    </view>
+
+    <view class="group-profile__leave" bindtap="onLeaveGroup">{{texts.leave}}</view>
+  </block>
+</view>

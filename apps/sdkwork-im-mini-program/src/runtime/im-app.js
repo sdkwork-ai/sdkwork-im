@@ -1402,6 +1402,84 @@ function createImMpChatMediaService(resolveDrivePort) {
   };
 }
 
+// packages/sdkwork-im-mp-chat/src/services/chatGroupService.ts
+var GROUP_MEMBERS_PAGE_SIZE = 50;
+function createImMpChatGroupService(resolveClient) {
+  const requireConversationId = (conversationId) => {
+    const normalized = conversationId.trim();
+    if (!normalized) {
+      throw new Error("A conversation id is required.");
+    }
+    return normalized;
+  };
+  return {
+    async loadGroupProfile(conversationId) {
+      const profile = await resolveClient().conversations.getProfile(
+        requireConversationId(conversationId)
+      );
+      const avatarUrl = typeof profile.avatarUrl === "string" && profile.avatarUrl.trim() ? profile.avatarUrl.trim() : void 0;
+      return {
+        displayName: typeof profile.displayName === "string" ? profile.displayName : "",
+        notice: typeof profile.notice === "string" ? profile.notice : "",
+        ...avatarUrl ? { avatarUrl } : {}
+      };
+    },
+    async loadMembers(conversationId, options = {}) {
+      var _a;
+      const page = await resolveClient().conversations.listMembers(
+        requireConversationId(conversationId),
+        {
+          pageSize: GROUP_MEMBERS_PAGE_SIZE,
+          ...options.cursor ? { cursor: options.cursor } : {}
+        }
+      );
+      const items = ((_a = page.items) != null ? _a : []).map((member) => ({
+        memberId: member.memberId,
+        userId: member.principalId,
+        role: member.role
+      }));
+      return {
+        items,
+        hasMore: page.pageInfo.hasMore === true,
+        ...page.pageInfo.nextCursor ? { nextCursor: page.pageInfo.nextCursor } : {}
+      };
+    },
+    async renameGroup(conversationId, name) {
+      const body = name.trim();
+      if (!body) {
+        throw new Error("A group name is required.");
+      }
+      await resolveClient().conversations.updateProfile(
+        requireConversationId(conversationId),
+        { displayName: body }
+      );
+    },
+    async addMember(conversationId, userId) {
+      const normalized = userId.trim();
+      if (!normalized) {
+        throw new Error("A member user id is required.");
+      }
+      await resolveClient().conversations.addMember(requireConversationId(conversationId), {
+        principalId: normalized,
+        principalKind: "user",
+        role: "member"
+      });
+    },
+    async removeMember(conversationId, memberId) {
+      const normalized = memberId.trim();
+      if (!normalized) {
+        throw new Error("A member id is required.");
+      }
+      await resolveClient().conversations.removeMember(requireConversationId(conversationId), {
+        memberId: normalized
+      });
+    },
+    async leaveGroup(conversationId) {
+      await resolveClient().conversations.leave(requireConversationId(conversationId));
+    }
+  };
+}
+
 // packages/sdkwork-im-mp-chat/src/state/chatInboxStore.ts
 var initialImMpChatInboxState = {
   status: "loading",
@@ -1691,7 +1769,8 @@ var IM_MP_CHAT_ROUTE_IDS = {
   conversation: "app.communication.chat.conversation",
   createGroup: "app.communication.chat.create-group",
   contacts: "app.communication.chat.contacts",
-  settings: "app.communication.chat.settings"
+  settings: "app.communication.chat.settings",
+  groupProfile: "app.communication.chat.group-profile"
 };
 var imMpChatRouteContributions = [
   {
@@ -1753,6 +1832,21 @@ var imMpChatRouteContributions = [
     }
   },
   {
+    id: IM_MP_CHAT_ROUTE_IDS.groupProfile,
+    surface: "app",
+    moduleId: "chat",
+    domain: "communication",
+    capability: "chat",
+    screen: "group-profile",
+    titleKey: "chat.group_profile.title",
+    auth: "required",
+    layoutGroup: "stack",
+    miniProgram: {
+      subpackage: IM_MP_CHAT_SUBPACKAGE,
+      pagePath: `${IM_MP_CHAT_SUBPACKAGE}/pages/group-profile/index`
+    }
+  },
+  {
     id: IM_MP_CHAT_ROUTE_IDS.settings,
     surface: "app",
     moduleId: "chat",
@@ -1770,7 +1864,8 @@ var imMpChatRouteContributions = [
 ];
 var IM_MP_CHAT_QUERY_PARAMS = {
   conversationId: "conversationId",
-  conversationTitle: "title"
+  conversationTitle: "title",
+  conversationType: "conversationType"
 };
 
 // packages/sdkwork-im-mp-chat/src/i18n/zh-CN/communication/chat/inbox.ts
@@ -1828,6 +1923,21 @@ var imMpChatCreateGroupMessages = {
 
 // packages/sdkwork-im-mp-chat/src/i18n/zh-CN/communication/chat/contacts.ts
 var imMpChatContactsMessages = {
+  "chat.group_profile.title": "\u7FA4\u8D44\u6599",
+  "chat.group_profile.group_name": "\u7FA4\u540D\u79F0",
+  "chat.group_profile.members": "\u7FA4\u6210\u5458",
+  "chat.group_profile.members_empty": "\u6682\u65E0\u6210\u5458",
+  "chat.group_profile.load_more": "\u52A0\u8F7D\u66F4\u591A",
+  "chat.group_profile.add_members": "\u6DFB\u52A0\u6210\u5458",
+  "chat.group_profile.add_members_empty": "\u6CA1\u6709\u53EF\u6DFB\u52A0\u7684\u8054\u7CFB\u4EBA",
+  "chat.group_profile.remove_member": "\u79FB\u9664",
+  "chat.group_profile.remove_confirm": "\u786E\u5B9A\u5C06\u8BE5\u6210\u5458\u79FB\u51FA\u7FA4\u804A\uFF1F",
+  "chat.group_profile.leave": "\u9000\u51FA\u7FA4\u804A",
+  "chat.group_profile.leave_confirm": "\u786E\u5B9A\u9000\u51FA\u7FA4\u804A\uFF1F",
+  "chat.group_profile.rename": "\u4FEE\u6539\u7FA4\u540D\u79F0",
+  "chat.group_profile.action_failed": "\u64CD\u4F5C\u5931\u8D25",
+  "chat.group_profile.confirm": "\u786E\u5B9A",
+  "chat.group_profile.cancel": "\u53D6\u6D88",
   "chat.contacts.title": "\u901A\u8BAF\u5F55",
   "chat.contacts.loading": "\u52A0\u8F7D\u4E2D\u2026",
   "chat.contacts.empty": "\u8FD8\u6CA1\u6709\u8054\u7CFB\u4EBA",
@@ -1909,6 +2019,21 @@ var imMpChatCreateGroupMessages2 = {
 
 // packages/sdkwork-im-mp-chat/src/i18n/en-US/communication/chat/contacts.ts
 var imMpChatContactsMessages2 = {
+  "chat.group_profile.title": "Group Profile",
+  "chat.group_profile.group_name": "Group name",
+  "chat.group_profile.members": "Members",
+  "chat.group_profile.members_empty": "No members",
+  "chat.group_profile.load_more": "Load more",
+  "chat.group_profile.add_members": "Add members",
+  "chat.group_profile.add_members_empty": "No contacts to add",
+  "chat.group_profile.remove_member": "Remove",
+  "chat.group_profile.remove_confirm": "Remove this member from the group?",
+  "chat.group_profile.leave": "Leave group",
+  "chat.group_profile.leave_confirm": "Leave this group?",
+  "chat.group_profile.rename": "Change group name",
+  "chat.group_profile.action_failed": "Operation failed",
+  "chat.group_profile.confirm": "OK",
+  "chat.group_profile.cancel": "Cancel",
   "chat.contacts.title": "Contacts",
   "chat.contacts.loading": "Loading\u2026",
   "chat.contacts.empty": "No contacts yet",
@@ -16828,6 +16953,7 @@ async function bootstrapImMpRuntime(options) {
   const conversationService = createImMpChatConversationService(() => clients.imSdkClient);
   const realtimeService = createImMpChatRealtimeService(() => clients.imSdkClient);
   const contactsService = createImMpContactsService(() => clients.imSdkClient);
+  const groupService = createImMpChatGroupService(() => clients.imSdkClient);
   const mediaService = createImMpChatMediaService(() => ({
     uploader: clients.driveAppSdkClient.uploader,
     createDownloadGrant: async (nodeId) => {
@@ -16857,6 +16983,7 @@ async function bootstrapImMpRuntime(options) {
     realtime: () => realtimeService,
     contactsService: () => contactsService,
     mediaService: () => mediaService,
+    groupService: () => groupService,
     currentUserId: () => {
       var _a2;
       return resolveUserIdFromProjection((_a2 = readImMpCurrentSession()) == null ? void 0 : _a2.user);

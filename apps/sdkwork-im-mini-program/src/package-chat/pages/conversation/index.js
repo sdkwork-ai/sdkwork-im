@@ -31,6 +31,7 @@ Page({
     scrollToId: "",
     imageUrls: {},
     uploadingImage: false,
+    isGroup: false,
     texts: {},
   },
 
@@ -48,6 +49,8 @@ Page({
       return;
     }
     const fallbackTitle = options[IM_MP_CHAT_QUERY_PARAMS.conversationTitle];
+    const conversationType = options ? options[IM_MP_CHAT_QUERY_PARAMS.conversationType] : "";
+    this.setData({ isGroup: conversationType === "group" });
 
     this.store = runtime.createConversationStore();
     this.unsubscribeStore = this.store.subscribe((state) => {
@@ -179,6 +182,17 @@ Page({
     }
   },
 
+  onOpenGroupProfile() {
+    const runtime = getImMpRuntime();
+    if (!this.data.isGroup) {
+      return;
+    }
+    runtime.navigation.navigateTo(
+      runtime.routePagePath(IM_MP_CHAT_ROUTE_IDS.groupProfile),
+      { [IM_MP_CHAT_QUERY_PARAMS.conversationId]: this.store.getState().conversationId },
+    );
+  },
+
   onMessageLongPress(event) {
     const messageId = event.currentTarget.dataset.messageId;
     const senderId = event.currentTarget.dataset.senderId;
@@ -269,6 +283,7 @@ Page({
       edit: t("chat.conversation.edit"),
       editPlaceholder: t("chat.conversation.edit_placeholder"),
       actionFailed: t("chat.conversation.action_failed"),
+      groupProfile: t("chat.group_profile.title"),
     };
   },
 
