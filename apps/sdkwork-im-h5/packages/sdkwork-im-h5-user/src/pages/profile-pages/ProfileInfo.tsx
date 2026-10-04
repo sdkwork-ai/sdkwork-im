@@ -130,7 +130,8 @@ const [profile, setProfile] = useState<UserProfile | null>(null);
         <div className="w-full max-w-[320px] bg-chat-other-bg rounded-2xl shadow-sm border border-border-color p-6">
           <div className="flex items-center gap-4 mb-6">
             <Avatar
-              src={profile?.avatar || "https://picsum.photos/seed/me/200/200"}
+              src={profile?.avatar || undefined}
+              fallback={profile?.name?.slice(0, 1) || "U"}
               size="md"
               className="w-14 h-14 rounded-xl"
             />

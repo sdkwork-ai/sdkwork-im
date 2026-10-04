@@ -77,24 +77,30 @@
       // 环境下，若等 React useEffect 再切换 .dark，会出现首帧浅色后跳变
       // 暗色的主题闪烁。逻辑与 packages/sdkwork-im-h5-shell/src/ImH5Shell.tsx
       // 的 applyInitialTheme 保持一致（localStorage 键名变更需同步两处）。
+      // 先读现行键 `sdkwork_im_h5_settings`（theme.ts 写入），再退回旧键
+      // `clawchat_app_settings`，让升级用户的既有主题选择不丢失。
       (function () {
         var root = document.documentElement;
         var applyDark = function (dark) {
           root.classList.toggle('dark', !!dark);
         };
-        try {
-          var stored = window.localStorage.getItem('clawchat_app_settings');
-          if (stored) {
-            var parsed = JSON.parse(stored);
-            if (typeof parsed.darkMode === 'boolean') {
-              applyDark(parsed.darkMode);
-              return;
+        var readDarkMode = function (storageKey) {
+          try {
+            var stored = window.localStorage.getItem(storageKey);
+            if (!stored) {
+              return null;
             }
+            var parsed = JSON.parse(stored);
+            return typeof parsed.darkMode === 'boolean' ? parsed.darkMode : null;
+          } catch (e) {
+            // malformed storage: treat as no explicit preference
+            return null;
           }
-        } catch (e) {
-          // malformed storage: fall through to the system preference
-        }
-        applyDark(window.matchMedia('(prefers-color-scheme: dark)').matches);
+        };
+        var explicit =
+          readDarkMode('sdkwork_im_h5_settings') ??
+          readDarkMode('clawchat_app_settings');
+        applyDark(explicit ?? window.matchMedia('(prefers-color-scheme: dark)').matches);
       })();
     </script>
   </head>
