@@ -117,6 +117,14 @@ export interface GroupService {
   addMembers(groupId: string, memberIds: string[]): Promise<void>;
   inviteUserToGroup(group: Chat, targetUser: User): Promise<Message>;
   removeMember(groupId: string, memberId: string): Promise<void>;
+  /** Transfers group ownership to an existing member (owner-only server-side). */
+  transferGroupOwnership(groupId: string, memberId: string): Promise<void>;
+  /** Promotes or demotes a member between `admin` and `member`. */
+  changeGroupMemberRole(
+    groupId: string,
+    memberId: string,
+    role: 'admin' | 'member',
+  ): Promise<void>;
   deleteGroup(groupId: string): Promise<void>;
 }
 
@@ -1235,6 +1243,56 @@ class SdkworkGroupService implements GroupService {
 
     await this.client().conversations.removeMember(groupId, {
       memberId: targetMember.memberId,
+    });
+    this.assertSessionGeneration(sessionGeneration);
+    await this.syncMemberViewState(groupId, false, sessionGeneration);
+    this.assertSessionGeneration(sessionGeneration);
+  }
+
+  async transferGroupOwnership(groupId: string, memberId: string): Promise<void> {
+    const sessionGeneration = this.sessionGeneration;
+    const normalizedMemberId = memberId.trim();
+    if (!normalizedMemberId) {
+      throw new Error('Group member id is required');
+    }
+
+    const targetMember = await this.findConversationMember(groupId, normalizedMemberId);
+    this.assertSessionGeneration(sessionGeneration);
+    if (!targetMember) {
+      throw new Error('Group member is not available');
+    }
+
+    await this.client().conversations.transferOwner(groupId, {
+      memberId: targetMember.memberId,
+    });
+    this.assertSessionGeneration(sessionGeneration);
+    await this.syncMemberViewState(groupId, false, sessionGeneration);
+    this.assertSessionGeneration(sessionGeneration);
+  }
+
+  async changeGroupMemberRole(
+    groupId: string,
+    memberId: string,
+    role: 'admin' | 'member',
+  ): Promise<void> {
+    const sessionGeneration = this.sessionGeneration;
+    const normalizedMemberId = memberId.trim();
+    if (!normalizedMemberId) {
+      throw new Error('Group member id is required');
+    }
+
+    const targetMember = await this.findConversationMember(groupId, normalizedMemberId);
+    this.assertSessionGeneration(sessionGeneration);
+    if (!targetMember) {
+      throw new Error('Group member is not available');
+    }
+    if (targetMember.role === 'owner') {
+      throw new Error('The group owner role is transferred, not changed');
+    }
+
+    await this.client().conversations.changeMemberRole(groupId, {
+      memberId: targetMember.memberId,
+      role,
     });
     this.assertSessionGeneration(sessionGeneration);
     await this.syncMemberViewState(groupId, false, sessionGeneration);

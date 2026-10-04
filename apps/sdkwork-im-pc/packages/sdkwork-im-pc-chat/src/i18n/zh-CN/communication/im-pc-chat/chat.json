@@ -469,7 +469,7 @@
       }
     },
     "header": {
-      "knowledgebaseContactOwner": "\u77e5\u8bc6\u5e93\u5c1a\u672a\u521d\u59cb\u5316\uff0c\u8bf7\u8054\u7cfb\u7fa4\u4e3b",
+      "knowledgebaseContactOwner": "知识库尚未初始化，请联系群主",
       "search": "搜索",
       "knowledgebase": "打开群组知识库",
       "knowledgebaseInitialize": "初始化群组知识库",
@@ -625,6 +625,24 @@
         "noticeUpdated": "群公告已更新",
         "updateNoticeFailed": "更新群公告失败"
       }
+    }
+  },
+  "rightPanel": {
+    "roles": {
+      "owner": "群主",
+      "admin": "管理员"
+    },
+    "actions": {
+      "promoteToAdmin": "设为管理员",
+      "demoteToMember": "取消管理员",
+      "transferOwnership": "转让群主"
+    },
+    "toast": {
+      "ownershipTransferred": "群主已转让",
+      "transferFailed": "转让群主失败",
+      "memberPromoted": "已设为管理员",
+      "memberDemoted": "已取消管理员",
+      "roleChangeFailed": "修改成员角色失败"
     }
   }
 }

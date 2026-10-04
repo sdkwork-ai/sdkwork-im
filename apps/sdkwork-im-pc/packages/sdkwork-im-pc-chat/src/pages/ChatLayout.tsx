@@ -2203,6 +2203,38 @@ const ChatLayoutComponent: React.FC = () => {
                       toast(t("chat.rightPanel.toast.removeMemberFailed"), "error");
                     }
                   }}
+                  onTransferGroupOwnership={async (memberId) => {
+                    if (activeChat.type !== "group" || currentUserGroupRole !== 'owner') {
+                      return;
+                    }
+                    try {
+                      await groupService.transferGroupOwnership(activeChat.id, memberId);
+                      toast(t("chat.rightPanel.toast.ownershipTransferred"), "success");
+                      loadGroupMemberPage(activeChat.id);
+                      void groupService.getCurrentUserGroupRole(activeChat.id).then((role) => {
+                        setCurrentUserGroupRole(role);
+                      }).catch(() => undefined);
+                    } catch {
+                      toast(t("chat.rightPanel.toast.transferFailed"), "error");
+                    }
+                  }}
+                  onChangeGroupMemberRole={async (memberId, role) => {
+                    if (activeChat.type !== "group" || currentUserGroupRole !== 'owner') {
+                      return;
+                    }
+                    try {
+                      await groupService.changeGroupMemberRole(activeChat.id, memberId, role);
+                      toast(
+                        t(role === 'admin'
+                          ? "chat.rightPanel.toast.memberPromoted"
+                          : "chat.rightPanel.toast.memberDemoted"),
+                        "success",
+                      );
+                      loadGroupMemberPage(activeChat.id);
+                    } catch {
+                      toast(t("chat.rightPanel.toast.roleChangeFailed"), "error");
+                    }
+                  }}
                 />
               )}
             </AnimatePresence>

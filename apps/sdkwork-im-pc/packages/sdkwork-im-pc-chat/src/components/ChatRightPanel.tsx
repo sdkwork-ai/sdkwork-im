@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
-import { Search, Plus, MoreHorizontal, UserMinus, X, Bot, BookOpen, LoaderCircle, Settings2 } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, UserMinus, X, Bot, BookOpen, LoaderCircle, Settings2, Shield, Crown } from 'lucide-react';
 import type { Chat, ChatAgentAssignment, User } from '@sdkwork/im-pc-types';
 import { Avatar } from '@sdkwork/im-pc-commons';
 import type { GroupMemberListItem, GroupMemberRole } from '../services/GroupService';
@@ -31,6 +31,10 @@ export interface ChatRightPanelProps {
   onTogglePin: () => Promise<void>;
   onDeleteChat: () => Promise<void>;
   onRemoveGroupMember: (memberId: string) => Promise<void>;
+  /** Owner-only: hands group ownership to an existing member. */
+  onTransferGroupOwnership?: (memberId: string) => Promise<void>;
+  /** Owner-only: promotes a member to admin, or demotes an admin to member. */
+  onChangeGroupMemberRole?: (memberId: string, role: 'admin' | 'member') => Promise<void>;
 }
 
 export const ChatRightPanel: React.FC<ChatRightPanelProps> = ({
@@ -56,6 +60,8 @@ export const ChatRightPanel: React.FC<ChatRightPanelProps> = ({
   onTogglePin,
   onDeleteChat,
   onRemoveGroupMember,
+  onTransferGroupOwnership,
+  onChangeGroupMemberRole,
   onManageAgents,
   onManageKnowledgebase,
 }) => {
@@ -177,6 +183,18 @@ export const ChatRightPanel: React.FC<ChatRightPanelProps> = ({
                      && (currentUserGroupRole === 'owner'
                        || (currentUserGroupRole === 'admin'
                          && (member.role === 'member' || member.role === 'guest')));
+                   // Role management is owner-only on the wire
+                   // (`members/change_role` rejects non-owner callers), so
+                   // the buttons only render for the owner and never for the
+                   // owner row itself.
+                   const canToggleAdmin = Boolean(onChangeGroupMemberRole)
+                     && currentUserGroupRole === 'owner'
+                     && !isCurrentUser
+                     && (member.role === 'admin' || member.role === 'member' || member.role === 'guest');
+                   const canTransferOwnership = Boolean(onTransferGroupOwnership)
+                     && currentUserGroupRole === 'owner'
+                     && !isCurrentUser
+                     && member.role !== 'owner';
                   return (
                     <div key={memberId} className="flex min-h-[36px] items-center gap-2 rounded px-2 py-1.5 hover:bg-white/5">
                       <Avatar src={memberProfile?.avatar} alt={memberName} className="h-7 w-7 shrink-0 rounded bg-[#2b2b2d]" />
@@ -186,6 +204,38 @@ export const ChatRightPanel: React.FC<ChatRightPanelProps> = ({
                           <span className="block truncate text-[11px] text-gray-500">{memberSubtitle}</span>
                         )}
                       </span>
+                       {member.role === 'owner' && (
+                        <Crown size={14} className="shrink-0 text-amber-400" aria-label={t('chat.rightPanel.roles.owner')} />
+                      )}
+                      {member.role === 'admin' && (
+                        <Shield size={14} className="shrink-0 text-sky-400" aria-label={t('chat.rightPanel.roles.admin')} />
+                      )}
+                      {canToggleAdmin && (
+                        <button
+                          type="button"
+                          aria-label={member.role === 'admin'
+                            ? t('chat.rightPanel.actions.demoteToMember')
+                            : t('chat.rightPanel.actions.promoteToAdmin')}
+                          title={member.role === 'admin'
+                            ? t('chat.rightPanel.actions.demoteToMember')
+                            : t('chat.rightPanel.actions.promoteToAdmin')}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-gray-500 transition-colors hover:bg-white/10 hover:text-gray-200"
+                          onClick={() => void onChangeGroupMemberRole?.(memberId, member.role === 'admin' ? 'member' : 'admin')}
+                        >
+                          <Shield size={14} />
+                        </button>
+                      )}
+                      {canTransferOwnership && (
+                        <button
+                          type="button"
+                          aria-label={t('chat.rightPanel.actions.transferOwnership')}
+                          title={t('chat.rightPanel.actions.transferOwnership')}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-gray-500 transition-colors hover:bg-amber-500/10 hover:text-amber-400"
+                          onClick={() => void onTransferGroupOwnership?.(memberId)}
+                        >
+                          <Crown size={14} />
+                        </button>
+                      )}
                        {canRemoveMember && (
                         <button
                           type="button"

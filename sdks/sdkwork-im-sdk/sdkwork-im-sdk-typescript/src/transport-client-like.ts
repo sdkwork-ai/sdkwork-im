@@ -18,9 +18,11 @@ import type {
   ConversationSummaryView,
   CreateSystemChannelRequest,
   CreateThreadConversationRequest,
+  ChangeConversationMemberRoleRequest,
   ConversationMember,
   EnterRoomResponse,
   RoomView,
+  TransferConversationOwnerRequest,
   UpdateConversationAgentsRequest,
   EditMessageRequest,
   FavoriteMessageRequest,
@@ -140,6 +142,16 @@ export interface ImTransportClientLike {
         };
         add(conversationId: string, body: AddConversationMemberRequest): Promise<unknown>;
         remove(conversationId: string, body: unknown): Promise<unknown>;
+        /** Transfers conversation ownership to an existing member. */
+        transferOwner(
+          conversationId: string,
+          body: TransferConversationOwnerRequest,
+        ): Promise<ConversationMember>;
+        /** Changes a member's role (`owner` | `admin` | `member` | `guest`). */
+        changeRole(
+          conversationId: string,
+          body: ChangeConversationMemberRoleRequest,
+        ): Promise<ConversationMember>;
         leave(conversationId: string): Promise<unknown>;
         acceptInvitation(conversationId: string): Promise<import('../generated/server-openapi/dist/index.js').ConversationMember>;
       };

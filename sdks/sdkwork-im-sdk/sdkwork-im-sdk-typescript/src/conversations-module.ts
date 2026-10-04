@@ -309,6 +309,39 @@ export class ImConversationsModule {
     );
   }
 
+  /**
+   * Transfers conversation ownership to an existing member.
+   *
+   * Wire contract: `POST .../members/transfer_owner` with `{ memberId }`
+   * (owner-only, enforced server-side).
+   */
+  transferOwner(
+    conversationId: string,
+    body: { memberId: string },
+  ): Promise<import('../generated/server-openapi/dist/index.js').ConversationMember> {
+    return this.transportClient.chat.conversations.members.transferOwner(
+      requireStringIdentifier(conversationId, 'conversationId'),
+      body,
+    );
+  }
+
+  /**
+   * Changes a member's conversation role.
+   *
+   * Wire contract: `POST .../members/change_role` with `{ memberId, role }`;
+   * role vocabulary is `owner` | `admin` | `member` | `guest`
+   * (`MembershipRole`, snake_case serialization).
+   */
+  changeMemberRole(
+    conversationId: string,
+    body: { memberId: string; role: 'owner' | 'admin' | 'member' | 'guest' },
+  ): Promise<import('../generated/server-openapi/dist/index.js').ConversationMember> {
+    return this.transportClient.chat.conversations.members.changeRole(
+      requireStringIdentifier(conversationId, 'conversationId'),
+      body,
+    );
+  }
+
   leave(conversationId: string): Promise<unknown> {
     return this.transportClient.chat.conversations.members.leave(
       requireStringIdentifier(conversationId, 'conversationId'),

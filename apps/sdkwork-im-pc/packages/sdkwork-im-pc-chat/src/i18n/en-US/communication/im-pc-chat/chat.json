@@ -626,5 +626,23 @@
         "updateNoticeFailed": "Failed to update group notice"
       }
     }
+  },
+  "rightPanel": {
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin"
+    },
+    "actions": {
+      "promoteToAdmin": "Set as admin",
+      "demoteToMember": "Remove admin",
+      "transferOwnership": "Transfer ownership"
+    },
+    "toast": {
+      "ownershipTransferred": "Ownership transferred",
+      "transferFailed": "Failed to transfer ownership",
+      "memberPromoted": "Member promoted to admin",
+      "memberDemoted": "Admin removed",
+      "roleChangeFailed": "Failed to change member role"
+    }
   }
 }
