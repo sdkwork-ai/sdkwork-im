@@ -253,6 +253,264 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Audio'**
   String get mediaKindAudio;
+
+  /// Tooltip of the inbox app bar action that opens group creation.
+  ///
+  /// In en, this message translates to:
+  /// **'New group'**
+  String get createGroupAction;
+
+  /// Title of the create-group screen.
+  ///
+  /// In en, this message translates to:
+  /// **'New group'**
+  String get createGroupTitle;
+
+  /// Label of the group name input field.
+  ///
+  /// In en, this message translates to:
+  /// **'Group name'**
+  String get groupNameLabel;
+
+  /// Validation shown when the group name is blank.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a group name.'**
+  String get createGroupNameEmpty;
+
+  /// Validation shown when no member is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Select at least one member.'**
+  String get createGroupMembersRequired;
+
+  /// Label of the create-group submit button.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get createGroupCreate;
+
+  /// Label of the submit button while the group is being created.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating…'**
+  String get createGroupCreating;
+
+  /// Snackbar text shown when group creation fails; includes the failure detail.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create group: {error}'**
+  String createGroupFailed(String error);
+
+  /// Empty-state text when there are no contacts to add.
+  ///
+  /// In en, this message translates to:
+  /// **'No contacts to add yet.'**
+  String get createGroupContactsEmpty;
+
+  /// Error shown when loading contacts for group flows fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load contacts.'**
+  String get groupContactsLoadFailed;
+
+  /// Title of the group profile screen; also the conversation app bar tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Group info'**
+  String get groupProfileTitle;
+
+  /// Header above the member selection list.
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get groupMembersHeader;
+
+  /// Member count header on the group profile screen.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} members'**
+  String groupMemberCount(int count);
+
+  /// Error shown when loading the group profile or members fails; includes the failure detail.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load group info: {error}'**
+  String groupLoadFailed(String error);
+
+  /// Label for adding members from contacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Add members'**
+  String get groupAddMembers;
+
+  /// Button that confirms the selected members.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get groupAddMembersSave;
+
+  /// Snackbar text shown when adding members fails; includes the failure detail.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to add members: {error}'**
+  String groupAddMembersFailed(String error);
+
+  /// Tooltip of the per-member remove action.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get groupRemoveMember;
+
+  /// Title of the remove-member confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove member'**
+  String get groupRemoveMemberConfirmTitle;
+
+  /// Body of the remove-member confirmation dialog; includes the member name.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name} from this group?'**
+  String groupRemoveMemberConfirmBody(String name);
+
+  /// Snackbar text shown when removing a member fails; includes the failure detail.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to remove member: {error}'**
+  String groupRemoveMemberFailed(String error);
+
+  /// Row and dialog title for renaming the group.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename group'**
+  String get renameGroupAction;
+
+  /// Button that confirms the rename.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get renameGroupSave;
+
+  /// Snackbar text shown when renaming fails; includes the failure detail.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to rename group: {error}'**
+  String renameGroupFailed(String error);
+
+  /// Row label that leaves the group.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave group'**
+  String get leaveGroup;
+
+  /// Title of the leave-group confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave group'**
+  String get leaveGroupConfirmTitle;
+
+  /// Body of the leave-group confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'You will stop receiving messages from this group.'**
+  String get leaveGroupConfirmBody;
+
+  /// Snackbar text shown when leaving fails; includes the failure detail.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to leave group: {error}'**
+  String leaveGroupFailed(String error);
+
+  /// Generic cancel button in group dialogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get groupCancel;
+
+  /// Generic confirm button in group dialogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get groupConfirm;
+
+  /// Display name shown for the current user in the member list.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get groupMemberYou;
+
+  /// Title of the settings screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTitle;
+
+  /// Header of the account identity section.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get settingsSectionAccount;
+
+  /// Label of the current user id row.
+  ///
+  /// In en, this message translates to:
+  /// **'User ID'**
+  String get settingsUserId;
+
+  /// Label of the current tenant id row.
+  ///
+  /// In en, this message translates to:
+  /// **'Tenant ID'**
+  String get settingsTenantId;
+
+  /// Label of the current organization id row.
+  ///
+  /// In en, this message translates to:
+  /// **'Organization ID'**
+  String get settingsOrganizationId;
+
+  /// Header of the appearance section.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get settingsSectionAppearance;
+
+  /// Theme mode choice following the system setting.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get themeSystem;
+
+  /// Light theme mode choice.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get themeLight;
+
+  /// Dark theme mode choice.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get themeDark;
+
+  /// Button label that signs the current user out.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get settingsSignOut;
+
+  /// Error shown when the add-members contact list fails to load.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load contacts: {error}'**
+  String groupAddMembersLoadFailed(String error);
+
+  /// Empty state for the add-members contact list.
+  ///
+  /// In en, this message translates to:
+  /// **'No contacts to add.'**
+  String get groupAddMembersEmpty;
 }
 
 class _AppLocalizationsDelegate

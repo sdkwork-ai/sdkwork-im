@@ -2,14 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:sdkwork_im_flutter_mobile_chat/sdkwork_im_flutter_mobile_chat.dart';
+import 'package:sdkwork_im_flutter_mobile_contacts/sdkwork_im_flutter_mobile_contacts.dart';
 import 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.dart';
 
 import '../bootstrap/sdk_clients.dart';
 
 class ChatHome extends StatefulWidget {
-  const ChatHome({super.key, required this.session});
+  const ChatHome({
+    super.key,
+    required this.session,
+    required this.onSignOut,
+  });
 
   final ImAppSession session;
+
+  /// Host-owned sign-out wired through to the settings surface.
+  final Future<void> Function() onSignOut;
 
   @override
   State<ChatHome> createState() => _ChatHomeState();
@@ -18,12 +26,14 @@ class ChatHome extends StatefulWidget {
 class _ChatHomeState extends State<ChatHome> {
   late final ImSdkClientBundle _clientBundle;
   late final ChatRealtimeService _realtimeService;
+  late final ContactService _contactService;
 
   @override
   void initState() {
     super.initState();
     _clientBundle = getSdkClients().im;
     _realtimeService = createChatRealtimeService(_clientBundle);
+    _contactService = createContactService(_clientBundle);
   }
 
   @override
@@ -40,9 +50,11 @@ class _ChatHomeState extends State<ChatHome> {
       inboxService: inboxService,
       imClients: _clientBundle,
       realtimeService: _realtimeService,
+      contactService: _contactService,
       userId: widget.session.userId,
       applicationPublicHttpUrl: getSdkClients().applicationPublicHttpUrl,
       session: widget.session,
+      onSignOut: widget.onSignOut,
     );
   }
 }

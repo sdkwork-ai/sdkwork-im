@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:sdkwork_im_flutter_mobile_contacts/sdkwork_im_flutter_mobile_contacts.dart';
 import 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -12,7 +13,9 @@ import '../services/chat_media_upload_service.dart';
 import '../services/chat_message_history_utils.dart';
 import '../services/chat_message_media.dart';
 import '../services/chat_realtime_service.dart';
+import '../services/group_service.dart';
 import '../services/offline_send_queue.dart';
+import 'group_profile_page.dart';
 
 enum _MessageHistoryUpdateMode { replace, older, newer }
 
@@ -28,6 +31,10 @@ class ChatConversationPage extends StatefulWidget {
     required this.applicationPublicHttpUrl,
     required this.session,
     this.title,
+    this.conversationType,
+    this.groupService,
+    this.contactService,
+    this.onGroupLeft,
   });
 
   final ChatConversationService conversationService;
@@ -36,6 +43,24 @@ class ChatConversationPage extends StatefulWidget {
   final String applicationPublicHttpUrl;
   final ImAppSession session;
   final String? title;
+
+  /// Wire conversation type (`direct` / `group`); gates the group profile
+  /// entry in the app bar.
+  final String? conversationType;
+
+  /// Group management surface; required for group conversations.
+  final GroupService? groupService;
+
+  /// Contacts source for the group add-members picker.
+  final ContactService? contactService;
+
+  /// Invoked after the current user left the group from the profile page.
+  final void Function()? onGroupLeft;
+
+  bool get _isGroupConversation =>
+      conversationType == groupConversationType &&
+      groupService != null &&
+      contactService != null;
 
   @override
   State<ChatConversationPage> createState() => _ChatConversationPageState();
@@ -463,6 +488,28 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
+            ),
+          if (widget._isGroupConversation)
+            IconButton(
+              tooltip: l10n.groupProfileTitle,
+              icon: const Icon(Icons.info_outline),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => GroupProfilePage(
+                      groupService: widget.groupService!,
+                      contactService: widget.contactService!,
+                      conversationId: widget.conversationId,
+                      currentUserId: widget.session.userId,
+                      initialName: widget.title,
+                      onLeft: () {
+                        Navigator.of(context).pop();
+                        widget.onGroupLeft?.call();
+                      },
+                    ),
+                  ),
+                );
+              },
             ),
         ],
       ),

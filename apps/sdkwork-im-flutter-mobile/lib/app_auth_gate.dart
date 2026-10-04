@@ -140,7 +140,7 @@ class _AppAuthGateState extends State<AppAuthGate> {
               ),
             ),
           ),
-          Expanded(child: _HomeTabs(session: session)),
+          Expanded(child: _HomeTabs(session: session, onSignOut: _handleSignOut)),
         ],
       );
     }
@@ -231,9 +231,12 @@ class _AppAuthGateState extends State<AppAuthGate> {
 /// contacts window survive tab switches; the chat package and the contacts
 /// package each keep their own state and never depend on each other.
 class _HomeTabs extends StatefulWidget {
-  const _HomeTabs({required this.session});
+  const _HomeTabs({required this.session, required this.onSignOut});
 
   final ImAppSession session;
+
+  /// Host-owned sign-out handed to the chat settings surface.
+  final Future<void> Function() onSignOut;
 
   @override
   State<_HomeTabs> createState() => _HomeTabsState();
@@ -249,7 +252,7 @@ class _HomeTabsState extends State<_HomeTabs> {
       body: IndexedStack(
         index: _selectedIndex,
         children: [
-          ChatHome(session: widget.session),
+          ChatHome(session: widget.session, onSignOut: widget.onSignOut),
           ContactsHome(session: widget.session),
         ],
       ),

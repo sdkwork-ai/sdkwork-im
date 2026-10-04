@@ -377,6 +377,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  sdkwork_im_flutter_mobile_contacts:
+    dependency: "direct main"
+    description:
+      path: "../sdkwork_im_flutter_mobile_contacts"
+      relative: true
+    source: path
+    version: "0.1.0"
   sdkwork_im_flutter_mobile_core:
     dependency: "direct main"
     description:

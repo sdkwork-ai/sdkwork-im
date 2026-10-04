@@ -97,4 +97,151 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mediaKindAudio => '音频';
+
+  @override
+  String get createGroupAction => '新建群聊';
+
+  @override
+  String get createGroupTitle => '新建群聊';
+
+  @override
+  String get groupNameLabel => '群名称';
+
+  @override
+  String get createGroupNameEmpty => '请输入群名称。';
+
+  @override
+  String get createGroupMembersRequired => '请至少选择一名成员。';
+
+  @override
+  String get createGroupCreate => '创建';
+
+  @override
+  String get createGroupCreating => '创建中…';
+
+  @override
+  String createGroupFailed(String error) {
+    return '创建群聊失败：$error';
+  }
+
+  @override
+  String get createGroupContactsEmpty => '暂无可添加的联系人。';
+
+  @override
+  String get groupContactsLoadFailed => '无法加载联系人。';
+
+  @override
+  String get groupProfileTitle => '群聊信息';
+
+  @override
+  String get groupMembersHeader => '群成员';
+
+  @override
+  String groupMemberCount(int count) {
+    return '$count 名成员';
+  }
+
+  @override
+  String groupLoadFailed(String error) {
+    return '群聊信息加载失败：$error';
+  }
+
+  @override
+  String get groupAddMembers => '添加成员';
+
+  @override
+  String get groupAddMembersSave => '添加';
+
+  @override
+  String groupAddMembersFailed(String error) {
+    return '添加成员失败：$error';
+  }
+
+  @override
+  String get groupRemoveMember => '移除';
+
+  @override
+  String get groupRemoveMemberConfirmTitle => '移除成员';
+
+  @override
+  String groupRemoveMemberConfirmBody(String name) {
+    return '确定将 $name 移出本群吗？';
+  }
+
+  @override
+  String groupRemoveMemberFailed(String error) {
+    return '移除成员失败：$error';
+  }
+
+  @override
+  String get renameGroupAction => '修改群名称';
+
+  @override
+  String get renameGroupSave => '保存';
+
+  @override
+  String renameGroupFailed(String error) {
+    return '群名称修改失败：$error';
+  }
+
+  @override
+  String get leaveGroup => '退出群聊';
+
+  @override
+  String get leaveGroupConfirmTitle => '退出群聊';
+
+  @override
+  String get leaveGroupConfirmBody => '退出后将不再接收该群的消息。';
+
+  @override
+  String leaveGroupFailed(String error) {
+    return '退出群聊失败：$error';
+  }
+
+  @override
+  String get groupCancel => '取消';
+
+  @override
+  String get groupConfirm => '确认';
+
+  @override
+  String get groupMemberYou => '我';
+
+  @override
+  String get settingsTitle => '设置';
+
+  @override
+  String get settingsSectionAccount => '账号';
+
+  @override
+  String get settingsUserId => '用户 ID';
+
+  @override
+  String get settingsTenantId => '租户 ID';
+
+  @override
+  String get settingsOrganizationId => '组织 ID';
+
+  @override
+  String get settingsSectionAppearance => '外观';
+
+  @override
+  String get themeSystem => '跟随系统';
+
+  @override
+  String get themeLight => '浅色';
+
+  @override
+  String get themeDark => '深色';
+
+  @override
+  String get settingsSignOut => '退出登录';
+
+  @override
+  String groupAddMembersLoadFailed(String error) {
+    return '联系人加载失败：$error';
+  }
+
+  @override
+  String get groupAddMembersEmpty => '没有可添加的联系人。';
 }

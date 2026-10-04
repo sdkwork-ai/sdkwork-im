@@ -133,5 +133,222 @@
   "mediaKindAudio": "Audio",
   "@mediaKindAudio": {
     "description": "Display kind for audio attachments."
+  },
+  "createGroupAction": "New group",
+  "@createGroupAction": {
+    "description": "Tooltip of the inbox app bar action that opens group creation."
+  },
+  "createGroupTitle": "New group",
+  "@createGroupTitle": {
+    "description": "Title of the create-group screen."
+  },
+  "groupNameLabel": "Group name",
+  "@groupNameLabel": {
+    "description": "Label of the group name input field."
+  },
+  "createGroupNameEmpty": "Enter a group name.",
+  "@createGroupNameEmpty": {
+    "description": "Validation shown when the group name is blank."
+  },
+  "createGroupMembersRequired": "Select at least one member.",
+  "@createGroupMembersRequired": {
+    "description": "Validation shown when no member is selected."
+  },
+  "createGroupCreate": "Create",
+  "@createGroupCreate": {
+    "description": "Label of the create-group submit button."
+  },
+  "createGroupCreating": "Creating…",
+  "@createGroupCreating": {
+    "description": "Label of the submit button while the group is being created."
+  },
+  "createGroupFailed": "Failed to create group: {error}",
+  "@createGroupFailed": {
+    "description": "Snackbar text shown when group creation fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "createGroupContactsEmpty": "No contacts to add yet.",
+  "@createGroupContactsEmpty": {
+    "description": "Empty-state text when there are no contacts to add."
+  },
+  "groupContactsLoadFailed": "Unable to load contacts.",
+  "@groupContactsLoadFailed": {
+    "description": "Error shown when loading contacts for group flows fails."
+  },
+  "groupProfileTitle": "Group info",
+  "@groupProfileTitle": {
+    "description": "Title of the group profile screen; also the conversation app bar tooltip."
+  },
+  "groupMembersHeader": "Members",
+  "@groupMembersHeader": {
+    "description": "Header above the member selection list."
+  },
+  "groupMemberCount": "{count} members",
+  "@groupMemberCount": {
+    "description": "Member count header on the group profile screen.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupLoadFailed": "Failed to load group info: {error}",
+  "@groupLoadFailed": {
+    "description": "Error shown when loading the group profile or members fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupAddMembers": "Add members",
+  "@groupAddMembers": {
+    "description": "Label for adding members from contacts."
+  },
+  "groupAddMembersSave": "Add",
+  "@groupAddMembersSave": {
+    "description": "Button that confirms the selected members."
+  },
+  "groupAddMembersFailed": "Failed to add members: {error}",
+  "@groupAddMembersFailed": {
+    "description": "Snackbar text shown when adding members fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupRemoveMember": "Remove",
+  "@groupRemoveMember": {
+    "description": "Tooltip of the per-member remove action."
+  },
+  "groupRemoveMemberConfirmTitle": "Remove member",
+  "@groupRemoveMemberConfirmTitle": {
+    "description": "Title of the remove-member confirmation dialog."
+  },
+  "groupRemoveMemberConfirmBody": "Remove {name} from this group?",
+  "@groupRemoveMemberConfirmBody": {
+    "description": "Body of the remove-member confirmation dialog; includes the member name.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "groupRemoveMemberFailed": "Failed to remove member: {error}",
+  "@groupRemoveMemberFailed": {
+    "description": "Snackbar text shown when removing a member fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "renameGroupAction": "Rename group",
+  "@renameGroupAction": {
+    "description": "Row and dialog title for renaming the group."
+  },
+  "renameGroupSave": "Save",
+  "@renameGroupSave": {
+    "description": "Button that confirms the rename."
+  },
+  "renameGroupFailed": "Failed to rename group: {error}",
+  "@renameGroupFailed": {
+    "description": "Snackbar text shown when renaming fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "leaveGroup": "Leave group",
+  "@leaveGroup": {
+    "description": "Row label that leaves the group."
+  },
+  "leaveGroupConfirmTitle": "Leave group",
+  "@leaveGroupConfirmTitle": {
+    "description": "Title of the leave-group confirmation dialog."
+  },
+  "leaveGroupConfirmBody": "You will stop receiving messages from this group.",
+  "@leaveGroupConfirmBody": {
+    "description": "Body of the leave-group confirmation dialog."
+  },
+  "leaveGroupFailed": "Failed to leave group: {error}",
+  "@leaveGroupFailed": {
+    "description": "Snackbar text shown when leaving fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupCancel": "Cancel",
+  "@groupCancel": {
+    "description": "Generic cancel button in group dialogs."
+  },
+  "groupConfirm": "Confirm",
+  "@groupConfirm": {
+    "description": "Generic confirm button in group dialogs."
+  },
+  "groupMemberYou": "You",
+  "@groupMemberYou": {
+    "description": "Display name shown for the current user in the member list."
+  },
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Title of the settings screen."
+  },
+  "settingsSectionAccount": "Account",
+  "@settingsSectionAccount": {
+    "description": "Header of the account identity section."
+  },
+  "settingsUserId": "User ID",
+  "@settingsUserId": {
+    "description": "Label of the current user id row."
+  },
+  "settingsTenantId": "Tenant ID",
+  "@settingsTenantId": {
+    "description": "Label of the current tenant id row."
+  },
+  "settingsOrganizationId": "Organization ID",
+  "@settingsOrganizationId": {
+    "description": "Label of the current organization id row."
+  },
+  "settingsSectionAppearance": "Appearance",
+  "@settingsSectionAppearance": {
+    "description": "Header of the appearance section."
+  },
+  "themeSystem": "System",
+  "@themeSystem": {
+    "description": "Theme mode choice following the system setting."
+  },
+  "themeLight": "Light",
+  "@themeLight": {
+    "description": "Light theme mode choice."
+  },
+  "themeDark": "Dark",
+  "@themeDark": {
+    "description": "Dark theme mode choice."
+  },
+  "settingsSignOut": "Sign out",
+  "@settingsSignOut": {
+    "description": "Button label that signs the current user out."
+  },
+  "groupAddMembersLoadFailed": "Unable to load contacts: {error}",
+  "@groupAddMembersLoadFailed": {
+    "description": "Error shown when the add-members contact list fails to load.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupAddMembersEmpty": "No contacts to add.",
+  "@groupAddMembersEmpty": {
+    "description": "Empty state for the add-members contact list."
   }
 }

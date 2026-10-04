@@ -6,6 +6,7 @@ import 'package:sdkwork_common_flutter/sdkwork_common_flutter.dart' as common;
 /// been persisted by the server.
 const String clientMessageIdPrefix = 'flutter';
 const String clientConversationIdPrefix = 'direct';
+const String clientGroupRequestKeyPrefix = 'grpcreq';
 
 /// Generates a collision-resistant client message id.
 ///
@@ -21,3 +22,10 @@ String newClientMessageId() =>
 /// across attempts or peers.
 String newDirectConversationId() =>
     common.generateSecureHexId(prefix: clientConversationIdPrefix);
+
+/// Generates a collision-resistant group create request key.
+///
+/// Group creation is idempotent through `clientRequestKey`; retries of the
+/// same logical create must reuse one key, so distinct attempts never collide.
+String newGroupCreateRequestKey() =>
+    common.generateSecureHexId(prefix: clientGroupRequestKeyPrefix);

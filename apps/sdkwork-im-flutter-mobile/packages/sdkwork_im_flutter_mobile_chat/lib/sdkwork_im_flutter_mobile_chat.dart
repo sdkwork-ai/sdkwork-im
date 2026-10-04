@@ -14,10 +14,15 @@ export 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.da
 export 'l10n/generated/app_localizations.dart';
 export 'src/pages/chat_conversation_page.dart';
 export 'src/pages/chat_inbox_page.dart';
+export 'src/pages/create_group_page.dart';
+export 'src/pages/group_profile_page.dart';
+export 'src/pages/settings_page.dart';
 export 'src/services/chat_conversation_service.dart';
 export 'src/services/chat_inbox_service.dart';
 export 'src/services/chat_media_upload_service.dart';
 export 'src/services/chat_message_media.dart';
 export 'src/services/chat_realtime_service.dart';
 export 'src/services/chat_message_history_utils.dart';
+export 'src/services/group_service.dart';
 export 'src/services/offline_send_queue.dart';
+export 'src/services/settings_preferences.dart';

@@ -275,7 +275,7 @@ packages:
     source: path
     version: "0.1.0"
   im_sdk_generated:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-flutter/generated/server-openapi"
       relative: true

@@ -25,6 +25,8 @@ dependencies:
   intl: any
   sdkwork_im_flutter_mobile_commons:
     path: ../sdkwork_im_flutter_mobile_commons
+  sdkwork_im_flutter_mobile_contacts:
+    path: ../sdkwork_im_flutter_mobile_contacts
   sdkwork_im_flutter_mobile_core:
     path: ../sdkwork_im_flutter_mobile_core
   sdkwork_im_flutter_mobile_shell:

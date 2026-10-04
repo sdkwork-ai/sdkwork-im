@@ -16,6 +16,8 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   shared_preferences: ^2.5.3
   url_launcher: ^6.3.1
+  im_sdk_generated:
+    path: ../../sdks/sdkwork-im-sdk/sdkwork-im-sdk-flutter/generated/server-openapi
   sdkwork_im_flutter_mobile_chat:
     path: packages/sdkwork_im_flutter_mobile_chat
   sdkwork_im_flutter_mobile_contacts:

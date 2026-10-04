@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:sdkwork_im_flutter_mobile_commons/sdkwork_im_flutter_mobile_commons.dart';
+import 'package:sdkwork_im_flutter_mobile_contacts/sdkwork_im_flutter_mobile_contacts.dart';
 import 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.dart';
 import 'package:sdkwork_im_flutter_mobile_shell/sdkwork_im_flutter_mobile_shell.dart';
 
@@ -10,7 +11,10 @@ import '../services/chat_conversation_service.dart';
 import '../services/chat_inbox_service.dart';
 import '../services/chat_message_history_utils.dart';
 import '../services/chat_realtime_service.dart';
+import '../services/group_service.dart';
 import 'chat_conversation_page.dart';
+import 'create_group_page.dart';
+import 'settings_page.dart';
 
 /// Builds inbox copy at render time so stored errors stay localized.
 typedef _ErrorMessageBuilder = String Function(AppLocalizations l10n);
@@ -21,17 +25,26 @@ class ChatInboxPage extends StatefulWidget {
     required this.inboxService,
     required this.imClients,
     required this.realtimeService,
+    required this.contactService,
     required this.userId,
     required this.applicationPublicHttpUrl,
     required this.session,
+    required this.onSignOut,
   });
 
   final ChatInboxService inboxService;
   final ImSdkClientBundle imClients;
   final ChatRealtimeService realtimeService;
+
+  /// Contacts source backing the create-group and add-members pickers.
+  final ContactService contactService;
+
   final String userId;
   final String applicationPublicHttpUrl;
   final ImAppSession session;
+
+  /// Host-owned sign-out (clears the stored session and SDK clients).
+  final Future<void> Function() onSignOut;
 
   @override
   State<ChatInboxPage> createState() => _ChatInboxPageState();
@@ -159,6 +172,85 @@ class _ChatInboxPageState extends State<ChatInboxPage> {
     );
   }
 
+  void _openConversation(ConversationInboxEntry entry, String title) {
+    final lastReadSeq = parseWireSeq(entry.lastMessageSeq);
+    if (lastReadSeq == null) {
+      debugPrint(
+        'sdkwork-im-flutter-mobile: skipping read cursor update with '
+        'unparseable seq "${entry.lastMessageSeq}"',
+      );
+    }
+    unawaited(
+      widget.inboxService.markConversationRead(
+        entry.conversationId,
+        // Wire seqs are decimal strings (API_SPEC 13.6); the read-cursor
+        // parameter stays numeric. 0 skips the cursor update and only clears
+        // the unread marking.
+        readSeq: lastReadSeq ?? 0,
+      ),
+    );
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChatConversationPage(
+          conversationService:
+              createChatConversationService(widget.imClients),
+          realtimeService: widget.realtimeService,
+          conversationId: entry.conversationId,
+          applicationPublicHttpUrl: widget.applicationPublicHttpUrl,
+          session: widget.session,
+          title: title,
+          conversationType: entry.conversationType,
+          groupService: createGroupService(widget.imClients),
+          contactService: widget.contactService,
+        ),
+      ),
+    );
+  }
+
+  void _openCreateGroup() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CreateGroupPage(
+          groupService: createGroupService(widget.imClients),
+          contactService: widget.contactService,
+          onCreated: (conversationId) {
+            final navigator = Navigator.of(context);
+            navigator.pop();
+            navigator.push(
+              MaterialPageRoute<void>(
+                builder: (_) => ChatConversationPage(
+                  conversationService:
+                      createChatConversationService(widget.imClients),
+                  realtimeService: widget.realtimeService,
+                  conversationId: conversationId,
+                  applicationPublicHttpUrl: widget.applicationPublicHttpUrl,
+                  session: widget.session,
+                  conversationType: groupConversationType,
+                  groupService: createGroupService(widget.imClients),
+                  contactService: widget.contactService,
+                  onGroupLeft: () {
+                    unawaited(_reloadInbox());
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _openSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SettingsPage(
+          session: widget.session,
+          onSignOut: widget.onSignOut,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -175,6 +267,16 @@ class _ChatInboxPageState extends State<ChatInboxPage> {
               ),
             ),
           ),
+        IconButton(
+          tooltip: l10n.createGroupAction,
+          onPressed: _openCreateGroup,
+          icon: const Icon(Icons.group_add_outlined),
+        ),
+        IconButton(
+          tooltip: l10n.settingsTitle,
+          onPressed: _openSettings,
+          icon: const Icon(Icons.settings_outlined),
+        ),
       ],
       body: !_initialLoadComplete && _loading
           ? const Center(child: CircularProgressIndicator())
@@ -273,42 +375,10 @@ class _ChatInboxPageState extends State<ChatInboxPage> {
                                   ),
                               ],
                             ),
-                            onTap: () {
-                              final lastReadSeq =
-                                  parseWireSeq(entry.lastMessageSeq);
-                              if (lastReadSeq == null) {
-                                debugPrint(
-                                  'sdkwork-im-flutter-mobile: skipping read '
-                                  'cursor update with unparseable seq '
-                                  '"${entry.lastMessageSeq}"',
-                                );
-                              }
-                              unawaited(
-                                widget.inboxService.markConversationRead(
-                                  entry.conversationId,
-                                  // Wire seqs are decimal strings (API_SPEC
-                                  // 13.6); the read-cursor parameter stays
-                                  // numeric. 0 skips the cursor update and
-                                  // only clears the unread marking.
-                                  readSeq: lastReadSeq ?? 0,
-                                ),
-                              );
-                              Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => ChatConversationPage(
-                                    conversationService:
-                                        createChatConversationService(
-                                            widget.imClients),
-                                    realtimeService: widget.realtimeService,
-                                    conversationId: entry.conversationId,
-                                    applicationPublicHttpUrl:
-                                        widget.applicationPublicHttpUrl,
-                                    session: widget.session,
-                                    title: _entryTitle(entry, l10n),
-                                  ),
-                                ),
-                              );
-                            },
+                            onTap: () => _openConversation(
+                              entry,
+                              _entryTitle(entry, l10n),
+                            ),
                           ),
                         );
                       },

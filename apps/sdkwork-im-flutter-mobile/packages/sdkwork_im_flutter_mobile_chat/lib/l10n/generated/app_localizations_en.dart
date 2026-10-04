@@ -100,4 +100,152 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mediaKindAudio => 'Audio';
+
+  @override
+  String get createGroupAction => 'New group';
+
+  @override
+  String get createGroupTitle => 'New group';
+
+  @override
+  String get groupNameLabel => 'Group name';
+
+  @override
+  String get createGroupNameEmpty => 'Enter a group name.';
+
+  @override
+  String get createGroupMembersRequired => 'Select at least one member.';
+
+  @override
+  String get createGroupCreate => 'Create';
+
+  @override
+  String get createGroupCreating => 'Creating…';
+
+  @override
+  String createGroupFailed(String error) {
+    return 'Failed to create group: $error';
+  }
+
+  @override
+  String get createGroupContactsEmpty => 'No contacts to add yet.';
+
+  @override
+  String get groupContactsLoadFailed => 'Unable to load contacts.';
+
+  @override
+  String get groupProfileTitle => 'Group info';
+
+  @override
+  String get groupMembersHeader => 'Members';
+
+  @override
+  String groupMemberCount(int count) {
+    return '$count members';
+  }
+
+  @override
+  String groupLoadFailed(String error) {
+    return 'Failed to load group info: $error';
+  }
+
+  @override
+  String get groupAddMembers => 'Add members';
+
+  @override
+  String get groupAddMembersSave => 'Add';
+
+  @override
+  String groupAddMembersFailed(String error) {
+    return 'Failed to add members: $error';
+  }
+
+  @override
+  String get groupRemoveMember => 'Remove';
+
+  @override
+  String get groupRemoveMemberConfirmTitle => 'Remove member';
+
+  @override
+  String groupRemoveMemberConfirmBody(String name) {
+    return 'Remove $name from this group?';
+  }
+
+  @override
+  String groupRemoveMemberFailed(String error) {
+    return 'Failed to remove member: $error';
+  }
+
+  @override
+  String get renameGroupAction => 'Rename group';
+
+  @override
+  String get renameGroupSave => 'Save';
+
+  @override
+  String renameGroupFailed(String error) {
+    return 'Failed to rename group: $error';
+  }
+
+  @override
+  String get leaveGroup => 'Leave group';
+
+  @override
+  String get leaveGroupConfirmTitle => 'Leave group';
+
+  @override
+  String get leaveGroupConfirmBody =>
+      'You will stop receiving messages from this group.';
+
+  @override
+  String leaveGroupFailed(String error) {
+    return 'Failed to leave group: $error';
+  }
+
+  @override
+  String get groupCancel => 'Cancel';
+
+  @override
+  String get groupConfirm => 'Confirm';
+
+  @override
+  String get groupMemberYou => 'You';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsSectionAccount => 'Account';
+
+  @override
+  String get settingsUserId => 'User ID';
+
+  @override
+  String get settingsTenantId => 'Tenant ID';
+
+  @override
+  String get settingsOrganizationId => 'Organization ID';
+
+  @override
+  String get settingsSectionAppearance => 'Appearance';
+
+  @override
+  String get themeSystem => 'System';
+
+  @override
+  String get themeLight => 'Light';
+
+  @override
+  String get themeDark => 'Dark';
+
+  @override
+  String get settingsSignOut => 'Sign out';
+
+  @override
+  String groupAddMembersLoadFailed(String error) {
+    return 'Unable to load contacts: $error';
+  }
+
+  @override
+  String get groupAddMembersEmpty => 'No contacts to add.';
 }

@@ -133,5 +133,222 @@
   "mediaKindAudio": "音频",
   "@mediaKindAudio": {
     "description": "Display kind for audio attachments."
+  },
+  "createGroupAction": "新建群聊",
+  "@createGroupAction": {
+    "description": "Tooltip of the inbox app bar action that opens group creation."
+  },
+  "createGroupTitle": "新建群聊",
+  "@createGroupTitle": {
+    "description": "Title of the create-group screen."
+  },
+  "groupNameLabel": "群名称",
+  "@groupNameLabel": {
+    "description": "Label of the group name input field."
+  },
+  "createGroupNameEmpty": "请输入群名称。",
+  "@createGroupNameEmpty": {
+    "description": "Validation shown when the group name is blank."
+  },
+  "createGroupMembersRequired": "请至少选择一名成员。",
+  "@createGroupMembersRequired": {
+    "description": "Validation shown when no member is selected."
+  },
+  "createGroupCreate": "创建",
+  "@createGroupCreate": {
+    "description": "Label of the create-group submit button."
+  },
+  "createGroupCreating": "创建中…",
+  "@createGroupCreating": {
+    "description": "Label of the submit button while the group is being created."
+  },
+  "createGroupFailed": "创建群聊失败：{error}",
+  "@createGroupFailed": {
+    "description": "Snackbar text shown when group creation fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "createGroupContactsEmpty": "暂无可添加的联系人。",
+  "@createGroupContactsEmpty": {
+    "description": "Empty-state text when there are no contacts to add."
+  },
+  "groupContactsLoadFailed": "无法加载联系人。",
+  "@groupContactsLoadFailed": {
+    "description": "Error shown when loading contacts for group flows fails."
+  },
+  "groupProfileTitle": "群聊信息",
+  "@groupProfileTitle": {
+    "description": "Title of the group profile screen; also the conversation app bar tooltip."
+  },
+  "groupMembersHeader": "群成员",
+  "@groupMembersHeader": {
+    "description": "Header above the member selection list."
+  },
+  "groupMemberCount": "{count} 名成员",
+  "@groupMemberCount": {
+    "description": "Member count header on the group profile screen.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupLoadFailed": "群聊信息加载失败：{error}",
+  "@groupLoadFailed": {
+    "description": "Error shown when loading the group profile or members fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupAddMembers": "添加成员",
+  "@groupAddMembers": {
+    "description": "Label for adding members from contacts."
+  },
+  "groupAddMembersSave": "添加",
+  "@groupAddMembersSave": {
+    "description": "Button that confirms the selected members."
+  },
+  "groupAddMembersFailed": "添加成员失败：{error}",
+  "@groupAddMembersFailed": {
+    "description": "Snackbar text shown when adding members fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupRemoveMember": "移除",
+  "@groupRemoveMember": {
+    "description": "Tooltip of the per-member remove action."
+  },
+  "groupRemoveMemberConfirmTitle": "移除成员",
+  "@groupRemoveMemberConfirmTitle": {
+    "description": "Title of the remove-member confirmation dialog."
+  },
+  "groupRemoveMemberConfirmBody": "确定将 {name} 移出本群吗？",
+  "@groupRemoveMemberConfirmBody": {
+    "description": "Body of the remove-member confirmation dialog; includes the member name.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "groupRemoveMemberFailed": "移除成员失败：{error}",
+  "@groupRemoveMemberFailed": {
+    "description": "Snackbar text shown when removing a member fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "renameGroupAction": "修改群名称",
+  "@renameGroupAction": {
+    "description": "Row and dialog title for renaming the group."
+  },
+  "renameGroupSave": "保存",
+  "@renameGroupSave": {
+    "description": "Button that confirms the rename."
+  },
+  "renameGroupFailed": "群名称修改失败：{error}",
+  "@renameGroupFailed": {
+    "description": "Snackbar text shown when renaming fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "leaveGroup": "退出群聊",
+  "@leaveGroup": {
+    "description": "Row label that leaves the group."
+  },
+  "leaveGroupConfirmTitle": "退出群聊",
+  "@leaveGroupConfirmTitle": {
+    "description": "Title of the leave-group confirmation dialog."
+  },
+  "leaveGroupConfirmBody": "退出后将不再接收该群的消息。",
+  "@leaveGroupConfirmBody": {
+    "description": "Body of the leave-group confirmation dialog."
+  },
+  "leaveGroupFailed": "退出群聊失败：{error}",
+  "@leaveGroupFailed": {
+    "description": "Snackbar text shown when leaving fails; includes the failure detail.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupCancel": "取消",
+  "@groupCancel": {
+    "description": "Generic cancel button in group dialogs."
+  },
+  "groupConfirm": "确认",
+  "@groupConfirm": {
+    "description": "Generic confirm button in group dialogs."
+  },
+  "groupMemberYou": "我",
+  "@groupMemberYou": {
+    "description": "Display name shown for the current user in the member list."
+  },
+  "settingsTitle": "设置",
+  "@settingsTitle": {
+    "description": "Title of the settings screen."
+  },
+  "settingsSectionAccount": "账号",
+  "@settingsSectionAccount": {
+    "description": "Header of the account identity section."
+  },
+  "settingsUserId": "用户 ID",
+  "@settingsUserId": {
+    "description": "Label of the current user id row."
+  },
+  "settingsTenantId": "租户 ID",
+  "@settingsTenantId": {
+    "description": "Label of the current tenant id row."
+  },
+  "settingsOrganizationId": "组织 ID",
+  "@settingsOrganizationId": {
+    "description": "Label of the current organization id row."
+  },
+  "settingsSectionAppearance": "外观",
+  "@settingsSectionAppearance": {
+    "description": "Header of the appearance section."
+  },
+  "themeSystem": "跟随系统",
+  "@themeSystem": {
+    "description": "Theme mode choice following the system setting."
+  },
+  "themeLight": "浅色",
+  "@themeLight": {
+    "description": "Light theme mode choice."
+  },
+  "themeDark": "深色",
+  "@themeDark": {
+    "description": "Dark theme mode choice."
+  },
+  "settingsSignOut": "退出登录",
+  "@settingsSignOut": {
+    "description": "Button label that signs the current user out."
+  },
+  "groupAddMembersLoadFailed": "联系人加载失败：{error}",
+  "@groupAddMembersLoadFailed": {
+    "description": "Error shown when the add-members contact list fails to load.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupAddMembersEmpty": "没有可添加的联系人。",
+  "@groupAddMembersEmpty": {
+    "description": "Empty state for the add-members contact list."
   }
 }
