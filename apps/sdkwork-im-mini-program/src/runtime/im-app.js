@@ -718,6 +718,17 @@ function createImMpChatConversationService(resolveClient) {
       }
       await resolveClient().messages.edit(normalized, { text: body });
     },
+    async markConversationRead(conversationId, options = {}) {
+      var _a;
+      requireImMpConversationId(conversationId);
+      const readSeq = (_a = options.readSeq) == null ? void 0 : _a.trim();
+      if (readSeq && /^[0-9]+$/u.test(readSeq) && readSeq !== "0") {
+        await resolveClient().conversations.updateReadCursor(conversationId, { readSeq });
+      }
+      await resolveClient().conversations.updatePreferences(conversationId, {
+        isMarkedUnread: false
+      });
+    },
     async createGroup(input) {
       var _a;
       const groupName = input.groupName.trim();
@@ -1651,6 +1662,21 @@ function createImMpChatConversationStore(service, resolveCachedTitle) {
       }
       await service.editMessage(messageId, text);
       await this.syncNew();
+    },
+    async markRead() {
+      var _a;
+      const state = store.getState();
+      if (!state.conversationId || state.status === "loading") {
+        return;
+      }
+      const last = state.messages[state.messages.length - 1];
+      const readSeq = (_a = state.highWatermark) != null ? _a : last == null ? void 0 : last.messageSeq;
+      try {
+        await service.markConversationRead(state.conversationId, {
+          ...readSeq ? { readSeq } : {}
+        });
+      } catch {
+      }
     },
     reset() {
       store.replaceState(initialImMpChatConversationState);

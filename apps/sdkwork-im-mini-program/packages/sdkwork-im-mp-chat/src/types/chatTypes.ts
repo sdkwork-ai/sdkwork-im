@@ -28,6 +28,8 @@ import type {
   QueryParams,
   RecallMessageRequest,
   SdkWorkListPageInfo,
+  UpdateConversationPreferencesRequest,
+  UpdateReadCursorRequest,
 } from "@sdkwork/im-mp-core/sdk";
 
 /** Projected inbox row rendered by the inbox page. */
@@ -100,6 +102,16 @@ export interface ImMpChatConversationPort {
       conversationId: string,
       body: ImPostMessageRequest,
     ): Promise<PostMessageResult>;
+    /** Advances the per-principal read cursor (int64-as-string). */
+    updateReadCursor(
+      conversationId: string,
+      body: UpdateReadCursorRequest,
+    ): Promise<unknown>;
+    /** Updates conversation preferences (clears the marked-unread flag). */
+    updatePreferences(
+      conversationId: string,
+      body: UpdateConversationPreferencesRequest,
+    ): Promise<unknown>;
     create(body: CreateConversationRequest): Promise<CreateConversationResult>;
   };
   messages: {

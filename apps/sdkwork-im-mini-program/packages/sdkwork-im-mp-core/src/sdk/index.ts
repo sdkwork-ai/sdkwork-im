@@ -92,5 +92,6 @@ export type {
   QueryParams,
   SdkWorkListPageInfo,
   UpdateConversationPreferencesRequest,
+  UpdateReadCursorRequest,
   UpdateConversationProfileRequest,
 } from "./imSdkTypes";

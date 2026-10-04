@@ -46,5 +46,6 @@ export type {
   QueryParams,
   SdkWorkListPageInfo,
   UpdateConversationPreferencesRequest,
+  UpdateReadCursorRequest,
   UpdateConversationProfileRequest,
 } from "@sdkwork/im-sdk";

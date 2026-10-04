@@ -58,12 +58,20 @@ Page({
     this.unsubscribeRealtime = runtime
       .realtime()
       .subscribeConversation(conversationId, () => {
-        void this.store?.syncNew();
+        void this.store
+          ?.syncNew()
+          .then(() => {
+            void this.store.markRead();
+          });
       });
-    void this.store.load({
-      conversationId,
-      ...(fallbackTitle ? { fallbackTitle } : {}),
-    });
+    void this.store
+      .load({
+        conversationId,
+        ...(fallbackTitle ? { fallbackTitle } : {}),
+      })
+      .then(() => {
+        void this.store.markRead();
+      });
   },
 
   onUnload() {
@@ -75,6 +83,12 @@ Page({
       this.unsubscribeRealtime();
       this.unsubscribeRealtime = null;
     }
+  },
+
+  onShow() {
+    // Returning from a subpage: re-clear the unread state if new messages
+    // landed while the profile sheet was open.
+    void this.store?.markRead();
   },
 
   async onReachTop() {

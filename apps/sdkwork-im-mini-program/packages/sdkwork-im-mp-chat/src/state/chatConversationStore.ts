@@ -79,6 +79,11 @@ export interface ImMpChatConversationStore
   recallMessage(messageId: string): Promise<void>;
   /** Edits one text message and syncs the authoritative body. */
   editMessage(messageId: string, text: string): Promise<void>;
+  /**
+   * Clears the unread state up to the newest loaded seq (cursor advance plus
+   * the marked-unread preference). Failures are swallowed by the service.
+   */
+  markRead(): Promise<void>;
   reset(): void;
 }
 
@@ -282,6 +287,22 @@ export function createImMpChatConversationStore(
       }
       await service.editMessage(messageId, text);
       await this.syncNew();
+    },
+
+    async markRead(): Promise<void> {
+      const state = store.getState();
+      if (!state.conversationId || state.status === "loading") {
+        return;
+      }
+      const last = state.messages[state.messages.length - 1];
+      const readSeq = state.highWatermark ?? last?.messageSeq;
+      try {
+        await service.markConversationRead(state.conversationId, {
+          ...(readSeq ? { readSeq } : {}),
+        });
+      } catch {
+        // A failed cursor update must not disturb the open thread.
+      }
     },
 
     reset(): void {

@@ -95,6 +95,12 @@ export interface ImMpChatConversationService {
   recallMessage(messageId: string): Promise<void>;
   /** Edits one text message. The authoritative state lands via the next sync. */
   editMessage(messageId: string, text: string): Promise<void>;
+  /**
+   * Marks a conversation read: advances the per-principal read cursor to the
+   * given decimal-string seq (skipped when absent) and clears the
+   * marked-unread preference. Idempotent per open.
+   */
+  markConversationRead(conversationId: string, options?: { readSeq?: string }): Promise<void>;
   /** Creates a group conversation. Rejects a blank group name. */
   createGroup(input: ImMpChatCreateGroupInput): Promise<ImMpChatCreateGroupResult>;
 }
@@ -191,6 +197,18 @@ export function createImMpChatConversationService(
         throw new Error("An edited message must contain text.");
       }
       await resolveClient().messages.edit(normalized, { text: body });
+    },
+
+    async markConversationRead(conversationId, options = {}): Promise<void> {
+      requireImMpConversationId(conversationId);
+      const readSeq = options.readSeq?.trim();
+      if (readSeq && /^[0-9]+$/u.test(readSeq) && readSeq !== "0") {
+        // int64 read cursors cross the wire as decimal strings (API_SPEC 13.6).
+        await resolveClient().conversations.updateReadCursor(conversationId, { readSeq });
+      }
+      await resolveClient().conversations.updatePreferences(conversationId, {
+        isMarkedUnread: false,
+      });
     },
 
     async createGroup(input): Promise<ImMpChatCreateGroupResult> {
