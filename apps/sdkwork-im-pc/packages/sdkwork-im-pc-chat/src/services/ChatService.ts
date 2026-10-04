@@ -571,6 +571,12 @@ function isMediaMessageType(value: Message['type']): value is SendableMediaMessa
   return MEDIA_MESSAGE_TYPES.has(value);
 }
 
+/** Shape guard for the `unknown[]` wire parts retained on local messages. */
+function isChatContentPartRecord(value: unknown): value is ChatContentPart {
+  return typeof value === 'object' && value !== null
+    && typeof (value as { kind?: unknown }).kind === 'string';
+}
+
 function isStructuredMessageType(value: Message['type']): value is SendableStructuredMessageType {
   return Object.prototype.hasOwnProperty.call(STRUCTURED_MESSAGE_SCHEMA_BY_TYPE, value);
 }
@@ -2968,7 +2974,13 @@ class SdkworkChatService implements ChatService {
     let renderHints: ReturnType<typeof buildMessageRenderHints> | undefined;
 
     try {
-      mediaUpload = isMediaMessageType(type)
+      // Explicit media parts (message forwarding) reuse the stored Drive
+      // references, so the upload step — which requires a local File/Blob —
+      // is skipped for them.
+      const hasExplicitMediaParts = explicitParts?.some(
+        (part) => part.kind === 'media',
+      ) === true;
+      mediaUpload = isMediaMessageType(type) && !hasExplicitMediaParts
         ? await uploadChatMediaFile({
             chatId,
             content,
@@ -3082,7 +3094,29 @@ class SdkworkChatService implements ChatService {
       for (const message of messages) {
         this.assertAuthSessionGenerationCurrent(generation, 'forwarding messages');
         if (isMediaMessageType(message.type)) {
-          throw new Error('Forwarding media messages requires a reusable Drive reference before sending.');
+          // Media forwards reuse the stored Drive reference parts — the
+          // drive:// URIs are stable identities and recipients resolve their
+          // own download grants at render time, so no re-upload happens.
+          // `Message.parts` is `unknown[]` at the shared-types boundary, so
+          // the stored parts are re-validated by shape here.
+          const storedParts = message.parts?.filter(isChatContentPartRecord);
+          const storedMediaParts = storedParts?.filter(
+            (part) => part.kind === 'media',
+          );
+          if (!storedMediaParts?.length) {
+            throw new Error('Forwarding media messages requires the stored Drive reference parts.');
+          }
+          await this.sendMessage(targetChatId, message.content, message.type, undefined, {
+            ...(storedParts?.length ? { parts: storedParts } : {}),
+            fileName: message.fileName,
+            fileSize: message.fileSize,
+            coverUrl: message.coverUrl,
+            duration: message.duration,
+            appIcon: message.appIcon,
+            desc: message.desc,
+          });
+          this.assertAuthSessionGenerationCurrent(generation, 'forwarding messages');
+          continue;
         }
         await this.sendMessage(targetChatId, message.content, message.type, undefined, {
           fileName: message.fileName,
