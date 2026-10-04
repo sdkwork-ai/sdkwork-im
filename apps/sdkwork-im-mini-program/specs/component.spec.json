@@ -105,7 +105,8 @@
       "node --test apps/sdkwork-im-mini-program/tests/mini-program-surface-contract.test.mjs",
       "node --test apps/sdkwork-im-mini-program/tests/mini-program-runtime-config.test.mjs",
       "node --test apps/sdkwork-im-mini-program/tests/mini-program-route-projection.test.mjs",
-      "node --test apps/sdkwork-im-mini-program/tests/mini-program-env-alignment.test.mjs"
+      "node --test apps/sdkwork-im-mini-program/tests/mini-program-env-alignment.test.mjs",
+      "node --test apps/sdkwork-im-mini-program/tests/mini-program-upload-declaration.test.mjs"
     ]
   }
 }

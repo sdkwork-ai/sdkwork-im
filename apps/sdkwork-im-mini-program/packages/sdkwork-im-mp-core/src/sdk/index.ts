@@ -20,6 +20,16 @@ export {
 } from "./imSdkClient";
 
 export {
+  createDriveAppSdkClientConfig,
+  getDriveAppSdkClient,
+  initDriveAppSdkClient,
+  isDriveAppSdkClientInitialized,
+  resetDriveAppSdkClient,
+  type DriveAppSdkClient,
+  type DriveAppSdkClientConfig,
+} from "./driveAppSdkClient";
+
+export {
   createImAppSdkClientConfig,
   getImAppSdkClient,
   initImAppSdkClient,
@@ -63,7 +73,9 @@ export type {
   EditMessageRequest,
   FriendRequest,
   ImConnectOptions,
+  ImContentPart,
   ImDecodedMessage,
+  ImPostMessageRequest,
   ImLiveConnection,
   ImLiveConnectionState,
   ImMessageContext,

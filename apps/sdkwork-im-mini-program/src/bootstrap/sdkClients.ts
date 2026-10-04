@@ -11,21 +11,28 @@
  * store is empty is exactly the state that produces masked 401s.
  */
 
-import { createTokenManager, type AuthTokenManager } from "@sdkwork/sdk-common";
+import {
+  createTokenManager,
+  type AuthTokenManager,
+} from "@sdkwork/sdk-common";
 
 import {
   createIamAppSdkClientConfig,
   createImAppSdkClientConfig,
+  createDriveAppSdkClientConfig,
   initIamAppSdkClient,
   initImAppSdkClient,
   initImSdkClient,
+  initDriveAppSdkClient,
   createImSdkClientConfig,
   resetIamAppSdkClient,
   resetImAppSdkClient,
   resetImSdkClient,
+  resetDriveAppSdkClient,
   type IamAppSdkClient,
   type ImAppSdkClient,
   type ImSdkClient,
+  type DriveAppSdkClient,
 } from "@sdkwork/im-mp-core/sdk";
 import type { ImMpSession } from "@sdkwork/im-mp-core/session";
 
@@ -37,6 +44,7 @@ export interface ImMpSdkClientComposition {
   readonly imSdkClient: ImSdkClient;
   readonly imAppSdkClient: ImAppSdkClient;
   readonly iamAppSdkClient: IamAppSdkClient;
+  readonly driveAppSdkClient: DriveAppSdkClient;
 }
 
 let composition: ImMpSdkClientComposition | null = null;
@@ -78,7 +86,17 @@ export function initImMpSdkClients(
       : {}),
   });
 
-  composition = { tokenManager, imSdkClient, imAppSdkClient, iamAppSdkClient };
+  const driveAppSdkClient = initDriveAppSdkClient(
+    createDriveAppSdkClientConfig(environment.imApiBaseUrl),
+  );
+
+  composition = {
+    tokenManager,
+    imSdkClient,
+    imAppSdkClient,
+    iamAppSdkClient,
+    driveAppSdkClient,
+  };
   return composition;
 }
 
@@ -106,6 +124,8 @@ export function applyImMpSession(session: ImMpSession): void {
   current.iamAppSdkClient.setAccessToken(session.accessToken);
   current.iamAppSdkClient.setAuthToken(session.authToken);
   current.iamAppSdkClient.setTokenManager(current.tokenManager);
+  current.driveAppSdkClient.setAccessToken(session.accessToken);
+  current.driveAppSdkClient.setAuthToken(session.authToken);
 }
 
 /** Clears tokens from the manager and every client without dropping them. */
@@ -121,6 +141,8 @@ export function clearImMpSdkCredentials(): void {
   current.imAppSdkClient.setAuthToken("");
   current.iamAppSdkClient.setAccessToken("");
   current.iamAppSdkClient.setAuthToken("");
+  current.driveAppSdkClient.setAccessToken("");
+  current.driveAppSdkClient.setAuthToken("");
 }
 
 /** Full teardown; used on logout and by tests. */
@@ -129,6 +151,7 @@ export function resetImMpSdkClients(): void {
   resetImSdkClient();
   resetImAppSdkClient();
   resetIamAppSdkClient();
+  resetDriveAppSdkClient();
 }
 
 /** Test/runtime accessor; throws before initialization. */

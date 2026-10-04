@@ -22,6 +22,7 @@ import {
   prependImMpChatMessages,
   type ImMpChatConversationService,
 } from "../services/chatConversationService";
+import type { ImMpChatMediaUpload } from "../services/chatMediaUploadService";
 import {
   compareImMpSeqStrings,
   type ImMpChatConversationSummary,
@@ -72,6 +73,8 @@ export interface ImMpChatConversationStore
   syncNew(): Promise<void>;
   /** Sends a text message and appends the echoed result optimistically. */
   sendText(text: string): Promise<void>;
+  /** Sends an image message from a completed Drive upload. */
+  sendImage(upload: ImMpChatMediaUpload): Promise<void>;
   reset(): void;
 }
 
@@ -211,6 +214,45 @@ export function createImMpChatConversationStore(
                   text: body,
                   occurredAt: new Date().toISOString(),
                   messageSeq: result.messageSeq,
+                },
+              ],
+        });
+      } catch (error) {
+        store.setState({ sending: false, errorMessage: resolveImMpErrorMessage(error) });
+        throw error;
+      }
+    },
+
+    async sendImage(upload: ImMpChatMediaUpload): Promise<void> {
+      const state = store.getState();
+      store.setState({ sending: true });
+      try {
+        const result = await service.sendImage(state.conversationId, {
+          driveUri: upload.driveUri,
+          spaceId: upload.spaceId,
+          nodeId: upload.nodeId,
+          fileName: upload.fileName,
+          mimeType: upload.mimeType,
+          sizeBytes: upload.sizeBytes,
+        });
+        const current = store.getState();
+        const alreadyPresent = current.messages.some(
+          (message) => message.messageId === result.messageId,
+        );
+        store.replaceState({
+          ...current,
+          sending: false,
+          messages: alreadyPresent
+            ? current.messages
+            : [
+                ...current.messages,
+                {
+                  messageId: result.messageId,
+                  senderId: "",
+                  text: upload.fileName,
+                  occurredAt: new Date().toISOString(),
+                  messageSeq: result.messageSeq,
+                  media: { kind: "image", nodeId: upload.nodeId, fileName: upload.fileName },
                 },
               ],
         });

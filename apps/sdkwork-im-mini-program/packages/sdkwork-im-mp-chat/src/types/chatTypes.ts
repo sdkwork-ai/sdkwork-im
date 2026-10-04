@@ -21,6 +21,7 @@ import type {
   CreateConversationResult,
   ImConnectOptions,
   ImLiveConnection,
+  ImPostMessageRequest,
   PostMessageResult,
   QueryParams,
   SdkWorkListPageInfo,
@@ -48,6 +49,15 @@ export interface ImMpChatMessageItem {
   readonly occurredAt: string;
   /** int64 wire field; crosses the wire as a decimal string (API_SPEC 13.6). */
   readonly messageSeq: string;
+  /** Present on image messages: the stable Drive identity for rendering. */
+  readonly media?: ImMpChatMessageMedia;
+}
+
+/** The Drive-backed image attachment of one message. */
+export interface ImMpChatMessageMedia {
+  readonly kind: string;
+  readonly nodeId: string;
+  readonly fileName?: string;
 }
 
 /** Projected conversation summary used by the conversation page header. */
@@ -82,6 +92,11 @@ export interface ImMpChatConversationPort {
       params?: { cursor?: string; pageSize?: number },
     ): Promise<ConversationMessageListResponse>;
     postText(conversationId: string, text: string): Promise<PostMessageResult>;
+    /** Posts a structured message (media parts for image messages). */
+    postMessage(
+      conversationId: string,
+      body: ImPostMessageRequest,
+    ): Promise<PostMessageResult>;
     create(body: CreateConversationRequest): Promise<CreateConversationResult>;
   };
 }
@@ -194,6 +209,7 @@ export function toImMpChatMessageItem(entry: ConversationMessageEntry): ImMpChat
     ?? normalizeString(entry.summary)
     ?? "";
   const senderDisplayName = normalizeString(entry.sender?.displayName);
+  const media = resolveImMpMessageImage(entry);
   return {
     messageId: entry.messageId,
     senderId: entry.sender?.id ?? "",
@@ -201,7 +217,48 @@ export function toImMpChatMessageItem(entry: ConversationMessageEntry): ImMpChat
     text,
     occurredAt: entry.occurredAt,
     messageSeq: entry.messageSeq,
+    ...(media ? { media } : {}),
   };
+}
+
+/**
+ * Extracts the first Drive-backed image part of a message.
+ *
+ * The mini program renders images; other media kinds stay on the text summary
+ * line until their playback surfaces ship, so only `kind === "image"` is
+ * projected here.
+ */
+function resolveImMpMessageImage(
+  entry: ConversationMessageEntry,
+): ImMpChatMessageMedia | undefined {
+  const parts = entry.body?.parts;
+  if (!Array.isArray(parts)) {
+    return undefined;
+  }
+  for (const part of parts) {
+    if (
+      part === null || typeof part !== "object"
+      || (part as { kind?: unknown }).kind !== "media"
+    ) {
+      continue;
+    }
+    const record = part as {
+      resource?: { kind?: unknown; fileName?: unknown };
+      drive?: { nodeId?: unknown };
+    };
+    const nodeId =
+      typeof record.drive?.nodeId === "string" ? record.drive.nodeId.trim() : "";
+    const kind = typeof record.resource?.kind === "string" ? record.resource.kind : "";
+    if (!nodeId || kind !== "image") {
+      continue;
+    }
+    const fileName =
+      typeof record.resource?.fileName === "string" && record.resource.fileName
+        ? record.resource.fileName
+        : undefined;
+    return { kind, nodeId, ...(fileName ? { fileName } : {}) };
+  }
+  return undefined;
 }
 
 /** Projects the conversation summary read. */

@@ -27,3 +27,10 @@ export {
   createImMpContactsService,
   type ImMpContactsService,
 } from "./chatContactsService";
+
+export {
+  createImMpChatMediaService,
+  type ImMpChatMediaDrivePort,
+  type ImMpChatMediaService,
+  type ImMpChatMediaUpload,
+} from "./chatMediaUploadService";

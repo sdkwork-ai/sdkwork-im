@@ -7,6 +7,7 @@
  */
 export * from "./types/chatTypes";
 export * from "./types/contactsTypes";
+export * from "./uploadDeclaration";
 export * from "./services/index";
 export * from "./state/index";
 export * from "./routes/routeContributions";

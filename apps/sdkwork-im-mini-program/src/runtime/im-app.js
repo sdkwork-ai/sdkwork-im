@@ -475,14 +475,37 @@ function toImMpChatMessageItem(entry) {
   var _a, _b, _c, _d, _e, _f, _g, _h;
   const text = (_e = (_d = (_c = normalizeString((_a = entry.body) == null ? void 0 : _a.text)) != null ? _c : normalizeString((_b = entry.body) == null ? void 0 : _b.summary)) != null ? _d : normalizeString(entry.summary)) != null ? _e : "";
   const senderDisplayName = normalizeString((_f = entry.sender) == null ? void 0 : _f.displayName);
+  const media = resolveImMpMessageImage(entry);
   return {
     messageId: entry.messageId,
     senderId: (_h = (_g = entry.sender) == null ? void 0 : _g.id) != null ? _h : "",
     ...senderDisplayName ? { senderDisplayName } : {},
     text,
     occurredAt: entry.occurredAt,
-    messageSeq: entry.messageSeq
+    messageSeq: entry.messageSeq,
+    ...media ? { media } : {}
   };
+}
+function resolveImMpMessageImage(entry) {
+  var _a, _b, _c, _d;
+  const parts = (_a = entry.body) == null ? void 0 : _a.parts;
+  if (!Array.isArray(parts)) {
+    return void 0;
+  }
+  for (const part of parts) {
+    if (part === null || typeof part !== "object" || part.kind !== "media") {
+      continue;
+    }
+    const record = part;
+    const nodeId = typeof ((_b = record.drive) == null ? void 0 : _b.nodeId) === "string" ? record.drive.nodeId.trim() : "";
+    const kind = typeof ((_c = record.resource) == null ? void 0 : _c.kind) === "string" ? record.resource.kind : "";
+    if (!nodeId || kind !== "image") {
+      continue;
+    }
+    const fileName = typeof ((_d = record.resource) == null ? void 0 : _d.fileName) === "string" && record.resource.fileName ? record.resource.fileName : void 0;
+    return { kind, nodeId, ...fileName ? { fileName } : {} };
+  }
+  return void 0;
 }
 function toImMpChatConversationSummary(summary) {
   const lastSummary = normalizeString(summary.lastSummary);
@@ -545,6 +568,22 @@ function toImMpContactsUserSearchItem(result) {
     relationshipState: (_c = normalizeString2(result.relationshipState)) != null ? _c : ""
   };
 }
+
+// packages/sdkwork-im-mp-chat/src/uploadDeclaration.ts
+var IM_MP_UPLOAD_SOURCE = "sdkwork-im-mp";
+var IM_MP_APP_RESOURCE_ID_KIND = "entity";
+var IM_MP_RETENTION = "long_term";
+var CHAT_MEDIA_APP_RESOURCE_TYPE = "im.conversation_message_media";
+var CHAT_MEDIA_SCENE = "chat-message-media";
+var IM_MP_CHAT_IMAGE_UPLOAD = {
+  appResourceIdKind: IM_MP_APP_RESOURCE_ID_KIND,
+  appResourceType: CHAT_MEDIA_APP_RESOURCE_TYPE,
+  purpose: "Image attached to an IM conversation message from the IM mini program surface.",
+  retention: IM_MP_RETENTION,
+  scene: CHAT_MEDIA_SCENE,
+  source: IM_MP_UPLOAD_SOURCE,
+  uploadProfileCode: "image"
+};
 
 // packages/sdkwork-im-mp-chat/src/services/chatInboxService.ts
 function createImMpChatInboxService(resolveClient) {
@@ -627,6 +666,40 @@ function createImMpChatConversationService(resolveClient) {
         deliveryStatus: result.deliveryStatus
       };
     },
+    async sendImage(conversationId, input) {
+      requireImMpConversationId(conversationId);
+      if (!input.nodeId.trim() || !input.driveUri.trim()) {
+        throw new Error("An image message requires the stored Drive reference.");
+      }
+      const result = await resolveClient().conversations.postMessage(conversationId, {
+        clientMsgId: newImageClientMsgId(),
+        summary: input.fileName,
+        parts: [
+          {
+            kind: "media",
+            mediaRole: "attachment",
+            drive: {
+              driveUri: input.driveUri,
+              spaceId: input.spaceId,
+              nodeId: input.nodeId
+            },
+            resource: {
+              source: "drive",
+              uri: input.driveUri,
+              kind: "image",
+              fileName: input.fileName,
+              mimeType: input.mimeType,
+              sizeBytes: input.sizeBytes
+            }
+          }
+        ]
+      });
+      return {
+        messageId: result.messageId,
+        messageSeq: result.messageSeq,
+        deliveryStatus: result.deliveryStatus
+      };
+    },
     async createGroup(input) {
       var _a;
       const groupName = input.groupName.trim();
@@ -654,6 +727,9 @@ function requireImMpConversationId(conversationId) {
   if (!conversationId.trim()) {
     throw new Error("A conversation id is required.");
   }
+}
+function newImageClientMsgId() {
+  return `mp-img-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 function prependImMpChatMessages(existing, older) {
   const seen = new Set(existing.map((item) => item.messageId));
@@ -961,6 +1037,342 @@ function requireRequestId(friendRequestId) {
   }
 }
 
+// ../../../sdkwork-drive/apps/sdkwork-drive-common/packages/sdkwork-drive-upload-image-core/src/types.ts
+var DriveUploadImageError = class extends Error {
+  constructor(code, message, options) {
+    super(message, options === void 0 ? void 0 : { cause: options.cause });
+    __publicField(this, "code");
+    this.name = "DriveUploadImageError";
+    this.code = code;
+  }
+};
+var DRIVE_UPLOAD_IMAGE_DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
+var DRIVE_UPLOAD_IMAGE_PREVIEW_MAX_BYTES = 2 * 1024 * 1024;
+
+// ../../../sdkwork-drive/apps/sdkwork-drive-common/packages/sdkwork-drive-upload-image-core/src/declaration.ts
+var APP_RESOURCE_TYPE_PATTERN = /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/;
+var KEKBEL_LABEL_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+var PROFILES = /* @__PURE__ */ new Set(["image", "avatar", "thumbnail"]);
+var DECLARATION_FIELDS = /* @__PURE__ */ new Set([
+  "appResourceType",
+  "appResourceIdKind",
+  "scene",
+  "source",
+  "uploadProfileCode",
+  "retention",
+  "retentionTtlSeconds",
+  "purpose"
+]);
+var RESOURCE_ID_KINDS = /* @__PURE__ */ new Set([
+  "application",
+  "entity",
+  "draft"
+]);
+function assertDriveUploadImageDeclaration(declaration) {
+  if (declaration === null || typeof declaration !== "object") {
+    throw new DriveUploadImageError(
+      "invalid-declaration",
+      "Upload declaration must be an object."
+    );
+  }
+  const candidate = declaration;
+  for (const key of Object.keys(candidate)) {
+    if (!DECLARATION_FIELDS.has(key)) {
+      throw new DriveUploadImageError(
+        "invalid-declaration",
+        `Unknown upload declaration field: ${key}`
+      );
+    }
+  }
+  if (typeof candidate.appResourceType !== "string" || !APP_RESOURCE_TYPE_PATTERN.test(candidate.appResourceType)) {
+    throw new DriveUploadImageError(
+      "invalid-declaration",
+      "appResourceType must be a lowercase dotted business type with at least two segments."
+    );
+  }
+  if (typeof candidate.appResourceIdKind !== "string" || !RESOURCE_ID_KINDS.has(candidate.appResourceIdKind)) {
+    throw new DriveUploadImageError(
+      "invalid-declaration",
+      "appResourceIdKind must be one of: application, entity, draft."
+    );
+  }
+  if (typeof candidate.scene !== "string" || !KEKBEL_LABEL_PATTERN.test(candidate.scene) || candidate.scene === "im") {
+    throw new DriveUploadImageError(
+      "invalid-declaration",
+      "scene must be a lowercase kebab-case workflow label and must not use the reserved Drive scene `im`."
+    );
+  }
+  if (typeof candidate.source !== "string" || !KEKBEL_LABEL_PATTERN.test(candidate.source)) {
+    throw new DriveUploadImageError(
+      "invalid-declaration",
+      "source must be a stable lowercase kebab-case label, not a package name or module path."
+    );
+  }
+  if (typeof candidate.uploadProfileCode !== "string" || !PROFILES.has(candidate.uploadProfileCode)) {
+    throw new DriveUploadImageError(
+      "invalid-declaration",
+      "uploadProfileCode must be one of the standard image-shaped profiles: image, avatar, thumbnail."
+    );
+  }
+  if (candidate.retention !== "long_term" && candidate.retention !== "temporary") {
+    throw new DriveUploadImageError(
+      "invalid-declaration",
+      "retention must be long_term or temporary."
+    );
+  }
+  if (candidate.retention === "temporary" && (typeof candidate.retentionTtlSeconds !== "number" || !Number.isInteger(candidate.retentionTtlSeconds) || candidate.retentionTtlSeconds <= 0)) {
+    throw new DriveUploadImageError(
+      "invalid-declaration",
+      "A temporary declaration must declare a positive integer retentionTtlSeconds."
+    );
+  }
+  if (typeof candidate.purpose !== "string" || candidate.purpose.trim() === "") {
+    throw new DriveUploadImageError(
+      "invalid-declaration",
+      "purpose must be a non-empty sentence."
+    );
+  }
+}
+
+// ../../../sdkwork-drive/apps/sdkwork-drive-common/packages/sdkwork-drive-upload-image-core/src/value.ts
+var DRIVE_URI_PATTERN = /^drive:\/\/spaces\/([^/]+)\/nodes\/([^/?#]+)/;
+function parseDriveImageUri(uri) {
+  var _a, _b;
+  const matched = DRIVE_URI_PATTERN.exec(uri);
+  if (matched === null) {
+    return null;
+  }
+  return { spaceId: (_a = matched[1]) != null ? _a : "", nodeId: (_b = matched[2]) != null ? _b : "" };
+}
+function formatDriveImageUri(parts) {
+  return `drive://spaces/${parts.spaceId}/nodes/${parts.nodeId}`;
+}
+function buildDriveUploadImageValue(result, file) {
+  const spaceId = result.uploadItem.spaceId;
+  const nodeId = result.uploadItem.nodeId;
+  if (typeof spaceId !== "string" || spaceId === "" || typeof nodeId !== "string" || nodeId === "") {
+    throw new DriveUploadImageError(
+      "invalid-upload-result",
+      "Drive did not return the uploaded image identity (spaceId/nodeId)."
+    );
+  }
+  const driveMetadata = { spaceId, nodeId };
+  const contentType = result.uploadItem.contentType || (file == null ? void 0 : file.type);
+  if (contentType !== void 0 && contentType !== "") {
+    driveMetadata.contentType = contentType;
+  }
+  const contentLength = result.uploadItem.contentLength || ((file == null ? void 0 : file.size) === void 0 ? void 0 : String(file.size));
+  if (contentLength !== void 0 && contentLength !== "") {
+    driveMetadata.contentLength = contentLength;
+  }
+  const originalFileName = result.uploadItem.originalFileName || (file == null ? void 0 : file.name);
+  if (originalFileName !== void 0 && originalFileName !== "") {
+    driveMetadata.originalFileName = originalFileName;
+  }
+  const checksumSha256Hex = result.uploadItem.checksumSha256Hex;
+  if (checksumSha256Hex !== void 0 && checksumSha256Hex !== "") {
+    driveMetadata.checksumSha256Hex = checksumSha256Hex;
+  }
+  return {
+    uri: formatDriveImageUri({ spaceId, nodeId }),
+    source: "drive",
+    metadata: { drive: driveMetadata }
+  };
+}
+function mapDriveUploaderProgress(progress) {
+  const percent = progress.totalBytes > 0 ? Math.min(100, Math.round(progress.uploadedBytes / progress.totalBytes * 100)) : 0;
+  return {
+    uploadedBytes: progress.uploadedBytes,
+    totalBytes: progress.totalBytes,
+    uploadedPartsCount: progress.uploadedPartsCount,
+    totalParts: progress.totalParts,
+    status: progress.status,
+    percent
+  };
+}
+
+// ../../../sdkwork-drive/apps/sdkwork-drive-common/packages/sdkwork-drive-upload-image-core/src/service.ts
+function uploaderMethodForProfile(uploader, profile) {
+  switch (profile) {
+    case "avatar":
+      return (request) => uploader.uploadAvatar(request);
+    case "thumbnail":
+      return (request) => uploader.uploadThumbnail(request);
+    case "image":
+      return (request) => uploader.uploadImage(request);
+  }
+}
+function retentionRequest(declaration) {
+  if (declaration.retention === "temporary") {
+    return {
+      retention: {
+        mode: "temporary",
+        ...declaration.retentionTtlSeconds === void 0 ? {} : { ttlSeconds: String(declaration.retentionTtlSeconds) }
+      }
+    };
+  }
+  return { retention: { mode: "long_term" } };
+}
+async function toUploaderBlob(file) {
+  const identity = {
+    ...file.type === void 0 ? {} : { type: file.type },
+    ...file.name === void 0 ? {} : { name: file.name }
+  };
+  if (typeof file.readRange === "function") {
+    const readRange = file.readRange.bind(file);
+    return {
+      size: file.size,
+      ...identity,
+      readRange: (offsetBytes, lengthBytes) => readRange(offsetBytes, lengthBytes)
+    };
+  }
+  if (typeof file.arrayBuffer === "function") {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    return {
+      size: bytes.byteLength,
+      ...identity,
+      readRange: (offsetBytes, lengthBytes) => Promise.resolve(
+        bytes.slice(offsetBytes, offsetBytes + lengthBytes).buffer
+      )
+    };
+  }
+  throw new DriveUploadImageError(
+    "upload-failed",
+    "The picked image exposes neither readRange nor arrayBuffer bytes."
+  );
+}
+function createDriveUploadImageService(options) {
+  var _a, _b;
+  assertDriveUploadImageDeclaration(options.declaration);
+  const profile = (_a = options.profile) != null ? _a : options.declaration.uploadProfileCode;
+  const previewMaxBytes = (_b = options.previewMaxBytes) != null ? _b : DRIVE_UPLOAD_IMAGE_PREVIEW_MAX_BYTES;
+  return {
+    async upload({ file, appResourceId, signal, onProgress }) {
+      if (typeof appResourceId !== "string" || appResourceId.trim() === "") {
+        throw new DriveUploadImageError(
+          "missing-app-resource-id",
+          "Drive upload requires the identifier of an existing entity; persist the entity first, then upload (DRIVE_SPEC.md \xA718.3)."
+        );
+      }
+      const upload = uploaderMethodForProfile(options.uploader, profile);
+      const blob = await toUploaderBlob(file);
+      const result = await upload({
+        file: blob,
+        appResourceType: options.declaration.appResourceType,
+        appResourceId,
+        scene: options.declaration.scene,
+        source: options.declaration.source,
+        uploadProfileCode: options.declaration.uploadProfileCode,
+        ...options.spaceId === void 0 ? {} : { spaceId: options.spaceId },
+        ...options.parentNodeId === void 0 ? {} : { parentNodeId: options.parentNodeId },
+        ...retentionRequest(options.declaration),
+        ...file.name === void 0 ? {} : { originalFileName: file.name },
+        ...file.type === void 0 ? {} : { contentType: file.type },
+        ...signal === void 0 ? {} : { signal },
+        ...onProgress === void 0 ? {} : {
+          onProgress: (progress) => {
+            onProgress(mapDriveUploaderProgress(progress));
+          }
+        }
+      });
+      return buildDriveUploadImageValue(result, {
+        name: file.name,
+        type: file.type,
+        size: file.size
+      });
+    },
+    async resolvePreview({ uri, maxBytes, signal }) {
+      if (!uri.startsWith("drive://")) {
+        return uri.startsWith("http://") || uri.startsWith("https://") || uri.startsWith("data:") || uri.startsWith("blob:") ? uri : null;
+      }
+      const reader = options.previewReader;
+      if (reader === void 0) {
+        throw new DriveUploadImageError(
+          "preview-unsupported",
+          "No preview reader was bound; previews of drive-backed images are unavailable."
+        );
+      }
+      const parts = parseDriveImageUri(uri);
+      if (parts === null) {
+        return null;
+      }
+      return reader.readImagePreview({
+        nodeId: parts.nodeId,
+        maxBytes: maxBytes != null ? maxBytes : previewMaxBytes,
+        signal
+      });
+    }
+  };
+}
+
+// packages/sdkwork-im-mp-chat/src/services/chatMediaUploadService.ts
+var DOWNLOAD_URL_CACHE_TTL_MS = 8 * 60 * 1e3;
+var DOWNLOAD_URL_CACHE_MAX_ENTRIES = 500;
+function createImMpChatMediaService(resolveDrivePort) {
+  let imageService = null;
+  const resolveService = () => {
+    if (!imageService) {
+      const port = resolveDrivePort();
+      imageService = createDriveUploadImageService({
+        // The generated uploader surface is structurally satisfied by the
+        // composed Drive client; the narrow port keeps the dependency edge
+        // inside the bootstrap.
+        uploader: port.uploader,
+        declaration: IM_MP_CHAT_IMAGE_UPLOAD
+      });
+    }
+    return imageService;
+  };
+  const downloadUrlCache = /* @__PURE__ */ new Map();
+  return {
+    async uploadChatImage({ file, appResourceId }) {
+      var _a;
+      if (!appResourceId.trim()) {
+        throw new Error("Chat media upload requires the conversation id.");
+      }
+      const value = await resolveService().upload({
+        file,
+        appResourceId: appResourceId.trim()
+      });
+      const metadata = (_a = value.driveMetadata) != null ? _a : {};
+      const spaceId = typeof metadata.spaceId === "string" ? metadata.spaceId : "";
+      const nodeId = typeof metadata.nodeId === "string" ? metadata.nodeId : "";
+      if (!spaceId || !nodeId) {
+        throw new Error("Drive upload did not return a space or node id.");
+      }
+      const fileName = typeof metadata.originalFileName === "string" && metadata.originalFileName ? metadata.originalFileName : typeof file.name === "string" && file.name ? file.name : "chat-image.jpg";
+      const mimeType = typeof metadata.contentType === "string" && metadata.contentType ? metadata.contentType : typeof file.type === "string" && file.type ? file.type : "image/jpeg";
+      const sizeBytes = typeof metadata.contentLength === "string" && metadata.contentLength ? metadata.contentLength : String(file.size);
+      const driveUri = typeof value.uri === "string" && value.uri ? value.uri : `drive://spaces/${spaceId}/nodes/${nodeId}`;
+      return {
+        driveUri,
+        spaceId,
+        nodeId,
+        fileName,
+        mimeType,
+        sizeBytes
+      };
+    },
+    async resolveChatMediaUrl(nodeId) {
+      const cached = downloadUrlCache.get(nodeId);
+      if (cached && cached.expiresAt > Date.now()) {
+        downloadUrlCache.delete(nodeId);
+        downloadUrlCache.set(nodeId, cached);
+        return cached.url;
+      }
+      const url = await resolveDrivePort().createDownloadGrant(nodeId);
+      if (downloadUrlCache.size >= DOWNLOAD_URL_CACHE_MAX_ENTRIES) {
+        const oldest = downloadUrlCache.keys().next();
+        if (!oldest.done) {
+          downloadUrlCache.delete(oldest.value);
+        }
+      }
+      downloadUrlCache.set(nodeId, { url, expiresAt: Date.now() + DOWNLOAD_URL_CACHE_TTL_MS });
+      return url;
+    }
+  };
+}
+
 // packages/sdkwork-im-mp-chat/src/state/chatInboxStore.ts
 var initialImMpChatInboxState = {
   status: "loading",
@@ -1170,6 +1582,42 @@ function createImMpChatConversationStore(service, resolveCachedTitle) {
         throw error;
       }
     },
+    async sendImage(upload) {
+      const state = store.getState();
+      store.setState({ sending: true });
+      try {
+        const result = await service.sendImage(state.conversationId, {
+          driveUri: upload.driveUri,
+          spaceId: upload.spaceId,
+          nodeId: upload.nodeId,
+          fileName: upload.fileName,
+          mimeType: upload.mimeType,
+          sizeBytes: upload.sizeBytes
+        });
+        const current = store.getState();
+        const alreadyPresent = current.messages.some(
+          (message) => message.messageId === result.messageId
+        );
+        store.replaceState({
+          ...current,
+          sending: false,
+          messages: alreadyPresent ? current.messages : [
+            ...current.messages,
+            {
+              messageId: result.messageId,
+              senderId: "",
+              text: upload.fileName,
+              occurredAt: (/* @__PURE__ */ new Date()).toISOString(),
+              messageSeq: result.messageSeq,
+              media: { kind: "image", nodeId: upload.nodeId, fileName: upload.fileName }
+            }
+          ]
+        });
+      } catch (error) {
+        store.setState({ sending: false, errorMessage: resolveImMpErrorMessage(error) });
+        throw error;
+      }
+    },
     reset() {
       store.replaceState(initialImMpChatConversationState);
     }
@@ -1282,6 +1730,9 @@ var imMpChatInboxMessages = {
 
 // packages/sdkwork-im-mp-chat/src/i18n/zh-CN/communication/chat/conversation.ts
 var imMpChatConversationMessages = {
+  "chat.conversation.pick_image": "\u56FE\u7247",
+  "chat.conversation.image_send_failed": "\u56FE\u7247\u53D1\u9001\u5931\u8D25",
+  "chat.conversation.image_load_failed": "\u56FE\u7247\u52A0\u8F7D\u5931\u8D25",
   "chat.conversation.title": "\u804A\u5929",
   "chat.conversation.loading": "\u52A0\u8F7D\u4E2D\u2026",
   "chat.conversation.empty": "\u8FD8\u6CA1\u6709\u6D88\u606F",
@@ -1356,6 +1807,9 @@ var imMpChatInboxMessages2 = {
 
 // packages/sdkwork-im-mp-chat/src/i18n/en-US/communication/chat/conversation.ts
 var imMpChatConversationMessages2 = {
+  "chat.conversation.pick_image": "Photo",
+  "chat.conversation.image_send_failed": "Image send failed",
+  "chat.conversation.image_load_failed": "Image unavailable",
   "chat.conversation.title": "Chat",
   "chat.conversation.loading": "Loading\u2026",
   "chat.conversation.empty": "No messages yet",
@@ -1915,6 +2369,69 @@ function createWeixinLoginCodeProviderFromGlobal() {
   return createWeixinLoginCodeProvider(readWeixinLoginApi().login);
 }
 
+// packages/sdkwork-im-mp-host/src/weixin/media.ts
+var CHUNK_BYTES = 256 * 1024;
+function readRangeWith(fileSystem, filePath, offsetBytes, lengthBytes) {
+  return new Promise((resolve2, reject) => {
+    fileSystem.readFile({
+      filePath,
+      position: offsetBytes,
+      length: lengthBytes,
+      success: (result) => resolve2(result.data),
+      fail: (error) => {
+        var _a;
+        return reject(new Error((_a = error == null ? void 0 : error.errMsg) != null ? _a : "readFile failed"));
+      }
+    });
+  });
+}
+function chooseMediaWith(wx) {
+  return new Promise((resolve2) => {
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ["image"],
+      sourceType: ["album", "camera"],
+      sizeType: ["compressed"],
+      success: (result) => {
+        var _a;
+        const file = result.tempFiles[0];
+        if (!file) {
+          resolve2({ ok: false, error: "cancelled" });
+          return;
+        }
+        const fileSystem = wx.getFileSystemManager();
+        resolve2({
+          ok: true,
+          value: {
+            size: file.size,
+            name: (_a = file.tempFilePath.split("/").pop()) != null ? _a : "chat-image.jpg",
+            type: "image/jpeg",
+            async readRange(offsetBytes, lengthBytes) {
+              return readRangeWith(fileSystem, file.tempFilePath, offsetBytes, lengthBytes);
+            }
+          }
+        });
+      },
+      fail: (error) => {
+        var _a;
+        const message = (_a = error == null ? void 0 : error.errMsg) != null ? _a : "";
+        resolve2({ ok: false, error: message.includes("cancel") ? "cancelled" : "unavailable" });
+      }
+    });
+  });
+}
+function createWeixinMediaAdapter() {
+  const globalWx = globalThis.wx;
+  if (!globalWx) {
+    return {
+      chooseChatImage: async () => ({ ok: false, error: "unavailable" })
+    };
+  }
+  return {
+    chooseChatImage: () => chooseMediaWith(globalWx)
+  };
+}
+
 // packages/sdkwork-im-mp-core/src/session/session.ts
 var IM_MP_SESSION_KEY = "sdkwork-im-mp:session:v1";
 var currentSession = null;
@@ -2030,6 +2547,7 @@ function registerImMpHostAdapters() {
   const socketFactory = createWeixinSocketFactory(readWeixinSocketApi(), socketDiagnostics);
   const hostLanguage2 = readWeixinLanguageFromGlobal();
   registered = {
+    media: createWeixinMediaAdapter(),
     navigation: createWeixinNavigationAdapterFromGlobal(),
     socketFactory,
     socketDiagnostics,
@@ -3769,11 +4287,11 @@ var Encoding;
     return new TextDecoder().decode(input);
   }
   _Encoding.utf8Decode = utf8Decode;
-  function hexEncode2(input) {
+  function hexEncode3(input) {
     const bytes = typeof input === "string" ? utf8Encode(input) : input;
     return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, "0")).join("");
   }
-  _Encoding.hexEncode = hexEncode2;
+  _Encoding.hexEncode = hexEncode3;
   function hexDecode2(input) {
     const bytes = new Uint8Array(input.length / 2);
     for (let i = 0; i < input.length; i += 2) bytes[i / 2] = parseInt(input.substr(i, 2), 16);
@@ -5008,9 +5526,103 @@ var SHA256_INITIAL_STATE = new Uint32Array([
   528734635,
   1541459225
 ]);
+var Sha256Hasher = class {
+  constructor() {
+    __publicField(this, "state", new Uint32Array(SHA256_INITIAL_STATE));
+    __publicField(this, "buffer", new Uint8Array(BLOCK_SIZE));
+    __publicField(this, "bufferLength", 0);
+    __publicField(this, "totalLength", 0);
+  }
+  update(chunk) {
+    if (chunk.length === 0) {
+      return;
+    }
+    this.totalLength += chunk.length;
+    let offset = 0;
+    if (this.bufferLength > 0) {
+      const remaining = BLOCK_SIZE - this.bufferLength;
+      if (chunk.length < remaining) {
+        this.buffer.set(chunk, this.bufferLength);
+        this.bufferLength += chunk.length;
+        return;
+      }
+      this.buffer.set(chunk.subarray(0, remaining), this.bufferLength);
+      sha256Block(this.state, this.buffer, 0);
+      offset = remaining;
+      this.bufferLength = 0;
+    }
+    while (offset + BLOCK_SIZE <= chunk.length) {
+      sha256Block(this.state, chunk, offset);
+      offset += BLOCK_SIZE;
+    }
+    if (offset < chunk.length) {
+      const tail = chunk.subarray(offset);
+      this.buffer.set(tail);
+      this.bufferLength = tail.length;
+    }
+  }
+  digest() {
+    const bitLength = this.totalLength * 8;
+    const paddingLength = (BLOCK_SIZE - (this.bufferLength + 9) % BLOCK_SIZE) % BLOCK_SIZE + 9;
+    const padded = new Uint8Array(this.bufferLength + paddingLength);
+    padded.set(this.buffer.subarray(0, this.bufferLength));
+    padded[this.bufferLength] = 128;
+    const view = new DataView(padded.buffer);
+    view.setUint32(padded.length - 4, bitLength >>> 0, false);
+    view.setUint32(padded.length - 8, Math.floor(bitLength / 4294967296), false);
+    for (let offset = 0; offset < padded.length; offset += BLOCK_SIZE) {
+      sha256Block(this.state, padded, offset);
+    }
+    const digest = new Uint8Array(32);
+    const digestView = new DataView(digest.buffer);
+    for (let index = 0; index < this.state.length; index += 1) {
+      digestView.setUint32(index * 4, this.state[index], false);
+    }
+    return digest;
+  }
+};
 function sha256Hex(value) {
   const bytes = typeof value === "string" ? toUtf8(value) : value;
   return hexEncode(sha256Digest(bytes));
+}
+
+// ../../../sdkwork-utils/packages/sdkwork-utils-typescript/src/runtime/random.js
+function getCrypto2() {
+  const crypto = globalThis.crypto;
+  if (!(crypto == null ? void 0 : crypto.getRandomValues)) {
+    throw new Error("Web Crypto API is not available in this environment.");
+  }
+  return crypto;
+}
+function randomBytes2(length) {
+  const bytes = new Uint8Array(length);
+  getCrypto2().getRandomValues(bytes);
+  return bytes;
+}
+function randomUuid2() {
+  var _a, _b;
+  const crypto = getCrypto2();
+  if (typeof crypto.randomUUID === "function") {
+    try {
+      return crypto.randomUUID.call(crypto);
+    } catch {
+    }
+  }
+  const bytes = randomBytes2(16);
+  bytes[6] = ((_a = bytes[6]) != null ? _a : 0) & 15 | 64;
+  bytes[8] = ((_b = bytes[8]) != null ? _b : 0) & 63 | 128;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+// ../../../sdkwork-utils/packages/sdkwork-utils-typescript/src/id.js
+function uuid2() {
+  return randomUuid2();
+}
+
+// ../../../sdkwork-utils/packages/sdkwork-utils-typescript/src/encoding.js
+function hexEncode2(value) {
+  return hexEncode(value);
 }
 
 // ../../../sdkwork-utils/packages/sdkwork-utils-typescript/src/crypto.js
@@ -10996,7 +11608,7 @@ function initImSdkClient(options) {
   return imSdkClient;
 }
 
-// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/http/client.ts
+// ../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript/generated/server-openapi/src/http/client.ts
 var _HttpClient2 = class _HttpClient2 extends BaseHttpClient {
   constructor(config) {
     super(config);
@@ -11125,12 +11737,32 @@ var _HttpClient2 = class _HttpClient2 extends BaseHttpClient {
       "Authorization",
       ["X", "API", "Key"].join("-"),
       "X-Tenant-Id",
+      "X-App-Id",
       "X-Organization-Id",
       "X-Platform",
       "X-User-Id",
       "X-Sdkwork-Tenant-Id",
+      "X-Sdkwork-App-Id",
+      "X-Sdkwork-User-Id",
       "X-Sdkwork-Organization-Id",
-      "X-Sdkwork-User-Id"
+      "X-Sdkwork-Actor-Id",
+      "X-Sdkwork-Actor-Kind",
+      "X-Sdkwork-Session-Id",
+      "X-Sdkwork-Environment",
+      "X-Sdkwork-Deployment-Profile",
+      "X-Sdkwork-Deployment-Mode",
+      "X-Sdkwork-Runtime-Target",
+      "X-Sdkwork-Auth-Level",
+      "X-Sdkwork-Data-Scope",
+      "X-Sdkwork-Permission-Scope",
+      "X-Sdkwork-Device-Id",
+      "X-Sdkwork-Context-Signature",
+      "X-Sdkwork-Operation-Id",
+      "X-Sdkwork-Subject-Tenant-Id",
+      "X-Sdkwork-Subject-Organization-Id",
+      "X-Sdkwork-Subject-User-Id",
+      "X-Sdkwork-Subject-Timestamp",
+      "X-Sdkwork-Subject-Signature"
     ].forEach((key) => {
       delete headers[key];
     });
@@ -11451,7 +12083,7 @@ function createHttpClient2(config) {
   return new HttpClient2(config);
 }
 
-// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/api/paths.ts
+// ../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript/generated/server-openapi/src/api/paths.ts
 var APP_API_PREFIX = "/app/v3/api";
 function appApiPath(path) {
   if (!path) {
@@ -11472,73 +12104,906 @@ function appApiPath(path) {
   return `${normalizedPrefix}${normalizedPath}`;
 }
 
-// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/api/automation.ts
-var AutomationExecutionsApi = class {
+// ../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript/generated/server-openapi/src/api/drive.ts
+var DriveWatchChannelsApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Request an automation execution */
+  /** List Drive watch channels */
+  async list(params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "resourceType", value: params == null ? void 0 : params.resourceType, style: "form", explode: true, allowReserved: false },
+      { name: "lifecycleStatus", value: params == null ? void 0 : params.lifecycleStatus, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/watch_channels`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Get a Drive watch channel */
+  async retrieve(channelId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/watch_channels/${serializePathParameter5(channelId, { name: "channelId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Stop a Drive watch channel */
+  async stop(channelId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/watch_channels/${serializePathParameter5(channelId, { name: "channelId", style: "simple", explode: false })}/stop`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "data" });
+  }
+};
+var DriveUploaderUploadsPartsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async update(uploadItemId, partNo, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/uploader/uploads/${serializePathParameter5(uploadItemId, { name: "uploadItemId", style: "simple", explode: false })}/parts/${serializePathParameter5(partNo, { name: "partNo", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PUT", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveUploaderUploadsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "parts");
+    this.client = client;
+    this.parts = new DriveUploaderUploadsPartsApi(client);
+  }
   async create(body, requestOptions) {
-    return this.client.request(appApiPath(`/automation/executions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-  /** Get an automation execution */
-  async retrieve(executionId, requestOptions) {
-    return this.client.request(appApiPath(`/automation/executions/${serializePathParameter5(executionId, { name: "executionId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath(`/drive/uploader/uploads`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "data" });
   }
 };
-var AutomationAgentToolCallsApi = class {
+var DriveUploaderApi = class {
+  constructor(client) {
+    __publicField(this, "uploads");
+    this.uploads = new DriveUploaderUploadsApi(client);
+  }
+};
+var DriveUploadSessionsPartsApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Request an agent tool call */
+  async update(uploadSessionId, partNo, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/upload_sessions/${serializePathParameter5(uploadSessionId, { name: "uploadSessionId", style: "simple", explode: false })}/parts/${serializePathParameter5(partNo, { name: "partNo", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PUT", body, contentType: "application/json", sdkworkUnwrapKind: "data" });
+  }
+};
+var DriveUploadSessionsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "parts");
+    this.client = client;
+    this.parts = new DriveUploadSessionsPartsApi(client);
+  }
   async create(body, requestOptions) {
-    return this.client.request(appApiPath(`/automation/agent_tool_calls`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath(`/drive/upload_sessions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
   }
-  /** Complete an agent tool call */
-  async complete(executionId, toolCallId, body, requestOptions) {
-    return this.client.request(appApiPath(`/automation/executions/${serializePathParameter5(executionId, { name: "executionId", style: "simple", explode: false })}/agent_tool_calls/${serializePathParameter5(toolCallId, { name: "toolCallId", style: "simple", explode: false })}/complete`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  async retrieve(uploadSessionId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/upload_sessions/${serializePathParameter5(uploadSessionId, { name: "uploadSessionId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  async abort(uploadSessionId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/upload_sessions/${serializePathParameter5(uploadSessionId, { name: "uploadSessionId", style: "simple", explode: false })}/abort`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  async complete(uploadSessionId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/upload_sessions/${serializePathParameter5(uploadSessionId, { name: "uploadSessionId", style: "simple", explode: false })}/complete`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
   }
 };
-var AutomationAgentResponsesFramesApi = class {
+var DriveWebsiteRootsSyncsApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Append a frame to an agent response stream */
-  async create(streamId, body, requestOptions) {
-    return this.client.request(appApiPath(`/automation/agent_responses/${serializePathParameter5(streamId, { name: "streamId", style: "simple", explode: false })}/frames`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  /** Create an isolated atomic website synchronization */
+  async create(rootUuid, body, params, requestOptions) {
+    const requestHeaders = buildRequestHeaders(
+      {
+        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
+      },
+      {}
+    );
+    return this.client.request(appApiPath(`/drive/website_roots/${serializePathParameter5(rootUuid, { name: "rootUuid", style: "simple", explode: false })}/syncs`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
+  }
+  /** Retrieve an atomic website synchronization */
+  async retrieve(rootUuid, syncId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/website_roots/${serializePathParameter5(rootUuid, { name: "rootUuid", style: "simple", explode: false })}/syncs/${serializePathParameter5(syncId, { name: "syncId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Abort an unactivated website synchronization */
+  async abort(rootUuid, syncId, body, params, requestOptions) {
+    const requestHeaders = buildRequestHeaders(
+      {
+        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
+      },
+      {}
+    );
+    return this.client.request(appApiPath(`/drive/website_roots/${serializePathParameter5(rootUuid, { name: "rootUuid", style: "simple", explode: false })}/syncs/${serializePathParameter5(syncId, { name: "syncId", style: "simple", explode: false })}/abort`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
+  }
+  /** Validate and atomically activate a complete website tree */
+  async finalize(rootUuid, syncId, body, params, requestOptions) {
+    const requestHeaders = buildRequestHeaders(
+      {
+        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
+      },
+      {}
+    );
+    return this.client.request(appApiPath(`/drive/website_roots/${serializePathParameter5(rootUuid, { name: "rootUuid", style: "simple", explode: false })}/syncs/${serializePathParameter5(syncId, { name: "syncId", style: "simple", explode: false })}/finalize`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
   }
 };
-var AutomationAgentResponsesApi = class {
+var DriveWebsiteRootsGenerationsApi = class {
   constructor(client) {
     __publicField(this, "client");
-    __publicField(this, "frames");
     this.client = client;
-    this.frames = new AutomationAgentResponsesFramesApi(client);
   }
-  /** Start an agent response stream */
+  /** Activate a retained website generation as a new logical generation */
+  async activate(rootUuid, generation, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/website_roots/${serializePathParameter5(rootUuid, { name: "rootUuid", style: "simple", explode: false })}/generations/${serializePathParameter5(generation, { name: "generation", style: "simple", explode: false })}/activate`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveWebsiteRootsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "generations");
+    __publicField(this, "syncs");
+    this.client = client;
+    this.generations = new DriveWebsiteRootsGenerationsApi(client);
+    this.syncs = new DriveWebsiteRootsSyncsApi(client);
+  }
+  async list(spaceId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/spaces/${serializePathParameter5(spaceId, { name: "spaceId", style: "simple", explode: false })}/website_roots`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  async create(spaceId, body, params, requestOptions) {
+    const requestHeaders = buildRequestHeaders(
+      {
+        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
+      },
+      {}
+    );
+    return this.client.request(appApiPath(`/drive/spaces/${serializePathParameter5(spaceId, { name: "spaceId", style: "simple", explode: false })}/website_roots`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
+  }
+  async retrieve(rootUuid, requestOptions) {
+    return this.client.request(appApiPath(`/drive/website_roots/${serializePathParameter5(rootUuid, { name: "rootUuid", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveMoveDestinationsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(spaceId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "excludeNodeIds", value: params == null ? void 0 : params.excludeNodeIds, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/spaces/${serializePathParameter5(spaceId, { name: "spaceId", style: "simple", explode: false })}/move_destinations`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var DriveSpacesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "spaceType", value: params == null ? void 0 : params.spaceType, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/spaces`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
   async create(body, requestOptions) {
-    return this.client.request(appApiPath(`/automation/agent_responses`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath(`/drive/spaces`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
   }
-  /** Complete an agent response stream */
-  async complete(streamId, body, requestOptions) {
-    return this.client.request(appApiPath(`/automation/agent_responses/${serializePathParameter5(streamId, { name: "streamId", style: "simple", explode: false })}/complete`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  async retrieve(spaceId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/spaces/${serializePathParameter5(spaceId, { name: "spaceId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  async update(spaceId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/spaces/${serializePathParameter5(spaceId, { name: "spaceId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  async delete(spaceId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/spaces/${serializePathParameter5(spaceId, { name: "spaceId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
   }
 };
-var AutomationApi = class {
+var DriveSharedWithMeApi = class {
   constructor(client) {
-    __publicField(this, "agentResponses");
-    __publicField(this, "agentToolCalls");
-    __publicField(this, "executions");
-    this.agentResponses = new AutomationAgentResponsesApi(client);
-    this.agentToolCalls = new AutomationAgentToolCallsApi(client);
-    this.executions = new AutomationExecutionsApi(client);
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "spaceId", value: params == null ? void 0 : params.spaceId, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sortBy", value: params == null ? void 0 : params.sortBy, style: "form", explode: true, allowReserved: false },
+      { name: "sortOrder", value: params == null ? void 0 : params.sortOrder, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/shared_with_me`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
   }
 };
-function createAutomationApi(client) {
-  return new AutomationApi(client);
+var DriveSearchApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false },
+      { name: "spaceId", value: params == null ? void 0 : params.spaceId, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/search`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var DriveSandboxFileContentsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async retrieve(sandboxId, entryId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "logical_path", value: params.logicalPath, style: "form", explode: true, allowReserved: false },
+      { name: "encoding", value: params.encoding, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/sandboxes/${serializePathParameter5(sandboxId, { name: "sandboxId", style: "simple", explode: false })}/files/${serializePathParameter5(entryId, { name: "entryId", style: "simple", explode: false })}/content`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  async update(sandboxId, entryId, body, params, requestOptions) {
+    const requestHeaders = buildRequestHeaders(
+      {
+        "If-Match": { value: params.ifMatch, style: "simple", explode: false },
+        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
+      },
+      {}
+    );
+    return this.client.request(appApiPath(`/drive/sandboxes/${serializePathParameter5(sandboxId, { name: "sandboxId", style: "simple", explode: false })}/files/${serializePathParameter5(entryId, { name: "entryId", style: "simple", explode: false })}/content`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PUT", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveSandboxFilesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async create(sandboxId, body, params, requestOptions) {
+    const requestHeaders = buildRequestHeaders(
+      {
+        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
+      },
+      {}
+    );
+    return this.client.request(appApiPath(`/drive/sandboxes/${serializePathParameter5(sandboxId, { name: "sandboxId", style: "simple", explode: false })}/files`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveSandboxEntriesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(sandboxId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "parent_path", value: params == null ? void 0 : params.parentPath, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/sandboxes/${serializePathParameter5(sandboxId, { name: "sandboxId", style: "simple", explode: false })}/entries`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  async update(sandboxId, entryId, body, params, requestOptions) {
+    const requestHeaders = buildRequestHeaders(
+      {
+        "If-Match": { value: params.ifMatch, style: "simple", explode: false },
+        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
+      },
+      {}
+    );
+    return this.client.request(appApiPath(`/drive/sandboxes/${serializePathParameter5(sandboxId, { name: "sandboxId", style: "simple", explode: false })}/entries/${serializePathParameter5(entryId, { name: "entryId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
+  }
+  async purge(sandboxId, entryId, body, params, requestOptions) {
+    const requestHeaders = buildRequestHeaders(
+      {
+        "If-Match": { value: params.ifMatch, style: "simple", explode: false },
+        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
+      },
+      {}
+    );
+    return this.client.request(appApiPath(`/drive/sandboxes/${serializePathParameter5(sandboxId, { name: "sandboxId", style: "simple", explode: false })}/entries/${serializePathParameter5(entryId, { name: "entryId", style: "simple", explode: false })}/purge`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "command" });
+  }
+};
+var DriveSandboxDirectoriesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async create(sandboxId, body, params, requestOptions) {
+    const requestHeaders = buildRequestHeaders(
+      {
+        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
+      },
+      {}
+    );
+    return this.client.request(appApiPath(`/drive/sandboxes/${serializePathParameter5(sandboxId, { name: "sandboxId", style: "simple", explode: false })}/directories`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveSandboxesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/sandboxes`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var DriveRecentApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "spaceId", value: params == null ? void 0 : params.spaceId, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sortBy", value: params == null ? void 0 : params.sortBy, style: "form", explode: true, allowReserved: false },
+      { name: "sortOrder", value: params == null ? void 0 : params.sortOrder, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/recent`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var DriveQuotasApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath(`/drive/quotas/summary`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var DrivePropertyNodesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List nodes carrying an app_public property */
+  async list(propertyKey, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/properties/${serializePathParameter5(propertyKey, { name: "propertyKey", style: "simple", explode: false })}/nodes`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var DriveVersionsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(nodeId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/versions`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  async delete(nodeId, versionId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/versions/${serializePathParameter5(versionId, { name: "versionId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+  async retrieve(nodeId, versionId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/versions/${serializePathParameter5(versionId, { name: "versionId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  async restore(nodeId, versionId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/versions/${serializePathParameter5(versionId, { name: "versionId", style: "simple", explode: false })}/restore`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveTrashApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async create(nodeId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/trash`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  async list(params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "spaceId", value: params == null ? void 0 : params.spaceId, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "parentNodeId", value: params == null ? void 0 : params.parentNodeId, style: "form", explode: true, allowReserved: false },
+      { name: "sortBy", value: params == null ? void 0 : params.sortBy, style: "form", explode: true, allowReserved: false },
+      { name: "sortOrder", value: params == null ? void 0 : params.sortOrder, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/trash`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  async empty(body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/trash/empty`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "data" });
+  }
+  async restore(nodeId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/trash/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/restore`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveShareLinksApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async create(nodeId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/share_links`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "data" });
+  }
+  async list(nodeId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/share_links`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  async delete(shareLinkId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/share_links/${serializePathParameter5(shareLinkId, { name: "shareLinkId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+  async update(shareLinkId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/share_links/${serializePathParameter5(shareLinkId, { name: "shareLinkId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  async retrieve(shareLinkId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/share_links/${serializePathParameter5(shareLinkId, { name: "shareLinkId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  async claim(token, requestOptions) {
+    return this.client.request(appApiPath(`/drive/share_links/${serializePathParameter5(token, { name: "token", style: "simple", explode: false })}/claim`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "data" });
+  }
+};
+var DriveNodePropertiesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List node custom properties */
+  async list(nodeId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "visibility", value: params == null ? void 0 : params.visibility, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/properties`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Create or update a node custom property */
+  async update(nodeId, propertyKey, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/properties/${serializePathParameter5(propertyKey, { name: "propertyKey", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PUT", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Delete a node custom property */
+  async delete(nodeId, propertyKey, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "visibility", value: params == null ? void 0 : params.visibility, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/properties/${serializePathParameter5(propertyKey, { name: "propertyKey", style: "simple", explode: false })}`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var DrivePermissionsEffectiveApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(nodeId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/permissions/effective`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var DrivePermissionsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "effective");
+    this.client = client;
+    this.effective = new DrivePermissionsEffectiveApi(client);
+  }
+  async list(nodeId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/permissions`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  async create(nodeId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/permissions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  async delete(nodeId, permissionId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/permissions/${serializePathParameter5(permissionId, { name: "permissionId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+  async update(nodeId, permissionId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/permissions/${serializePathParameter5(permissionId, { name: "permissionId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  async retrieve(nodeId, permissionId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/permissions/${serializePathParameter5(permissionId, { name: "permissionId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveNodeLabelsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List labels applied to a node */
+  async list(nodeId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "labelKey", value: params == null ? void 0 : params.labelKey, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/labels`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Apply a label to a node */
+  async update(nodeId, labelId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/labels/${serializePathParameter5(labelId, { name: "labelId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PUT", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Remove a label from a node */
+  async delete(nodeId, labelId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/labels/${serializePathParameter5(labelId, { name: "labelId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var DriveDownloadGrantsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async create(nodeId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/download_grants`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", ...body !== void 0 ? { body, contentType: "application/json" } : {}, sdkworkUnwrapKind: "data" });
+  }
+};
+var DriveCommentRepliesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(nodeId, commentId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/comments/${serializePathParameter5(commentId, { name: "commentId", style: "simple", explode: false })}/replies`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  async create(nodeId, commentId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/comments/${serializePathParameter5(commentId, { name: "commentId", style: "simple", explode: false })}/replies`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  async retrieve(nodeId, commentId, replyId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/comments/${serializePathParameter5(commentId, { name: "commentId", style: "simple", explode: false })}/replies/${serializePathParameter5(replyId, { name: "replyId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  async update(nodeId, commentId, replyId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/comments/${serializePathParameter5(commentId, { name: "commentId", style: "simple", explode: false })}/replies/${serializePathParameter5(replyId, { name: "replyId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  async delete(nodeId, commentId, replyId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/comments/${serializePathParameter5(commentId, { name: "commentId", style: "simple", explode: false })}/replies/${serializePathParameter5(replyId, { name: "replyId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var DriveCommentsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(nodeId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/comments`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  async create(nodeId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/comments`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  async retrieve(nodeId, commentId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/comments/${serializePathParameter5(commentId, { name: "commentId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  async update(nodeId, commentId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/comments/${serializePathParameter5(commentId, { name: "commentId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  async delete(nodeId, commentId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/comments/${serializePathParameter5(commentId, { name: "commentId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var DriveArchiveEntriesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(nodeId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/archive_entries`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  async extract(nodeId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/archive_entries/extract`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "data" });
+  }
+};
+var DriveNodesPathApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async retrieve(nodeId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/path`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "data" });
+  }
+};
+var DriveNodesDownloadUrlsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async retrieve(nodeId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "requestedTtlSeconds", value: params == null ? void 0 : params.requestedTtlSeconds, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/download_url`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "data" });
+  }
+};
+var DriveNodesContentApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Read active Drive node content on the same origin */
+  async retrieve(nodeId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "maxBytes", value: params == null ? void 0 : params.maxBytes, style: "form", explode: true, allowReserved: false },
+      { name: "byteRangeStart", value: params == null ? void 0 : params.byteRangeStart, style: "form", explode: true, allowReserved: false },
+      { name: "byteRangeLength", value: params == null ? void 0 : params.byteRangeLength, style: "form", explode: true, allowReserved: false },
+      { name: "encoding", value: params == null ? void 0 : params.encoding, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/content`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveNodesCapabilitiesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(nodeId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/capabilities`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveNodesShortcutsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Create a shortcut node */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/shortcuts`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveNodesFoldersApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/folders`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveNodesFilesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/files`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "data" });
+  }
+};
+var DriveNodesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "files");
+    __publicField(this, "folders");
+    __publicField(this, "shortcuts");
+    __publicField(this, "capabilities");
+    __publicField(this, "content");
+    __publicField(this, "downloadUrls");
+    __publicField(this, "path");
+    this.client = client;
+    this.files = new DriveNodesFilesApi(client);
+    this.folders = new DriveNodesFoldersApi(client);
+    this.shortcuts = new DriveNodesShortcutsApi(client);
+    this.capabilities = new DriveNodesCapabilitiesApi(client);
+    this.content = new DriveNodesContentApi(client);
+    this.downloadUrls = new DriveNodesDownloadUrlsApi(client);
+    this.path = new DriveNodesPathApi(client);
+  }
+  async update(nodeId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  async retrieve(nodeId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  async delete(nodeId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+  async copy(nodeId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/copy`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  async move(nodeId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/move`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Create a push notification channel for a Drive node */
+  async watch(nodeId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/watch`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  async list(spaceId, params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "parentNodeId", value: params == null ? void 0 : params.parentNodeId, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sortBy", value: params == null ? void 0 : params.sortBy, style: "form", explode: true, allowReserved: false },
+      { name: "sortOrder", value: params == null ? void 0 : params.sortOrder, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/spaces/${serializePathParameter5(spaceId, { name: "spaceId", style: "simple", explode: false })}/nodes`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var DriveFavoritesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async list(params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "spaceId", value: params == null ? void 0 : params.spaceId, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sortBy", value: params == null ? void 0 : params.sortBy, style: "form", explode: true, allowReserved: false },
+      { name: "sortOrder", value: params == null ? void 0 : params.sortOrder, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/favorites`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  async check(body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/favorites/check`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "data" });
+  }
+  async update(nodeId, body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/favorite`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PUT", body, contentType: "application/json", sdkworkUnwrapKind: "data" });
+  }
+  async delete(nodeId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/nodes/${serializePathParameter5(nodeId, { name: "nodeId", style: "simple", explode: false })}/favorite`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var DriveDownloadUrlsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/download_urls`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "data" });
+  }
+};
+var DriveDownloadTokensApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async retrieve(token, requestOptions) {
+    return this.client.request(appApiPath(`/drive/download_tokens/${serializePathParameter5(token, { name: "token", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "data" });
+  }
+};
+var DriveDownloadPackagesDownloadUrlsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async retrieve(packageId, requestOptions) {
+    return this.client.request(appApiPath(`/drive/download_packages/${serializePathParameter5(packageId, { name: "packageId", style: "simple", explode: false })}/download_url`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "data" });
+  }
+};
+var DriveDownloadPackagesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "downloadUrls");
+    this.client = client;
+    this.downloadUrls = new DriveDownloadPackagesDownloadUrlsApi(client);
+  }
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/download_packages`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "data" });
+  }
+};
+var DriveChangesStartPageTokenApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  async retrieve(params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "spaceId", value: params.spaceId, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/changes/start_page_token`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "data" });
+  }
+};
+var DriveChangesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "startPageToken");
+    this.client = client;
+    this.startPageToken = new DriveChangesStartPageTokenApi(client);
+  }
+  async list(params, requestOptions) {
+    const query = buildQueryString6([
+      { name: "spaceId", value: params.spaceId, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params.pageSize, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString6(appApiPath(`/drive/changes`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Create a push notification channel for Drive changes */
+  async watch(body, requestOptions) {
+    return this.client.request(appApiPath(`/drive/changes/watch`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var DriveApi = class {
+  constructor(client) {
+    __publicField(this, "changes");
+    __publicField(this, "downloadPackages");
+    __publicField(this, "downloadTokens");
+    __publicField(this, "downloadUrls");
+    __publicField(this, "favorites");
+    __publicField(this, "nodes");
+    __publicField(this, "archiveEntries");
+    __publicField(this, "comments");
+    __publicField(this, "commentReplies");
+    __publicField(this, "downloadGrants");
+    __publicField(this, "nodeLabels");
+    __publicField(this, "permissions");
+    __publicField(this, "nodeProperties");
+    __publicField(this, "shareLinks");
+    __publicField(this, "trash");
+    __publicField(this, "versions");
+    __publicField(this, "propertyNodes");
+    __publicField(this, "quotas");
+    __publicField(this, "recent");
+    __publicField(this, "sandboxes");
+    __publicField(this, "sandboxDirectories");
+    __publicField(this, "sandboxEntries");
+    __publicField(this, "sandboxFiles");
+    __publicField(this, "sandboxFileContents");
+    __publicField(this, "search");
+    __publicField(this, "sharedWithMe");
+    __publicField(this, "spaces");
+    __publicField(this, "moveDestinations");
+    __publicField(this, "websiteRoots");
+    __publicField(this, "uploadSessions");
+    __publicField(this, "uploader");
+    __publicField(this, "watchChannels");
+    this.changes = new DriveChangesApi(client);
+    this.downloadPackages = new DriveDownloadPackagesApi(client);
+    this.downloadTokens = new DriveDownloadTokensApi(client);
+    this.downloadUrls = new DriveDownloadUrlsApi(client);
+    this.favorites = new DriveFavoritesApi(client);
+    this.nodes = new DriveNodesApi(client);
+    this.archiveEntries = new DriveArchiveEntriesApi(client);
+    this.comments = new DriveCommentsApi(client);
+    this.commentReplies = new DriveCommentRepliesApi(client);
+    this.downloadGrants = new DriveDownloadGrantsApi(client);
+    this.nodeLabels = new DriveNodeLabelsApi(client);
+    this.permissions = new DrivePermissionsApi(client);
+    this.nodeProperties = new DriveNodePropertiesApi(client);
+    this.shareLinks = new DriveShareLinksApi(client);
+    this.trash = new DriveTrashApi(client);
+    this.versions = new DriveVersionsApi(client);
+    this.propertyNodes = new DrivePropertyNodesApi(client);
+    this.quotas = new DriveQuotasApi(client);
+    this.recent = new DriveRecentApi(client);
+    this.sandboxes = new DriveSandboxesApi(client);
+    this.sandboxDirectories = new DriveSandboxDirectoriesApi(client);
+    this.sandboxEntries = new DriveSandboxEntriesApi(client);
+    this.sandboxFiles = new DriveSandboxFilesApi(client);
+    this.sandboxFileContents = new DriveSandboxFileContentsApi(client);
+    this.search = new DriveSearchApi(client);
+    this.sharedWithMe = new DriveSharedWithMeApi(client);
+    this.spaces = new DriveSpacesApi(client);
+    this.moveDestinations = new DriveMoveDestinationsApi(client);
+    this.websiteRoots = new DriveWebsiteRootsApi(client);
+    this.uploadSessions = new DriveUploadSessionsApi(client);
+    this.uploader = new DriveUploaderApi(client);
+    this.watchChannels = new DriveWatchChannelsApi(client);
+  }
+};
+function createDriveApi(client) {
+  return new DriveApi(client);
+}
+function appendQueryString6(path, rawQueryString) {
+  const query = rawQueryString.replace(/^\?+/, "");
+  if (!query) {
+    return path;
+  }
+  return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
 }
 function serializePathParameter5(value, spec) {
   if (value === void 0 || value === null) {
@@ -11583,99 +13048,6 @@ function encodePathValue5(value) {
   return encodeURIComponent(value);
 }
 function serializePathPrimitive5(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
-
-// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/api/notifications.ts
-var NotificationsRequestsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Request a notification task */
-  async create(body, requestOptions) {
-    return this.client.request(appApiPath(`/notifications/requests`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var NotificationsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "requests");
-    this.client = client;
-    this.requests = new NotificationsRequestsApi(client);
-  }
-  /** List notifications for the current principal */
-  async list(params, requestOptions) {
-    const query = buildQueryString6([
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString6(appApiPath(`/notifications`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Get a notification task */
-  async retrieve(notificationId, requestOptions) {
-    return this.client.request(appApiPath(`/notifications/${serializePathParameter6(notificationId, { name: "notificationId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-function createNotificationsApi(client) {
-  return new NotificationsApi(client);
-}
-function appendQueryString6(path, rawQueryString) {
-  const query = rawQueryString.replace(/^\?+/, "");
-  if (!query) {
-    return path;
-  }
-  return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
-}
-function serializePathParameter6(value, spec) {
-  if (value === void 0 || value === null) {
-    return "";
-  }
-  const style = spec.style || "simple";
-  if (Array.isArray(value)) {
-    return serializePathArray6(spec.name, value, style, spec.explode);
-  }
-  if (typeof value === "object") {
-    return serializePathObject6(spec.name, value, style, spec.explode);
-  }
-  return pathPrefix6(spec.name, style, false) + encodePathValue6(serializePathPrimitive6(value));
-}
-function serializePathArray6(name, values, style, explode) {
-  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue6(serializePathPrimitive6(item)));
-  if (serialized.length === 0) {
-    return pathPrefix6(name, style, false);
-  }
-  if (style === "matrix") {
-    return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
-  }
-  return pathPrefix6(name, style, false) + serialized.join(explode ? "." : ",");
-}
-function serializePathObject6(name, value, style, explode) {
-  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
-  if (entries.length === 0) {
-    return pathPrefix6(name, style, true);
-  }
-  if (style === "matrix") {
-    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue6(key)}=${encodePathValue6(serializePathPrimitive6(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue6(key), encodePathValue6(serializePathPrimitive6(entryValue))]).join(",")}`;
-  }
-  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue6(key)}=${encodePathValue6(serializePathPrimitive6(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue6(key), encodePathValue6(serializePathPrimitive6(entryValue))]).join(",");
-  return pathPrefix6(name, style, true) + serialized;
-}
-function pathPrefix6(name, style, _objectValue) {
-  if (style === "label") return ".";
-  if (style === "matrix") return `;${name}`;
-  return "";
-}
-function encodePathValue6(value) {
-  return encodeURIComponent(value);
-}
-function serializePathPrimitive6(value) {
   if (value instanceof Date) {
     return value.toISOString();
   }
@@ -11772,266 +13144,6 @@ function encodeQueryValue6(value, allowReserved) {
   }
   return encoded.replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%23/gi, "#").replace(/%5B/gi, "[").replace(/%5D/gi, "]").replace(/%40/gi, "@").replace(/%21/gi, "!").replace(/%24/gi, "$").replace(/%26/gi, "&").replace(/%27/gi, "'").replace(/%28/gi, "(").replace(/%29/gi, ")").replace(/%2A/gi, "*").replace(/%2B/gi, "+").replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%3D/gi, "=");
 }
-
-// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/api/portal.ts
-var PortalWorkspaceApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Read the current tenant workspace snapshot */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath(`/portal/workspace`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var PortalRealtimeApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Read the tenant realtime snapshot */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath(`/portal/realtime`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var PortalMediaApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Read the tenant media snapshot */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath(`/portal/media`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var PortalHomeApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Read the tenant portal home snapshot */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath(`/portal/home`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var PortalGovernanceApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Read the tenant governance snapshot */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath(`/portal/governance`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var PortalDashboardApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Read the tenant dashboard snapshot */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath(`/portal/dashboard`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var PortalConversationSnapshotApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Read the tenant conversations snapshot */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath(`/portal/conversations`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var PortalAutomationApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Read the tenant automation snapshot */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath(`/portal/automation`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var PortalAccessApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Read the tenant portal access snapshot */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath(`/portal/access`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var PortalApi = class {
-  constructor(client) {
-    __publicField(this, "access");
-    __publicField(this, "automation");
-    __publicField(this, "conversationSnapshot");
-    __publicField(this, "dashboard");
-    __publicField(this, "governance");
-    __publicField(this, "home");
-    __publicField(this, "media");
-    __publicField(this, "realtime");
-    __publicField(this, "workspace");
-    this.access = new PortalAccessApi(client);
-    this.automation = new PortalAutomationApi(client);
-    this.conversationSnapshot = new PortalConversationSnapshotApi(client);
-    this.dashboard = new PortalDashboardApi(client);
-    this.governance = new PortalGovernanceApi(client);
-    this.home = new PortalHomeApi(client);
-    this.media = new PortalMediaApi(client);
-    this.realtime = new PortalRealtimeApi(client);
-    this.workspace = new PortalWorkspaceApi(client);
-  }
-};
-function createPortalApi(client) {
-  return new PortalApi(client);
-}
-
-// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/api/provider.ts
-var ProviderPrincipalProfileHealthApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve principal-profile provider health */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath(`/principal/profiles/provider_health`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var ProviderMediaHealthApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve media provider health */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath(`/media/provider_health`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var ProviderApi = class {
-  constructor(client) {
-    __publicField(this, "mediaHealth");
-    __publicField(this, "principalProfileHealth");
-    this.mediaHealth = new ProviderMediaHealthApi(client);
-    this.principalProfileHealth = new ProviderPrincipalProfileHealthApi(client);
-  }
-};
-function createProviderApi(client) {
-  return new ProviderApi(client);
-}
-
-// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/api/chat.ts
-var ChatConversationsKnowledgebaseApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Retrieve the group knowledgebase link */
-  async retrieve(conversationId, requestOptions) {
-    return this.client.request(appApiPath(`/chat/conversations/${serializePathParameter7(conversationId, { name: "conversationId", style: "simple", explode: false })}/knowledgebase`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Lazily create the group knowledgebase */
-  async create(conversationId, body, params, requestOptions) {
-    const requestHeaders = buildRequestHeaders(
-      {
-        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
-      },
-      {}
-    );
-    return this.client.request(appApiPath(`/chat/conversations/${serializePathParameter7(conversationId, { name: "conversationId", style: "simple", explode: false })}/knowledgebase`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
-  }
-  /** Issue a one-time group knowledgebase launch ticket */
-  async launch(conversationId, body, params, requestOptions) {
-    const requestHeaders = buildRequestHeaders(
-      {
-        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
-      },
-      {}
-    );
-    return this.client.request(appApiPath(`/chat/conversations/${serializePathParameter7(conversationId, { name: "conversationId", style: "simple", explode: false })}/knowledgebase/launch`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
-  }
-};
-var ChatConversationsApi2 = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "knowledgebase");
-    this.client = client;
-    this.knowledgebase = new ChatConversationsKnowledgebaseApi(client);
-  }
-  /** Archive a group conversation and schedule its knowledgebase archive */
-  async archive(conversationId, body, params, requestOptions) {
-    const requestHeaders = buildRequestHeaders(
-      {
-        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
-      },
-      {}
-    );
-    return this.client.request(appApiPath(`/chat/conversations/${serializePathParameter7(conversationId, { name: "conversationId", style: "simple", explode: false })}/archive`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "command" });
-  }
-};
-var ChatApi2 = class {
-  constructor(client) {
-    __publicField(this, "conversations");
-    this.conversations = new ChatConversationsApi2(client);
-  }
-};
-function createChatApi2(client) {
-  return new ChatApi2(client);
-}
-function serializePathParameter7(value, spec) {
-  if (value === void 0 || value === null) {
-    return "";
-  }
-  const style = spec.style || "simple";
-  if (Array.isArray(value)) {
-    return serializePathArray7(spec.name, value, style, spec.explode);
-  }
-  if (typeof value === "object") {
-    return serializePathObject7(spec.name, value, style, spec.explode);
-  }
-  return pathPrefix7(spec.name, style, false) + encodePathValue7(serializePathPrimitive7(value));
-}
-function serializePathArray7(name, values, style, explode) {
-  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue7(serializePathPrimitive7(item)));
-  if (serialized.length === 0) {
-    return pathPrefix7(name, style, false);
-  }
-  if (style === "matrix") {
-    return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
-  }
-  return pathPrefix7(name, style, false) + serialized.join(explode ? "." : ",");
-}
-function serializePathObject7(name, value, style, explode) {
-  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
-  if (entries.length === 0) {
-    return pathPrefix7(name, style, true);
-  }
-  if (style === "matrix") {
-    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue7(key)}=${encodePathValue7(serializePathPrimitive7(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue7(key), encodePathValue7(serializePathPrimitive7(entryValue))]).join(",")}`;
-  }
-  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue7(key)}=${encodePathValue7(serializePathPrimitive7(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue7(key), encodePathValue7(serializePathPrimitive7(entryValue))]).join(",");
-  return pathPrefix7(name, style, true) + serialized;
-}
-function pathPrefix7(name, style, _objectValue) {
-  if (style === "label") return ".";
-  if (style === "matrix") return `;${name}`;
-  return "";
-}
-function encodePathValue7(value) {
-  return encodeURIComponent(value);
-}
-function serializePathPrimitive7(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
 function buildRequestHeaders(headers, cookies = {}) {
   const requestHeaders = {};
   for (const [name, parameter] of Object.entries(headers)) {
@@ -12089,21 +13201,13 @@ function serializeHeaderPrimitive(value) {
   return String(value);
 }
 
-// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/sdk.ts
-var SdkworkImAppClient = class {
+// ../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript/generated/server-openapi/src/sdk.ts
+var SdkworkAppClient = class {
   constructor(config) {
     __publicField(this, "httpClient");
-    __publicField(this, "automation");
-    __publicField(this, "notifications");
-    __publicField(this, "portal");
-    __publicField(this, "provider");
-    __publicField(this, "chat");
+    __publicField(this, "drive");
     this.httpClient = createHttpClient2(config);
-    this.automation = createAutomationApi(this.httpClient);
-    this.notifications = createNotificationsApi(this.httpClient);
-    this.portal = createPortalApi(this.httpClient);
-    this.provider = createProviderApi(this.httpClient);
-    this.chat = createChatApi2(this.httpClient);
+    this.drive = createDriveApi(this.httpClient);
   }
   setAuthToken(token) {
     this.httpClient.setAuthToken(token);
@@ -12122,21 +13226,600 @@ var SdkworkImAppClient = class {
   }
 };
 function createClient3(config) {
-  return new SdkworkImAppClient(config);
+  return new SdkworkAppClient(config);
 }
 
-// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/src/index.ts
-function createClient4(config) {
-  return createClient3(config);
+// ../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript/composed/uploader/uploadPlanner.ts
+var DEFAULT_UPLOADER_CHUNK_SIZE_BYTES = 8 * 1024 * 1024;
+function planUploaderParts(file, chunkSizeBytes = DEFAULT_UPLOADER_CHUNK_SIZE_BYTES) {
+  if (!Number.isFinite(file.size) || file.size < 0) {
+    throw new Error("Drive uploader file size must be a non-negative finite number.");
+  }
+  if (!Number.isFinite(chunkSizeBytes) || chunkSizeBytes <= 0) {
+    throw new Error("Drive uploader chunk size must be a positive finite number.");
+  }
+  if (file.size === 0) {
+    return [
+      {
+        partNo: 1,
+        offsetBytes: 0,
+        sizeBytes: 0
+      }
+    ];
+  }
+  const parts = [];
+  let partNo = 1;
+  for (let offsetBytes = 0; offsetBytes < file.size; offsetBytes += chunkSizeBytes) {
+    parts.push({
+      partNo,
+      offsetBytes,
+      sizeBytes: Math.min(chunkSizeBytes, file.size - offsetBytes)
+    });
+    partNo += 1;
+  }
+  return parts;
+}
+function inferUploaderContentType(file, fallback = "application/octet-stream") {
+  var _a, _b;
+  const explicitType = (_a = file.type) == null ? void 0 : _a.trim();
+  if (explicitType) {
+    return explicitType;
+  }
+  const name = ((_b = file.name) == null ? void 0 : _b.toLowerCase()) || "";
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  if (name.endsWith(".webp")) return "image/webp";
+  if (name.endsWith(".gif")) return "image/gif";
+  if (name.endsWith(".mp4")) return "video/mp4";
+  if (name.endsWith(".mov")) return "video/quicktime";
+  if (name.endsWith(".mp3")) return "audio/mpeg";
+  if (name.endsWith(".wav")) return "audio/wav";
+  if (name.endsWith(".pdf")) return "application/pdf";
+  if (name.endsWith(".zip")) return "application/zip";
+  if (name.endsWith(".txt")) return "text/plain";
+  if (name.endsWith(".md")) return "text/markdown";
+  return fallback;
+}
+function inferUploaderFileName(file) {
+  var _a;
+  return ((_a = file.name) == null ? void 0 : _a.trim()) || "upload.bin";
 }
 
-// packages/sdkwork-im-mp-core/src/sdk/imAppSdkClient.ts
-var imAppSdkClient = null;
-function createImAppSdkClientConfig(baseUrl, overrides = {}) {
+// ../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript/composed/uploader/uploadStateStore.ts
+var InMemoryUploaderStateStore = class {
+  constructor() {
+    __publicField(this, "snapshots", /* @__PURE__ */ new Map());
+  }
+  async get(taskId) {
+    return this.snapshots.get(taskId);
+  }
+  async put(snapshot) {
+    this.snapshots.set(snapshot.taskId, {
+      ...snapshot,
+      uploadedParts: snapshot.uploadedParts.map((part) => ({ ...part }))
+    });
+  }
+  async clear(taskId) {
+    this.snapshots.delete(taskId);
+  }
+};
+function createInMemoryUploaderStateStore() {
+  return new InMemoryUploaderStateStore();
+}
+
+// ../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript/composed/uploader/uploaderClient.ts
+function makeUploaderId(prefix) {
+  return `${prefix}-${uuid2()}`;
+}
+function defaultFileFingerprint(fileName, contentType, contentLength) {
+  const normalizedName = fileName.trim().replace(/[^A-Za-z0-9._:@-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 96);
+  return `name:${normalizedName || "file"}:size:${contentLength}:type:${contentType.replace("/", ".")}`;
+}
+function defaultReplacementIdempotencyKey(nodeId, sessionId) {
+  return `drive-node-content-${nodeId}-${sessionId}`;
+}
+function defaultReplacementExpiryEpochMs(nowEpochMs) {
+  const now = nowEpochMs ? Number(nowEpochMs) : Date.now();
+  return String(now + 60 * 60 * 1e3);
+}
+function transportOptions(signal) {
+  return signal !== void 0 ? { signal } : {};
+}
+async function readUploadPartBody(file, offsetBytes, sizeBytes, contentType) {
+  if (file.readRange) {
+    const bytes = await file.readRange(offsetBytes, sizeBytes);
+    return readableBlob(new Blob([bytes], { type: contentType }));
+  }
+  const slice = file.slice;
+  if (!slice) {
+    throw new Error(
+      "Drive uploader file source supports neither readRange nor slice."
+    );
+  }
+  return readableBlob(slice(offsetBytes, offsetBytes + sizeBytes, contentType));
+}
+var UPLOADER_CHECKSUM_CHUNK_BYTES = 4 * 1024 * 1024;
+function arrayBufferFromView(view) {
+  const buffer = new ArrayBuffer(view.byteLength);
+  new Uint8Array(buffer).set(view);
+  return buffer;
+}
+async function readBlobByRuntimeFallback(blob) {
+  if (typeof blob.bytes === "function") {
+    return arrayBufferFromView(await blob.bytes());
+  }
+  if (typeof FileReader === "function") {
+    return new Promise((resolve2, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result && typeof reader.result !== "string") {
+          resolve2(reader.result);
+          return;
+        }
+        reject(new Error("Drive uploader Blob reader did not return binary data."));
+      };
+      reader.onerror = () => reject(reader.error || new Error("Drive uploader Blob read failed."));
+      reader.onabort = () => reject(new Error("Drive uploader Blob read was aborted."));
+      reader.readAsArrayBuffer(blob);
+    });
+  }
+  throw new Error("Drive uploader runtime cannot read Blob data.");
+}
+async function blobToArrayBuffer(blob) {
+  const readable = blob;
+  if (typeof readable.arrayBuffer === "function") {
+    return readable.arrayBuffer();
+  }
+  return readBlobByRuntimeFallback(readable);
+}
+function readableBlob(blob) {
+  const readable = blob;
+  if (typeof readable.arrayBuffer === "function") {
+    return blob;
+  }
+  Object.defineProperty(readable, "arrayBuffer", {
+    configurable: true,
+    enumerable: false,
+    value: () => readBlobByRuntimeFallback(readable)
+  });
+  return blob;
+}
+async function sha256Checksum(file) {
+  const hasher = new Sha256Hasher();
+  if (file.size === 0) {
+    return `sha256:${hexEncode2(hasher.digest())}`;
+  }
+  for (let offset = 0; offset < file.size; offset += UPLOADER_CHECKSUM_CHUNK_BYTES) {
+    const length = Math.min(UPLOADER_CHECKSUM_CHUNK_BYTES, file.size - offset);
+    if (file.readRange) {
+      const bytes = await file.readRange(offset, length);
+      hasher.update(new Uint8Array(bytes));
+      continue;
+    }
+    const slice = file.slice;
+    if (!slice) {
+      throw new Error(
+        "Drive uploader file source supports neither readRange nor slice."
+      );
+    }
+    const blob = slice(offset, offset + length, file.type);
+    hasher.update(new Uint8Array(await blobToArrayBuffer(blob)));
+  }
+  return `sha256:${hexEncode2(hasher.digest())}`;
+}
+function etagFromResponse(response) {
+  const etag = response.headers.get("ETag") || response.headers.get("etag");
+  if (!etag) {
+    throw new Error("Drive uploader signed upload response did not return an ETag.");
+  }
+  return etag;
+}
+function emitProgress(request, snapshot, progress) {
+  var _a;
+  (_a = request.onProgress) == null ? void 0 : _a.call(request, {
+    taskId: request.taskId,
+    uploadItemId: snapshot.uploadItemId,
+    uploadSessionId: snapshot.uploadSessionId,
+    totalBytes: request.file.size,
+    ...progress,
+    ...snapshot.nodeId !== void 0 ? { nodeId: snapshot.nodeId } : {}
+  });
+}
+function completedPartsByPartNo(parts) {
+  return new Map(parts.map((part) => [part.partNo, part]));
+}
+function sortedCompletedParts(parts) {
+  return [...completedPartsByPartNo(parts).values()].sort((left, right) => left.partNo - right.partNo);
+}
+async function uploadPresignedPart({
+  uploadFetch,
+  url,
+  method,
+  headers,
+  body,
+  signal
+}) {
+  const response = await uploadFetch(url, {
+    method,
+    body,
+    ...headers !== void 0 ? { headers } : {},
+    ...signal !== void 0 ? { signal } : {}
+  });
+  if (!response.ok) {
+    throw new Error(`Drive uploader signed upload failed with HTTP ${response.status}.`);
+  }
+  return response;
+}
+var DriveUploaderClient = class {
+  constructor({
+    transport,
+    stateStore = createInMemoryUploaderStateStore(),
+    uploadFetch = fetch,
+    defaultChunkSizeBytes = DEFAULT_UPLOADER_CHUNK_SIZE_BYTES
+  }) {
+    __publicField(this, "transport");
+    __publicField(this, "stateStore");
+    __publicField(this, "uploadFetch");
+    __publicField(this, "defaultChunkSizeBytes");
+    this.transport = transport;
+    this.stateStore = stateStore;
+    this.uploadFetch = uploadFetch;
+    this.defaultChunkSizeBytes = defaultChunkSizeBytes;
+  }
+  async upload(request) {
+    return this.uploadByProfile("generic", request);
+  }
+  async uploadVideo(request) {
+    return this.uploadByProfile("video", request);
+  }
+  async uploadImage(request) {
+    return this.uploadByProfile("image", request);
+  }
+  async uploadAudio(request) {
+    return this.uploadByProfile("audio", request);
+  }
+  async uploadDocument(request) {
+    return this.uploadByProfile("document", request);
+  }
+  async uploadArchive(request) {
+    return this.uploadByProfile("archive", request);
+  }
+  async uploadText(request) {
+    return this.uploadByProfile("text", request);
+  }
+  async uploadDataset(request) {
+    return this.uploadByProfile("dataset", request);
+  }
+  async uploadAttachment(request) {
+    return this.uploadByProfile("attachment", request);
+  }
+  async uploadAvatar(request) {
+    return this.uploadByProfile("avatar", request);
+  }
+  async uploadThumbnail(request) {
+    return this.uploadByProfile("thumbnail", request);
+  }
+  async uploadByProfile(profile, request) {
+    const normalized = await this.normalizeRequest(profile, request);
+    const parts = planUploaderParts(normalized.file, normalized.chunkSizeBytes);
+    const prepared = await this.transport.drive.uploader.uploads.create({
+      id: normalized.id,
+      taskId: normalized.taskId,
+      appResourceType: normalized.appResourceType,
+      appResourceId: normalized.appResourceId,
+      uploadProfileCode: normalized.uploadProfileCode,
+      fileFingerprint: normalized.fileFingerprint,
+      originalFileName: normalized.originalFileName,
+      contentType: normalized.contentType,
+      contentLength: String(normalized.file.size),
+      chunkSizeBytes: String(normalized.chunkSizeBytes),
+      ...normalized.scene !== void 0 ? { scene: normalized.scene } : {},
+      ...normalized.source !== void 0 ? { source: normalized.source } : {},
+      ...normalized.spaceId !== void 0 ? { spaceId: normalized.spaceId } : {},
+      ...normalized.parentNodeId !== void 0 ? { parentNodeId: normalized.parentNodeId } : {},
+      ...normalized.shareToken !== void 0 ? { shareToken: normalized.shareToken } : {},
+      ...normalized.retention !== void 0 ? { retention: normalized.retention } : {},
+      ...normalized.nowEpochMs !== void 0 ? { nowEpochMs: normalized.nowEpochMs } : {}
+    }, transportOptions(normalized.signal));
+    const uploadItem = prepared.uploadItem;
+    const uploadSession = prepared.uploadSession;
+    const uploadSessionId = uploadItem.uploadSessionId || uploadSession.id;
+    const storageUploadId = uploadItem.storageUploadId || uploadSession.storageUploadId;
+    const preparedNodeId = uploadItem.nodeId;
+    const previousState = await this.stateStore.get(normalized.taskId);
+    const carryUploadedParts = (previousState == null ? void 0 : previousState.uploadSessionId) === uploadSessionId ? sortedCompletedParts(previousState.uploadedParts) : [];
+    const baseState = {
+      taskId: normalized.taskId,
+      uploadItemId: uploadItem.id,
+      uploadSessionId,
+      storageUploadId,
+      uploadedParts: carryUploadedParts,
+      updatedAtEpochMs: Date.now()
+    };
+    const progressSnapshot = {
+      uploadItemId: baseState.uploadItemId,
+      uploadSessionId: baseState.uploadSessionId,
+      nodeId: preparedNodeId
+    };
+    emitProgress(normalized, progressSnapshot, {
+      uploadedBytes: baseState.uploadedParts.reduce((sum, part) => sum + part.sizeBytes, 0),
+      uploadedPartsCount: baseState.uploadedParts.length,
+      totalParts: parts.length,
+      status: "prepared"
+    });
+    const completedParts = completedPartsByPartNo(baseState.uploadedParts);
+    try {
+      for (const part of parts) {
+        if (completedParts.has(part.partNo)) {
+          continue;
+        }
+        emitProgress(normalized, progressSnapshot, {
+          partNo: part.partNo,
+          uploadedBytes: [...completedParts.values()].reduce((sum, item) => sum + item.sizeBytes, 0),
+          uploadedPartsCount: completedParts.size,
+          totalParts: parts.length,
+          status: "uploading"
+        });
+        const presigned = await this.transport.drive.uploadSessions.parts.update(uploadSessionId, part.partNo, {
+          uploadId: storageUploadId,
+          ...normalized.requestedPartTtlSeconds !== void 0 ? { requestedTtlSeconds: normalized.requestedPartTtlSeconds } : {}
+        }, transportOptions(normalized.signal));
+        const body = await readUploadPartBody(
+          normalized.file,
+          part.offsetBytes,
+          part.sizeBytes,
+          normalized.contentType
+        );
+        const response = await uploadPresignedPart({
+          uploadFetch: normalized.uploadFetch || this.uploadFetch,
+          url: presigned.uploadUrl,
+          method: presigned.method || "PUT",
+          headers: presigned.headers,
+          body,
+          ...normalized.signal !== void 0 ? { signal: normalized.signal } : {}
+        });
+        const completedPart = {
+          partNo: part.partNo,
+          etag: etagFromResponse(response),
+          offsetBytes: part.offsetBytes,
+          sizeBytes: part.sizeBytes
+        };
+        await this.transport.drive.uploader.uploads.parts.update(uploadItem.id, part.partNo, {
+          uploadSessionId,
+          offsetBytes: String(part.offsetBytes),
+          sizeBytes: String(part.sizeBytes),
+          etag: completedPart.etag
+        }, transportOptions(normalized.signal));
+        completedParts.set(part.partNo, completedPart);
+        await this.stateStore.put({
+          ...baseState,
+          uploadedParts: sortedCompletedParts([...completedParts.values()]),
+          updatedAtEpochMs: Date.now()
+        });
+        emitProgress(normalized, progressSnapshot, {
+          partNo: part.partNo,
+          uploadedBytes: [...completedParts.values()].reduce((sum, item) => sum + item.sizeBytes, 0),
+          uploadedPartsCount: completedParts.size,
+          totalParts: parts.length,
+          status: "part_uploaded"
+        });
+      }
+      const finalParts = sortedCompletedParts([...completedParts.values()]);
+      emitProgress(normalized, progressSnapshot, {
+        uploadedBytes: finalParts.reduce((sum, part) => sum + part.sizeBytes, 0),
+        uploadedPartsCount: finalParts.length,
+        totalParts: parts.length,
+        status: "completing"
+      });
+      const completedSession = await this.transport.drive.uploadSessions.complete(uploadSessionId, {
+        uploadId: storageUploadId,
+        contentType: normalized.contentType,
+        contentLength: String(normalized.file.size),
+        checksumSha256Hex: normalized.checksumSha256Hex,
+        parts: finalParts.map((part) => ({
+          partNo: part.partNo,
+          etag: part.etag
+        }))
+      }, transportOptions(normalized.signal));
+      await this.stateStore.clear(normalized.taskId);
+      emitProgress(normalized, progressSnapshot, {
+        uploadedBytes: normalized.file.size,
+        uploadedPartsCount: finalParts.length,
+        totalParts: parts.length,
+        status: "completed"
+      });
+      return {
+        uploadItem,
+        uploadSession: completedSession,
+        parts: finalParts
+      };
+    } catch (error) {
+      await this.stateStore.put({
+        ...baseState,
+        uploadedParts: sortedCompletedParts([...completedParts.values()]),
+        updatedAtEpochMs: Date.now()
+      });
+      if (error instanceof DOMException && error.name === "AbortError") {
+        await this.abortUploadSession(
+          transportOptions(normalized.signal),
+          uploadSessionId
+        );
+      }
+      throw error;
+    }
+  }
+  async replaceNodeContent(request) {
+    const normalized = await this.normalizeReplaceNodeContentRequest(request);
+    const uploadSession = await this.transport.drive.uploadSessions.create({
+      sessionId: normalized.sessionId,
+      spaceId: normalized.spaceId,
+      nodeId: normalized.nodeId,
+      idempotencyKey: normalized.idempotencyKey,
+      expiresAtEpochMs: normalized.expiresAtEpochMs
+    }, transportOptions(normalized.signal));
+    const uploadSessionId = uploadSession.id || normalized.sessionId;
+    const storageUploadId = uploadSession.storageUploadId;
+    const parts = planUploaderParts(normalized.file, normalized.chunkSizeBytes);
+    try {
+      const completedParts = [];
+      for (const part of parts) {
+        const presigned = await this.transport.drive.uploadSessions.parts.update(
+          uploadSessionId,
+          part.partNo,
+          {
+            uploadId: storageUploadId,
+            ...normalized.requestedPartTtlSeconds !== void 0 ? { requestedTtlSeconds: normalized.requestedPartTtlSeconds } : {}
+          },
+          transportOptions(normalized.signal)
+        );
+        const response = await uploadPresignedPart({
+          uploadFetch: normalized.uploadFetch || this.uploadFetch,
+          url: presigned.uploadUrl,
+          method: presigned.method || "PUT",
+          headers: presigned.headers,
+          body: await readUploadPartBody(
+            normalized.file,
+            part.offsetBytes,
+            part.sizeBytes,
+            normalized.contentType
+          ),
+          ...normalized.signal !== void 0 ? { signal: normalized.signal } : {}
+        });
+        completedParts.push({
+          partNo: presigned.partNo || part.partNo,
+          etag: etagFromResponse(response),
+          offsetBytes: part.offsetBytes,
+          sizeBytes: part.sizeBytes
+        });
+      }
+      const completedSession = await this.transport.drive.uploadSessions.complete(uploadSessionId, {
+        uploadId: storageUploadId,
+        contentType: normalized.contentType,
+        contentLength: String(normalized.file.size),
+        checksumSha256Hex: normalized.checksumSha256Hex,
+        parts: completedParts.map((part) => ({
+          partNo: part.partNo,
+          etag: part.etag
+        }))
+      }, transportOptions(normalized.signal));
+      return {
+        uploadSession: completedSession,
+        parts: completedParts
+      };
+    } catch (error) {
+      await this.abortUploadSession(
+        transportOptions(normalized.signal),
+        uploadSessionId
+      );
+      throw error;
+    }
+  }
+  async normalizeRequest(profile, request) {
+    const originalFileName = request.originalFileName || inferUploaderFileName(request.file);
+    const contentType = request.contentType || inferUploaderContentType(request.file);
+    const uploadProfileCode = request.uploadProfileCode || profile;
+    const chunkSizeBytes = request.chunkSizeBytes || this.defaultChunkSizeBytes;
+    const fileFingerprint = request.fileFingerprint || defaultFileFingerprint(originalFileName, contentType, request.file.size);
+    const taskId = request.taskId || `uploader-${fileFingerprint}`;
+    return {
+      ...request,
+      id: request.id || makeUploaderId("upload-item"),
+      taskId,
+      uploadProfileCode,
+      fileFingerprint,
+      originalFileName,
+      contentType,
+      chunkSizeBytes,
+      checksumSha256Hex: request.checksumSha256Hex || await sha256Checksum(request.file)
+    };
+  }
+  async normalizeReplaceNodeContentRequest(request) {
+    const sessionId = request.sessionId || makeUploaderId("upload");
+    return {
+      ...request,
+      sessionId,
+      idempotencyKey: request.idempotencyKey || defaultReplacementIdempotencyKey(request.nodeId, sessionId),
+      originalFileName: request.originalFileName || inferUploaderFileName(request.file),
+      contentType: request.contentType || inferUploaderContentType(request.file),
+      chunkSizeBytes: request.chunkSizeBytes || this.defaultChunkSizeBytes,
+      checksumSha256Hex: request.checksumSha256Hex || await sha256Checksum(request.file),
+      expiresAtEpochMs: request.expiresAtEpochMs || defaultReplacementExpiryEpochMs(request.nowEpochMs)
+    };
+  }
+  async abortUploadSession(request, uploadSessionId) {
+    if (!this.transport.drive.uploadSessions.abort) {
+      return;
+    }
+    try {
+      await this.transport.drive.uploadSessions.abort(uploadSessionId, {}, transportOptions(request.signal));
+    } catch {
+    }
+  }
+};
+function createDriveUploaderClient(options) {
+  return new DriveUploaderClient(options);
+}
+
+// ../../../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript/src/index.ts
+function typedSdkResponse(response) {
+  return response;
+}
+function createDriveUploaderTransport(client) {
+  return {
+    drive: {
+      uploader: {
+        uploads: {
+          create: (body) => typedSdkResponse(
+            client.drive.uploader.uploads.create(body)
+          ),
+          parts: {
+            update: (uploadItemId, partNo, body) => typedSdkResponse(
+              client.drive.uploader.uploads.parts.update(uploadItemId, partNo, body)
+            )
+          }
+        }
+      },
+      uploadSessions: {
+        create: (body) => typedSdkResponse(client.drive.uploadSessions.create(body)),
+        parts: {
+          update: (uploadSessionId, partNo, body) => typedSdkResponse(
+            client.drive.uploadSessions.parts.update(
+              uploadSessionId,
+              partNo,
+              body
+            )
+          )
+        },
+        complete: (uploadSessionId, body) => typedSdkResponse(
+          client.drive.uploadSessions.complete(uploadSessionId, body)
+        ),
+        abort: (uploadSessionId, body) => typedSdkResponse(
+          client.drive.uploadSessions.abort(uploadSessionId, body)
+        )
+      }
+    }
+  };
+}
+function attachDriveUploader(client, options = {}) {
+  var _a;
+  const driveClient = client;
+  driveClient.uploader = createDriveUploaderClient({
+    ...(_a = options.uploader) != null ? _a : {},
+    transport: createDriveUploaderTransport(client)
+  });
+  return driveClient;
+}
+function createDriveAppClient(config, options = {}) {
+  return attachDriveUploader(createClient3(config), options);
+}
+
+// packages/sdkwork-im-mp-core/src/sdk/driveAppSdkClient.ts
+var driveAppSdkClient = null;
+function createDriveAppSdkClientConfig(baseUrl, overrides = {}) {
   var _a, _b;
   const normalized = baseUrl.trim().replace(/\/+$/u, "");
   if (normalized.length === 0) {
-    throw new Error("IM app-api base URL is required before SDK bootstrap");
+    throw new Error("Drive app-api base URL is required before SDK bootstrap");
   }
   const session = readImMpSession();
   const accessToken = (_a = overrides.accessToken) != null ? _a : resolveImMpAccessToken(session);
@@ -12150,12 +13833,12 @@ function createImAppSdkClientConfig(baseUrl, overrides = {}) {
   }
   return config;
 }
-function initImAppSdkClient(config) {
-  imAppSdkClient = createClient4(config);
-  return imAppSdkClient;
+function initDriveAppSdkClient(config) {
+  driveAppSdkClient = createDriveAppClient(config);
+  return driveAppSdkClient;
 }
 
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/http/client.ts
+// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/http/client.ts
 var _HttpClient3 = class _HttpClient3 extends BaseHttpClient {
   constructor(config) {
     super(config);
@@ -12284,32 +13967,12 @@ var _HttpClient3 = class _HttpClient3 extends BaseHttpClient {
       "Authorization",
       ["X", "API", "Key"].join("-"),
       "X-Tenant-Id",
-      "X-App-Id",
       "X-Organization-Id",
       "X-Platform",
       "X-User-Id",
       "X-Sdkwork-Tenant-Id",
-      "X-Sdkwork-App-Id",
-      "X-Sdkwork-User-Id",
       "X-Sdkwork-Organization-Id",
-      "X-Sdkwork-Actor-Id",
-      "X-Sdkwork-Actor-Kind",
-      "X-Sdkwork-Session-Id",
-      "X-Sdkwork-Environment",
-      "X-Sdkwork-Deployment-Profile",
-      "X-Sdkwork-Deployment-Mode",
-      "X-Sdkwork-Runtime-Target",
-      "X-Sdkwork-Auth-Level",
-      "X-Sdkwork-Data-Scope",
-      "X-Sdkwork-Permission-Scope",
-      "X-Sdkwork-Device-Id",
-      "X-Sdkwork-Context-Signature",
-      "X-Sdkwork-Operation-Id",
-      "X-Sdkwork-Subject-Tenant-Id",
-      "X-Sdkwork-Subject-Organization-Id",
-      "X-Sdkwork-Subject-User-Id",
-      "X-Sdkwork-Subject-Timestamp",
-      "X-Sdkwork-Subject-Signature"
+      "X-Sdkwork-User-Id"
     ].forEach((key) => {
       delete headers[key];
     });
@@ -12630,7 +14293,7 @@ function createHttpClient3(config) {
   return new HttpClient4(config);
 }
 
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/api/paths.ts
+// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/api/paths.ts
 var APP_API_PREFIX2 = "/app/v3/api";
 function appApiPath2(path) {
   if (!path) {
@@ -12651,358 +14314,159 @@ function appApiPath2(path) {
   return `${normalizedPrefix}${normalizedPath}`;
 }
 
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/api/auth.ts
-var AuthVerificationCodeRequestsApi = class {
+// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/api/automation.ts
+var AutomationExecutionsApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Verification Code Requests create. */
+  /** Request an automation execution */
   async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/auth/verification_code_requests`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath2(`/automation/executions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Get an automation execution */
+  async retrieve(executionId, requestOptions) {
+    return this.client.request(appApiPath2(`/automation/executions/${serializePathParameter6(executionId, { name: "executionId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
-var AuthSessionsOrganizationSelectionApi = class {
+var AutomationAgentToolCallsApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Sessions organization Selection create. */
+  /** Request an agent tool call */
   async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/auth/sessions/organization_selection`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath2(`/automation/agent_tool_calls`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Complete an agent tool call */
+  async complete(executionId, toolCallId, body, requestOptions) {
+    return this.client.request(appApiPath2(`/automation/executions/${serializePathParameter6(executionId, { name: "executionId", style: "simple", explode: false })}/agent_tool_calls/${serializePathParameter6(toolCallId, { name: "toolCallId", style: "simple", explode: false })}/complete`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
   }
 };
-var AuthSessionsLoginContextSelectionApi = class {
+var AutomationAgentResponsesFramesApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Sessions login Context Selection create. */
+  /** Append a frame to an agent response stream */
+  async create(streamId, body, requestOptions) {
+    return this.client.request(appApiPath2(`/automation/agent_responses/${serializePathParameter6(streamId, { name: "streamId", style: "simple", explode: false })}/frames`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var AutomationAgentResponsesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "frames");
+    this.client = client;
+    this.frames = new AutomationAgentResponsesFramesApi(client);
+  }
+  /** Start an agent response stream */
   async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/auth/sessions/login_context_selection`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath2(`/automation/agent_responses`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+  /** Complete an agent response stream */
+  async complete(streamId, body, requestOptions) {
+    return this.client.request(appApiPath2(`/automation/agent_responses/${serializePathParameter6(streamId, { name: "streamId", style: "simple", explode: false })}/complete`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
   }
 };
-var AuthSessionsCurrentApi = class {
+var AutomationApi = class {
   constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Sessions current delete. */
-  async delete(requestOptions) {
-    return this.client.request(appApiPath2(`/auth/sessions/current`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-  /** Sessions current retrieve. */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath2(`/auth/sessions/current`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Sessions current update. */
-  async update(body, requestOptions) {
-    return this.client.request(appApiPath2(`/auth/sessions/current`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", ...body !== void 0 ? { body, contentType: "application/json" } : {}, sdkworkUnwrapKind: "item" });
+    __publicField(this, "agentResponses");
+    __publicField(this, "agentToolCalls");
+    __publicField(this, "executions");
+    this.agentResponses = new AutomationAgentResponsesApi(client);
+    this.agentToolCalls = new AutomationAgentToolCallsApi(client);
+    this.executions = new AutomationExecutionsApi(client);
   }
 };
-var AuthSessionsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "current");
-    __publicField(this, "loginContextSelection");
-    __publicField(this, "organizationSelection");
-    this.client = client;
-    this.current = new AuthSessionsCurrentApi(client);
-    this.loginContextSelection = new AuthSessionsLoginContextSelectionApi(client);
-    this.organizationSelection = new AuthSessionsOrganizationSelectionApi(client);
+function createAutomationApi(client) {
+  return new AutomationApi(client);
+}
+function serializePathParameter6(value, spec) {
+  if (value === void 0 || value === null) {
+    return "";
   }
-  /** Sessions create. */
-  async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/auth/sessions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  const style = spec.style || "simple";
+  if (Array.isArray(value)) {
+    return serializePathArray6(spec.name, value, style, spec.explode);
   }
-  /** Sessions refresh. */
-  async refresh(body, requestOptions) {
-    return this.client.request(appApiPath2(`/auth/sessions/refresh`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", skipAuth: true, sdkworkUnwrapKind: "command" });
+  if (typeof value === "object") {
+    return serializePathObject6(spec.name, value, style, spec.explode);
   }
-};
-var AuthRegistrationsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
+  return pathPrefix6(spec.name, style, false) + encodePathValue6(serializePathPrimitive6(value));
+}
+function serializePathArray6(name, values, style, explode) {
+  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue6(serializePathPrimitive6(item)));
+  if (serialized.length === 0) {
+    return pathPrefix6(name, style, false);
   }
-  /** Registrations create. */
-  async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/auth/registrations`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  if (style === "matrix") {
+    return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
   }
-};
-var AuthPasswordResetsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
+  return pathPrefix6(name, style, false) + serialized.join(explode ? "." : ",");
+}
+function serializePathObject6(name, value, style, explode) {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
+  if (entries.length === 0) {
+    return pathPrefix6(name, style, true);
   }
-  /** Password Resets create. */
-  async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/auth/password_resets`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  if (style === "matrix") {
+    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue6(key)}=${encodePathValue6(serializePathPrimitive6(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue6(key), encodePathValue6(serializePathPrimitive6(entryValue))]).join(",")}`;
   }
-};
-var AuthPasswordResetRequestsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
+  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue6(key)}=${encodePathValue6(serializePathPrimitive6(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue6(key), encodePathValue6(serializePathPrimitive6(entryValue))]).join(",");
+  return pathPrefix6(name, style, true) + serialized;
+}
+function pathPrefix6(name, style, _objectValue) {
+  if (style === "label") return ".";
+  if (style === "matrix") return `;${name}`;
+  return "";
+}
+function encodePathValue6(value) {
+  return encodeURIComponent(value);
+}
+function serializePathPrimitive6(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
   }
-  /** Password Reset Requests create. */
-  async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/auth/password_reset_requests`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  if (typeof value === "object") {
+    return JSON.stringify(value);
   }
-};
-var AuthApi = class {
-  constructor(client) {
-    __publicField(this, "passwordResetRequests");
-    __publicField(this, "passwordResets");
-    __publicField(this, "registrations");
-    __publicField(this, "sessions");
-    __publicField(this, "verificationCodeRequests");
-    this.passwordResetRequests = new AuthPasswordResetRequestsApi(client);
-    this.passwordResets = new AuthPasswordResetsApi(client);
-    this.registrations = new AuthRegistrationsApi(client);
-    this.sessions = new AuthSessionsApi(client);
-    this.verificationCodeRequests = new AuthVerificationCodeRequestsApi(client);
-  }
-};
-function createAuthApi(client) {
-  return new AuthApi(client);
+  return String(value);
 }
 
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/api/iam.ts
-var IamUsersCurrentPhoneBindingsApi = class {
+// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/api/notifications.ts
+var NotificationsRequestsApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Users current phone Bindings delete. */
-  async delete(requestOptions) {
-    return this.client.request(appApiPath2(`/iam/users/current/phone_bindings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-  /** Users current phone Bindings create. */
+  /** Request a notification task */
   async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/iam/users/current/phone_bindings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath2(`/notifications/requests`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
   }
 };
-var IamUsersCurrentPasswordApi = class {
+var NotificationsApi = class {
   constructor(client) {
     __publicField(this, "client");
+    __publicField(this, "requests");
     this.client = client;
+    this.requests = new NotificationsRequestsApi(client);
   }
-  /** Users current password update. */
-  async update(body, requestOptions) {
-    return this.client.request(appApiPath2(`/iam/users/current/password`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", ...body !== void 0 ? { body, contentType: "application/json" } : {}, sdkworkUnwrapKind: "item" });
-  }
-};
-var IamUsersCurrentEmailBindingsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Users current email Bindings delete. */
-  async delete(requestOptions) {
-    return this.client.request(appApiPath2(`/iam/users/current/email_bindings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-  /** Users current email Bindings create. */
-  async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/iam/users/current/email_bindings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var IamUsersCurrentApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "emailBindings");
-    __publicField(this, "password");
-    __publicField(this, "phoneBindings");
-    this.client = client;
-    this.emailBindings = new IamUsersCurrentEmailBindingsApi(client);
-    this.password = new IamUsersCurrentPasswordApi(client);
-    this.phoneBindings = new IamUsersCurrentPhoneBindingsApi(client);
-  }
-  /** Users current retrieve. */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath2(`/iam/users/current`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-  /** Users current update. */
-  async update(body, requestOptions) {
-    return this.client.request(appApiPath2(`/iam/users/current`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", ...body !== void 0 ? { body, contentType: "application/json" } : {}, sdkworkUnwrapKind: "item" });
-  }
-};
-var IamUsersApi = class {
-  constructor(client) {
-    __publicField(this, "current");
-    this.current = new IamUsersCurrentApi(client);
-  }
-};
-var IamRoleBindingsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Role Bindings list. */
+  /** List notifications for the current principal */
   async list(params, requestOptions) {
     const query = buildQueryString7([
-      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false },
-      { name: "roleId", value: params == null ? void 0 : params.roleId, style: "form", explode: true, allowReserved: false },
-      { name: "principalKind", value: params == null ? void 0 : params.principalKind, style: "form", explode: true, allowReserved: false },
-      { name: "principalId", value: params == null ? void 0 : params.principalId, style: "form", explode: true, allowReserved: false },
-      { name: "scopeKind", value: params == null ? void 0 : params.scopeKind, style: "form", explode: true, allowReserved: false },
-      { name: "scopeId", value: params == null ? void 0 : params.scopeId, style: "form", explode: true, allowReserved: false }
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false }
     ]);
-    return this.client.request(appendQueryString7(appApiPath2(`/iam/role_bindings`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+    return this.client.request(appendQueryString7(appApiPath2(`/notifications`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Get a notification task */
+  async retrieve(notificationId, requestOptions) {
+    return this.client.request(appApiPath2(`/notifications/${serializePathParameter7(notificationId, { name: "notificationId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
-var IamPositionsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Positions list. */
-  async list(params, requestOptions) {
-    const query = buildQueryString7([
-      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString7(appApiPath2(`/iam/positions`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-};
-var IamPositionAssignmentsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Position Assignments list. */
-  async list(params, requestOptions) {
-    const query = buildQueryString7([
-      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString7(appApiPath2(`/iam/position_assignments`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-};
-var IamOrganizationsTreeApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Organizations tree retrieve. */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath2(`/iam/organizations/tree`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var IamOrganizationsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "tree");
-    this.client = client;
-    this.tree = new IamOrganizationsTreeApi(client);
-  }
-  /** Organizations list. */
-  async list(params, requestOptions) {
-    const query = buildQueryString7([
-      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString7(appApiPath2(`/iam/organizations`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-};
-var IamOrganizationMembershipsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Organization Memberships list. */
-  async list(params, requestOptions) {
-    const query = buildQueryString7([
-      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString7(appApiPath2(`/iam/organization_memberships`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-};
-var IamDepartmentsTreeApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Departments tree retrieve. */
-  async retrieve(requestOptions) {
-    return this.client.request(appApiPath2(`/iam/departments/tree`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
-  }
-};
-var IamDepartmentsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "tree");
-    this.client = client;
-    this.tree = new IamDepartmentsTreeApi(client);
-  }
-  /** Departments list. */
-  async list(params, requestOptions) {
-    const query = buildQueryString7([
-      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString7(appApiPath2(`/iam/departments`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-};
-var IamDepartmentAssignmentsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Department Assignments list. */
-  async list(params, requestOptions) {
-    const query = buildQueryString7([
-      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString7(appApiPath2(`/iam/department_assignments`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-};
-var IamApi = class {
-  constructor(client) {
-    __publicField(this, "departmentAssignments");
-    __publicField(this, "departments");
-    __publicField(this, "organizationMemberships");
-    __publicField(this, "organizations");
-    __publicField(this, "positionAssignments");
-    __publicField(this, "positions");
-    __publicField(this, "roleBindings");
-    __publicField(this, "users");
-    this.departmentAssignments = new IamDepartmentAssignmentsApi(client);
-    this.departments = new IamDepartmentsApi(client);
-    this.organizationMemberships = new IamOrganizationMembershipsApi(client);
-    this.organizations = new IamOrganizationsApi(client);
-    this.positionAssignments = new IamPositionAssignmentsApi(client);
-    this.positions = new IamPositionsApi(client);
-    this.roleBindings = new IamRoleBindingsApi(client);
-    this.users = new IamUsersApi(client);
-  }
-};
-function createIamApi(client) {
-  return new IamApi(client);
+function createNotificationsApi(client) {
+  return new NotificationsApi(client);
 }
 function appendQueryString7(path, rawQueryString) {
   const query = rawQueryString.replace(/^\?+/, "");
@@ -13010,6 +14474,57 @@ function appendQueryString7(path, rawQueryString) {
     return path;
   }
   return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
+}
+function serializePathParameter7(value, spec) {
+  if (value === void 0 || value === null) {
+    return "";
+  }
+  const style = spec.style || "simple";
+  if (Array.isArray(value)) {
+    return serializePathArray7(spec.name, value, style, spec.explode);
+  }
+  if (typeof value === "object") {
+    return serializePathObject7(spec.name, value, style, spec.explode);
+  }
+  return pathPrefix7(spec.name, style, false) + encodePathValue7(serializePathPrimitive7(value));
+}
+function serializePathArray7(name, values, style, explode) {
+  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue7(serializePathPrimitive7(item)));
+  if (serialized.length === 0) {
+    return pathPrefix7(name, style, false);
+  }
+  if (style === "matrix") {
+    return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
+  }
+  return pathPrefix7(name, style, false) + serialized.join(explode ? "." : ",");
+}
+function serializePathObject7(name, value, style, explode) {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
+  if (entries.length === 0) {
+    return pathPrefix7(name, style, true);
+  }
+  if (style === "matrix") {
+    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue7(key)}=${encodePathValue7(serializePathPrimitive7(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue7(key), encodePathValue7(serializePathPrimitive7(entryValue))]).join(",")}`;
+  }
+  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue7(key)}=${encodePathValue7(serializePathPrimitive7(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue7(key), encodePathValue7(serializePathPrimitive7(entryValue))]).join(",");
+  return pathPrefix7(name, style, true) + serialized;
+}
+function pathPrefix7(name, style, _objectValue) {
+  if (style === "label") return ".";
+  if (style === "matrix") return `;${name}`;
+  return "";
+}
+function encodePathValue7(value) {
+  return encodeURIComponent(value);
+}
+function serializePathPrimitive7(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
 }
 function buildQueryString7(parameters) {
   const pairs = [];
@@ -13100,269 +14615,213 @@ function encodeQueryValue7(value, allowReserved) {
   return encoded.replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%23/gi, "#").replace(/%5B/gi, "[").replace(/%5D/gi, "]").replace(/%40/gi, "@").replace(/%21/gi, "!").replace(/%24/gi, "$").replace(/%26/gi, "&").replace(/%27/gi, "'").replace(/%28/gi, "(").replace(/%29/gi, ")").replace(/%2A/gi, "*").replace(/%2B/gi, "+").replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%3D/gi, "=");
 }
 
-// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/api/oauth.ts
-var OauthWechatPaymentOauthApi = class {
+// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/api/portal.ts
+var PortalWorkspaceApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Wechat Payment Oauth callback. */
-  async callback(requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/wechat/payment/callback`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", skipAuth: true, sdkworkUnwrapKind: "item" });
-  }
-  /** Wechat Payment Oauth start. */
-  async start(params, requestOptions) {
-    const query = buildQueryString8([
-      { name: "redirect", value: params.redirect, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString8(appApiPath2(`/oauth/wechat/payment/start`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  /** Read the current tenant workspace snapshot */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath2(`/portal/workspace`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
-var OauthSessionsApi = class {
+var PortalRealtimeApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Sessions create. */
-  async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/sessions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  /** Read the tenant realtime snapshot */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath2(`/portal/realtime`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
-var OauthScanLoginModesApi = class {
+var PortalMediaApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Scan Login Modes list. */
-  async list(params, requestOptions) {
-    const query = buildQueryString8([
-      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString8(appApiPath2(`/oauth/scan_login_modes`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "page" });
+  /** Read the tenant media snapshot */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath2(`/portal/media`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
-var OauthProvidersApi = class {
+var PortalHomeApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Providers list. */
-  async list(params, requestOptions) {
-    const query = buildQueryString8([
-      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString8(appApiPath2(`/oauth/providers`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "page" });
+  /** Read the tenant portal home snapshot */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath2(`/portal/home`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
-var OauthMiniProgramSessionsApi = class {
+var PortalGovernanceApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Mini Program Sessions create. */
-  async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/mini_program_sessions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  /** Read the tenant governance snapshot */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath2(`/portal/governance`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
-var OauthGrantsApi = class {
+var PortalDashboardApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Grants list. */
-  async list(params, requestOptions) {
-    const query = buildQueryString8([
-      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString8(appApiPath2(`/oauth/grants`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Grants delete. */
-  async delete(grantId, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/grants/${serializePathParameter8(grantId, { name: "grantId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  /** Read the tenant dashboard snapshot */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath2(`/portal/dashboard`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
-var OauthDeviceAuthorizationsSessionExchangesApi = class {
+var PortalConversationSnapshotApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Device Authorizations session Exchanges create. */
-  async create(deviceAuthorizationId, body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter8(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/session_exchanges`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", skipAuth: true, sdkworkUnwrapKind: "item" });
+  /** Read the tenant conversations snapshot */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath2(`/portal/conversations`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
-var OauthDeviceAuthorizationsSessionCompletionsApi = class {
+var PortalAutomationApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Device Authorizations session Completions create. */
-  async create(deviceAuthorizationId, body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter8(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/session_completions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  /** Read the tenant automation snapshot */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath2(`/portal/automation`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
-var OauthDeviceAuthorizationsScansApi = class {
+var PortalAccessApi = class {
   constructor(client) {
     __publicField(this, "client");
     this.client = client;
   }
-  /** Device Authorizations scans create. */
-  async create(deviceAuthorizationId, body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter8(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/scans`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  /** Read the tenant portal access snapshot */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath2(`/portal/access`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
   }
 };
-var OauthDeviceAuthorizationsPasswordCompletionsApi = class {
+var PortalApi = class {
   constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Device Authorizations password Completions create. */
-  async create(deviceAuthorizationId, body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter8(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/password_completions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
-  }
-};
-var OauthDeviceAuthorizationsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    __publicField(this, "passwordCompletions");
-    __publicField(this, "scans");
-    __publicField(this, "sessionCompletions");
-    __publicField(this, "sessionExchanges");
-    this.client = client;
-    this.passwordCompletions = new OauthDeviceAuthorizationsPasswordCompletionsApi(client);
-    this.scans = new OauthDeviceAuthorizationsScansApi(client);
-    this.sessionCompletions = new OauthDeviceAuthorizationsSessionCompletionsApi(client);
-    this.sessionExchanges = new OauthDeviceAuthorizationsSessionExchangesApi(client);
-  }
-  /** Device Authorizations create. */
-  async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/device_authorizations`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", skipAuth: true, sdkworkUnwrapKind: "item" });
-  }
-  /** Device Authorizations retrieve. */
-  async retrieve(deviceAuthorizationId, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/device_authorizations/${serializePathParameter8(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", skipAuth: true, sdkworkUnwrapKind: "item" });
+    __publicField(this, "access");
+    __publicField(this, "automation");
+    __publicField(this, "conversationSnapshot");
+    __publicField(this, "dashboard");
+    __publicField(this, "governance");
+    __publicField(this, "home");
+    __publicField(this, "media");
+    __publicField(this, "realtime");
+    __publicField(this, "workspace");
+    this.access = new PortalAccessApi(client);
+    this.automation = new PortalAutomationApi(client);
+    this.conversationSnapshot = new PortalConversationSnapshotApi(client);
+    this.dashboard = new PortalDashboardApi(client);
+    this.governance = new PortalGovernanceApi(client);
+    this.home = new PortalHomeApi(client);
+    this.media = new PortalMediaApi(client);
+    this.realtime = new PortalRealtimeApi(client);
+    this.workspace = new PortalWorkspaceApi(client);
   }
 };
-var OauthDesktopSessionsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Desktop Sessions create. */
-  async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/desktop_sessions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", skipAuth: true, sdkworkUnwrapKind: "item" });
-  }
-};
-var OauthCallbacksApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Callbacks retrieve. */
-  async retrieve(providerCode, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/callbacks/${serializePathParameter8(providerCode, { name: "providerCode", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
-  }
-  /** Callbacks create. */
-  async create(providerCode, body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/callbacks/${serializePathParameter8(providerCode, { name: "providerCode", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
-  }
-};
-var OauthAuthorizationsCompletionsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Authorizations completions create. */
-  async create(authorizationStateId, body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/authorizations/${serializePathParameter8(authorizationStateId, { name: "authorizationStateId", style: "simple", explode: false })}/completions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
-  }
-};
-var OauthAuthorizationsApi = class {
-  constructor(client) {
-    __publicField(this, "completions");
-    this.completions = new OauthAuthorizationsCompletionsApi(client);
-  }
-};
-var OauthAuthorizationUrlsApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Authorization Urls create. */
-  async create(body, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/authorization_urls`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
-  }
-};
-var OauthAccountLinksApi = class {
-  constructor(client) {
-    __publicField(this, "client");
-    this.client = client;
-  }
-  /** Account Links list. */
-  async list(params, requestOptions) {
-    const query = buildQueryString8([
-      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
-      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
-      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
-      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
-    ]);
-    return this.client.request(appendQueryString8(appApiPath2(`/oauth/account_links`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
-  }
-  /** Account Links delete. */
-  async delete(accountLinkId, requestOptions) {
-    return this.client.request(appApiPath2(`/oauth/account_links/${serializePathParameter8(accountLinkId, { name: "accountLinkId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
-  }
-};
-var OauthApi = class {
-  constructor(client) {
-    __publicField(this, "accountLinks");
-    __publicField(this, "authorizationUrls");
-    __publicField(this, "authorizations");
-    __publicField(this, "callbacks");
-    __publicField(this, "desktopSessions");
-    __publicField(this, "deviceAuthorizations");
-    __publicField(this, "grants");
-    __publicField(this, "miniProgramSessions");
-    __publicField(this, "providers");
-    __publicField(this, "scanLoginModes");
-    __publicField(this, "sessions");
-    __publicField(this, "wechatPaymentOauth");
-    this.accountLinks = new OauthAccountLinksApi(client);
-    this.authorizationUrls = new OauthAuthorizationUrlsApi(client);
-    this.authorizations = new OauthAuthorizationsApi(client);
-    this.callbacks = new OauthCallbacksApi(client);
-    this.desktopSessions = new OauthDesktopSessionsApi(client);
-    this.deviceAuthorizations = new OauthDeviceAuthorizationsApi(client);
-    this.grants = new OauthGrantsApi(client);
-    this.miniProgramSessions = new OauthMiniProgramSessionsApi(client);
-    this.providers = new OauthProvidersApi(client);
-    this.scanLoginModes = new OauthScanLoginModesApi(client);
-    this.sessions = new OauthSessionsApi(client);
-    this.wechatPaymentOauth = new OauthWechatPaymentOauthApi(client);
-  }
-};
-function createOauthApi(client) {
-  return new OauthApi(client);
+function createPortalApi(client) {
+  return new PortalApi(client);
 }
-function appendQueryString8(path, rawQueryString) {
-  const query = rawQueryString.replace(/^\?+/, "");
-  if (!query) {
-    return path;
+
+// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/api/provider.ts
+var ProviderPrincipalProfileHealthApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
   }
-  return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
+  /** Retrieve principal-profile provider health */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath2(`/principal/profiles/provider_health`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var ProviderMediaHealthApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Retrieve media provider health */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath2(`/media/provider_health`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var ProviderApi = class {
+  constructor(client) {
+    __publicField(this, "mediaHealth");
+    __publicField(this, "principalProfileHealth");
+    this.mediaHealth = new ProviderMediaHealthApi(client);
+    this.principalProfileHealth = new ProviderPrincipalProfileHealthApi(client);
+  }
+};
+function createProviderApi(client) {
+  return new ProviderApi(client);
+}
+
+// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/api/chat.ts
+var ChatConversationsKnowledgebaseApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Retrieve the group knowledgebase link */
+  async retrieve(conversationId, requestOptions) {
+    return this.client.request(appApiPath2(`/chat/conversations/${serializePathParameter8(conversationId, { name: "conversationId", style: "simple", explode: false })}/knowledgebase`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Lazily create the group knowledgebase */
+  async create(conversationId, body, params, requestOptions) {
+    const requestHeaders = buildRequestHeaders2(
+      {
+        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
+      },
+      {}
+    );
+    return this.client.request(appApiPath2(`/chat/conversations/${serializePathParameter8(conversationId, { name: "conversationId", style: "simple", explode: false })}/knowledgebase`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
+  }
+  /** Issue a one-time group knowledgebase launch ticket */
+  async launch(conversationId, body, params, requestOptions) {
+    const requestHeaders = buildRequestHeaders2(
+      {
+        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
+      },
+      {}
+    );
+    return this.client.request(appApiPath2(`/chat/conversations/${serializePathParameter8(conversationId, { name: "conversationId", style: "simple", explode: false })}/knowledgebase/launch`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "item" });
+  }
+};
+var ChatConversationsApi2 = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "knowledgebase");
+    this.client = client;
+    this.knowledgebase = new ChatConversationsKnowledgebaseApi(client);
+  }
+  /** Archive a group conversation and schedule its knowledgebase archive */
+  async archive(conversationId, body, params, requestOptions) {
+    const requestHeaders = buildRequestHeaders2(
+      {
+        "Idempotency-Key": { value: params.idempotencyKey, style: "simple", explode: false }
+      },
+      {}
+    );
+    return this.client.request(appApiPath2(`/chat/conversations/${serializePathParameter8(conversationId, { name: "conversationId", style: "simple", explode: false })}/archive`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}, sdkworkUnwrapKind: "command" });
+  }
+};
+var ChatApi2 = class {
+  constructor(client) {
+    __publicField(this, "conversations");
+    this.conversations = new ChatConversationsApi2(client);
+  }
+};
+function createChatApi2(client) {
+  return new ChatApi2(client);
 }
 function serializePathParameter8(value, spec) {
   if (value === void 0 || value === null) {
@@ -13414,6 +14873,985 @@ function serializePathPrimitive8(value) {
     return JSON.stringify(value);
   }
   return String(value);
+}
+function buildRequestHeaders2(headers, cookies = {}) {
+  const requestHeaders = {};
+  for (const [name, parameter] of Object.entries(headers)) {
+    const serialized = serializeParameterValue2(parameter);
+    if (serialized !== void 0) {
+      requestHeaders[name] = serialized;
+    }
+  }
+  const cookieHeader = buildCookieHeader2(cookies);
+  if (cookieHeader) {
+    requestHeaders.Cookie = requestHeaders.Cookie ? `${requestHeaders.Cookie}; ${cookieHeader}` : cookieHeader;
+  }
+  return Object.keys(requestHeaders).length > 0 ? requestHeaders : void 0;
+}
+function buildCookieHeader2(cookies) {
+  const pairs = [];
+  for (const [name, parameter] of Object.entries(cookies)) {
+    const serialized = serializeParameterValue2(parameter);
+    if (serialized !== void 0) {
+      pairs.push(`${encodeURIComponent(name)}=${encodeURIComponent(serialized)}`);
+    }
+  }
+  return pairs.length > 0 ? pairs.join("; ") : void 0;
+}
+function serializeParameterValue2(parameter) {
+  const value = parameter == null ? void 0 : parameter.value;
+  if (value === void 0 || value === null) {
+    return void 0;
+  }
+  if (parameter == null ? void 0 : parameter.contentType) {
+    return JSON.stringify(value);
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => serializeHeaderPrimitive2(item)).join(",");
+  }
+  if (typeof value === "object" && value !== null) {
+    return serializeHeaderObject2(value, (parameter == null ? void 0 : parameter.explode) === true);
+  }
+  return serializeHeaderPrimitive2(value);
+}
+function serializeHeaderObject2(value, explode) {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
+  if (explode) {
+    return entries.map(([key, entryValue]) => `${key}=${serializeHeaderPrimitive2(entryValue)}`).join(",");
+  }
+  return entries.flatMap(([key, entryValue]) => [key, serializeHeaderPrimitive2(entryValue)]).join(",");
+}
+function serializeHeaderPrimitive2(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return String(value);
+}
+
+// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/generated/server-openapi/src/sdk.ts
+var SdkworkImAppClient = class {
+  constructor(config) {
+    __publicField(this, "httpClient");
+    __publicField(this, "automation");
+    __publicField(this, "notifications");
+    __publicField(this, "portal");
+    __publicField(this, "provider");
+    __publicField(this, "chat");
+    this.httpClient = createHttpClient3(config);
+    this.automation = createAutomationApi(this.httpClient);
+    this.notifications = createNotificationsApi(this.httpClient);
+    this.portal = createPortalApi(this.httpClient);
+    this.provider = createProviderApi(this.httpClient);
+    this.chat = createChatApi2(this.httpClient);
+  }
+  setAuthToken(token) {
+    this.httpClient.setAuthToken(token);
+    return this;
+  }
+  setAccessToken(token) {
+    this.httpClient.setAccessToken(token);
+    return this;
+  }
+  setTokenManager(manager) {
+    this.httpClient.setTokenManager(manager);
+    return this;
+  }
+  get http() {
+    return this.httpClient;
+  }
+};
+function createClient4(config) {
+  return new SdkworkImAppClient(config);
+}
+
+// ../../sdks/sdkwork-im-app-sdk/sdkwork-im-app-sdk-typescript/src/index.ts
+function createClient5(config) {
+  return createClient4(config);
+}
+
+// packages/sdkwork-im-mp-core/src/sdk/imAppSdkClient.ts
+var imAppSdkClient = null;
+function createImAppSdkClientConfig(baseUrl, overrides = {}) {
+  var _a, _b;
+  const normalized = baseUrl.trim().replace(/\/+$/u, "");
+  if (normalized.length === 0) {
+    throw new Error("IM app-api base URL is required before SDK bootstrap");
+  }
+  const session = readImMpSession();
+  const accessToken = (_a = overrides.accessToken) != null ? _a : resolveImMpAccessToken(session);
+  const authToken = (_b = overrides.authToken) != null ? _b : resolveImMpAuthToken(session);
+  const config = { baseUrl: normalized, platform: "mini-program" };
+  if (accessToken) {
+    config.accessToken = accessToken;
+  }
+  if (authToken) {
+    config.authToken = authToken;
+  }
+  return config;
+}
+function initImAppSdkClient(config) {
+  imAppSdkClient = createClient5(config);
+  return imAppSdkClient;
+}
+
+// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/http/client.ts
+var _HttpClient4 = class _HttpClient4 extends BaseHttpClient {
+  constructor(config) {
+    super(config);
+  }
+  static normalizeCredential(value) {
+    return typeof value === "string" && value.trim().length > 0 ? value.trim() : void 0;
+  }
+  getInternalAuthConfig() {
+    const self = this;
+    self.authConfig = self.authConfig || {};
+    return self.authConfig;
+  }
+  getInternalHeaders() {
+    const self = this;
+    self.config = self.config || {};
+    self.config.headers = self.config.headers || {};
+    return self.config.headers;
+  }
+  buildRequestHeaders(headers, contentType) {
+    const mergedHeaders = {
+      ...headers != null ? headers : {}
+    };
+    if (contentType && contentType.toLowerCase() !== "multipart/form-data") {
+      mergedHeaders["Content-Type"] = contentType;
+    }
+    return Object.keys(mergedHeaders).length > 0 ? mergedHeaders : void 0;
+  }
+  async applySdkworkRequestBodyFingerprint(headers, body) {
+    if (!_HttpClient4.SDKWORK_V3_REQUEST_FINGERPRINTS || body == null || !this.hasNonEmptyHeader(headers, "Idempotency-Key") || this.hasNonEmptyHeader(headers, "X-Content-SHA256") || this.hasNonEmptyHeader(headers, "X-Idempotency-Fingerprint")) {
+      return headers;
+    }
+    const fingerprint = await this.createSdkworkRequestBodyFingerprint(body);
+    if (!fingerprint) {
+      return headers;
+    }
+    const normalizedFingerprintHeader = fingerprint.header.toLowerCase();
+    const preparedHeaders = Object.fromEntries(
+      Object.entries(headers != null ? headers : {}).filter(
+        ([headerName]) => headerName.toLowerCase() !== normalizedFingerprintHeader
+      )
+    );
+    return {
+      ...preparedHeaders,
+      [fingerprint.header]: fingerprint.value
+    };
+  }
+  hasNonEmptyHeader(headers, name) {
+    const normalizedName = name.toLowerCase();
+    return Object.entries(headers != null ? headers : {}).some(
+      ([headerName, value]) => headerName.toLowerCase() === normalizedName && value.trim().length > 0
+    );
+  }
+  async createSdkworkRequestBodyFingerprint(body) {
+    if (typeof FormData !== "undefined" && body instanceof FormData) {
+      const canonicalForm = await this.serializeSdkworkFormData(body);
+      return {
+        header: "X-Idempotency-Fingerprint",
+        value: await this.sha256Hex(new TextEncoder().encode(canonicalForm))
+      };
+    }
+    const bytes = await this.serializeSdkworkRequestBodyBytes(body);
+    if (!bytes) {
+      return void 0;
+    }
+    return {
+      header: "X-Content-SHA256",
+      value: await this.sha256Hex(bytes)
+    };
+  }
+  async serializeSdkworkRequestBodyBytes(body) {
+    if (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) {
+      return new TextEncoder().encode(body.toString());
+    }
+    if (typeof Blob !== "undefined" && body instanceof Blob) {
+      return new Uint8Array(await body.arrayBuffer());
+    }
+    if (typeof ArrayBuffer !== "undefined" && body instanceof ArrayBuffer) {
+      return new Uint8Array(body.slice(0));
+    }
+    if (typeof ArrayBuffer !== "undefined" && ArrayBuffer.isView(body)) {
+      return new Uint8Array(new Uint8Array(body.buffer, body.byteOffset, body.byteLength));
+    }
+    if (typeof body === "string") {
+      return new TextEncoder().encode(body);
+    }
+    const serialized = JSON.stringify(body);
+    return serialized === void 0 ? void 0 : new TextEncoder().encode(serialized);
+  }
+  async serializeSdkworkFormData(body) {
+    const parts = [];
+    for (const [name, value] of body.entries()) {
+      if (typeof value === "string") {
+        parts.push({ kind: "field", name, value });
+        continue;
+      }
+      const bytes = new Uint8Array(await value.arrayBuffer());
+      parts.push({
+        kind: "file",
+        name,
+        fileName: "name" in value ? String(value.name) : "",
+        contentType: value.type,
+        size: value.size,
+        contentSha256: await this.sha256Hex(bytes)
+      });
+    }
+    return JSON.stringify(parts);
+  }
+  async sha256Hex(bytes) {
+    return sha256Hash(bytes);
+  }
+  buildHeaders(config, skipAuth = false) {
+    const headers = super.buildHeaders(config, skipAuth);
+    if (config == null ? void 0 : config.accessTokenOnly) {
+      this.stripCredentialHeaders(headers, true);
+      return headers;
+    }
+    if (!skipAuth && !(config == null ? void 0 : config.skipAuth)) {
+      return headers;
+    }
+    this.stripCredentialHeaders(headers, false);
+    return headers;
+  }
+  stripCredentialHeaders(headers, preserveAccessToken) {
+    [
+      ...preserveAccessToken ? [] : [_HttpClient4.ACCESS_TOKEN_HEADER, "Access-Token"],
+      "Authorization",
+      ["X", "API", "Key"].join("-"),
+      "X-Tenant-Id",
+      "X-App-Id",
+      "X-Organization-Id",
+      "X-Platform",
+      "X-User-Id",
+      "X-Sdkwork-Tenant-Id",
+      "X-Sdkwork-App-Id",
+      "X-Sdkwork-User-Id",
+      "X-Sdkwork-Organization-Id",
+      "X-Sdkwork-Actor-Id",
+      "X-Sdkwork-Actor-Kind",
+      "X-Sdkwork-Session-Id",
+      "X-Sdkwork-Environment",
+      "X-Sdkwork-Deployment-Profile",
+      "X-Sdkwork-Deployment-Mode",
+      "X-Sdkwork-Runtime-Target",
+      "X-Sdkwork-Auth-Level",
+      "X-Sdkwork-Data-Scope",
+      "X-Sdkwork-Permission-Scope",
+      "X-Sdkwork-Device-Id",
+      "X-Sdkwork-Context-Signature",
+      "X-Sdkwork-Operation-Id",
+      "X-Sdkwork-Subject-Tenant-Id",
+      "X-Sdkwork-Subject-Organization-Id",
+      "X-Sdkwork-Subject-User-Id",
+      "X-Sdkwork-Subject-Timestamp",
+      "X-Sdkwork-Subject-Signature"
+    ].forEach((key) => {
+      delete headers[key];
+    });
+  }
+  buildRequestBody(body, contentType) {
+    if (body == null) {
+      return body;
+    }
+    const normalizedContentType = (contentType != null ? contentType : "").toLowerCase();
+    if (normalizedContentType === "application/x-www-form-urlencoded") {
+      return this.encodeFormBody(body);
+    }
+    if (normalizedContentType === "multipart/form-data") {
+      return this.encodeMultipartBody(body);
+    }
+    return body;
+  }
+  encodeMultipartBody(body) {
+    if (body instanceof FormData) {
+      return body;
+    }
+    const formData = new FormData();
+    if (body instanceof Map) {
+      for (const [key, value] of body.entries()) {
+        this.appendMultipartValue(formData, String(key), value);
+      }
+      return formData;
+    }
+    if (typeof body === "object") {
+      const record = body;
+      for (const [key, value] of Object.entries(record)) {
+        if (this.isMultipartMetadataField(key)) {
+          continue;
+        }
+        this.appendMultipartValue(formData, key, value, this.resolveMultipartFileName(record, key));
+      }
+      return formData;
+    }
+    this.appendMultipartValue(formData, "value", body);
+    return formData;
+  }
+  appendMultipartValue(formData, key, value, fileName) {
+    if (value == null) {
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item) => this.appendMultipartValue(formData, key, item, fileName));
+      return;
+    }
+    if (value instanceof Blob) {
+      if (fileName) {
+        formData.append(key, value, fileName);
+        return;
+      }
+      formData.append(key, value);
+      return;
+    }
+    if (value instanceof Date) {
+      formData.append(key, value.toISOString());
+      return;
+    }
+    if (typeof value === "object") {
+      formData.append(key, JSON.stringify(value));
+      return;
+    }
+    formData.append(key, String(value));
+  }
+  resolveMultipartFileName(record, key) {
+    const fieldSpecificName = record[`${key}FileName`];
+    if (typeof fieldSpecificName === "string" && fieldSpecificName.trim()) {
+      return fieldSpecificName.trim();
+    }
+    const genericName = record.fileName;
+    if (key === "file" && typeof genericName === "string" && genericName.trim()) {
+      return genericName.trim();
+    }
+    return void 0;
+  }
+  isMultipartMetadataField(key) {
+    return key === "fileName" || key.endsWith("FileName");
+  }
+  encodeFormBody(body) {
+    if (body instanceof URLSearchParams) {
+      return body.toString();
+    }
+    if (typeof body === "string") {
+      return body;
+    }
+    const params = new URLSearchParams();
+    if (body instanceof Map) {
+      for (const [key, value] of body.entries()) {
+        this.appendFormValue(params, String(key), value);
+      }
+      return params.toString();
+    }
+    if (typeof body === "object") {
+      for (const [key, value] of Object.entries(body)) {
+        this.appendFormValue(params, key, value);
+      }
+      return params.toString();
+    }
+    params.append("value", String(body));
+    return params.toString();
+  }
+  appendFormValue(params, key, value) {
+    if (value == null) {
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item) => this.appendFormValue(params, key, item));
+      return;
+    }
+    if (value instanceof Date) {
+      params.append(key, value.toISOString());
+      return;
+    }
+    if (typeof value === "object") {
+      params.append(key, JSON.stringify(value));
+      return;
+    }
+    params.append(key, String(value));
+  }
+  setAuthToken(token) {
+    super.setAuthToken(token);
+  }
+  setAccessToken(token) {
+    const headers = this.getInternalHeaders();
+    headers[_HttpClient4.ACCESS_TOKEN_HEADER] = token;
+    super.setAccessToken(token);
+  }
+  setTokenManager(manager) {
+    const baseProto = Object.getPrototypeOf(_HttpClient4.prototype);
+    if (typeof baseProto.setTokenManager === "function") {
+      baseProto.setTokenManager.call(this, manager);
+      return;
+    }
+    this.getInternalAuthConfig().tokenManager = manager;
+  }
+  applyAccessTokenOnlyHeaders(headers) {
+    var _a;
+    const authConfig = this.getInternalAuthConfig();
+    const tokenManager = authConfig.tokenManager;
+    const accessToken = (_a = tokenManager == null ? void 0 : tokenManager.getAccessToken) == null ? void 0 : _a.call(tokenManager);
+    if (typeof accessToken !== "string" || accessToken.trim().length === 0) {
+      throw new Error(
+        "access-token-only request requires Access-Token before request dispatch"
+      );
+    }
+    const result = { ...headers != null ? headers : {} };
+    this.stripCredentialHeaders(result, false);
+    result[_HttpClient4.ACCESS_TOKEN_HEADER] = accessToken.trim();
+    return result;
+  }
+  applySdkworkAuthHeaders(headers) {
+    var _a, _b;
+    const authConfig = this.getInternalAuthConfig();
+    const tokenManager = authConfig.tokenManager;
+    const accessToken = _HttpClient4.normalizeCredential((_a = tokenManager == null ? void 0 : tokenManager.getAccessToken) == null ? void 0 : _a.call(tokenManager));
+    const authToken = _HttpClient4.normalizeCredential((_b = tokenManager == null ? void 0 : tokenManager.getAuthToken) == null ? void 0 : _b.call(tokenManager));
+    if (_HttpClient4.REQUIRES_SDKWORK_ACCESS_TOKEN && (typeof accessToken !== "string" || accessToken.trim().length === 0)) {
+      throw new Error("non-open-api request requires Access-Token before request dispatch");
+    }
+    if (!accessToken && !authToken) {
+      return headers;
+    }
+    const authHeaders = buildAuthHeaders("dual-token", void 0, tokenManager);
+    return Object.keys(authHeaders).length > 0 ? { ...headers != null ? headers : {}, ...authHeaders } : headers;
+  }
+  unwrapSdkworkV3Payload(payload, unwrapKind = "data") {
+    if (!_HttpClient4.SDKWORK_V3_UNWRAP || payload == null || typeof payload !== "object") {
+      return payload;
+    }
+    const record = payload;
+    if (record.code !== 0 || !("data" in record)) {
+      return this.unwrapSdkworkV3Data(record, unwrapKind);
+    }
+    const data = record.data;
+    if (!data || typeof data !== "object") {
+      return data;
+    }
+    return this.unwrapSdkworkV3Data(data, unwrapKind);
+  }
+  unwrapSdkworkV3Data(data, unwrapKind) {
+    if (unwrapKind === "void") {
+      return void 0;
+    }
+    if (unwrapKind === "item" && "item" in data) {
+      return data.item;
+    }
+    return data;
+  }
+  async request(path, options = {}) {
+    const execute = this.execute;
+    if (typeof execute !== "function") {
+      throw new Error("BaseHttpClient execute method is not available");
+    }
+    const {
+      body,
+      headers,
+      contentType,
+      method = "GET",
+      skipAuth,
+      accessTokenOnly,
+      sdkworkUnwrapKind = "data",
+      ...rest
+    } = options;
+    const requestHeaders = accessTokenOnly ? this.applyAccessTokenOnlyHeaders(headers) : skipAuth ? headers : this.applySdkworkAuthHeaders(headers);
+    const requestBody = this.buildRequestBody(body, contentType);
+    const preparedHeaders = await this.applySdkworkRequestBodyFingerprint(
+      this.buildRequestHeaders(requestHeaders, body == null ? void 0 : contentType),
+      requestBody
+    );
+    const payload = await withRetry(
+      () => execute.call(this, {
+        url: path,
+        method,
+        ...rest,
+        ...skipAuth !== void 0 ? { skipAuth } : {},
+        ...accessTokenOnly !== void 0 ? { accessTokenOnly } : {},
+        ...requestBody !== void 0 ? { body: requestBody } : {},
+        ...preparedHeaders !== void 0 ? { headers: preparedHeaders } : {}
+      }),
+      // Per-request retry overrides (e.g. disabling 5xx retries for
+      // idempotent-terminal operations like turn execution) flow through
+      // options.retry; the default keeps maxRetries: 3.
+      { maxRetries: 3, ...options.retry }
+    );
+    return this.unwrapSdkworkV3Payload(payload, sdkworkUnwrapKind);
+  }
+  async *streamJson(path, options = {}) {
+    const stream = BaseHttpClient.prototype.stream;
+    if (typeof stream !== "function") {
+      throw new Error("BaseHttpClient stream method is not available");
+    }
+    const {
+      body,
+      headers,
+      contentType,
+      method = "GET",
+      skipAuth,
+      accessTokenOnly,
+      ...rest
+    } = options;
+    const authHeaders = accessTokenOnly ? this.applyAccessTokenOnlyHeaders(headers) : skipAuth ? headers : this.applySdkworkAuthHeaders(headers);
+    const requestBody = this.buildRequestBody(body, contentType);
+    const requestHeaders = await this.applySdkworkRequestBodyFingerprint(
+      this.buildRequestHeaders(
+        { Accept: "text/event-stream", ...authHeaders != null ? authHeaders : {} },
+        body == null ? void 0 : contentType
+      ),
+      requestBody
+    );
+    for await (const data of stream.call(this, path, {
+      method,
+      ...rest,
+      ...skipAuth !== void 0 ? { skipAuth } : {},
+      ...accessTokenOnly !== void 0 ? { accessTokenOnly } : {},
+      ...requestBody !== void 0 ? { body: requestBody } : {},
+      ...requestHeaders !== void 0 ? { headers: requestHeaders } : {}
+    })) {
+      if (data === "[DONE]") {
+        return;
+      }
+      if (typeof data !== "string" || data.trim().length === 0) {
+        continue;
+      }
+      yield JSON.parse(data);
+    }
+  }
+  async get(path, params, headers) {
+    return this.request(path, {
+      method: "GET",
+      ...params !== void 0 ? { params } : {},
+      ...headers !== void 0 ? { headers } : {}
+    });
+  }
+  async post(path, body, params, headers, contentType) {
+    return this.request(path, {
+      method: "POST",
+      ...body !== void 0 ? { body } : {},
+      ...params !== void 0 ? { params } : {},
+      ...headers !== void 0 ? { headers } : {},
+      ...contentType !== void 0 ? { contentType } : {}
+    });
+  }
+  async put(path, body, params, headers, contentType) {
+    return this.request(path, {
+      method: "PUT",
+      ...body !== void 0 ? { body } : {},
+      ...params !== void 0 ? { params } : {},
+      ...headers !== void 0 ? { headers } : {},
+      ...contentType !== void 0 ? { contentType } : {}
+    });
+  }
+  async delete(path, params, headers) {
+    return this.request(path, {
+      method: "DELETE",
+      ...params !== void 0 ? { params } : {},
+      ...headers !== void 0 ? { headers } : {}
+    });
+  }
+  async patch(path, body, params, headers, contentType) {
+    return this.request(path, {
+      method: "PATCH",
+      ...body !== void 0 ? { body } : {},
+      ...params !== void 0 ? { params } : {},
+      ...headers !== void 0 ? { headers } : {},
+      ...contentType !== void 0 ? { contentType } : {}
+    });
+  }
+};
+__publicField(_HttpClient4, "ACCESS_TOKEN_HEADER", "Access-Token");
+__publicField(_HttpClient4, "SDKWORK_V3_UNWRAP", true);
+__publicField(_HttpClient4, "SDKWORK_V3_REQUEST_FINGERPRINTS", true);
+__publicField(_HttpClient4, "REQUIRES_SDKWORK_ACCESS_TOKEN", true);
+var HttpClient6 = _HttpClient4;
+function createHttpClient4(config) {
+  return new HttpClient6(config);
+}
+
+// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/api/paths.ts
+var APP_API_PREFIX3 = "/app/v3/api";
+function appApiPath3(path) {
+  if (!path) {
+    return APP_API_PREFIX3;
+  }
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  const normalizedPrefixRaw = (APP_API_PREFIX3 || "").trim();
+  const normalizedPrefix = normalizedPrefixRaw ? `/${normalizedPrefixRaw.replace(/^\/+|\/+$/g, "")}` : "";
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (!normalizedPrefix || normalizedPrefix === "/") {
+    return normalizedPath;
+  }
+  if (normalizedPath === normalizedPrefix || normalizedPath.startsWith(`${normalizedPrefix}/`)) {
+    return normalizedPath;
+  }
+  return `${normalizedPrefix}${normalizedPath}`;
+}
+
+// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/api/auth.ts
+var AuthVerificationCodeRequestsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Verification Code Requests create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/auth/verification_code_requests`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var AuthSessionsOrganizationSelectionApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Sessions organization Selection create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/auth/sessions/organization_selection`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var AuthSessionsLoginContextSelectionApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Sessions login Context Selection create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/auth/sessions/login_context_selection`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var AuthSessionsCurrentApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Sessions current delete. */
+  async delete(requestOptions) {
+    return this.client.request(appApiPath3(`/auth/sessions/current`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+  /** Sessions current retrieve. */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath3(`/auth/sessions/current`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Sessions current update. */
+  async update(body, requestOptions) {
+    return this.client.request(appApiPath3(`/auth/sessions/current`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", ...body !== void 0 ? { body, contentType: "application/json" } : {}, sdkworkUnwrapKind: "item" });
+  }
+};
+var AuthSessionsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "current");
+    __publicField(this, "loginContextSelection");
+    __publicField(this, "organizationSelection");
+    this.client = client;
+    this.current = new AuthSessionsCurrentApi(client);
+    this.loginContextSelection = new AuthSessionsLoginContextSelectionApi(client);
+    this.organizationSelection = new AuthSessionsOrganizationSelectionApi(client);
+  }
+  /** Sessions create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/auth/sessions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+  /** Sessions refresh. */
+  async refresh(body, requestOptions) {
+    return this.client.request(appApiPath3(`/auth/sessions/refresh`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", skipAuth: true, sdkworkUnwrapKind: "command" });
+  }
+};
+var AuthRegistrationsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Registrations create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/auth/registrations`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var AuthPasswordResetsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Password Resets create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/auth/password_resets`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var AuthPasswordResetRequestsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Password Reset Requests create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/auth/password_reset_requests`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var AuthApi = class {
+  constructor(client) {
+    __publicField(this, "passwordResetRequests");
+    __publicField(this, "passwordResets");
+    __publicField(this, "registrations");
+    __publicField(this, "sessions");
+    __publicField(this, "verificationCodeRequests");
+    this.passwordResetRequests = new AuthPasswordResetRequestsApi(client);
+    this.passwordResets = new AuthPasswordResetsApi(client);
+    this.registrations = new AuthRegistrationsApi(client);
+    this.sessions = new AuthSessionsApi(client);
+    this.verificationCodeRequests = new AuthVerificationCodeRequestsApi(client);
+  }
+};
+function createAuthApi(client) {
+  return new AuthApi(client);
+}
+
+// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/api/iam.ts
+var IamUsersCurrentPhoneBindingsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Users current phone Bindings delete. */
+  async delete(requestOptions) {
+    return this.client.request(appApiPath3(`/iam/users/current/phone_bindings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+  /** Users current phone Bindings create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/iam/users/current/phone_bindings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var IamUsersCurrentPasswordApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Users current password update. */
+  async update(body, requestOptions) {
+    return this.client.request(appApiPath3(`/iam/users/current/password`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", ...body !== void 0 ? { body, contentType: "application/json" } : {}, sdkworkUnwrapKind: "item" });
+  }
+};
+var IamUsersCurrentEmailBindingsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Users current email Bindings delete. */
+  async delete(requestOptions) {
+    return this.client.request(appApiPath3(`/iam/users/current/email_bindings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+  /** Users current email Bindings create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/iam/users/current/email_bindings`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var IamUsersCurrentApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "emailBindings");
+    __publicField(this, "password");
+    __publicField(this, "phoneBindings");
+    this.client = client;
+    this.emailBindings = new IamUsersCurrentEmailBindingsApi(client);
+    this.password = new IamUsersCurrentPasswordApi(client);
+    this.phoneBindings = new IamUsersCurrentPhoneBindingsApi(client);
+  }
+  /** Users current retrieve. */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath3(`/iam/users/current`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+  /** Users current update. */
+  async update(body, requestOptions) {
+    return this.client.request(appApiPath3(`/iam/users/current`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "PATCH", ...body !== void 0 ? { body, contentType: "application/json" } : {}, sdkworkUnwrapKind: "item" });
+  }
+};
+var IamUsersApi = class {
+  constructor(client) {
+    __publicField(this, "current");
+    this.current = new IamUsersCurrentApi(client);
+  }
+};
+var IamRoleBindingsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Role Bindings list. */
+  async list(params, requestOptions) {
+    const query = buildQueryString8([
+      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false },
+      { name: "roleId", value: params == null ? void 0 : params.roleId, style: "form", explode: true, allowReserved: false },
+      { name: "principalKind", value: params == null ? void 0 : params.principalKind, style: "form", explode: true, allowReserved: false },
+      { name: "principalId", value: params == null ? void 0 : params.principalId, style: "form", explode: true, allowReserved: false },
+      { name: "scopeKind", value: params == null ? void 0 : params.scopeKind, style: "form", explode: true, allowReserved: false },
+      { name: "scopeId", value: params == null ? void 0 : params.scopeId, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString8(appApiPath3(`/iam/role_bindings`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var IamPositionsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Positions list. */
+  async list(params, requestOptions) {
+    const query = buildQueryString8([
+      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString8(appApiPath3(`/iam/positions`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var IamPositionAssignmentsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Position Assignments list. */
+  async list(params, requestOptions) {
+    const query = buildQueryString8([
+      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString8(appApiPath3(`/iam/position_assignments`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var IamOrganizationsTreeApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Organizations tree retrieve. */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath3(`/iam/organizations/tree`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var IamOrganizationsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "tree");
+    this.client = client;
+    this.tree = new IamOrganizationsTreeApi(client);
+  }
+  /** Organizations list. */
+  async list(params, requestOptions) {
+    const query = buildQueryString8([
+      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString8(appApiPath3(`/iam/organizations`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var IamOrganizationMembershipsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Organization Memberships list. */
+  async list(params, requestOptions) {
+    const query = buildQueryString8([
+      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString8(appApiPath3(`/iam/organization_memberships`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var IamDepartmentsTreeApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Departments tree retrieve. */
+  async retrieve(requestOptions) {
+    return this.client.request(appApiPath3(`/iam/departments/tree`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var IamDepartmentsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "tree");
+    this.client = client;
+    this.tree = new IamDepartmentsTreeApi(client);
+  }
+  /** Departments list. */
+  async list(params, requestOptions) {
+    const query = buildQueryString8([
+      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString8(appApiPath3(`/iam/departments`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var IamDepartmentAssignmentsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Department Assignments list. */
+  async list(params, requestOptions) {
+    const query = buildQueryString8([
+      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString8(appApiPath3(`/iam/department_assignments`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+};
+var IamApi = class {
+  constructor(client) {
+    __publicField(this, "departmentAssignments");
+    __publicField(this, "departments");
+    __publicField(this, "organizationMemberships");
+    __publicField(this, "organizations");
+    __publicField(this, "positionAssignments");
+    __publicField(this, "positions");
+    __publicField(this, "roleBindings");
+    __publicField(this, "users");
+    this.departmentAssignments = new IamDepartmentAssignmentsApi(client);
+    this.departments = new IamDepartmentsApi(client);
+    this.organizationMemberships = new IamOrganizationMembershipsApi(client);
+    this.organizations = new IamOrganizationsApi(client);
+    this.positionAssignments = new IamPositionAssignmentsApi(client);
+    this.positions = new IamPositionsApi(client);
+    this.roleBindings = new IamRoleBindingsApi(client);
+    this.users = new IamUsersApi(client);
+  }
+};
+function createIamApi(client) {
+  return new IamApi(client);
+}
+function appendQueryString8(path, rawQueryString) {
+  const query = rawQueryString.replace(/^\?+/, "");
+  if (!query) {
+    return path;
+  }
+  return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
 }
 function buildQueryString8(parameters) {
   const pairs = [];
@@ -13504,6 +15942,410 @@ function encodeQueryValue8(value, allowReserved) {
   return encoded.replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%23/gi, "#").replace(/%5B/gi, "[").replace(/%5D/gi, "]").replace(/%40/gi, "@").replace(/%21/gi, "!").replace(/%24/gi, "$").replace(/%26/gi, "&").replace(/%27/gi, "'").replace(/%28/gi, "(").replace(/%29/gi, ")").replace(/%2A/gi, "*").replace(/%2B/gi, "+").replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%3D/gi, "=");
 }
 
+// ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/api/oauth.ts
+var OauthWechatPaymentOauthApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Wechat Payment Oauth callback. */
+  async callback(requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/wechat/payment/callback`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", skipAuth: true, sdkworkUnwrapKind: "item" });
+  }
+  /** Wechat Payment Oauth start. */
+  async start(params, requestOptions) {
+    const query = buildQueryString9([
+      { name: "redirect", value: params.redirect, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString9(appApiPath3(`/oauth/wechat/payment/start`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "item" });
+  }
+};
+var OauthSessionsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Sessions create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/sessions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var OauthScanLoginModesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Scan Login Modes list. */
+  async list(params, requestOptions) {
+    const query = buildQueryString9([
+      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString9(appApiPath3(`/oauth/scan_login_modes`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "page" });
+  }
+};
+var OauthProvidersApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Providers list. */
+  async list(params, requestOptions) {
+    const query = buildQueryString9([
+      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString9(appApiPath3(`/oauth/providers`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "page" });
+  }
+};
+var OauthMiniProgramSessionsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Mini Program Sessions create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/mini_program_sessions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var OauthGrantsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Grants list. */
+  async list(params, requestOptions) {
+    const query = buildQueryString9([
+      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString9(appApiPath3(`/oauth/grants`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Grants delete. */
+  async delete(grantId, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/grants/${serializePathParameter9(grantId, { name: "grantId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var OauthDeviceAuthorizationsSessionExchangesApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Device Authorizations session Exchanges create. */
+  async create(deviceAuthorizationId, body, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/device_authorizations/${serializePathParameter9(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/session_exchanges`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", skipAuth: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var OauthDeviceAuthorizationsSessionCompletionsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Device Authorizations session Completions create. */
+  async create(deviceAuthorizationId, body, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/device_authorizations/${serializePathParameter9(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/session_completions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var OauthDeviceAuthorizationsScansApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Device Authorizations scans create. */
+  async create(deviceAuthorizationId, body, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/device_authorizations/${serializePathParameter9(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/scans`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var OauthDeviceAuthorizationsPasswordCompletionsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Device Authorizations password Completions create. */
+  async create(deviceAuthorizationId, body, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/device_authorizations/${serializePathParameter9(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}/password_completions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var OauthDeviceAuthorizationsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    __publicField(this, "passwordCompletions");
+    __publicField(this, "scans");
+    __publicField(this, "sessionCompletions");
+    __publicField(this, "sessionExchanges");
+    this.client = client;
+    this.passwordCompletions = new OauthDeviceAuthorizationsPasswordCompletionsApi(client);
+    this.scans = new OauthDeviceAuthorizationsScansApi(client);
+    this.sessionCompletions = new OauthDeviceAuthorizationsSessionCompletionsApi(client);
+    this.sessionExchanges = new OauthDeviceAuthorizationsSessionExchangesApi(client);
+  }
+  /** Device Authorizations create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/device_authorizations`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", skipAuth: true, sdkworkUnwrapKind: "item" });
+  }
+  /** Device Authorizations retrieve. */
+  async retrieve(deviceAuthorizationId, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/device_authorizations/${serializePathParameter9(deviceAuthorizationId, { name: "deviceAuthorizationId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", skipAuth: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var OauthDesktopSessionsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Desktop Sessions create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/desktop_sessions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", skipAuth: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var OauthCallbacksApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Callbacks retrieve. */
+  async retrieve(providerCode, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/callbacks/${serializePathParameter9(providerCode, { name: "providerCode", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+  /** Callbacks create. */
+  async create(providerCode, body, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/callbacks/${serializePathParameter9(providerCode, { name: "providerCode", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var OauthAuthorizationsCompletionsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Authorizations completions create. */
+  async create(authorizationStateId, body, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/authorizations/${serializePathParameter9(authorizationStateId, { name: "authorizationStateId", style: "simple", explode: false })}/completions`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", sdkworkUnwrapKind: "item" });
+  }
+};
+var OauthAuthorizationsApi = class {
+  constructor(client) {
+    __publicField(this, "completions");
+    this.completions = new OauthAuthorizationsCompletionsApi(client);
+  }
+};
+var OauthAuthorizationUrlsApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Authorization Urls create. */
+  async create(body, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/authorization_urls`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", body, contentType: "application/json", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+  }
+};
+var OauthAccountLinksApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** Account Links list. */
+  async list(params, requestOptions) {
+    const query = buildQueryString9([
+      { name: "page", value: params == null ? void 0 : params.page, style: "form", explode: true, allowReserved: false },
+      { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
+      { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
+      { name: "sort", value: params == null ? void 0 : params.sort, style: "form", explode: true, allowReserved: false },
+      { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
+    ]);
+    return this.client.request(appendQueryString9(appApiPath3(`/oauth/account_links`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Account Links delete. */
+  async delete(accountLinkId, requestOptions) {
+    return this.client.request(appApiPath3(`/oauth/account_links/${serializePathParameter9(accountLinkId, { name: "accountLinkId", style: "simple", explode: false })}`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "DELETE" });
+  }
+};
+var OauthApi = class {
+  constructor(client) {
+    __publicField(this, "accountLinks");
+    __publicField(this, "authorizationUrls");
+    __publicField(this, "authorizations");
+    __publicField(this, "callbacks");
+    __publicField(this, "desktopSessions");
+    __publicField(this, "deviceAuthorizations");
+    __publicField(this, "grants");
+    __publicField(this, "miniProgramSessions");
+    __publicField(this, "providers");
+    __publicField(this, "scanLoginModes");
+    __publicField(this, "sessions");
+    __publicField(this, "wechatPaymentOauth");
+    this.accountLinks = new OauthAccountLinksApi(client);
+    this.authorizationUrls = new OauthAuthorizationUrlsApi(client);
+    this.authorizations = new OauthAuthorizationsApi(client);
+    this.callbacks = new OauthCallbacksApi(client);
+    this.desktopSessions = new OauthDesktopSessionsApi(client);
+    this.deviceAuthorizations = new OauthDeviceAuthorizationsApi(client);
+    this.grants = new OauthGrantsApi(client);
+    this.miniProgramSessions = new OauthMiniProgramSessionsApi(client);
+    this.providers = new OauthProvidersApi(client);
+    this.scanLoginModes = new OauthScanLoginModesApi(client);
+    this.sessions = new OauthSessionsApi(client);
+    this.wechatPaymentOauth = new OauthWechatPaymentOauthApi(client);
+  }
+};
+function createOauthApi(client) {
+  return new OauthApi(client);
+}
+function appendQueryString9(path, rawQueryString) {
+  const query = rawQueryString.replace(/^\?+/, "");
+  if (!query) {
+    return path;
+  }
+  return path.includes("?") ? `${path}&${query}` : `${path}?${query}`;
+}
+function serializePathParameter9(value, spec) {
+  if (value === void 0 || value === null) {
+    return "";
+  }
+  const style = spec.style || "simple";
+  if (Array.isArray(value)) {
+    return serializePathArray9(spec.name, value, style, spec.explode);
+  }
+  if (typeof value === "object") {
+    return serializePathObject9(spec.name, value, style, spec.explode);
+  }
+  return pathPrefix9(spec.name, style, false) + encodePathValue9(serializePathPrimitive9(value));
+}
+function serializePathArray9(name, values, style, explode) {
+  const serialized = values.filter((item) => item !== void 0 && item !== null).map((item) => encodePathValue9(serializePathPrimitive9(item)));
+  if (serialized.length === 0) {
+    return pathPrefix9(name, style, false);
+  }
+  if (style === "matrix") {
+    return explode ? serialized.map((item) => `;${name}=${item}`).join("") : `;${name}=${serialized.join(",")}`;
+  }
+  return pathPrefix9(name, style, false) + serialized.join(explode ? "." : ",");
+}
+function serializePathObject9(name, value, style, explode) {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
+  if (entries.length === 0) {
+    return pathPrefix9(name, style, true);
+  }
+  if (style === "matrix") {
+    return explode ? entries.map(([key, entryValue]) => `;${encodePathValue9(key)}=${encodePathValue9(serializePathPrimitive9(entryValue))}`).join("") : `;${name}=${entries.flatMap(([key, entryValue]) => [encodePathValue9(key), encodePathValue9(serializePathPrimitive9(entryValue))]).join(",")}`;
+  }
+  const serialized = explode ? entries.map(([key, entryValue]) => `${encodePathValue9(key)}=${encodePathValue9(serializePathPrimitive9(entryValue))}`).join(style === "label" ? "." : ",") : entries.flatMap(([key, entryValue]) => [encodePathValue9(key), encodePathValue9(serializePathPrimitive9(entryValue))]).join(",");
+  return pathPrefix9(name, style, true) + serialized;
+}
+function pathPrefix9(name, style, _objectValue) {
+  if (style === "label") return ".";
+  if (style === "matrix") return `;${name}`;
+  return "";
+}
+function encodePathValue9(value) {
+  return encodeURIComponent(value);
+}
+function serializePathPrimitive9(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+function buildQueryString9(parameters) {
+  const pairs = [];
+  for (const parameter of parameters) {
+    appendSerializedParameter9(pairs, parameter);
+  }
+  return pairs.join("&");
+}
+function appendSerializedParameter9(pairs, parameter) {
+  if (parameter.value === void 0 || parameter.value === null) {
+    return;
+  }
+  if (parameter.contentType) {
+    pairs.push(`${encodeQueryComponent9(parameter.name)}=${encodeQueryValue9(JSON.stringify(parameter.value), parameter.allowReserved)}`);
+    return;
+  }
+  const style = parameter.style || "form";
+  if (style === "deepObject") {
+    appendDeepObjectParameter9(pairs, parameter.name, parameter.value, parameter.allowReserved);
+    return;
+  }
+  if (Array.isArray(parameter.value)) {
+    appendArrayParameter9(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    return;
+  }
+  if (typeof parameter.value === "object") {
+    appendObjectParameter9(pairs, parameter.name, parameter.value, style, parameter.explode, parameter.allowReserved);
+    return;
+  }
+  pairs.push(`${encodeQueryComponent9(parameter.name)}=${encodeQueryValue9(serializePrimitive9(parameter.value), parameter.allowReserved)}`);
+}
+function appendArrayParameter9(pairs, name, value, style, explode, allowReserved) {
+  const values = value.filter((item) => item !== void 0 && item !== null).map((item) => serializePrimitive9(item));
+  if (values.length === 0) {
+    return;
+  }
+  if (style === "form" && explode) {
+    for (const item of values) {
+      pairs.push(`${encodeQueryComponent9(name)}=${encodeQueryValue9(item, allowReserved)}`);
+    }
+    return;
+  }
+  pairs.push(`${encodeQueryComponent9(name)}=${encodeQueryValue9(values.join(","), allowReserved)}`);
+}
+function appendObjectParameter9(pairs, name, value, style, explode, allowReserved) {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== void 0 && entryValue !== null);
+  if (entries.length === 0) {
+    return;
+  }
+  if (style === "form" && explode) {
+    for (const [key, entryValue] of entries) {
+      pairs.push(`${encodeQueryComponent9(key)}=${encodeQueryValue9(serializePrimitive9(entryValue), allowReserved)}`);
+    }
+    return;
+  }
+  const serialized = entries.flatMap(([key, entryValue]) => [key, serializePrimitive9(entryValue)]).join(",");
+  pairs.push(`${encodeQueryComponent9(name)}=${encodeQueryValue9(serialized, allowReserved)}`);
+}
+function appendDeepObjectParameter9(pairs, name, value, allowReserved) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    pairs.push(`${encodeQueryComponent9(name)}=${encodeQueryValue9(serializePrimitive9(value), allowReserved)}`);
+    return;
+  }
+  for (const [key, entryValue] of Object.entries(value)) {
+    if (entryValue === void 0 || entryValue === null) {
+      continue;
+    }
+    pairs.push(`${encodeQueryComponent9(`${name}[${key}]`)}=${encodeQueryValue9(serializePrimitive9(entryValue), allowReserved)}`);
+  }
+}
+function serializePrimitive9(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+function encodeQueryComponent9(value) {
+  return encodeURIComponent(value);
+}
+function encodeQueryValue9(value, allowReserved) {
+  const encoded = encodeURIComponent(value);
+  if (!allowReserved) {
+    return encoded;
+  }
+  return encoded.replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%23/gi, "#").replace(/%5B/gi, "[").replace(/%5D/gi, "]").replace(/%40/gi, "@").replace(/%21/gi, "!").replace(/%24/gi, "$").replace(/%26/gi, "&").replace(/%27/gi, "'").replace(/%28/gi, "(").replace(/%29/gi, ")").replace(/%2A/gi, "*").replace(/%2B/gi, "+").replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%3D/gi, "=");
+}
+
 // ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/api/system.ts
 var SystemIamVerificationPolicyApi = class {
   constructor(client) {
@@ -13512,7 +16354,7 @@ var SystemIamVerificationPolicyApi = class {
   }
   /** Iam verification Policy retrieve. */
   async retrieve(requestOptions) {
-    return this.client.request(appApiPath2(`/system/iam/verification_policy`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath3(`/system/iam/verification_policy`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
   }
 };
 var SystemIamRuntimeApi = class {
@@ -13522,7 +16364,7 @@ var SystemIamRuntimeApi = class {
   }
   /** Iam runtime retrieve. */
   async retrieve(requestOptions) {
-    return this.client.request(appApiPath2(`/system/iam/runtime`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath3(`/system/iam/runtime`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
   }
 };
 var SystemIamAccountBindingPolicyApi = class {
@@ -13532,7 +16374,7 @@ var SystemIamAccountBindingPolicyApi = class {
   }
   /** Iam account Binding Policy retrieve. */
   async retrieve(requestOptions) {
-    return this.client.request(appApiPath2(`/system/iam/account_binding_policy`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
+    return this.client.request(appApiPath3(`/system/iam/account_binding_policy`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", accessTokenOnly: true, sdkworkUnwrapKind: "item" });
   }
 };
 var SystemIamApi = class {
@@ -13556,14 +16398,14 @@ function createSystemApi(client) {
 }
 
 // ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/sdk.ts
-var SdkworkAppClient = class {
+var SdkworkAppClient2 = class {
   constructor(config) {
     __publicField(this, "httpClient");
     __publicField(this, "auth");
     __publicField(this, "iam");
     __publicField(this, "oauth");
     __publicField(this, "system");
-    this.httpClient = createHttpClient3(config);
+    this.httpClient = createHttpClient4(config);
     this.auth = createAuthApi(this.httpClient);
     this.iam = createIamApi(this.httpClient);
     this.oauth = createOauthApi(this.httpClient);
@@ -13585,13 +16427,13 @@ var SdkworkAppClient = class {
     return this.httpClient;
   }
 };
-function createClient5(config) {
-  return new SdkworkAppClient(config);
+function createClient6(config) {
+  return new SdkworkAppClient2(config);
 }
 
 // ../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/src/index.ts
-function createClient6(config) {
-  return createClient5(config);
+function createClient7(config) {
+  return createClient6(config);
 }
 
 // packages/sdkwork-im-mp-core/src/sdk/imIamSdkClient.ts
@@ -13647,7 +16489,7 @@ function createIamAppSdkClientConfig(options) {
 }
 function initIamAppSdkClient(options) {
   var _a;
-  iamAppSdkClient = createClient6(createIamAppSdkClientConfig(options));
+  iamAppSdkClient = createClient7(createIamAppSdkClientConfig(options));
   configuredSurfaceCode = ((_a = options.surfaceCode) == null ? void 0 : _a.trim()) || null;
   return iamAppSdkClient;
 }
@@ -13734,7 +16576,16 @@ function initImMpSdkClients(environment) {
     tokenManager,
     ...environment.iamMiniProgramSurfaceCode ? { surfaceCode: environment.iamMiniProgramSurfaceCode } : {}
   });
-  composition = { tokenManager, imSdkClient: imSdkClient2, imAppSdkClient: imAppSdkClient2, iamAppSdkClient: iamAppSdkClient2 };
+  const driveAppSdkClient2 = initDriveAppSdkClient(
+    createDriveAppSdkClientConfig(environment.imApiBaseUrl)
+  );
+  composition = {
+    tokenManager,
+    imSdkClient: imSdkClient2,
+    imAppSdkClient: imAppSdkClient2,
+    iamAppSdkClient: iamAppSdkClient2,
+    driveAppSdkClient: driveAppSdkClient2
+  };
   return composition;
 }
 function applyImMpSession(session) {
@@ -13754,6 +16605,8 @@ function applyImMpSession(session) {
   current.iamAppSdkClient.setAccessToken(session.accessToken);
   current.iamAppSdkClient.setAuthToken(session.authToken);
   current.iamAppSdkClient.setTokenManager(current.tokenManager);
+  current.driveAppSdkClient.setAccessToken(session.accessToken);
+  current.driveAppSdkClient.setAuthToken(session.authToken);
 }
 function clearImMpSdkCredentials() {
   const current = composition;
@@ -13767,6 +16620,8 @@ function clearImMpSdkCredentials() {
   current.imAppSdkClient.setAuthToken("");
   current.iamAppSdkClient.setAccessToken("");
   current.iamAppSdkClient.setAuthToken("");
+  current.driveAppSdkClient.setAccessToken("");
+  current.driveAppSdkClient.setAuthToken("");
 }
 
 // src/bootstrap/session.ts
@@ -13903,6 +16758,19 @@ async function bootstrapImMpRuntime(options) {
   const conversationService = createImMpChatConversationService(() => clients.imSdkClient);
   const realtimeService = createImMpChatRealtimeService(() => clients.imSdkClient);
   const contactsService = createImMpContactsService(() => clients.imSdkClient);
+  const mediaService = createImMpChatMediaService(() => ({
+    uploader: clients.driveAppSdkClient.uploader,
+    createDownloadGrant: async (nodeId) => {
+      const response = await clients.driveAppSdkClient.drive.downloadGrants.create(nodeId, {
+        requestedTtlSeconds: 900
+      });
+      const url = response.downloadUrl || response.signedSourceUrl;
+      if (!url) {
+        throw new Error("Drive download grant did not return a URL.");
+      }
+      return url;
+    }
+  }));
   runtime2 = {
     environment,
     hostAdapters,
@@ -13918,6 +16786,7 @@ async function bootstrapImMpRuntime(options) {
     inboxStore: () => inbox,
     realtime: () => realtimeService,
     contactsService: () => contactsService,
+    mediaService: () => mediaService,
     currentUserId: () => {
       var _a2;
       return resolveUserIdFromProjection((_a2 = readImMpCurrentSession()) == null ? void 0 : _a2.user);

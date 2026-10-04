@@ -3,7 +3,10 @@
  *
  * Authority: `I18N_SPEC.md` section 6.1.
  */
-export const imMpChatConversationMessages = {
+export const imMpChatConversationMessages: Record<string, string> = {
+  "chat.conversation.pick_image": "Photo",
+  "chat.conversation.image_send_failed": "Image send failed",
+  "chat.conversation.image_load_failed": "Image unavailable",
   "chat.conversation.title": "Chat",
   "chat.conversation.loading": "Loading…",
   "chat.conversation.empty": "No messages yet",

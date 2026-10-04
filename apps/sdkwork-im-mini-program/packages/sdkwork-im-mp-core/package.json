@@ -36,6 +36,7 @@
     }
   },
   "dependencies": {
+    "@sdkwork/drive-app-sdk": "workspace:*",
     "@sdkwork/iam-app-sdk": "workspace:*",
     "@sdkwork/im-app-sdk": "workspace:*",
     "@sdkwork/im-sdk": "workspace:*",

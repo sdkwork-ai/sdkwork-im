@@ -37,6 +37,7 @@ import {
   createImMpChatInboxStore,
   createImMpChatInboxService,
   createImMpChatConversationService,
+  createImMpChatMediaService,
   createImMpChatRealtimeService,
   createImMpContactsService,
   formatImMpChatMessage,
@@ -45,6 +46,7 @@ import {
   type ImMpChatCreateGroupInput,
   type ImMpChatCreateGroupResult,
   type ImMpChatInboxStore,
+  type ImMpChatMediaService,
   type ImMpChatRealtimeService,
   type ImMpContactsService,
 } from "@sdkwork/im-mp-chat";
@@ -109,6 +111,8 @@ export interface ImMpRuntime {
   realtime(): ImMpChatRealtimeService;
   /** Contacts capability service (list, search, friend requests, direct chat). */
   contactsService(): ImMpContactsService;
+  /** Chat media service (Drive upload + download grants). */
+  mediaService(): ImMpChatMediaService;
   /**
    * The signed-in user id from the session's opaque user projection, or an
    * empty string before a session carries one. Direct-chat binding needs it
@@ -168,6 +172,19 @@ export async function bootstrapImMpRuntime(
   const conversationService = createImMpChatConversationService(() => clients.imSdkClient);
   const realtimeService = createImMpChatRealtimeService(() => clients.imSdkClient);
   const contactsService = createImMpContactsService(() => clients.imSdkClient);
+  const mediaService = createImMpChatMediaService(() => ({
+    uploader: clients.driveAppSdkClient.uploader,
+    createDownloadGrant: async (nodeId: string) => {
+      const response = await clients.driveAppSdkClient.drive.downloadGrants.create(nodeId, {
+        requestedTtlSeconds: 900,
+      });
+      const url = response.downloadUrl || response.signedSourceUrl;
+      if (!url) {
+        throw new Error("Drive download grant did not return a URL.");
+      }
+      return url;
+    },
+  }));
 
   runtime = {
     environment,
@@ -184,6 +201,7 @@ export async function bootstrapImMpRuntime(
     inboxStore: () => inbox,
     realtime: () => realtimeService,
     contactsService: () => contactsService,
+    mediaService: () => mediaService,
     currentUserId: () => resolveUserIdFromProjection(readImMpCurrentSession()?.user),
     createConversationStore: () =>
       createImMpChatConversationStore(conversationService, (conversationId) =>

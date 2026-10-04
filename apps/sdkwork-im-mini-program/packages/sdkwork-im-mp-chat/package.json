@@ -33,6 +33,7 @@
     }
   },
   "dependencies": {
+    "@sdkwork/drive-upload-image-core": "workspace:*",
     "@sdkwork/im-mp-commons": "workspace:*",
     "@sdkwork/im-mp-core": "workspace:*",
     "@sdkwork/im-mp-shell": "workspace:*"

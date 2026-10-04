@@ -11,3 +11,4 @@ export * from "./weixin/fetch";
 export * from "./weixin/socket";
 export * from "./weixin/navigation";
 export * from "./weixin/login";
+export * from "./weixin/media";

@@ -56,6 +56,16 @@ export interface ImMpChatCreateGroupResult {
   readonly knowledgebaseInitialization?: "active" | "provisioning" | "failed";
 }
 
+export interface ImMpChatSendImageInput {
+  readonly driveUri: string;
+  readonly spaceId: string;
+  readonly nodeId: string;
+  readonly fileName: string;
+  readonly mimeType: string;
+  /** int64 wire field; crosses the wire as a decimal string (API_SPEC 13.6). */
+  readonly sizeBytes: string;
+}
+
 export interface ImMpChatConversationService {
   loadSummary(conversationId: string): Promise<ImMpChatConversationSummary>;
   /**
@@ -71,6 +81,16 @@ export interface ImMpChatConversationService {
   ): Promise<ImMpChatMessagePage>;
   /** Sends a text message. Rejects an empty body rather than posting whitespace. */
   sendText(conversationId: string, text: string): Promise<ImMpChatSendTextResult>;
+  /**
+   * Sends an image message from a stored Drive identity.
+   *
+   * Bytes never travel in the message record: upload happens through the chat
+   * media service first, and only the stable `drive://` reference is posted.
+   */
+  sendImage(
+    conversationId: string,
+    input: ImMpChatSendImageInput,
+  ): Promise<ImMpChatSendTextResult>;
   /** Creates a group conversation. Rejects a blank group name. */
   createGroup(input: ImMpChatCreateGroupInput): Promise<ImMpChatCreateGroupResult>;
 }
@@ -107,6 +127,41 @@ export function createImMpChatConversationService(
         throw new Error("A chat message must contain text.");
       }
       const result = await resolveClient().conversations.postText(conversationId, body);
+      return {
+        messageId: result.messageId,
+        messageSeq: result.messageSeq,
+        deliveryStatus: result.deliveryStatus,
+      };
+    },
+
+    async sendImage(conversationId, input): Promise<ImMpChatSendTextResult> {
+      requireImMpConversationId(conversationId);
+      if (!input.nodeId.trim() || !input.driveUri.trim()) {
+        throw new Error("An image message requires the stored Drive reference.");
+      }
+      const result = await resolveClient().conversations.postMessage(conversationId, {
+        clientMsgId: newImageClientMsgId(),
+        summary: input.fileName,
+        parts: [
+          {
+            kind: "media",
+            mediaRole: "attachment",
+            drive: {
+              driveUri: input.driveUri,
+              spaceId: input.spaceId,
+              nodeId: input.nodeId,
+            },
+            resource: {
+              source: "drive",
+              uri: input.driveUri,
+              kind: "image",
+              fileName: input.fileName,
+              mimeType: input.mimeType,
+              sizeBytes: input.sizeBytes,
+            },
+          },
+        ],
+      });
       return {
         messageId: result.messageId,
         messageSeq: result.messageSeq,
@@ -153,6 +208,17 @@ function requireImMpConversationId(conversationId: string): void {
   if (!conversationId.trim()) {
     throw new Error("A conversation id is required.");
   }
+}
+
+/**
+ * Fresh idempotency key for one image send.
+ *
+ * Local and dependency-free on purpose: the wire only needs per-sender
+ * uniqueness, and pulling an id library into the subpackage bundle costs more
+ * than this generator.
+ */
+function newImageClientMsgId(): string {
+  return `mp-img-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /**

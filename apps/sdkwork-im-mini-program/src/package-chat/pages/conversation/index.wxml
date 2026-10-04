@@ -30,13 +30,30 @@
         class="message-bubble"
       >
         <text wx:if="{{item.senderDisplayName}}" class="message-bubble__sender">{{item.senderDisplayName}}</text>
-        <text class="message-bubble__text">{{item.text}}</text>
+        <image
+          wx:if="{{item.media && imageUrls[item.messageId]}}"
+          class="message-bubble__image"
+          src="{{imageUrls[item.messageId]}}"
+          mode="aspectFill"
+          lazy-load
+        />
+        <text
+          wx:elif="{{item.media}}"
+          class="message-bubble__text message-bubble__text--muted"
+        >{{texts.imageLoadFailed}}</text>
+        <text wx:if="{{!item.media}}" class="message-bubble__text">{{item.text}}</text>
         <text class="message-bubble__time">{{item.timeText}}</text>
       </view>
     </view>
   </scroll-view>
 
   <view class="conversation-page__composer">
+    <button
+      class="conversation-page__image"
+      size="mini"
+      disabled="{{uploadingImage}}"
+      bindtap="onPickImage"
+    >{{uploadingImage ? "…" : texts.pickImage}}</button>
     <input
       class="conversation-page__input"
       value="{{inputValue}}"

@@ -29,6 +29,8 @@ Page({
     inputValue: "",
     errorText: "",
     scrollToId: "",
+    imageUrls: {},
+    uploadingImage: false,
     texts: {},
   },
 
@@ -115,6 +117,54 @@ Page({
     }
   },
 
+  async onPickImage() {
+    if (this.data.uploadingImage) {
+      return;
+    }
+    const runtime = getImMpRuntime();
+    const picked = await runtime.hostAdapters.media.chooseChatImage();
+    if (!picked.ok || !picked.value) {
+      // Cancelled or unavailable: silent, the composer stays usable.
+      return;
+    }
+    this.setData({ uploadingImage: true });
+    try {
+      const upload = await runtime.mediaService().uploadChatImage({
+        file: picked.value,
+        appResourceId: this.store.getState().conversationId,
+      });
+      await this.store.sendImage(upload);
+      await this.store.syncNew();
+    } catch {
+      runtime.hostAdapters.navigation.showToast(this.data.texts.imageSendFailed, "none");
+    } finally {
+      this.setData({ uploadingImage: false });
+    }
+  },
+
+  /** Resolves display URLs for image rows after the message list lands. */
+  async resolveImageUrls(messages) {
+    const runtime = getImMpRuntime();
+    const imageUrls = { ...this.data.imageUrls };
+    let changed = false;
+    for (const message of messages) {
+      if (!message.media || imageUrls[message.messageId]) {
+        continue;
+      }
+      try {
+        imageUrls[message.messageId] = await runtime
+          .mediaService()
+          .resolveChatMediaUrl(message.media.nodeId);
+        changed = true;
+      } catch {
+        // Leave unresolved; the bubble shows the fallback text.
+      }
+    }
+    if (changed) {
+      this.setData({ imageUrls });
+    }
+  },
+
   resolveTexts(runtime) {
     const t = (key) => runtime.t(key);
     return {
@@ -129,6 +179,9 @@ Page({
       sending: t("chat.conversation.sending"),
       sendFailed: t("chat.conversation.send_failed"),
       emptyInput: t("chat.conversation.empty_input"),
+      pickImage: t("chat.conversation.pick_image"),
+      imageSendFailed: t("chat.conversation.image_send_failed"),
+      imageLoadFailed: t("chat.conversation.image_load_failed"),
     };
   },
 
@@ -140,7 +193,9 @@ Page({
       senderDisplayName: message.senderDisplayName || "",
       timeText: formatImMpTimestamp(message.occurredAt, now),
       anchorId: `msg-${message.messageId}`,
+      media: message.media || null,
     }));
+    void this.resolveImageUrls(messages);
     const last = messages[messages.length - 1];
     this.setData({
       status: state.status,

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "declarations": [
+    {
+      "appResourceType": "im.conversation_message_media",
+      "appResourceIdKind": "entity",
+      "scene": "chat-message-media",
+      "source": "sdkwork-im-mp",
+      "uploadProfileCode": "image",
+      "retention": "long_term",
+      "purpose": "Image attached to an IM conversation message from the IM mini program surface."
+    }
+  ]
+}

@@ -33,8 +33,22 @@ export interface ImMpPlatformLoginAdapter {
   login(): Promise<ImMpHostAdapterResult<string>>;
 }
 
+/** Ranged byte source for one picked image; platform-agnostic by design. */
+export interface ImMpPickedImageSourceContract {
+  readonly size: number;
+  readonly name?: string;
+  readonly type?: string;
+  readRange(offsetBytes: number, lengthBytes: number): Promise<ArrayBuffer>;
+}
+
+export interface ImMpMediaAdapterContract {
+  /** Picks one chat image; resolves cancelled/unavailable through the result. */
+  chooseChatImage(): Promise<ImMpHostAdapterResult<ImMpPickedImageSourceContract>>;
+}
+
 export interface ImMpHostAdapters {
   readonly capabilities: readonly string[];
   readonly secureStorage: ImMpSecureStorageAdapter;
   readonly platformLogin: ImMpPlatformLoginAdapter;
+  readonly media?: ImMpMediaAdapterContract;
 }

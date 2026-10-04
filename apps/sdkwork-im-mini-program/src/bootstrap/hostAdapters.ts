@@ -16,6 +16,7 @@
 import type { ImWebSocketFactory } from "@sdkwork/im-sdk";
 
 import {
+  createWeixinMediaAdapter,
   createWeixinNavigationAdapterFromGlobal,
   createWeixinSessionStorageFromGlobal,
   createWeixinSocketFactory,
@@ -28,6 +29,7 @@ import {
 import { configureImMpSessionStorage } from "@sdkwork/im-mp-core/session";
 
 export interface ImMpHostAdapters {
+  readonly media: ReturnType<typeof createWeixinMediaAdapter>;
   readonly navigation: ImMpNavigationAdapter;
   readonly socketFactory: ImWebSocketFactory;
   readonly socketDiagnostics: ImMpSocketDiagnostics;
@@ -60,6 +62,7 @@ export function registerImMpHostAdapters(): ImMpHostAdapters {
   const hostLanguage = readWeixinLanguageFromGlobal();
 
   registered = {
+    media: createWeixinMediaAdapter(),
     navigation: createWeixinNavigationAdapterFromGlobal(),
     socketFactory,
     socketDiagnostics,
