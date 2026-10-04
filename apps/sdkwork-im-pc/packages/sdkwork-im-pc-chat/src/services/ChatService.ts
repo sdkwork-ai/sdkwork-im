@@ -343,6 +343,29 @@ function pickString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+/**
+ * Resolves a live message seq as the wire's decimal string.
+ *
+ * The realtime payload prefers the int64-as-string fields; the numeric
+ * `context.sequence` is a last-resort fallback and is stringified without
+ * arithmetic. Offline persistence must not round-trip a seq through a JS
+ * number (`API_SPEC.md` §13.6).
+ */
+function resolveLiveMessageSeqString(
+  decodedMessageSeq: unknown,
+  payload: Record<string, unknown> | undefined,
+  fallbackSequence: number,
+): string | undefined {
+  const direct = pickString(decodedMessageSeq, payload?.messageSeq);
+  if (direct) {
+    return direct;
+  }
+  if (Number.isFinite(fallbackSequence) && fallbackSequence > 0) {
+    return String(Math.trunc(fallbackSequence));
+  }
+  return undefined;
+}
+
 function pickNumber(...values: unknown[]): number | undefined {
   for (const value of values) {
     if (typeof value === 'number' && Number.isFinite(value)) {
@@ -2818,7 +2841,9 @@ class SdkworkChatService implements ChatService {
       this.queuePersistOfflineMessages(
         response.items.map((entry, index) => ({
           ...mapConversationMessageEntryToMessage(entry, index, response.items.length, cachedMessages.get(entry.messageId)),
-          messageSeq: toSeqNumber(entry.messageSeq),
+          // Keep the wire's decimal string: the offline store round-trips it
+          // through the Rust i64 boundary without JS precision loss.
+          messageSeq: entry.messageSeq,
         })),
       );
       return mergedMessages;
@@ -2920,7 +2945,7 @@ class SdkworkChatService implements ChatService {
     this.queuePersistOfflineMessages(
       response.items.map((entry, index) => ({
         ...mapConversationMessageEntryToMessage(entry, index, response.items.length, cachedMessages.get(entry.messageId)),
-        messageSeq: toSeqNumber(entry.messageSeq),
+        messageSeq: entry.messageSeq,
       })),
     );
     return newMessages;
@@ -4112,6 +4137,7 @@ class SdkworkChatService implements ChatService {
     if (message && !this.conversationViewState.get(message.chatId)?.isHidden) {
       const storedMessage = this.upsertLocalMessage(message.chatId, message, true);
       const messageSeq = pickNumber(context.payload?.messageSeq, context.sequence) ?? 0;
+      const messageSeqString = resolveLiveMessageSeqString(undefined, context.payload, context.sequence);
       if (storedMessage.senderId !== this.resolveCurrentUserId()) {
         if (this.isConversationActivelyViewed(message.chatId)) {
           this.queueRealtimeReadCursorSync(message.chatId, messageSeq);
@@ -4126,7 +4152,10 @@ class SdkworkChatService implements ChatService {
         message.chatId,
         Math.max(this.latestReadSeq.get(message.chatId) ?? 0, messageSeq),
       );
-      this.queuePersistOfflineMessage({ ...storedMessage, messageSeq });
+      this.queuePersistOfflineMessage({
+        ...storedMessage,
+        ...(messageSeqString ? { messageSeq: messageSeqString } : {}),
+      });
       const subscription = this.liveSubscriptions.get(message.chatId);
       if (subscription) {
         this.notifyLiveSubscription(subscription, storedMessage);
@@ -4155,6 +4184,7 @@ class SdkworkChatService implements ChatService {
     const isRtcCallUpdate = Boolean(resolveRtcCallDisplayState(message));
     const storedMessage = this.upsertLocalMessage(message.chatId, message, isRtcCallUpdate);
     const messageSeq = pickNumber(decodedMessage.messageSeq, context.payload?.messageSeq, context.sequence) ?? 0;
+    const messageSeqString = resolveLiveMessageSeqString(decodedMessage.messageSeq, context.payload, context.sequence);
     if (
       storedMessage.senderId !== this.resolveCurrentUserId()
       && this.isConversationActivelyViewed(message.chatId)
@@ -4165,7 +4195,10 @@ class SdkworkChatService implements ChatService {
       message.chatId,
       Math.max(this.latestReadSeq.get(message.chatId) ?? 0, messageSeq),
     );
-    this.queuePersistOfflineMessage({ ...storedMessage, messageSeq });
+    this.queuePersistOfflineMessage({
+      ...storedMessage,
+      ...(messageSeqString ? { messageSeq: messageSeqString } : {}),
+    });
     const subscription = this.liveSubscriptions.get(message.chatId) ?? this.liveSubscriptions.get(fallbackChatId);
     if (subscription) {
       this.notifyLiveSubscription(subscription, storedMessage);

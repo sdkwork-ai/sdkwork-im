@@ -94,6 +94,10 @@ pub struct OfflinePrincipalScope {
 pub struct OfflineMessageRecord {
     pub scope: OfflinePrincipalScope,
     pub conversation_id: String,
+    /// int64-as-string on the JS bridge (`API_SPEC.md` §13.6): the wire seq is
+    /// a decimal string because JavaScript loses precision past 2^53. SQLite
+    /// keeps the numeric column for ordering and identity.
+    #[serde(with = "sdkwork_utils_rust::serde_int64")]
     pub message_seq: i64,
     pub message_id: String,
     pub payload_json: String,

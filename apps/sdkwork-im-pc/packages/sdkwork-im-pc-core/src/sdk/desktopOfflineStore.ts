@@ -6,7 +6,8 @@ type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<
 export type DesktopOfflineMessageRecord = {
   scope: DesktopOfflinePrincipalScope;
   conversationId: string;
-  messageSeq: number;
+  /** int64-as-string per API_SPEC §13.6; the Rust side parses it to i64. */
+  messageSeq: string;
   messageId: string;
   payloadJson: string;
   updatedAt: string;

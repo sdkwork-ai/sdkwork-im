@@ -16,7 +16,8 @@ import {
 import { SDKWORK_IM_SESSION_CHANGED_EVENT } from './session';
 
 export type OfflinePersistableMessage = DesktopOfflineMessage & {
-  messageSeq?: number;
+  /** int64-as-string per API_SPEC §13.6. */
+  messageSeq?: string;
 };
 
 let initializedPrincipalScope: DesktopOfflinePrincipalScope | undefined;
@@ -103,9 +104,9 @@ export async function persistDesktopOfflineMessages(messages: OfflinePersistable
   const updatedAt = new Date().toISOString();
   const records = messages.flatMap((message) => {
     if (
-      typeof message.messageSeq !== 'number'
-      || !Number.isSafeInteger(message.messageSeq)
-      || message.messageSeq <= 0
+      typeof message.messageSeq !== 'string'
+      || !/^[0-9]+$/u.test(message.messageSeq)
+      || message.messageSeq === '0'
     ) {
       return [];
     }

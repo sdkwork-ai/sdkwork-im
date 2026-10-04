@@ -2,6 +2,10 @@
 name = "sdkwork-im-rpc-sdk-rust"
 version = "1.0.5"
 edition = "2021"
+rust-version.workspace = true
+
+[lints]
+workspace = true
 
 [workspace]
 
