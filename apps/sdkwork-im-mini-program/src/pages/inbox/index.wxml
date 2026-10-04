@@ -1,7 +1,11 @@
 <view class="im-mp-page inbox-page">
   <view class="inbox-page__toolbar">
     <text class="inbox-page__toolbar-title">{{texts.createGroup}}</text>
-    <text class="inbox-page__toolbar-action" bindtap="onOpenCreateGroup">+</text>
+    <view class="inbox-page__toolbar-actions">
+      <text class="inbox-page__toolbar-action" bindtap="onOpenContacts">{{texts.contacts}}</text>
+      <text class="inbox-page__toolbar-action" bindtap="onOpenSettings">{{texts.settings}}</text>
+      <text class="inbox-page__toolbar-action" bindtap="onOpenCreateGroup">+</text>
+    </view>
   </view>
 
   <view wx:if="{{status === 'loading'}}" class="im-mp-state">{{texts.loading}}</view>

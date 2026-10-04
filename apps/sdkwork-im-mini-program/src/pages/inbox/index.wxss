@@ -106,3 +106,9 @@
   font-size: 24rpx;
   color: #888888;
 }
+
+.inbox-page__toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}

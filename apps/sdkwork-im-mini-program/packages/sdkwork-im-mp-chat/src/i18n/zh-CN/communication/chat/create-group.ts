@@ -3,7 +3,9 @@
  *
  * Authority: `I18N_SPEC.md` section 6.1.
  */
-export const imMpChatCreateGroupMessages = {
+export const imMpChatCreateGroupMessages: Record<string, string> = {
+  "chat.create_group.pick_from_contacts": "从通讯录选择",
+  "chat.create_group.picked_count": "已选",
   "chat.create_group.title": "发起群聊",
   "chat.create_group.name_label": "群名称",
   "chat.create_group.name_placeholder": "请输入群名称",

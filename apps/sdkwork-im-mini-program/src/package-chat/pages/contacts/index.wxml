@@ -1,0 +1,90 @@
+<view class="im-mp-page contacts-page">
+  <!-- Add friend: search users by id or name -->
+  <view class="contacts-page__search">
+    <input
+      class="contacts-page__search-input"
+      value="{{searchQuery}}"
+      placeholder="{{texts.searchPlaceholder}}"
+      confirm-type="search"
+      bindinput="onSearchInput"
+      bindconfirm="onSearch"
+    />
+    <text class="contacts-page__search-action" bindtap="onSearch">{{texts.search}}</text>
+  </view>
+
+  <!-- Search results -->
+  <view wx:if="{{searchResults !== null}}" class="contacts-page__section">
+    <view wx:if="{{searchResults.length === 0}}" class="im-mp-state">{{texts.searchEmpty}}</view>
+    <view
+      wx:for="{{searchResults}}"
+      wx:key="userId"
+      class="contacts-row"
+    >
+      <image wx:if="{{item.avatarUrl}}" class="contacts-row__avatar" src="{{item.avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="contacts-row__avatar contacts-row__avatar--placeholder" />
+      <view class="contacts-row__body">
+        <text class="contacts-row__name">{{item.displayName}}</text>
+        <text class="contacts-row__meta">{{item.userId}}</text>
+      </view>
+      <text
+        wx:if="{{item.relationshipState !== 'friend'}}"
+        class="contacts-row__action"
+        data-user-id="{{item.userId}}"
+        bindtap="onAddFriend"
+      >{{texts.addFriend}}</text>
+    </view>
+  </view>
+
+  <!-- New friends -->
+  <view class="contacts-page__section">
+    <text class="contacts-page__section-title">{{texts.newFriends}}</text>
+    <view wx:if="{{newFriends.length === 0}}" class="im-mp-state">{{texts.newFriendsEmpty}}</view>
+    <view
+      wx:for="{{newFriends}}"
+      wx:key="friendRequestId"
+      class="contacts-row"
+    >
+      <image wx:if="{{item.avatarUrl}}" class="contacts-row__avatar" src="{{item.avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="contacts-row__avatar contacts-row__avatar--placeholder" />
+      <view class="contacts-row__body">
+        <text class="contacts-row__name">{{item.requesterDisplayName}}</text>
+        <text wx:if="{{item.requestMessage}}" class="contacts-row__meta">{{item.requestMessage}}</text>
+        <text class="contacts-row__meta">{{item.timeText}}</text>
+      </view>
+      <text class="contacts-row__action" data-request-id="{{item.friendRequestId}}" bindtap="onAcceptRequest">{{texts.accept}}</text>
+      <text class="contacts-row__action contacts-row__action--muted" data-request-id="{{item.friendRequestId}}" bindtap="onDeclineRequest">{{texts.decline}}</text>
+    </view>
+  </view>
+
+  <!-- Friend list -->
+  <view class="contacts-page__section">
+    <view wx:if="{{status === 'loading'}}" class="im-mp-state">{{texts.loading}}</view>
+    <view wx:elif="{{status === 'error'}}" class="im-mp-state">
+      <text>{{texts.loadFailed}}</text>
+      <text class="im-mp-state__action" bindtap="onRetry">{{texts.retry}}</text>
+    </view>
+    <view wx:elif="{{status === 'empty'}}" class="im-mp-state">{{texts.empty}}</view>
+    <block wx:else>
+      <view
+        wx:for="{{contacts}}"
+        wx:key="userId"
+        class="contacts-row"
+        data-user-id="{{item.userId}}"
+        data-display-name="{{item.displayName}}"
+        bindtap="onOpenConversation"
+      >
+        <image wx:if="{{item.avatarUrl}}" class="contacts-row__avatar" src="{{item.avatarUrl}}" mode="aspectFill" />
+        <view wx:else class="contacts-row__avatar contacts-row__avatar--placeholder" />
+        <view class="contacts-row__body">
+          <text class="contacts-row__name">{{item.displayName}}</text>
+        </view>
+        <text class="contacts-row__action contacts-row__action--muted">{{texts.sendMessage}}</text>
+      </view>
+      <view class="contacts-page__footer">
+        <text wx:if="{{loadingMore}}">{{texts.loading}}</text>
+        <text wx:elif="{{hasMore}}">{{texts.loadMore}}</text>
+        <text wx:else>{{texts.noMore}}</text>
+      </view>
+    </block>
+  </view>
+</view>

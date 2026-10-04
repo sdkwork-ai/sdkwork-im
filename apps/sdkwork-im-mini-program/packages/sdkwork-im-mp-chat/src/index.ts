@@ -6,6 +6,7 @@
  * The capability owns no SDK client: services take an injected resolver.
  */
 export * from "./types/chatTypes";
+export * from "./types/contactsTypes";
 export * from "./services/index";
 export * from "./state/index";
 export * from "./routes/routeContributions";

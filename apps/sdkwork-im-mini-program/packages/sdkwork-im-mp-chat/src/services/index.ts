@@ -22,3 +22,8 @@ export {
   type ImMpChatRealtimeService,
   type ImMpChatRealtimeSubscription,
 } from "./chatRealtimeService";
+
+export {
+  createImMpContactsService,
+  type ImMpContactsService,
+} from "./chatContactsService";

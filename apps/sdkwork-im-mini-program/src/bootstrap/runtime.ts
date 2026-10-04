@@ -38,6 +38,7 @@ import {
   createImMpChatInboxService,
   createImMpChatConversationService,
   createImMpChatRealtimeService,
+  createImMpContactsService,
   formatImMpChatMessage,
   resolveImMpChatMessage,
   type ImMpChatConversationStore,
@@ -45,6 +46,7 @@ import {
   type ImMpChatCreateGroupResult,
   type ImMpChatInboxStore,
   type ImMpChatRealtimeService,
+  type ImMpContactsService,
 } from "@sdkwork/im-mp-chat";
 
 import {
@@ -57,7 +59,29 @@ import { registerImMpHostAdapters, type ImMpHostAdapters } from "./hostAdapters"
 import { initImMpSdkClients, type ImMpSdkClientComposition } from "./sdkClients";
 import { getImMpAuthRuntime, type ImMpAuthRuntime } from "./iamRuntime";
 import { composeImMpRoutes } from "./routes";
-import { isImMpAuthenticated } from "./session";
+import { isImMpAuthenticated, readImMpCurrentSession } from "./session";
+
+/**
+ * Resolves the signed-in user id from the session's opaque user projection.
+ *
+ * IAM serializes the identity under one of several keys depending on the
+ * surface; the projection is documented as never used for authorization, so a
+ * tolerant read is safe and an empty string means "unknown".
+ */
+function resolveUserIdFromProjection(
+  user: Record<string, unknown> | undefined,
+): string {
+  if (!user) {
+    return "";
+  }
+  for (const key of ["id", "userId", "sub", "username"] as const) {
+    const value = user[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+}
 
 export interface ImMpRuntimeOptions {
   /** The materialized `SDKWORK_*` values, injected by `src/app.js`. */
@@ -83,6 +107,14 @@ export interface ImMpRuntime {
   inboxStore(): ImMpChatInboxStore;
   /** Shared live connection; pages lease conversations and refresh events. */
   realtime(): ImMpChatRealtimeService;
+  /** Contacts capability service (list, search, friend requests, direct chat). */
+  contactsService(): ImMpContactsService;
+  /**
+   * The signed-in user id from the session's opaque user projection, or an
+   * empty string before a session carries one. Direct-chat binding needs it
+   * as the left actor.
+   */
+  currentUserId(): string;
   /** Fresh conversation store per opened thread. */
   createConversationStore(): ImMpChatConversationStore;
   /** Creates a group conversation; used by the create-group page. */
@@ -135,6 +167,7 @@ export async function bootstrapImMpRuntime(
   );
   const conversationService = createImMpChatConversationService(() => clients.imSdkClient);
   const realtimeService = createImMpChatRealtimeService(() => clients.imSdkClient);
+  const contactsService = createImMpContactsService(() => clients.imSdkClient);
 
   runtime = {
     environment,
@@ -150,6 +183,8 @@ export async function bootstrapImMpRuntime(
     format: formatImMpChatMessage,
     inboxStore: () => inbox,
     realtime: () => realtimeService,
+    contactsService: () => contactsService,
+    currentUserId: () => resolveUserIdFromProjection(readImMpCurrentSession()?.user),
     createConversationStore: () =>
       createImMpChatConversationStore(conversationService, (conversationId) =>
         inbox.getState().items.find((item) => item.conversationId === conversationId)

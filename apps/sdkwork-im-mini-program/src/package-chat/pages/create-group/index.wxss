@@ -47,3 +47,41 @@
   color: #fa5151;
   word-break: break-all;
 }
+
+.create-group__picker {
+  max-height: 420rpx;
+  overflow-y: auto;
+  border: 1rpx solid #e3e4e8;
+  border-radius: 12rpx;
+}
+
+.create-group__pick-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 20rpx;
+}
+
+.create-group__pick-check {
+  width: 32rpx;
+  height: 32rpx;
+  border: 2rpx solid #c8c9cc;
+  border-radius: 8rpx;
+  flex-shrink: 0;
+}
+
+.create-group__pick-check--on {
+  background: #07c160;
+  border-color: #07c160;
+}
+
+.create-group__pick-name {
+  font-size: 28rpx;
+  color: #1a1a1a;
+}
+
+.create-group__pick-id {
+  font-size: 22rpx;
+  color: #9a9a9a;
+  margin-left: auto;
+}

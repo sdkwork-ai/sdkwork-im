@@ -1,0 +1,36 @@
+.settings-page {
+  padding-top: 24rpx;
+}
+
+.settings-page__row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  min-height: 96rpx;
+  background: #ffffff;
+}
+
+.settings-page__row--danger {
+  margin-top: 24rpx;
+}
+
+.settings-page__row-text {
+  font-size: 30rpx;
+  color: #e64340;
+}
+
+.settings-page__spinner {
+  width: 28rpx;
+  height: 28rpx;
+  border: 4rpx solid #e64340;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: settings-page__spin 0.8s linear infinite;
+}
+
+@keyframes settings-page__spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

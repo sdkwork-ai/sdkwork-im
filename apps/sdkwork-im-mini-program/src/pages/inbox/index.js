@@ -101,9 +101,21 @@ Page({
     runtime.navigation.navigateTo(runtime.routePagePath(IM_MP_CHAT_ROUTE_IDS.createGroup));
   },
 
+  onOpenContacts() {
+    const runtime = getImMpRuntime();
+    runtime.navigation.navigateTo(runtime.routePagePath(IM_MP_CHAT_ROUTE_IDS.contacts));
+  },
+
+  onOpenSettings() {
+    const runtime = getImMpRuntime();
+    runtime.navigation.navigateTo(runtime.routePagePath(IM_MP_CHAT_ROUTE_IDS.settings));
+  },
+
   resolveTexts(runtime) {
     const t = (key) => runtime.t(key);
     return {
+      contacts: t("chat.contacts.title"),
+      settings: t("chat.settings.title"),
       loading: t("chat.inbox.loading"),
       empty: t("chat.inbox.empty"),
       loadFailed: t("chat.inbox.load_failed"),

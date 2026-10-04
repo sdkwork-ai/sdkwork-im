@@ -27,6 +27,8 @@ Page({
   data: {
     groupName: "",
     memberIds: "",
+    contactCandidates: [],
+    selectedUserIds: [],
     submitting: false,
     errorText: "",
     texts: {},
@@ -37,6 +39,42 @@ Page({
     const texts = this.resolveTexts(runtime);
     this.setData({ texts });
     runtime.navigation.setNavigationBarTitle(texts.title);
+    void this.loadContactCandidates();
+  },
+
+  /** Loads the friend list for the multi-select; a failed load keeps the
+   * manual-ID field as the only input path. */
+  async loadContactCandidates() {
+    try {
+      const page = await getImMpRuntime().contactsService().listContacts();
+      this.setData({
+        contactCandidates: page.items.map((item) => ({
+          userId: item.userId,
+          displayName: item.displayName,
+          selected: false,
+        })),
+      });
+    } catch {
+      // The manual member-id field remains usable.
+    }
+  },
+
+  onToggleCandidate(event) {
+    const userId = event.currentTarget.dataset.userId;
+    if (!userId) {
+      return;
+    }
+    const selectedUserIds = new Set(this.data.selectedUserIds);
+    if (selectedUserIds.has(userId)) {
+      selectedUserIds.delete(userId);
+    } else {
+      selectedUserIds.add(userId);
+    }
+    const contactCandidates = this.data.contactCandidates.map((item) => ({
+      ...item,
+      selected: selectedUserIds.has(item.userId),
+    }));
+    this.setData({ contactCandidates, selectedUserIds: [...selectedUserIds] });
   },
 
   onNameInput(event) {
@@ -64,7 +102,10 @@ Page({
     try {
       const created = await runtime.createGroup({
         groupName,
-        memberUserIds: this.parseMemberIds(this.data.memberIds),
+        memberUserIds: [
+          ...this.data.selectedUserIds,
+          ...this.parseMemberIds(this.data.memberIds),
+        ],
       });
       runtime.navigation.redirectTo(
         runtime.routePagePath(IM_MP_CHAT_ROUTE_IDS.conversation),
@@ -107,6 +148,8 @@ Page({
       namePlaceholder: t("chat.create_group.name_placeholder"),
       membersLabel: t("chat.create_group.members_label"),
       membersPlaceholder: t("chat.create_group.members_placeholder"),
+      pickFromContacts: t("chat.create_group.pick_from_contacts"),
+      pickedCount: t("chat.create_group.picked_count"),
       submit: t("chat.create_group.submit"),
       submitting: t("chat.create_group.submitting"),
       nameRequired: t("chat.create_group.name_required"),

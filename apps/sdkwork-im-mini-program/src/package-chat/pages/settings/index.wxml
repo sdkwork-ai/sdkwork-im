@@ -1,0 +1,9 @@
+<view class="im-mp-page settings-page">
+  <view
+    class="settings-page__row settings-page__row--danger"
+    bindtap="onSignOut"
+  >
+    <text class="settings-page__row-text">{{texts.signOut}}</text>
+    <view wx:if="{{signingOut}}" class="settings-page__spinner" />
+  </view>
+</view>

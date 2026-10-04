@@ -8,7 +8,9 @@
       "root": "package-chat",
       "pages": [
         "pages/conversation/index",
-        "pages/create-group/index"
+        "pages/create-group/index",
+        "pages/contacts/index",
+        "pages/settings/index"
       ]
     }
   ],

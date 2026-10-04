@@ -11,6 +11,7 @@
  */
 
 export type {
+  BindDirectChatRequest,
   ContactPreferencesView,
   ContactsResponse,
   ConversationInboxEntry,
@@ -36,6 +37,9 @@ export type {
   MessageSearchPage,
   MessageSearchParams,
   PostMessageResult,
+  SocialFriendRequestListResponse,
+  SocialUserSearchResponse,
+  SocialUserSearchResult,
   QueryParams,
   SdkWorkListPageInfo,
   UpdateConversationPreferencesRequest,

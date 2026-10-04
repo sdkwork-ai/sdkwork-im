@@ -20,9 +20,11 @@ import {
 import { imMpChatInboxMessages as zhInboxMessages } from "./zh-CN/communication/chat/inbox";
 import { imMpChatConversationMessages as zhConversationMessages } from "./zh-CN/communication/chat/conversation";
 import { imMpChatCreateGroupMessages as zhCreateGroupMessages } from "./zh-CN/communication/chat/create-group";
+import { imMpChatContactsMessages as zhContactsMessages } from "./zh-CN/communication/chat/contacts";
 import { imMpChatInboxMessages as enInboxMessages } from "./en-US/communication/chat/inbox";
 import { imMpChatConversationMessages as enConversationMessages } from "./en-US/communication/chat/conversation";
 import { imMpChatCreateGroupMessages as enCreateGroupMessages } from "./en-US/communication/chat/create-group";
+import { imMpChatContactsMessages as enContactsMessages } from "./en-US/communication/chat/contacts";
 
 export type { ImMpLocale };
 
@@ -32,11 +34,13 @@ export const imMpChatMessages: Record<ImMpLocale, Record<string, string>> = {
     zhInboxMessages,
     zhConversationMessages,
     zhCreateGroupMessages,
+    zhContactsMessages,
   ]),
   "en-US": mergeImMpFragments([
     enInboxMessages,
     enConversationMessages,
     enCreateGroupMessages,
+    enContactsMessages,
   ]),
 };
 

@@ -10,6 +10,23 @@
     />
   </view>
 
+  <view class="create-group__field" wx:if="{{contactCandidates.length > 0}}">
+    <text class="create-group__label">{{texts.pickFromContacts}}{{selectedUserIds.length > 0 ? ' (' + selectedUserIds.length + ')' : ''}}</text>
+    <view class="create-group__picker">
+      <view
+        wx:for="{{contactCandidates}}"
+        wx:key="userId"
+        class="create-group__pick-row"
+        data-user-id="{{item.userId}}"
+        bindtap="onToggleCandidate"
+      >
+        <view class="create-group__pick-check {{item.selected ? 'create-group__pick-check--on' : ''}}" />
+        <text class="create-group__pick-name">{{item.displayName}}</text>
+        <text class="create-group__pick-id">{{item.userId}}</text>
+      </view>
+    </view>
+  </view>
+
   <view class="create-group__field">
     <text class="create-group__label">{{texts.membersLabel}}</text>
     <textarea

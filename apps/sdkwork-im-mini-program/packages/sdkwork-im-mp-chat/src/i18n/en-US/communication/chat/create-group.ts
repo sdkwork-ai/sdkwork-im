@@ -3,7 +3,9 @@
  *
  * Authority: `I18N_SPEC.md` section 6.1.
  */
-export const imMpChatCreateGroupMessages = {
+export const imMpChatCreateGroupMessages: Record<string, string> = {
+  "chat.create_group.pick_from_contacts": "Pick from contacts",
+  "chat.create_group.picked_count": "Selected",
   "chat.create_group.title": "New group chat",
   "chat.create_group.name_label": "Group name",
   "chat.create_group.name_placeholder": "Enter a group name",
