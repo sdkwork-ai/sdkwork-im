@@ -75,6 +75,10 @@ export interface ImMpChatConversationStore
   sendText(text: string): Promise<void>;
   /** Sends an image message from a completed Drive upload. */
   sendImage(upload: ImMpChatMediaUpload): Promise<void>;
+  /** Recalls one message and syncs the authoritative tombstone. */
+  recallMessage(messageId: string): Promise<void>;
+  /** Edits one text message and syncs the authoritative body. */
+  editMessage(messageId: string, text: string): Promise<void>;
   reset(): void;
 }
 
@@ -260,6 +264,24 @@ export function createImMpChatConversationStore(
         store.setState({ sending: false, errorMessage: resolveImMpErrorMessage(error) });
         throw error;
       }
+    },
+
+    async recallMessage(messageId: string): Promise<void> {
+      const state = store.getState();
+      if (!state.conversationId) {
+        return;
+      }
+      await service.recallMessage(messageId);
+      await this.syncNew();
+    },
+
+    async editMessage(messageId: string, text: string): Promise<void> {
+      const state = store.getState();
+      if (!state.conversationId) {
+        return;
+      }
+      await service.editMessage(messageId, text);
+      await this.syncNew();
     },
 
     reset(): void {

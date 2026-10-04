@@ -248,4 +248,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get groupAddMembersEmpty => 'No contacts to add.';
+
+  @override
+  String get messageRecall => 'Recall';
+
+  @override
+  String get messageEdit => 'Edit';
+
+  @override
+  String get messageEditTitle => 'Edit message';
+
+  @override
+  String get messageActionFailed => 'Operation failed';
 }

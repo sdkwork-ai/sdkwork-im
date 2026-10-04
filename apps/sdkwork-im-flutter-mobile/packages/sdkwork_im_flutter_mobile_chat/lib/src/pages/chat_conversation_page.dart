@@ -421,6 +421,110 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
     }
   }
 
+  bool _isOwnMessage(ConversationMessageEntry entry) {
+    final senderId = entry.sender.id.trim();
+    final currentUserId = widget.session.userId.trim();
+    return senderId.isNotEmpty && senderId == currentUserId;
+  }
+
+  Future<void> _recallMessage(ConversationMessageEntry entry) async {
+    try {
+      await widget.conversationService.recallMessage(entry.messageId);
+      if (!mounted) {
+        return;
+      }
+      // A mutation can land on any position of the window: reload silently.
+      await _loadMessageHistory(silent: true);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context).messageActionFailed),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _editMessage(ConversationMessageEntry entry) async {
+    final l10n = AppLocalizations.of(context);
+    final controller = TextEditingController(text: _entryText(entry));
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.messageEditTitle),
+        content: TextField(controller: controller, autofocus: true, maxLines: 4),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(MaterialLocalizations.of(dialogContext).cancelButtonLabel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.send),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    final body = controller.text.trim();
+    if (body.isEmpty) {
+      return;
+    }
+    try {
+      await widget.conversationService.editMessage(entry.messageId, body);
+      if (!mounted) {
+        return;
+      }
+      await _loadMessageHistory(silent: true);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context).messageActionFailed),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showMessageActions(ConversationMessageEntry entry) {
+    if (!_isOwnMessage(entry)) {
+      return;
+    }
+    final l10n = AppLocalizations.of(context);
+    final isText = resolveChatMessageMedia(entry) == null;
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.undo_outlined),
+              title: Text(l10n.messageRecall),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                unawaited(_recallMessage(entry));
+              },
+            ),
+            if (isText)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: Text(l10n.messageEdit),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(_editMessage(entry));
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _entryLabel(ConversationMessageEntry entry) {
     return entry.sender.displayName ?? entry.sender.id;
   }
@@ -544,6 +648,7 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
                               final entry = _entries[entryIndex];
                               return Card(
                                 child: ListTile(
+                                  onLongPress: () => _showMessageActions(entry),
                                   title: Text(_entryLabel(entry)),
                                   subtitle: _entryBody(entry, l10n),
                                   trailing: Text(

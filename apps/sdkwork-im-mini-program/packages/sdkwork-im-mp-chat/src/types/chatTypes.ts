@@ -19,11 +19,14 @@ import type {
   ConversationSummaryView,
   CreateConversationRequest,
   CreateConversationResult,
+  EditMessageRequest,
   ImConnectOptions,
   ImLiveConnection,
   ImPostMessageRequest,
+  MessageMutationResult,
   PostMessageResult,
   QueryParams,
+  RecallMessageRequest,
   SdkWorkListPageInfo,
 } from "@sdkwork/im-mp-core/sdk";
 
@@ -98,6 +101,12 @@ export interface ImMpChatConversationPort {
       body: ImPostMessageRequest,
     ): Promise<PostMessageResult>;
     create(body: CreateConversationRequest): Promise<CreateConversationResult>;
+  };
+  messages: {
+    /** Recalls one message (sender or group admin, enforced server-side). */
+    recall(messageId: string, body?: RecallMessageRequest): Promise<MessageMutationResult>;
+    /** Edits one message's text (sender-only, enforced server-side). */
+    edit(messageId: string, body: EditMessageRequest): Promise<MessageMutationResult>;
   };
 }
 

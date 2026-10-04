@@ -165,6 +165,75 @@ Page({
     }
   },
 
+  onMessageLongPress(event) {
+    const messageId = event.currentTarget.dataset.messageId;
+    const senderId = event.currentTarget.dataset.senderId;
+    const isText = event.currentTarget.dataset.isText === true || event.currentTarget.dataset.isText === 'true';
+    if (!messageId) {
+      return;
+    }
+    const runtime = getImMpRuntime();
+    // Optimistic local echoes carry an empty sender id; only the sender's
+    // own device produces them, so an empty id counts as own.
+    const currentUserId = runtime.currentUserId();
+    const ownMessage = !senderId || (currentUserId && senderId === currentUserId);
+    if (!ownMessage) {
+      return;
+    }
+    const actions = [this.data.texts.recall];
+    if (isText) {
+      actions.push(this.data.texts.edit);
+    }
+    wx.showActionSheet({
+      itemList: actions,
+      success: (result) => {
+        if (result.tapIndex === 0) {
+          void this.recallMessage(messageId);
+        } else if (result.tapIndex === 1 && isText) {
+          this.promptEditMessage(messageId);
+        }
+      },
+    });
+  },
+
+  async recallMessage(messageId) {
+    try {
+      await this.store.recallMessage(messageId);
+    } catch {
+      getImMpRuntime().hostAdapters.navigation.showToast(this.data.texts.actionFailed, "none");
+    }
+  },
+
+  promptEditMessage(messageId) {
+    const current = this.store
+      .getState()
+      .messages.find((message) => message.messageId === messageId);
+    wx.showModal({
+      title: this.data.texts.edit,
+      editable: true,
+      placeholderText: this.data.texts.editPlaceholder,
+      content: current?.text || "",
+      success: (result) => {
+        if (!result.confirm) {
+          return;
+        }
+        const text = (result.content || "").trim();
+        if (!text) {
+          return;
+        }
+        void this.editMessage(messageId, text);
+      },
+    });
+  },
+
+  async editMessage(messageId, text) {
+    try {
+      await this.store.editMessage(messageId, text);
+    } catch {
+      getImMpRuntime().hostAdapters.navigation.showToast(this.data.texts.actionFailed, "none");
+    }
+  },
+
   resolveTexts(runtime) {
     const t = (key) => runtime.t(key);
     return {
@@ -182,6 +251,10 @@ Page({
       pickImage: t("chat.conversation.pick_image"),
       imageSendFailed: t("chat.conversation.image_send_failed"),
       imageLoadFailed: t("chat.conversation.image_load_failed"),
+      recall: t("chat.conversation.recall"),
+      edit: t("chat.conversation.edit"),
+      editPlaceholder: t("chat.conversation.edit_placeholder"),
+      actionFailed: t("chat.conversation.action_failed"),
     };
   },
 
@@ -190,6 +263,7 @@ Page({
     const messages = state.messages.map((message) => ({
       messageId: message.messageId,
       text: message.text,
+      senderId: message.senderId || "",
       senderDisplayName: message.senderDisplayName || "",
       timeText: formatImMpTimestamp(message.occurredAt, now),
       anchorId: `msg-${message.messageId}`,

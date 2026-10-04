@@ -511,6 +511,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No contacts to add.'**
   String get groupAddMembersEmpty;
+
+  /// Action label that recalls one of the current user's messages.
+  ///
+  /// In en, this message translates to:
+  /// **'Recall'**
+  String get messageRecall;
+
+  /// Action label that edits one of the current user's text messages.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get messageEdit;
+
+  /// Dialog title for editing a sent text message.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit message'**
+  String get messageEditTitle;
+
+  /// Snackbar text when a recall or edit mutation fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Operation failed'**
+  String get messageActionFailed;
 }
 
 class _AppLocalizationsDelegate

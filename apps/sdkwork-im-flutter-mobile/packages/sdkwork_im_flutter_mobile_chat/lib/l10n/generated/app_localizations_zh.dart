@@ -244,4 +244,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get groupAddMembersEmpty => '没有可添加的联系人。';
+
+  @override
+  String get messageRecall => '撤回';
+
+  @override
+  String get messageEdit => '编辑';
+
+  @override
+  String get messageEditTitle => '编辑消息';
+
+  @override
+  String get messageActionFailed => '操作失败';
 }

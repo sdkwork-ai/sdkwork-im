@@ -350,5 +350,21 @@
   "groupAddMembersEmpty": "没有可添加的联系人。",
   "@groupAddMembersEmpty": {
     "description": "Empty state for the add-members contact list."
+  },
+  "messageRecall": "撤回",
+  "@messageRecall": {
+    "description": "Action label that recalls one of the current user's messages."
+  },
+  "messageEdit": "编辑",
+  "@messageEdit": {
+    "description": "Action label that edits one of the current user's text messages."
+  },
+  "messageEditTitle": "编辑消息",
+  "@messageEditTitle": {
+    "description": "Dialog title for editing a sent text message."
+  },
+  "messageActionFailed": "操作失败",
+  "@messageActionFailed": {
+    "description": "Snackbar text when a recall or edit mutation fails."
   }
 }

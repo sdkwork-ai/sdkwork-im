@@ -4,6 +4,10 @@
  * Authority: `I18N_SPEC.md` section 6.1.
  */
 export const imMpChatConversationMessages: Record<string, string> = {
+  "chat.conversation.recall": "撤回",
+  "chat.conversation.edit": "编辑",
+  "chat.conversation.edit_placeholder": "输入新内容",
+  "chat.conversation.action_failed": "操作失败",
   "chat.conversation.pick_image": "图片",
   "chat.conversation.image_send_failed": "图片发送失败",
   "chat.conversation.image_load_failed": "图片加载失败",

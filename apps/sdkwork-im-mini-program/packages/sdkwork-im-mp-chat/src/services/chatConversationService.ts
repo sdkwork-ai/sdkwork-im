@@ -91,6 +91,10 @@ export interface ImMpChatConversationService {
     conversationId: string,
     input: ImMpChatSendImageInput,
   ): Promise<ImMpChatSendTextResult>;
+  /** Recalls one message. The authoritative state lands via the next sync. */
+  recallMessage(messageId: string): Promise<void>;
+  /** Edits one text message. The authoritative state lands via the next sync. */
+  editMessage(messageId: string, text: string): Promise<void>;
   /** Creates a group conversation. Rejects a blank group name. */
   createGroup(input: ImMpChatCreateGroupInput): Promise<ImMpChatCreateGroupResult>;
 }
@@ -167,6 +171,26 @@ export function createImMpChatConversationService(
         messageSeq: result.messageSeq,
         deliveryStatus: result.deliveryStatus,
       };
+    },
+
+    async recallMessage(messageId): Promise<void> {
+      const normalized = messageId.trim();
+      if (!normalized) {
+        throw new Error("A message id is required.");
+      }
+      await resolveClient().messages.recall(normalized);
+    },
+
+    async editMessage(messageId, text): Promise<void> {
+      const normalized = messageId.trim();
+      const body = text.trim();
+      if (!normalized) {
+        throw new Error("A message id is required.");
+      }
+      if (!body) {
+        throw new Error("An edited message must contain text.");
+      }
+      await resolveClient().messages.edit(normalized, { text: body });
     },
 
     async createGroup(input): Promise<ImMpChatCreateGroupResult> {

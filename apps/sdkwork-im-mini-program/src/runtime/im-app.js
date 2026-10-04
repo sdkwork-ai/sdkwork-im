@@ -700,6 +700,24 @@ function createImMpChatConversationService(resolveClient) {
         deliveryStatus: result.deliveryStatus
       };
     },
+    async recallMessage(messageId) {
+      const normalized = messageId.trim();
+      if (!normalized) {
+        throw new Error("A message id is required.");
+      }
+      await resolveClient().messages.recall(normalized);
+    },
+    async editMessage(messageId, text) {
+      const normalized = messageId.trim();
+      const body = text.trim();
+      if (!normalized) {
+        throw new Error("A message id is required.");
+      }
+      if (!body) {
+        throw new Error("An edited message must contain text.");
+      }
+      await resolveClient().messages.edit(normalized, { text: body });
+    },
     async createGroup(input) {
       var _a;
       const groupName = input.groupName.trim();
@@ -1618,6 +1636,22 @@ function createImMpChatConversationStore(service, resolveCachedTitle) {
         throw error;
       }
     },
+    async recallMessage(messageId) {
+      const state = store.getState();
+      if (!state.conversationId) {
+        return;
+      }
+      await service.recallMessage(messageId);
+      await this.syncNew();
+    },
+    async editMessage(messageId, text) {
+      const state = store.getState();
+      if (!state.conversationId) {
+        return;
+      }
+      await service.editMessage(messageId, text);
+      await this.syncNew();
+    },
     reset() {
       store.replaceState(initialImMpChatConversationState);
     }
@@ -1730,6 +1764,10 @@ var imMpChatInboxMessages = {
 
 // packages/sdkwork-im-mp-chat/src/i18n/zh-CN/communication/chat/conversation.ts
 var imMpChatConversationMessages = {
+  "chat.conversation.recall": "\u64A4\u56DE",
+  "chat.conversation.edit": "\u7F16\u8F91",
+  "chat.conversation.edit_placeholder": "\u8F93\u5165\u65B0\u5185\u5BB9",
+  "chat.conversation.action_failed": "\u64CD\u4F5C\u5931\u8D25",
   "chat.conversation.pick_image": "\u56FE\u7247",
   "chat.conversation.image_send_failed": "\u56FE\u7247\u53D1\u9001\u5931\u8D25",
   "chat.conversation.image_load_failed": "\u56FE\u7247\u52A0\u8F7D\u5931\u8D25",
@@ -1807,6 +1845,10 @@ var imMpChatInboxMessages2 = {
 
 // packages/sdkwork-im-mp-chat/src/i18n/en-US/communication/chat/conversation.ts
 var imMpChatConversationMessages2 = {
+  "chat.conversation.recall": "Recall",
+  "chat.conversation.edit": "Edit",
+  "chat.conversation.edit_placeholder": "Enter the new text",
+  "chat.conversation.action_failed": "Operation failed",
   "chat.conversation.pick_image": "Photo",
   "chat.conversation.image_send_failed": "Image send failed",
   "chat.conversation.image_load_failed": "Image unavailable",
@@ -11378,6 +11420,7 @@ function assertCredentialMode(options) {
 var ImSdkClient = class {
   constructor(options = {}) {
     __publicField(this, "chat");
+    __publicField(this, "presence");
     __publicField(this, "calls");
     __publicField(this, "conversations");
     __publicField(this, "messages");
@@ -11391,6 +11434,7 @@ var ImSdkClient = class {
     const generatedClient = new SdkworkImClient(toGeneratedConfig(options));
     this.transportClient = generatedClient;
     this.chat = this.transportClient.chat;
+    this.presence = this.transportClient.presence;
     this.social = composeSocialSurface(generatedClient.social);
     this.messages = new ImMessagesModule(this.transportClient);
     this.conversations = new ImConversationsModule(this.transportClient);

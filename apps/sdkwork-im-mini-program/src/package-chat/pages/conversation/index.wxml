@@ -28,6 +28,10 @@
         wx:key="messageId"
         id="{{item.anchorId}}"
         class="message-bubble"
+        data-message-id="{{item.messageId}}"
+        data-sender-id="{{item.senderId}}"
+        data-is-text="{{!item.media}}"
+        bindlongpress="onMessageLongPress"
       >
         <text wx:if="{{item.senderDisplayName}}" class="message-bubble__sender">{{item.senderDisplayName}}</text>
         <image

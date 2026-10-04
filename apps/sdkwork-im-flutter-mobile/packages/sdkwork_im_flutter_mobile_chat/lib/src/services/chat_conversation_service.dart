@@ -79,6 +79,31 @@ class ChatConversationService {
     );
   }
 
+  /// Recalls one message (sender or group admin, enforced server-side).
+  ///
+  /// The authoritative tombstone lands through the next history sync; this
+  /// call only issues the mutation.
+  Future<void> recallMessage(String messageId) async {
+    final normalized = messageId.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError('A message id is required.');
+    }
+    await _client.chat.messagesRecall(normalized, RecallMessageRequest());
+  }
+
+  /// Edits one text message (sender-only, enforced server-side).
+  Future<void> editMessage(String messageId, String text) async {
+    final normalized = messageId.trim();
+    final body = text.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError('A message id is required.');
+    }
+    if (body.isEmpty) {
+      throw ArgumentError('An edited message must contain text.');
+    }
+    await _client.chat.messagesEdit(normalized, EditMessageRequest(text: body));
+  }
+
   /// Sends an image message referencing an already-uploaded Drive node
   /// (business command carrying a Drive reference; the upload itself belongs
   /// to `ChatMediaUploadService` and the composed Drive Uploader).

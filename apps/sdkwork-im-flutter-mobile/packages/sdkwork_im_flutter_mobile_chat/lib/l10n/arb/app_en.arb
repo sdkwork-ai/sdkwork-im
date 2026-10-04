@@ -350,5 +350,21 @@
   "groupAddMembersEmpty": "No contacts to add.",
   "@groupAddMembersEmpty": {
     "description": "Empty state for the add-members contact list."
+  },
+  "messageRecall": "Recall",
+  "@messageRecall": {
+    "description": "Action label that recalls one of the current user's messages."
+  },
+  "messageEdit": "Edit",
+  "@messageEdit": {
+    "description": "Action label that edits one of the current user's text messages."
+  },
+  "messageEditTitle": "Edit message",
+  "@messageEditTitle": {
+    "description": "Dialog title for editing a sent text message."
+  },
+  "messageActionFailed": "Operation failed",
+  "@messageActionFailed": {
+    "description": "Snackbar text when a recall or edit mutation fails."
   }
 }
