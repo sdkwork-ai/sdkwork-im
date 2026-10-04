@@ -169,10 +169,9 @@ pub async fn bootstrap_embedded_dependency_databases() -> Result<(), String> {
         .await
         .map(|_| ())
         .map_err(|error| format!("sync embedded mail database failed: {error}"))?;
-    sdkwork_catalog_database_host::bootstrap_catalog_database_from_env()
-        .await
-        .map(|_| ())
-        .map_err(|error| format!("sync embedded catalog database failed: {error}"))?;
+    // Catalog is an API-only dependency surface since it retired its buyer-side
+    // tables (see sdkwork-catalog-service-host): deliberately no database-host
+    // module to bootstrap here.
     sdkwork_company_database_host::bootstrap_company_database_from_env()
         .await
         .map(|_| ())

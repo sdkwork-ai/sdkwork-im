@@ -58,7 +58,6 @@ sdkwork-drive-workspace-service.workspace = true
 sdkwork-knowledgebase-database-host.workspace = true
 sdkwork-api-knowledgebase-assembly.workspace = true
 sdkwork-mail-database-host.workspace = true
-sdkwork-catalog-database-host.workspace = true
 sdkwork-api-mail-assembly.workspace = true
 sdkwork-api-agents-assembly.workspace = true
 sdkwork-api-account-assembly.workspace = true
