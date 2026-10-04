@@ -499,7 +499,7 @@ function resolveImMpMessageImage(entry) {
     const record = part;
     const nodeId = typeof ((_b = record.drive) == null ? void 0 : _b.nodeId) === "string" ? record.drive.nodeId.trim() : "";
     const kind = typeof ((_c = record.resource) == null ? void 0 : _c.kind) === "string" ? record.resource.kind : "";
-    if (!nodeId || kind !== "image") {
+    if (!nodeId || kind !== "image" && kind !== "video") {
       continue;
     }
     const fileName = typeof ((_d = record.resource) == null ? void 0 : _d.fileName) === "string" && record.resource.fileName ? record.resource.fileName : void 0;

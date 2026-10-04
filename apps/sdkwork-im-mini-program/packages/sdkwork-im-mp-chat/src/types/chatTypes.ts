@@ -272,11 +272,11 @@ export function toImMpChatMessageItem(entry: ConversationMessageEntry): ImMpChat
 }
 
 /**
- * Extracts the first Drive-backed image part of a message.
+ * Extracts the first Drive-backed renderable media part of a message.
  *
- * The mini program renders images; other media kinds stay on the text summary
- * line until their playback surfaces ship, so only `kind === "image"` is
- * projected here.
+ * The mini program renders images and videos (`image`/`video` kinds resolve
+ * through download grants); other media kinds stay on the text summary line
+ * until their playback surfaces ship.
  */
 function resolveImMpMessageImage(
   entry: ConversationMessageEntry,
@@ -299,7 +299,7 @@ function resolveImMpMessageImage(
     const nodeId =
       typeof record.drive?.nodeId === "string" ? record.drive.nodeId.trim() : "";
     const kind = typeof record.resource?.kind === "string" ? record.resource.kind : "";
-    if (!nodeId || kind !== "image") {
+    if (!nodeId || (kind !== "image" && kind !== "video")) {
       continue;
     }
     const fileName =

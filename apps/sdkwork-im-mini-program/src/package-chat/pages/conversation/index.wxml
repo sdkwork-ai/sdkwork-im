@@ -35,11 +35,18 @@
       >
         <text wx:if="{{item.senderDisplayName}}" class="message-bubble__sender">{{item.senderDisplayName}}</text>
         <image
-          wx:if="{{item.media && imageUrls[item.messageId]}}"
+          wx:if="{{item.media && item.media.kind === 'image' && imageUrls[item.messageId]}}"
           class="message-bubble__image"
           src="{{imageUrls[item.messageId]}}"
           mode="aspectFill"
           lazy-load
+        />
+        <video
+          wx:if="{{item.media && item.media.kind === 'video' && imageUrls[item.messageId]}}"
+          class="message-bubble__video"
+          src="{{imageUrls[item.messageId]}}"
+          controls
+          object-fit="contain"
         />
         <text
           wx:elif="{{item.media}}"
