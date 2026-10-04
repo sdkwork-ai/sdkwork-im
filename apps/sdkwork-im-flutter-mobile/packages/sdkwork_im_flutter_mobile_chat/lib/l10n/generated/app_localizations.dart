@@ -211,6 +211,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sending…'**
   String get sending;
+
+  /// Placeholder shown when a media message fails to resolve its download URL.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load media.'**
+  String get mediaLoadFailed;
+
+  /// Fallback label for media kinds this client cannot render yet.
+  ///
+  /// In en, this message translates to:
+  /// **'{kind} message'**
+  String mediaUnsupported(String kind);
+
+  /// Snackbar text shown when opening a file attachment fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to open the file.'**
+  String get mediaOpenFailed;
+
+  /// Display kind for file attachments.
+  ///
+  /// In en, this message translates to:
+  /// **'File'**
+  String get mediaKindFile;
+
+  /// Display kind for video attachments.
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get mediaKindVideo;
+
+  /// Display kind for voice attachments.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice'**
+  String get mediaKindVoice;
+
+  /// Display kind for audio attachments.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio'**
+  String get mediaKindAudio;
 }
 
 class _AppLocalizationsDelegate

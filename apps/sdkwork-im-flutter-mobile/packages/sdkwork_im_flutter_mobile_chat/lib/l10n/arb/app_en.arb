@@ -100,5 +100,38 @@
   "sending": "Sending…",
   "@sending": {
     "description": "Label of the send button while a message is being sent."
+  },
+  "mediaLoadFailed": "Unable to load media.",
+  "@mediaLoadFailed": {
+    "description": "Placeholder shown when a media message fails to resolve its download URL."
+  },
+  "mediaUnsupported": "{kind} message",
+  "@mediaUnsupported": {
+    "description": "Fallback label for media kinds this client cannot render yet.",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
+  "mediaOpenFailed": "Unable to open the file.",
+  "@mediaOpenFailed": {
+    "description": "Snackbar text shown when opening a file attachment fails."
+  },
+  "mediaKindFile": "File",
+  "@mediaKindFile": {
+    "description": "Display kind for file attachments."
+  },
+  "mediaKindVideo": "Video",
+  "@mediaKindVideo": {
+    "description": "Display kind for video attachments."
+  },
+  "mediaKindVoice": "Voice",
+  "@mediaKindVoice": {
+    "description": "Display kind for voice attachments."
+  },
+  "mediaKindAudio": "Audio",
+  "@mediaKindAudio": {
+    "description": "Display kind for audio attachments."
   }
 }

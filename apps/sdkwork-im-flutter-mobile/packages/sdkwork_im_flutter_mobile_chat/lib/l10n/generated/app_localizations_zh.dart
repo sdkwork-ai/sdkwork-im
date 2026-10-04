@@ -74,4 +74,27 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get sending => '发送中…';
+
+  @override
+  String get mediaLoadFailed => '媒体加载失败。';
+
+  @override
+  String mediaUnsupported(String kind) {
+    return '$kind消息';
+  }
+
+  @override
+  String get mediaOpenFailed => '无法打开该文件。';
+
+  @override
+  String get mediaKindFile => '文件';
+
+  @override
+  String get mediaKindVideo => '视频';
+
+  @override
+  String get mediaKindVoice => '语音';
+
+  @override
+  String get mediaKindAudio => '音频';
 }

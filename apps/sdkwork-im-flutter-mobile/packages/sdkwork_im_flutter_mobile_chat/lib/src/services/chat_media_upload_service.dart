@@ -1,6 +1,7 @@
 import 'package:drive_upload_image_composed/drive_upload_image_composed.dart';
 import 'package:drive_uploader_composed/drive_uploader_composed.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sdkwork_drive_app_sdk_generated_flutter/sdkwork_drive_app_sdk_generated_flutter.dart';
 
 import '../upload_declaration.dart';
 
@@ -124,4 +125,90 @@ class ChatMediaUploadService {
               bytes.length,
     );
   }
+
+  /// Resolves a short-lived download URL for a stored Drive node.
+  ///
+  /// Grants are requested with a 900s TTL; the cache window stays below that
+  /// so an already-rendered message never mints a second grant on rebuild,
+  /// while an expired entry re-issues before the server-side grant lapses.
+  Future<String> resolveChatMediaUrl({
+    required String applicationPublicHttpUrl,
+    required String accessToken,
+    required String authToken,
+    required String nodeId,
+  }) {
+    final cached = _downloadUrlCache[nodeId];
+    if (cached != null && cached.expiresAt.isAfter(DateTime.now())) {
+      _downloadUrlCache.move(nodeId);
+      return Future<String>.value(cached.url);
+    }
+    final client = _resolveClient(
+      applicationPublicHttpUrl: applicationPublicHttpUrl,
+      accessToken: accessToken,
+      authToken: authToken,
+    );
+    return client.drive
+        .downloadGrantsCreate(
+          nodeId,
+          CreateDownloadGrantRequest(requestedTtlSeconds: 900),
+        )
+        .then((response) {
+      final data = response?.data;
+      final url = data is Map
+          ? (data['downloadUrl'] as String? ?? data['signedSourceUrl'] as String?)
+          : null;
+      if (url == null || url.isEmpty) {
+        throw StateError('Drive download grant did not return a URL.');
+      }
+      _downloadUrlCache
+        ..remove(nodeId)
+        ..put(nodeId, _ChatMediaUrlEntry(
+          url: url,
+          expiresAt: DateTime.now().add(_downloadUrlCacheTtl),
+        ));
+      return url;
+    });
+  }
 }
+
+/// Download grants are requested with a 900s TTL; caching below that bound
+/// means a rebuilt message list for an already-rendered node never re-issues
+/// a grant. Bounded like the H5 reference implementation so a busy
+/// conversation cannot accumulate grants indefinitely.
+const Duration _downloadUrlCacheTtl = Duration(minutes: 8);
+const int _downloadUrlCacheMaxEntries = 500;
+
+class _ChatMediaUrlEntry {
+  const _ChatMediaUrlEntry({required this.url, required this.expiresAt});
+
+  final String url;
+  final DateTime expiresAt;
+}
+
+/// Insertion-ordered LRU: re-read entries move to the end, the oldest entry
+/// is evicted once the cache grows past the cap.
+class _ChatMediaUrlCache {
+  final Map<String, _ChatMediaUrlEntry> _entries = {};
+
+  _ChatMediaUrlEntry? operator [](String nodeId) => _entries[nodeId];
+
+  void move(String nodeId) {
+    final entry = _entries.remove(nodeId);
+    if (entry != null) {
+      _entries[nodeId] = entry;
+    }
+  }
+
+  void put(String nodeId, _ChatMediaUrlEntry entry) {
+    _entries[nodeId] = entry;
+    while (_entries.length > _downloadUrlCacheMaxEntries) {
+      _entries.remove(_entries.keys.first);
+    }
+  }
+
+  void remove(String nodeId) {
+    _entries.remove(nodeId);
+  }
+}
+
+final _ChatMediaUrlCache _downloadUrlCache = _ChatMediaUrlCache();

@@ -4,12 +4,14 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 import '../services/chat_conversation_service.dart';
 import '../services/chat_media_upload_service.dart';
-import '../services/chat_realtime_service.dart';
 import '../services/chat_message_history_utils.dart';
+import '../services/chat_message_media.dart';
+import '../services/chat_realtime_service.dart';
 import '../services/offline_send_queue.dart';
 
 enum _MessageHistoryUpdateMode { replace, older, newer }
@@ -355,7 +357,7 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
     try {
       // Bytes enter Drive through the composed Drive Uploader; only the
       // stable Drive reference travels in the message record.
-      final upload = await ChatMediaUploadService().uploadChatImage(
+      final upload = await _mediaService.uploadChatImage(
         applicationPublicHttpUrl: widget.applicationPublicHttpUrl,
         bytes: Uint8List.fromList(bytes),
         accessToken: widget.session.accessToken,
@@ -400,6 +402,46 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
 
   String _entryText(ConversationMessageEntry entry) {
     return entry.body.text ?? entry.summary ?? '';
+  }
+
+  ChatMediaUploadService get _mediaService => _mediaServiceOverride ?? _ownedMediaService;
+  final ChatMediaUploadService _ownedMediaService = ChatMediaUploadService();
+
+  /// Overridable for tests; production code uses the per-State service whose
+  /// composed Drive client is created lazily and reused.
+  static ChatMediaUploadService? _mediaServiceOverride;
+
+  Widget _entryBody(ConversationMessageEntry entry, AppLocalizations l10n) {
+    final media = resolveChatMessageMedia(entry);
+    if (media == null) {
+      return Text(_entryText(entry));
+    }
+    switch (media.kind) {
+      case 'image':
+        return _ChatMessageImage(
+          media: media,
+          resolveUrl: () => _mediaService.resolveChatMediaUrl(
+            applicationPublicHttpUrl: widget.applicationPublicHttpUrl,
+            accessToken: widget.session.accessToken,
+            authToken: widget.session.authToken,
+            nodeId: media.nodeId,
+          ),
+          loadFailedLabel: l10n.mediaLoadFailed,
+        );
+      case 'file':
+        return _ChatMessageFile(
+          media: media,
+          resolveUrl: () => _mediaService.resolveChatMediaUrl(
+            applicationPublicHttpUrl: widget.applicationPublicHttpUrl,
+            accessToken: widget.session.accessToken,
+            authToken: widget.session.authToken,
+            nodeId: media.nodeId,
+          ),
+          openFailedLabel: l10n.mediaOpenFailed,
+        );
+      default:
+        return _ChatMessageUnsupported(media: media, l10n: l10n);
+    }
   }
 
   @override
@@ -456,7 +498,7 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
                               return Card(
                                 child: ListTile(
                                   title: Text(_entryLabel(entry)),
-                                  subtitle: Text(_entryText(entry)),
+                                  subtitle: _entryBody(entry, l10n),
                                   trailing: Text(
                                     entry.occurredAt,
                                     style:
@@ -506,6 +548,165 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Renders an image attachment by resolving a short-lived download grant for
+/// its Drive node. The grant cache keeps rebuilt message lists from minting
+/// repeated grants for already-rendered nodes.
+class _ChatMessageImage extends StatelessWidget {
+  const _ChatMessageImage({
+    required this.media,
+    required this.resolveUrl,
+    required this.loadFailedLabel,
+  });
+
+  final ChatMessageMedia media;
+  final Future<String> Function() resolveUrl;
+  final String loadFailedLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String>(
+      future: resolveUrl(),
+      builder: (context, snapshot) {
+        final url = snapshot.data;
+        if (snapshot.connectionState != ConnectionState.done || url == null) {
+          if (snapshot.hasError) {
+            return Text(
+              loadFailedLabel,
+              style: Theme.of(context).textTheme.bodySmall,
+            );
+          }
+          return const SizedBox(
+            width: 160,
+            height: 120,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          );
+        }
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 240, maxHeight: 220),
+            child: Image.network(
+              url,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  Text(loadFailedLabel),
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) {
+                  return child;
+                }
+                return const SizedBox(
+                  width: 160,
+                  height: 120,
+                  child: Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Renders a file attachment card; tapping opens the granted download URL
+/// through the platform viewer.
+class _ChatMessageFile extends StatelessWidget {
+  const _ChatMessageFile({
+    required this.media,
+    required this.resolveUrl,
+    required this.openFailedLabel,
+  });
+
+  final ChatMessageMedia media;
+  final Future<String> Function() resolveUrl;
+  final String openFailedLabel;
+
+  Future<void> _open(BuildContext context) async {
+    try {
+      final url = Uri.parse(await resolveUrl());
+      final launched = await launchUrl(
+        url,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(openFailedLabel)),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(openFailedLabel)),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => unawaited(_open(context)),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border.all(color: Theme.of(context).dividerColor),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.insert_drive_file_outlined),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                media.fileName ?? media.nodeId,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Voice/video/audio playback needs platform players this client does not
+/// bundle yet; the card states the kind and file name instead of hiding the
+/// message.
+class _ChatMessageUnsupported extends StatelessWidget {
+  const _ChatMessageUnsupported({required this.media, required this.l10n});
+
+  final ChatMessageMedia media;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final kindLabel = switch (media.kind) {
+      'video' => l10n.mediaKindVideo,
+      'voice' => l10n.mediaKindVoice,
+      'audio' => l10n.mediaKindAudio,
+      _ => l10n.mediaKindFile,
+    };
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.attach_file),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            l10n.mediaUnsupported(kindLabel) +
+                (media.fileName == null ? '' : ' · ${media.fileName}'),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

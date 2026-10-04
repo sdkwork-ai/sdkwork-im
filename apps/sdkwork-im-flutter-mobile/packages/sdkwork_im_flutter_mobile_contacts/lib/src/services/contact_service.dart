@@ -182,10 +182,10 @@ enum FriendRequestSubmitConflict { alreadyFriend, pending, blocked, unknown }
 
 /// Classifies a friend request submission failure into a user-facing conflict.
 ///
-/// The generated Flutter client surfaces failures as `Exception('HTTP <status>:
-/// <problem body>')`, so the classifier matches the same ProblemDetail
-/// vocabulary the H5 contacts service reads from `body.code` and
-/// `body.detail`.
+/// The generated Flutter client surfaces failures as an `Exception` whose
+/// message embeds the HTTP status and problem body, so the classifier
+/// matches the same ProblemDetail vocabulary the H5 contacts service reads
+/// from `body.code` and `body.detail`.
 FriendRequestSubmitConflict classifyFriendRequestSubmitError(Object error) {
   final text = error.toString().toLowerCase();
   if (text.contains('friendship_pair') ||
@@ -293,7 +293,9 @@ FriendRequestPageMergeResult mergeFriendRequestPage(
 
 /// Groups contacts by their A-Z initial, mirroring the H5 address book
 /// grouping: non-Latin initials collapse into `#`, group keys are sorted, and
-/// entries inside a group are sorted by name.
+/// Latin groups sort entries by name case-insensitively. The `#` bucket keeps
+/// server (insertion) order — its names are not Latin-sortable, and an empty
+/// name would otherwise always float to the top of the section.
 Map<String, List<ContactEntry>> groupContactsByInitial(
   Iterable<ContactEntry> contacts,
 ) {
@@ -311,8 +313,10 @@ Map<String, List<ContactEntry>> groupContactsByInitial(
   final groups = grouped.keys.toList(growable: false)..sort();
   for (final group in groups) {
     final items = grouped[group]!;
-    items.sort((left, right) =>
-        left.name.toLowerCase().compareTo(right.name.toLowerCase()));
+    if (group != '#') {
+      items.sort((left, right) =>
+          left.name.toLowerCase().compareTo(right.name.toLowerCase()));
+    }
     result[group] = items;
   }
   return result;

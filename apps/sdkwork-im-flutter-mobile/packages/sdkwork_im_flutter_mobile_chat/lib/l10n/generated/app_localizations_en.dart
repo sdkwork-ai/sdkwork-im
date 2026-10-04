@@ -77,4 +77,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sending => 'Sending…';
+
+  @override
+  String get mediaLoadFailed => 'Unable to load media.';
+
+  @override
+  String mediaUnsupported(String kind) {
+    return '$kind message';
+  }
+
+  @override
+  String get mediaOpenFailed => 'Unable to open the file.';
+
+  @override
+  String get mediaKindFile => 'File';
+
+  @override
+  String get mediaKindVideo => 'Video';
+
+  @override
+  String get mediaKindVoice => 'Voice';
+
+  @override
+  String get mediaKindAudio => 'Audio';
 }

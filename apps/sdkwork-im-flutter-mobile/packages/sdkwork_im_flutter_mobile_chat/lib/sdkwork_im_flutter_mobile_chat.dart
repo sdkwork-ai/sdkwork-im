@@ -16,6 +16,8 @@ export 'src/pages/chat_conversation_page.dart';
 export 'src/pages/chat_inbox_page.dart';
 export 'src/services/chat_conversation_service.dart';
 export 'src/services/chat_inbox_service.dart';
+export 'src/services/chat_media_upload_service.dart';
+export 'src/services/chat_message_media.dart';
 export 'src/services/chat_realtime_service.dart';
 export 'src/services/chat_message_history_utils.dart';
 export 'src/services/offline_send_queue.dart';
