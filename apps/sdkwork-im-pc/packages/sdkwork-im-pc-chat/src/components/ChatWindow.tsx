@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { Chat, Message, User } from '@sdkwork/im-pc-types';
@@ -94,6 +94,30 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, messageSearchQuery
   ), [chat.id, chat.updatedAt, chat.welcomeMessage, isSystemAssistantChat]);
   const displaySenderProfiles = isSystemAssistantChat ? assistantSenderProfiles : agentSenderProfiles;
   const displayWelcomeMessages = isSystemAssistantChat ? assistantWelcomeMessages : agentWelcomeMessages;
+
+  // Peer typing indicator: the service dispatches conversation.typing scope
+  // events; the marker auto-clears after a quiet period.
+  const typingClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const unsubscribe = chatService.onConversationTyping(chat.id, () => {
+      setIsTyping(true);
+      if (typingClearTimer.current) {
+        clearTimeout(typingClearTimer.current);
+      }
+      typingClearTimer.current = setTimeout(() => {
+        setIsTyping(false);
+        typingClearTimer.current = null;
+      }, 5_000);
+    });
+    return () => {
+      unsubscribe();
+      if (typingClearTimer.current) {
+        clearTimeout(typingClearTimer.current);
+        typingClearTimer.current = null;
+      }
+      setIsTyping(false);
+    };
+  }, [chat.id]);
 
   const handleSend = async (
     content: string,
@@ -198,6 +222,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, messageSearchQuery
         placeholder={isSystemAssistantChat ? t('chat.systemAssistant.inputPlaceholder') : t('chat.window.inputPlaceholder')}
         replyingTo={replyingTo}
         isTyping={isTyping}
+        onTypingSignal={() => chatService.signalTyping(chat.id)}
         editingMessage={editingMessage}
         onEditSubmit={handleEditSubmit}
         onCancelEdit={() => setEditingMessage(null)}

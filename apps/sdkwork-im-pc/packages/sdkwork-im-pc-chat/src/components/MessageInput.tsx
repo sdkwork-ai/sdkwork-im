@@ -21,6 +21,8 @@ export interface MessageInputProps {
   placeholder?: string;
   disabled?: boolean;
   isTyping?: boolean;
+  /** Invoked (already throttled by the caller) when the user edits the draft. */
+  onTypingSignal?: () => void;
   onStop?: () => void;
   defaultHeight?: number;
   resizable?: boolean;
@@ -78,6 +80,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   placeholder,
   disabled = false,
   isTyping = false,
+  onTypingSignal,
   onStop,
   defaultHeight = 200,
   resizable = true,
@@ -195,8 +198,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     onUpdate: ({ editor }) => {
       setIsEmpty(editor.getText().trim().length === 0);
       setEditorText(editor.getText());
+      if (!editor.isEmpty && onTypingSignal) {
+        onTypingSignal();
+      }
     },
-  }, [placeholder, disabled, isTyping, resolvedPlaceholder, t]);
+  }, [placeholder, disabled, isTyping, resolvedPlaceholder, t, onTypingSignal]);
 
   const activeMention = React.useMemo(() => {
     if (!editor || mentionAgents.length === 0) {

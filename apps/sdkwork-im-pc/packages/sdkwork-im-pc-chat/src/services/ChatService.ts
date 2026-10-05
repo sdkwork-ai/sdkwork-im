@@ -145,6 +145,13 @@ export interface ChatService {
   hasMoreMessages(chatId: string): boolean;
   loadMoreMessages(chatId: string, pageSize?: number): Promise<Message[]>;
   subscribeMessages(chatId: string, handler: MessageHandler): () => void;
+  /** Throttled per-conversation typing signal (fire-and-forget, live only). */
+  signalTyping(chatId: string): void;
+  /** Notifies when a peer starts typing in the conversation. */
+  onConversationTyping(
+    chatId: string,
+    handler: (peerUserId: string) => void,
+  ): () => void;
   sendMessage(
     chatId: string,
     content: string,
@@ -217,6 +224,8 @@ const CHAT_LIST_REALTIME_EVENT_TYPES = [
   'conversation.owner_transferred',
   'conversation.agents_replaced',
 ];
+const CONVERSATION_TYPING_REALTIME_EVENT_TYPES: string[] = ['conversation.typing'];
+const TYPING_SIGNAL_THROTTLE_MS = 3_000;
 const CONVERSATION_ASSIGNMENT_REALTIME_EVENT_TYPES = [
   'conversation.agents_replaced',
   'conversation.created',
@@ -2745,6 +2754,68 @@ class SdkworkChatService implements ChatService {
     }
   }
 
+  private readonly typingSignalSentAt = new Map<string, number>();
+  private readonly typingHandlers = new Map<string, Set<(peerUserId: string) => void>>();
+
+  signalTyping(chatId: string): void {
+    const now = Date.now();
+    const last = this.typingSignalSentAt.get(chatId) ?? 0;
+    if (now - last < TYPING_SIGNAL_THROTTLE_MS) {
+      return;
+    }
+    this.typingSignalSentAt.set(chatId, now);
+    void (async () => {
+      const client = await this.client();
+      await client.conversations.signalTyping(chatId);
+    })().catch(() => undefined);
+  }
+
+  onConversationTyping(
+    chatId: string,
+    handler: (peerUserId: string) => void,
+  ): () => void {
+    let handlers = this.typingHandlers.get(chatId);
+    if (!handlers) {
+      handlers = new Set();
+      this.typingHandlers.set(chatId, handlers);
+    }
+    handlers.add(handler);
+    return () => {
+      const current = this.typingHandlers.get(chatId);
+      if (!current) {
+        return;
+      }
+      current.delete(handler);
+      if (current.size === 0) {
+        this.typingHandlers.delete(chatId);
+      }
+    };
+  }
+
+  private handleLiveTypingEvent(
+    conversationId: string,
+    context: ImRealtimeEventContext,
+    generation: number,
+  ): void {
+    if (!this.isAuthSessionGenerationCurrent(generation)) {
+      void context.ack().catch(() => undefined);
+      return;
+    }
+    const payload = toRecord(context.payload);
+    const peerUserId = pickString(payload.userId, payload.user_id) ?? '';
+    const handlers = this.typingHandlers.get(conversationId);
+    if (handlers) {
+      for (const handler of handlers) {
+        try {
+          handler(peerUserId);
+        } catch {
+          // A handler failure must not block the others.
+        }
+      }
+    }
+    void context.ack().catch(() => undefined);
+  }
+
   private queuePersistOfflineMessages(messages: OfflinePersistableMessage[]): void {
     if (messages.length === 0) {
       return;
@@ -3801,8 +3872,19 @@ class SdkworkChatService implements ChatService {
         this.handleLiveScopeEvent(context, generation);
       },
     );
+    const unsubscribeTyping = subscribePcRealtimeScope(
+      {
+        scopeId: conversationId,
+        scopeType: 'conversation',
+        eventTypes: CONVERSATION_TYPING_REALTIME_EVENT_TYPES,
+      },
+      (context) => {
+        this.handleLiveTypingEvent(conversationId, context, generation);
+      },
+    );
     this.conversationWireUnsubs.set(conversationId, () => {
       unsubscribeAssignments();
+      unsubscribeTyping();
       unsubscribeMessages();
     });
   }
