@@ -28,6 +28,9 @@ function dependencyRoot(dependencyId: string): string {
 // Same as im-h5: pin motion/react to this app's own node_modules entry so that
 // cross-repo packages (e.g. sdkwork-agents-pc-agents) resolve it during build.
 const appMotionReactEntry = path.resolve(__dirname, 'node_modules/motion/dist/es/react.mjs');
+// Same cross-repo pin: sibling packages (membership/shop/aiot) import
+// lucide-react; resolve it to this app's own node_modules entry.
+const appLucideReactEntry = path.resolve(__dirname, 'node_modules/lucide-react/dist/esm/lucide-react.mjs');
 
 const imAppSdkEntry = path.resolve(
   __dirname,
@@ -56,6 +59,10 @@ const generatedAiotBackendSdkEntry = path.resolve(
 const generatedDriveAppSdkEntry = path.resolve(
   dependencyRoot('sdkwork-drive'),
   'sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript/src/index.ts',
+);
+const generatedModelsAppSdkEntry = path.resolve(
+  dependencyRoot('sdkwork-models'),
+  'sdks/sdkwork-models-app-sdk/sdkwork-models-app-sdk-typescript/src/index.ts',
 );
 const catalogAppSdkEntry = path.resolve(
   dependencyRoot('sdkwork-catalog'),
@@ -291,6 +298,7 @@ export default defineConfig(({mode}) => {
           ),
         },
         { find: /^motion\/react$/, replacement: appMotionReactEntry },
+        { find: /^lucide-react$/, replacement: appLucideReactEntry },
         { find: '@', replacement: path.resolve(__dirname, '.') },
         { find: 'react/jsx-runtime', replacement: reactJsxRuntimeEntry },
         { find: 'react/jsx-dev-runtime', replacement: reactJsxDevRuntimeEntry },
@@ -308,6 +316,7 @@ export default defineConfig(({mode}) => {
         { find: '@sdkwork/agents-pc-core', replacement: path.resolve(agentsPcPackageRoot, 'sdkwork-agents-pc-core/src') },
         { find: '@sdkwork/agents-pc-core/sdk/agentsAppSdkClient', replacement: path.resolve(agentsPcPackageRoot, 'sdkwork-agents-pc-core/src/sdk/agentsAppSdkClient.ts') },
         { find: '@sdkwork/aiot-app-sdk', replacement: generatedAiotAppSdkEntry },
+        { find: '@sdkwork/models-app-sdk', replacement: generatedModelsAppSdkEntry },
         { find: '@sdkwork/aiot-backend-sdk', replacement: generatedAiotBackendSdkEntry },
         { find: '@sdkwork/iam-app-sdk', replacement: appbaseAppSdkEntry },
         { find: '@sdkwork/iam-backend-sdk', replacement: appbaseBackendSdkEntry },
