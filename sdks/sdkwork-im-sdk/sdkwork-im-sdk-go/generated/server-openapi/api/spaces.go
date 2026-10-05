@@ -179,6 +179,16 @@ func (a *SpacesApi) GroupsDelete(spaceId string, groupId string) (struct{}, erro
     return decodeResult[struct{}](raw)
 }
 
+// Transfer spaces groups owner
+func (a *SpacesApi) GroupsTransferOwner(spaceId string, groupId string, body sdktypes.SpaceGroupTransferOwnerRequest) (sdktypes.SpacesGroupsTransferOwnerResponse, error) {
+    raw, err := a.client.Post(ImApiPath(fmt.Sprintf("/spaces/%s/groups/%s/transfer_owner", SerializePathParameter(spaceId, PathParameterSpec{Name: "spaceId", Style: "simple", Explode: false}), SerializePathParameter(groupId, PathParameterSpec{Name: "groupId", Style: "simple", Explode: false}))), body, nil, nil, "application/json")
+    if err != nil {
+        var zero sdktypes.SpacesGroupsTransferOwnerResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.SpacesGroupsTransferOwnerResponse](raw)
+}
+
 // List spaces groups members
 func (a *SpacesApi) GroupsMembersList(spaceId string, groupId string, pageSize *int, cursor *string) (sdktypes.SpacesGroupsMembersListResponse, error) {
     query := BuildQueryString([]QueryParameterSpec{

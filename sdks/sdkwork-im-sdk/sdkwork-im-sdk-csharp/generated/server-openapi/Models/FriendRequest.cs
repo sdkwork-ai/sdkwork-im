@@ -15,5 +15,7 @@ namespace Sdkwork.Im.Sdk.Generated.Models
         public string? ExpiredAt { get; set; }
         public string CreatedAt { get; set; }
         public string UpdatedAt { get; set; }
+        public string? RequesterDisplayName { get; set; }
+        public string? RequesterAvatarUrl { get; set; }
     }
 }

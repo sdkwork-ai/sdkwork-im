@@ -4,7 +4,7 @@ package com.sdkwork.im.sdk.generated.model;
 public class MessageMutationResult {
     private String conversationId;
     private String messageId;
-    private Integer messageSeq;
+    private String messageSeq;
     private String eventId;
 
     public String getConversationId() {
@@ -23,11 +23,11 @@ public class MessageMutationResult {
         this.messageId = messageId;
     }
 
-    public Integer getMessageSeq() {
+    public String getMessageSeq() {
         return this.messageSeq;
     }
 
-    public void setMessageSeq(Integer messageSeq) {
+    public void setMessageSeq(String messageSeq) {
         this.messageSeq = messageSeq;
     }
 

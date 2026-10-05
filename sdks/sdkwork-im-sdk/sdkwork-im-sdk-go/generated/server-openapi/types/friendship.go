@@ -5,10 +5,9 @@ type Friendship struct {
 	TenantId string `json:"tenantId"`
 	FriendshipId string `json:"friendshipId"`
 	InitiatorUserId string `json:"initiatorUserId"`
-	LeftUserId string `json:"leftUserId"`
-	RightUserId string `json:"rightUserId"`
-	UserHighId string `json:"userHighId"`
 	UserLowId string `json:"userLowId"`
+	UserHighId string `json:"userHighId"`
 	Status string `json:"status"`
-	CreatedAt string `json:"createdAt"`
+	EstablishedAt string `json:"establishedAt"`
+	UpdatedAt string `json:"updatedAt"`
 }

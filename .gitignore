@@ -147,3 +147,8 @@ __pycache__/
 # One-off typing-signal codemod scratch (never committed).
 # Added by repo-commit sweep; targeted rules only.
 /apps/sdkwork-im-pc/packages/sdkwork-im-pc-chat/wire_typing_pc.mjs
+
+# Dependency-manager residue: pnpm stale-donor moves and pre-repair symlink
+# set-asides. Untracked local state; a human may delete them after review.
+node_modules.__stale__donor*
+node_modules.__pre_repair_link*

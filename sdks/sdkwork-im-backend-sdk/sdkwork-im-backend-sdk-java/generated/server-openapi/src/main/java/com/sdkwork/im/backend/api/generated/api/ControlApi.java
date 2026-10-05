@@ -58,8 +58,8 @@ public class ControlApi {
     /** Read provider policy diff between two versions. */
     public SdkWorkListResponse providerPoliciesDiffList(String fromVersion, String toVersion, Integer pageSize, String cursor, Integer page, String q) throws Exception {
         String query = buildQueryString(List.of(
-            new QueryParameterSpec("fromVersion", fromVersion, "form", true, false, null),
-            new QueryParameterSpec("toVersion", toVersion, "form", true, false, null),
+            new QueryParameterSpec("from_version", fromVersion, "form", true, false, null),
+            new QueryParameterSpec("to_version", toVersion, "form", true, false, null),
             new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
             new QueryParameterSpec("cursor", cursor, "form", true, false, null),
             new QueryParameterSpec("page", page, "form", true, false, null),
@@ -90,7 +90,7 @@ public class ControlApi {
     /** Read effective provider bindings. */
     public SdkWorkListResponse providerBindingsList(String tenantId, Integer pageSize, String cursor, Integer page, String q) throws Exception {
         String query = buildQueryString(List.of(
-            new QueryParameterSpec("tenantId", tenantId, "form", true, false, null),
+            new QueryParameterSpec("tenant_id", tenantId, "form", true, false, null),
             new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
             new QueryParameterSpec("cursor", cursor, "form", true, false, null),
             new QueryParameterSpec("page", page, "form", true, false, null),
@@ -140,6 +140,19 @@ public class ControlApi {
     public SocialExternalMemberLinksRetrieveResponse socialExternalMemberLinksRetrieve(String linkId) throws Exception {
         Object raw = client.get(ApiPaths.backendPath("/control/social/external_member_links/" + serializePathParameter(linkId, new PathParameterSpec("linkId", "simple", false)) + ""));
         return client.convertValue(raw, new TypeReference<SocialExternalMemberLinksRetrieveResponse>() {});
+    }
+
+    /** List friend requests for a user. */
+    public SocialFriendRequestsListResponse socialFriendRequestsList(String userId, String direction, String status, Integer pageSize, String cursor) throws Exception {
+        String query = buildQueryString(List.of(
+            new QueryParameterSpec("user_id", userId, "form", true, false, null),
+            new QueryParameterSpec("direction", direction, "form", true, false, null),
+            new QueryParameterSpec("status", status, "form", true, false, null),
+            new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+            new QueryParameterSpec("cursor", cursor, "form", true, false, null)
+        ));
+        Object raw = client.get(ApiPaths.appendQueryString(ApiPaths.backendPath("/control/social/friend_requests"), query));
+        return client.convertValue(raw, new TypeReference<SocialFriendRequestsListResponse>() {});
     }
 
     /** Submit a friend request event. */

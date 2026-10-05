@@ -4,7 +4,6 @@ from .api.realtime import RealtimeApi
 from .api.calls import CallsApi
 from .api.social import SocialApi
 from .api.chat import ChatApi
-from .api.streams import StreamsApi
 from .api.spaces import SpacesApi
 
 
@@ -18,7 +17,6 @@ class SdkworkImClient:
         self.calls: CallsApi
         self.social: SocialApi
         self.chat: ChatApi
-        self.streams: StreamsApi
         self.spaces: SpacesApi
 
         # Initialize API modules
@@ -27,8 +25,13 @@ class SdkworkImClient:
         self.calls = CallsApi(self._client)
         self.social = SocialApi(self._client)
         self.chat = ChatApi(self._client)
-        self.streams = StreamsApi(self._client)
         self.spaces = SpacesApi(self._client)
+
+    def set_api_key(self, api_key: str) -> 'SdkworkImClient':
+        """Set API key for authentication."""
+        self._client.set_api_key(api_key)
+        return self
+
     def set_auth_token(self, token: str) -> 'SdkworkImClient':
         """Set auth token for authentication."""
         self._client.set_auth_token(token)

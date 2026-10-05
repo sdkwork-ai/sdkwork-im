@@ -14,3 +14,5 @@ class FriendRequest:
     updated_at: str
     request_message: Optional[str] = None
     expired_at: Optional[str] = None
+    requester_display_name: Optional[str] = None
+    requester_avatar_url: Optional[str] = None

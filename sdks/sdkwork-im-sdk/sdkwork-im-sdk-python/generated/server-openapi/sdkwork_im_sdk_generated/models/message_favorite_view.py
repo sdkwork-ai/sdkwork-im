@@ -12,7 +12,7 @@ class MessageFavoriteView:
     favorite_type: str
     conversation_id: str
     message_id: str
-    message_seq: int
+    message_seq: str
     title: str
     content_preview: str
     source_display_name: str

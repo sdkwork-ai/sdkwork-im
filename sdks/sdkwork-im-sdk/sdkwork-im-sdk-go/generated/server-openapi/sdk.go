@@ -12,7 +12,6 @@ type SdkworkImClient struct {
     Calls *api.CallsApi
     Social *api.SocialApi
     Chat *api.ChatApi
-    Streams *api.StreamsApi
     Spaces *api.SpacesApi
 }
 
@@ -30,9 +29,13 @@ func NewSdkworkImClientWithConfig(config sdkhttp.Config) *SdkworkImClient {
         Calls: api.NewCallsApi(client),
         Social: api.NewSocialApi(client),
         Chat: api.NewChatApi(client),
-        Streams: api.NewStreamsApi(client),
         Spaces: api.NewSpacesApi(client),
     }
+}
+
+func (c *SdkworkImClient) SetApiKey(apiKey string) *SdkworkImClient {
+    c.http.SetApiKey(apiKey)
+    return c
 }
 
 func (c *SdkworkImClient) SetAuthToken(token string) *SdkworkImClient {

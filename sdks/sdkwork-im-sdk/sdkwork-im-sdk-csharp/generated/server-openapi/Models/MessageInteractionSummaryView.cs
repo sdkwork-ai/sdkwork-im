@@ -9,7 +9,7 @@ namespace Sdkwork.Im.Sdk.Generated.Models
         public string TenantId { get; set; }
         public string ConversationId { get; set; }
         public string MessageId { get; set; }
-        public int MessageSeq { get; set; }
+        public string MessageSeq { get; set; }
         public int TotalReactionCount { get; set; }
         public List<MessageReactionCountView> ReactionCounts { get; set; }
         public MessagePinView? Pin { get; set; }

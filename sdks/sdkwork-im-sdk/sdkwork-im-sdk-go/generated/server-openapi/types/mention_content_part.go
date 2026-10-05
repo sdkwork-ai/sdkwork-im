@@ -6,5 +6,5 @@ type MentionContentPart struct {
 	TargetKind string `json:"targetKind"`
 	TargetId string `json:"targetId"`
 	DisplayText string `json:"displayText"`
-	AssignmentGeneration int `json:"assignmentGeneration"`
+	AssignmentGeneration string `json:"assignmentGeneration"`
 }

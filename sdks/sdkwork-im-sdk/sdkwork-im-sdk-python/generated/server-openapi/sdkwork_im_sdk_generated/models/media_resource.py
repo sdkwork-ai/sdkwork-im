@@ -16,7 +16,7 @@ class MediaResource:
     title: Optional[str] = None
     file_name: Optional[str] = None
     mime_type: Optional[str] = None
-    size: Optional[int] = None
+    size: Optional[str] = None
     size_bytes: Optional[str] = None
     file_size: Optional[str] = None
     duration_seconds: Optional[int] = None

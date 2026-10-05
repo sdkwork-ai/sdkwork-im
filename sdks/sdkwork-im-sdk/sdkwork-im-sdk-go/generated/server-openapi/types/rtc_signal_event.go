@@ -4,7 +4,7 @@ package types
 type RtcSignalEvent struct {
 	TenantId string `json:"tenantId"`
 	RtcSessionId string `json:"rtcSessionId"`
-	SignalSeq int `json:"signalSeq"`
+	SignalSeq string `json:"signalSeq"`
 	ConversationId string `json:"conversationId"`
 	RtcMode string `json:"rtcMode"`
 	SignalType string `json:"signalType"`

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::api::paths::im_path;
 use crate::api::paths::append_query_string;
 use crate::http::{SdkworkError, SdkworkHttpClient};
-use crate::models::{BlockUserRequest, ContactPreferencesView, ContactRecommendationView, ContactTagView, CreateContactRecommendationRequest, CreateContactTagRequest, OpenApiUserBlockResponse, SdkWorkPageData, SocialFriendRequestAcceptanceResponse, SocialFriendRequestMutationResponse, SocialFriendRequestPendingCountResponse, SocialFriendshipMutationResponse, SubmitFriendRequestRequest, UpdateContactPreferencesRequest, UpdateContactTagRequest};
+use crate::models::{BlockUserRequest, ContactPreferencesView, ContactRecommendationView, ContactTagView, CreateContactRecommendationRequest, CreateContactTagRequest, OpenApiUserBlockResponse, SdkWorkPageData, SocialDirectChatView, SocialFriendRequestAcceptanceResponse, SocialFriendRequestMutationResponse, SocialFriendRequestPendingCountResponse, SocialFriendshipMutationResponse, SocialUserProfileView, SocialUserSettingsView, SubmitFriendRequestRequest, UpdateContactPreferencesRequest, UpdateContactTagRequest, UpdateSocialUserProfileRequest, UpdateSocialUserSettingsRequest};
 
 #[derive(Clone)]
 pub struct SocialApi {
@@ -23,6 +23,56 @@ impl SocialApi {
             QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
         ]);
         let path = append_query_string(im_path(&"/social/users".to_string()), &query);
+        self.client.get(&path, None, None).await
+    }
+
+    /// Retrieve a social user profile
+    pub async fn users_profile_retrieve(&self, user_id: &str) -> Result<SocialUserProfileView, SdkworkError> {
+        let path = im_path(&format!("/social/users/{}/profile", serialize_path_parameter(user_id, PathParameterSpec::new("userId", "simple", false))));
+        self.client.get(&path, None, None).await
+    }
+
+    /// Update the authenticated user profile
+    pub async fn users_profile_update(&self, user_id: &str, body: &UpdateSocialUserProfileRequest) -> Result<SocialUserProfileView, SdkworkError> {
+        let path = im_path(&format!("/social/users/{}/profile", serialize_path_parameter(user_id, PathParameterSpec::new("userId", "simple", false))));
+        self.client.patch(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// Retrieve social user settings
+    pub async fn users_settings_retrieve(&self, user_id: &str) -> Result<SocialUserSettingsView, SdkworkError> {
+        let path = im_path(&format!("/social/users/{}/settings", serialize_path_parameter(user_id, PathParameterSpec::new("userId", "simple", false))));
+        self.client.get(&path, None, None).await
+    }
+
+    /// Update social user settings
+    pub async fn users_settings_update(&self, user_id: &str, body: &UpdateSocialUserSettingsRequest) -> Result<SocialUserSettingsView, SdkworkError> {
+        let path = im_path(&format!("/social/users/{}/settings", serialize_path_parameter(user_id, PathParameterSpec::new("userId", "simple", false))));
+        self.client.patch(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// List friendships of the authenticated user
+    pub async fn friendships_list(&self, page_size: Option<i64>, cursor: Option<&str>) -> Result<serde_json::Value, SdkworkError> {
+        let query = build_query_string(&[
+            QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
+            QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
+        ]);
+        let path = append_query_string(im_path(&"/social/friendships".to_string()), &query);
+        self.client.get(&path, None, None).await
+    }
+
+    /// List direct chats of the authenticated user
+    pub async fn direct_chats_list(&self, page_size: Option<i64>, cursor: Option<&str>) -> Result<serde_json::Value, SdkworkError> {
+        let query = build_query_string(&[
+            QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
+            QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
+        ]);
+        let path = append_query_string(im_path(&"/social/direct_chats".to_string()), &query);
+        self.client.get(&path, None, None).await
+    }
+
+    /// Retrieve a direct chat
+    pub async fn direct_chats_retrieve(&self, direct_chat_id: &str) -> Result<SocialDirectChatView, SdkworkError> {
+        let path = im_path(&format!("/social/direct_chats/{}", serialize_path_parameter(direct_chat_id, PathParameterSpec::new("directChatId", "simple", false))));
         self.client.get(&path, None, None).await
     }
 
@@ -72,6 +122,16 @@ impl SocialApi {
     pub async fn friendships_remove(&self, friendship_id: &str) -> Result<SocialFriendshipMutationResponse, SdkworkError> {
         let path = im_path(&format!("/social/friendships/{}/remove", serialize_path_parameter(friendship_id, PathParameterSpec::new("friendshipId", "simple", false))));
         self.client.post(&path, Option::<&serde_json::Value>::None, None, None, None).await
+    }
+
+    /// List user blocks created by the authenticated user
+    pub async fn user_blocks_list(&self, page_size: Option<i64>, cursor: Option<&str>) -> Result<serde_json::Value, SdkworkError> {
+        let query = build_query_string(&[
+            QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
+            QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
+        ]);
+        let path = append_query_string(im_path(&"/social/user_blocks".to_string()), &query);
+        self.client.get(&path, None, None).await
     }
 
     /// Block a social user

@@ -25,6 +25,12 @@ public class ChatApi {
         return client.convertValue(raw, new TypeReference<InboxListResponse>() {});
     }
 
+    /** Ensure the current user received the system-agent Welcome message */
+    public ChatMeWelcomeEnsureResponse meWelcomeEnsure() throws Exception {
+        Object raw = client.post(ApiPaths.imPath("/chat/me/welcome/ensure"), null);
+        return client.convertValue(raw, new TypeReference<ChatMeWelcomeEnsureResponse>() {});
+    }
+
     /** Create a conversation */
     public ConversationsCreateResponse201 conversationsCreate(CreateConversationRequest body) throws Exception {
         Object raw = client.post(ApiPaths.imPath("/chat/conversations"), body, null, null, "application/json");
@@ -59,6 +65,12 @@ public class ChatApi {
     public ConversationsDirectChatsBindingsCreateResponse201 conversationsDirectChatsBindingsCreate(BindDirectChatRequest body) throws Exception {
         Object raw = client.post(ApiPaths.imPath("/chat/conversations/direct_chats/bindings"), body, null, null, "application/json");
         return client.convertValue(raw, new TypeReference<ConversationsDirectChatsBindingsCreateResponse201>() {});
+    }
+
+    /** Sync a shared-channel linked member into a conversation */
+    public ConversationsSharedChannelLinksSyncResponse conversationsSharedChannelLinksSync(SharedChannelLinkSyncRequest body) throws Exception {
+        Object raw = client.post(ApiPaths.imPath("/chat/conversations/shared_channel_links/sync"), body, null, null, "application/json");
+        return client.convertValue(raw, new TypeReference<ConversationsSharedChannelLinksSyncResponse>() {});
     }
 
     /** Retrieve agent handoff state */
@@ -117,6 +129,12 @@ public class ChatApi {
     public ConversationsAgentsUpdateResponse conversationsAgentsUpdate(String conversationId, UpdateConversationAgentsRequest body) throws Exception {
         Object raw = client.put(ApiPaths.imPath("/chat/conversations/" + serializePathParameter(conversationId, new PathParameterSpec("conversationId", "simple", false)) + "/agents"), body, null, null, "application/json");
         return client.convertValue(raw, new TypeReference<ConversationsAgentsUpdateResponse>() {});
+    }
+
+    /** Retrieve the business binding of a conversation */
+    public ConversationsBindingRetrieveResponse conversationsBindingRetrieve(String conversationId) throws Exception {
+        Object raw = client.get(ApiPaths.imPath("/chat/conversations/" + serializePathParameter(conversationId, new PathParameterSpec("conversationId", "simple", false)) + "/binding"));
+        return client.convertValue(raw, new TypeReference<ConversationsBindingRetrieveResponse>() {});
     }
 
     /** Add a conversation member */
@@ -191,6 +209,18 @@ public class ChatApi {
         return client.convertValue(raw, new TypeReference<ConversationsReadCursorUpdateResponse>() {});
     }
 
+    /** List live typing indicators */
+    public ConversationsTypingListResponse conversationsTypingList(String conversationId) throws Exception {
+        Object raw = client.get(ApiPaths.imPath("/chat/conversations/" + serializePathParameter(conversationId, new PathParameterSpec("conversationId", "simple", false)) + "/typing"));
+        return client.convertValue(raw, new TypeReference<ConversationsTypingListResponse>() {});
+    }
+
+    /** Signal typing in a conversation */
+    public ConversationsTypingSignalResponse conversationsTypingSignal(String conversationId) throws Exception {
+        Object raw = client.post(ApiPaths.imPath("/chat/conversations/" + serializePathParameter(conversationId, new PathParameterSpec("conversationId", "simple", false)) + "/typing/signal"), null);
+        return client.convertValue(raw, new TypeReference<ConversationsTypingSignalResponse>() {});
+    }
+
     /** List member directory */
     public ConversationsMemberDirectoryListResponse conversationsMemberDirectoryList(String conversationId, String cursor, Integer pageSize) throws Exception {
         String query = buildQueryString(List.of(
@@ -239,6 +269,18 @@ public class ChatApi {
         return client.convertValue(raw, new TypeReference<ConversationsMessagesInteractionSummaryRetrieveResponse>() {});
     }
 
+    /** Search conversation message history */
+    public MessageSearchResponse messagesSearchList(String q, String conversationId, Integer pageSize, String cursor) throws Exception {
+        String query = buildQueryString(List.of(
+            new QueryParameterSpec("q", q, "form", true, false, null),
+            new QueryParameterSpec("conversation_id", conversationId, "form", true, false, null),
+            new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+            new QueryParameterSpec("cursor", cursor, "form", true, false, null)
+        ));
+        Object raw = client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/chat/messages/search"), query));
+        return client.convertValue(raw, new TypeReference<MessageSearchResponse>() {});
+    }
+
     /** Edit a message */
     public MessagesEditResponse messagesEdit(String messageId, EditMessageRequest body) throws Exception {
         Object raw = client.post(ApiPaths.imPath("/chat/messages/" + serializePathParameter(messageId, new PathParameterSpec("messageId", "simple", false)) + "/edit"), body, null, null, "application/json");
@@ -256,7 +298,7 @@ public class ChatApi {
         String query = buildQueryString(List.of(
             new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
             new QueryParameterSpec("cursor", cursor, "form", true, false, null),
-            new QueryParameterSpec("favoriteType", favoriteType, "form", true, false, null),
+            new QueryParameterSpec("favorite_type", favoriteType, "form", true, false, null),
             new QueryParameterSpec("q", q, "form", true, false, null)
         ));
         Object raw = client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/chat/messages/favorites"), query));

@@ -38,7 +38,7 @@ pub struct MediaResource {
     pub mime_type: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub size: Option<i64>,
+    pub size: Option<String>,
 
     #[serde(rename = "sizeBytes")]
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -11,7 +11,7 @@ pub struct RtcSignalEvent {
     pub rtc_session_id: String,
 
     #[serde(rename = "signalSeq")]
-    pub signal_seq: i64,
+    pub signal_seq: String,
 
     #[serde(rename = "conversationId")]
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Optional, List, Dict, Any
 @dataclass
 class PostMessageResult:
     message_id: str
-    message_seq: int
+    message_seq: str
     event_id: str
     delivery_status: str
     request_key: Optional[str] = None

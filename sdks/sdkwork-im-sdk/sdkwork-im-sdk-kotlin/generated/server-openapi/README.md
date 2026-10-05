@@ -1,6 +1,6 @@
 # sdkwork-im-sdk (Kotlin)
 
-Generated SDKWork v3 dual-token transport SDK.
+Professional Kotlin SDK for SDKWork API.
 
 ## Installation
 
@@ -25,10 +25,9 @@ import com.sdkwork.common.core.SdkConfig
 import kotlinx.coroutines.runBlocking
 
 fun main() = runBlocking {
-    val config = SdkConfig(baseUrl = "http://127.0.0.1:18079")
+    val config = SdkConfig(baseUrl = "http://127.0.0.1:18089")
     val client = SdkworkImClient(config)
-    client.setAuthToken("your-auth-token")
-client.setAccessToken("your-access-token")
+    client.setApiKey("your-api-key")
 
     // Use the SDK
     val result = client.presence.meRetrieve()
@@ -36,18 +35,37 @@ client.setAccessToken("your-access-token")
 }
 ```
 
-## Authentication
+## Authentication Modes (Mutually Exclusive)
 
-```text
-Authorization: Bearer <authToken>
-Access-Token: <accessToken>
+Choose exactly one mode for the same client instance.
+
+### Mode A: API Key
+
+```kotlin
+val config = SdkConfig(baseUrl = "http://127.0.0.1:18089")
+val client = SdkworkImClient(config)
+client.setApiKey("your-api-key")
+// Sends: X-API-Key: <apiKey>
 ```
 
+### Mode B: Dual Token
+
+```kotlin
+val config = SdkConfig(baseUrl = "http://127.0.0.1:18089")
+val client = SdkworkImClient(config)
+client.setAuthToken("your-auth-token")
+client.setAccessToken("your-access-token")
+// Sends:
+// Authorization: Bearer <authToken>
+// Access-Token: <accessToken>
+```
+
+> Do not call `setApiKey(...)` together with `setAuthToken(...)` + `setAccessToken(...)` on the same client.
 
 ## Configuration (Non-Auth)
 
 ```kotlin
-val config = SdkConfig(baseUrl = "http://127.0.0.1:18079")
+val config = SdkConfig(baseUrl = "http://127.0.0.1:18089")
 val client = SdkworkImClient(config)
 ```
 
@@ -58,7 +76,6 @@ val client = SdkworkImClient(config)
 - `client.calls` - calls API
 - `client.social` - social API
 - `client.chat` - chat API
-- `client.streams` - streams API
 - `client.spaces` - spaces API
 
 ## Usage Examples
@@ -107,26 +124,8 @@ println(result)
 ### chat
 
 ```kotlin
-// List current inbox window
-val params = linkedMapOf<String, Any>(
-    "page_size" to 1,
-    "cursor" to "cursor",
-    "conversation_type" to "conversation-type",
-    "q" to "q"
-)
-val result = client.chat.inboxList(params)
-println(result)
-```
-
-### streams
-
-```kotlin
-// Open a stream
-val body = OpenStreamRequest(
-    streamType = "streamtype",
-    conversationId = "1"
-)
-val result = client.streams.create(body)
+// Ensure the current user received the system-agent Welcome message
+val result = client.chat.meWelcomeEnsure()
 println(result)
 ```
 

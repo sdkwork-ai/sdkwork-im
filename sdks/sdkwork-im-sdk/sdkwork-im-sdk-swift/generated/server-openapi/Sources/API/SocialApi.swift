@@ -17,6 +17,49 @@ public class SocialApi {
         return try await client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/social/users"), query), responseType: SocialUsersListResponse.self)
     }
 
+    /// Retrieve a social user profile
+    public func usersProfileRetrieve(userId: String) async throws -> SocialUsersProfileRetrieveResponse? {
+        return try await client.get(ApiPaths.imPath("/social/users/\(serializePathParameter(userId, PathParameterSpec(name: "userId", style: "simple", explode: false)))/profile"), responseType: SocialUsersProfileRetrieveResponse.self)
+    }
+
+    /// Update the authenticated user profile
+    public func usersProfileUpdate(userId: String, body: UpdateSocialUserProfileRequest) async throws -> SocialUsersProfileUpdateResponse? {
+        return try await client.patch(ApiPaths.imPath("/social/users/\(serializePathParameter(userId, PathParameterSpec(name: "userId", style: "simple", explode: false)))/profile"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: SocialUsersProfileUpdateResponse.self)
+    }
+
+    /// Retrieve social user settings
+    public func usersSettingsRetrieve(userId: String) async throws -> SocialUsersSettingsRetrieveResponse? {
+        return try await client.get(ApiPaths.imPath("/social/users/\(serializePathParameter(userId, PathParameterSpec(name: "userId", style: "simple", explode: false)))/settings"), responseType: SocialUsersSettingsRetrieveResponse.self)
+    }
+
+    /// Update social user settings
+    public func usersSettingsUpdate(userId: String, body: UpdateSocialUserSettingsRequest) async throws -> SocialUsersSettingsUpdateResponse? {
+        return try await client.patch(ApiPaths.imPath("/social/users/\(serializePathParameter(userId, PathParameterSpec(name: "userId", style: "simple", explode: false)))/settings"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: SocialUsersSettingsUpdateResponse.self)
+    }
+
+    /// List friendships of the authenticated user
+    public func friendshipsList(pageSize: Int? = nil, cursor: String? = nil) async throws -> SocialFriendshipsListResponse? {
+        let query = buildQueryString([
+            QueryParameterSpec(name: "page_size", value: pageSize, style: "form", explode: true, allowReserved: false, contentType: nil),
+            QueryParameterSpec(name: "cursor", value: cursor, style: "form", explode: true, allowReserved: false, contentType: nil)
+        ])
+        return try await client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/social/friendships"), query), responseType: SocialFriendshipsListResponse.self)
+    }
+
+    /// List direct chats of the authenticated user
+    public func directChatsList(pageSize: Int? = nil, cursor: String? = nil) async throws -> SocialDirectChatsListResponse? {
+        let query = buildQueryString([
+            QueryParameterSpec(name: "page_size", value: pageSize, style: "form", explode: true, allowReserved: false, contentType: nil),
+            QueryParameterSpec(name: "cursor", value: cursor, style: "form", explode: true, allowReserved: false, contentType: nil)
+        ])
+        return try await client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/social/direct_chats"), query), responseType: SocialDirectChatsListResponse.self)
+    }
+
+    /// Retrieve a direct chat
+    public func directChatsRetrieve(directChatId: String) async throws -> SocialDirectChatsRetrieveResponse? {
+        return try await client.get(ApiPaths.imPath("/social/direct_chats/\(serializePathParameter(directChatId, PathParameterSpec(name: "directChatId", style: "simple", explode: false)))"), responseType: SocialDirectChatsRetrieveResponse.self)
+    }
+
     /// List friend requests
     public func friendRequestsList(direction: String? = nil, status: String? = nil, pageSize: Int? = nil, cursor: String? = nil) async throws -> SdkWorkListResponse? {
         let query = buildQueryString([
@@ -56,6 +99,15 @@ public class SocialApi {
     /// Remove a friendship
     public func friendshipsRemove(friendshipId: String) async throws -> SocialFriendshipsRemoveResponse? {
         return try await client.post(ApiPaths.imPath("/social/friendships/\(serializePathParameter(friendshipId, PathParameterSpec(name: "friendshipId", style: "simple", explode: false)))/remove"), body: nil, responseType: SocialFriendshipsRemoveResponse.self)
+    }
+
+    /// List user blocks created by the authenticated user
+    public func userBlocksList(pageSize: Int? = nil, cursor: String? = nil) async throws -> SocialUserBlocksListResponse? {
+        let query = buildQueryString([
+            QueryParameterSpec(name: "page_size", value: pageSize, style: "form", explode: true, allowReserved: false, contentType: nil),
+            QueryParameterSpec(name: "cursor", value: cursor, style: "form", explode: true, allowReserved: false, contentType: nil)
+        ])
+        return try await client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/social/user_blocks"), query), responseType: SocialUserBlocksListResponse.self)
     }
 
     /// Block a social user

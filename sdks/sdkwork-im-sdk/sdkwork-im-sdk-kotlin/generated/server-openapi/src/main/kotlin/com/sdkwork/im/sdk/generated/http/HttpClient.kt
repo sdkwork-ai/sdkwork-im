@@ -22,6 +22,10 @@ class HttpClient(
     timeoutMs: Int = 30000,
     defaultHeaders: Map<String, String> = emptyMap()
 ) {
+    companion object {
+        private const val API_KEY_HEADER = "X-API-Key"
+        private const val API_KEY_USE_BEARER = false
+    }
 
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS)
@@ -40,10 +44,31 @@ class HttpClient(
     init {
         headers.putAll(defaultHeaders)
     }
+
+    fun setApiKey(apiKey: String) {
+        headers[API_KEY_HEADER] = if (API_KEY_USE_BEARER) "Bearer $apiKey" else apiKey
+        if (!API_KEY_HEADER.equals("Authorization", ignoreCase = true)) {
+            headers.remove("Authorization")
+        }
+        if (!API_KEY_HEADER.equals("Access-Token", ignoreCase = true)) {
+            headers.remove("Access-Token")
+        }
+    }
+
     fun setAuthToken(token: String) {
+        if (!API_KEY_HEADER.equals("Authorization", ignoreCase = true)) {
+            headers.remove(API_KEY_HEADER)
+        }
         headers["Authorization"] = "Bearer $token"
     }
+
     fun setAccessToken(token: String) {
+        // Dual-token mode keeps the 'Authorization' bearer set by setAuthToken;
+        // only a stale API key header (when the API key header is not
+        // 'Authorization') is cleared here.
+        if (!API_KEY_HEADER.equals("Authorization", ignoreCase = true)) {
+            headers.remove(API_KEY_HEADER)
+        }
         headers["Access-Token"] = token
     }
 
@@ -59,14 +84,35 @@ class HttpClient(
         return urlBuilder.build()
     }
 
-    private fun mergeHeaders(requestHeaders: Map<String, String>? = null, skipAuth: Boolean = false): Headers {
-        val merged = if (!skipAuth) headers.toMutableMap() else mutableMapOf()
+    private fun mergeHeaders(
+        requestHeaders: Map<String, String>? = null,
+        skipAuth: Boolean = false,
+        accessTokenOnly: Boolean = false
+    ): Headers {
+        val merged = if (!skipAuth && !accessTokenOnly) headers.toMutableMap() else mutableMapOf()
         requestHeaders?.forEach { (key, value) ->
-            if (key.isNotBlank()) {
+            if (key.isNotBlank() && ((!skipAuth && !accessTokenOnly) || !isCredentialHeader(key))) {
                 merged[key] = value
             }
         }
+        if (accessTokenOnly) {
+            val accessToken = headers.entries
+                .firstOrNull { it.key.equals("Access-Token", ignoreCase = true) && it.value.isNotBlank() }
+                ?.value
+                ?.trim()
+                ?: throw IllegalStateException(
+                    "access-token-only request requires Access-Token before request dispatch"
+                )
+            merged["Access-Token"] = accessToken
+        }
         return Headers.of(merged)
+    }
+
+    private fun isCredentialHeader(key: String): Boolean = when (key.lowercase()) {
+        "authorization", "access-token", "x-api-key", "x-tenant-id",
+        "x-organization-id", "x-platform", "x-user-id", "x-sdkwork-tenant-id",
+        "x-sdkwork-organization-id", "x-sdkwork-user-id" -> true
+        else -> false
     }
 
     private fun createJsonBody(body: Any?): RequestBody {
@@ -164,11 +210,12 @@ class HttpClient(
         params: Map<String, Any>? = null,
         requestHeaders: Map<String, String>? = null,
         contentType: String? = null,
-        skipAuth: Boolean = false
+        skipAuth: Boolean = false,
+        accessTokenOnly: Boolean = false
     ): Any? {
         val requestBuilder = Request.Builder()
             .url(buildUrl(path, params))
-            .headers(mergeHeaders(requestHeaders, skipAuth))
+            .headers(mergeHeaders(requestHeaders, skipAuth, accessTokenOnly))
 
         val requestBody = if (body == null) null else createRequestBody(body, contentType)
         val request = requestBuilder
@@ -191,13 +238,14 @@ class HttpClient(
         requestHeaders: Map<String, String>? = null,
         contentType: String? = null,
         typeReference: TypeReference<T>,
-        skipAuth: Boolean = false
+        skipAuth: Boolean = false,
+        accessTokenOnly: Boolean = false
     ): Sequence<T> {
         return sequence {
             val requestBody = if (body == null) null else createRequestBody(body, contentType)
             val request = Request.Builder()
                 .url(buildUrl(path, params))
-                .headers(mergeHeaders(requestHeaders, skipAuth))
+                .headers(mergeHeaders(requestHeaders, skipAuth, accessTokenOnly))
                 .addHeader("Accept", "text/event-stream")
                 .method(method, requestBody)
                 .build()

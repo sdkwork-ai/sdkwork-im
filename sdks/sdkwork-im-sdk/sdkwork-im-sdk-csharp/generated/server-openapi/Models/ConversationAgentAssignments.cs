@@ -6,7 +6,7 @@ namespace Sdkwork.Im.Sdk.Generated.Models
 {
     public class ConversationAgentAssignments
     {
-        public int Generation { get; set; }
+        public string Generation { get; set; }
         public string Source { get; set; }
         public List<ConversationAgentAssignment> Agents { get; set; }
     }

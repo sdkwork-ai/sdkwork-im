@@ -11,7 +11,6 @@ type SdkworkImBackendClient struct {
     Audit *api.AuditApi
     Automation *api.AutomationApi
     Control *api.ControlApi
-    Admin *api.AdminApi
 }
 
 func NewSdkworkImBackendClient(baseURL string) *SdkworkImBackendClient {
@@ -27,7 +26,6 @@ func NewSdkworkImBackendClientWithConfig(config sdkhttp.Config) *SdkworkImBacken
         Audit: api.NewAuditApi(client),
         Automation: api.NewAutomationApi(client),
         Control: api.NewControlApi(client),
-        Admin: api.NewAdminApi(client),
     }
 }
 

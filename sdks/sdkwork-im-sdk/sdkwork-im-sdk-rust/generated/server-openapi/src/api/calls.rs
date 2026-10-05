@@ -52,9 +52,9 @@ impl CallsApi {
     }
 
     /// List IM call signaling events
-    pub async fn sessions_signals_list(&self, rtc_session_id: &str, after_signal_seq: Option<i64>, cursor: Option<&str>, page_size: Option<i64>) -> Result<serde_json::Value, SdkworkError> {
+    pub async fn sessions_signals_list(&self, rtc_session_id: &str, after_signal_seq: Option<&str>, cursor: Option<&str>, page_size: Option<i64>) -> Result<serde_json::Value, SdkworkError> {
         let query = build_query_string(&[
-            QueryParameterSpec::new("afterSignalSeq", after_signal_seq, "form", true, false, None),
+            QueryParameterSpec::new("after_signal_seq", after_signal_seq, "form", true, false, None),
             QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
             QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
         ]);

@@ -9,7 +9,7 @@ pub struct MessageMutationResult {
     pub message_id: String,
 
     #[serde(rename = "messageSeq")]
-    pub message_seq: i64,
+    pub message_seq: String,
 
     #[serde(rename = "eventId")]
     pub event_id: String,

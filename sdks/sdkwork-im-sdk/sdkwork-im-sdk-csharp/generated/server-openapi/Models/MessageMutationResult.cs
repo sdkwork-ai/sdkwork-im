@@ -8,7 +8,7 @@ namespace Sdkwork.Im.Sdk.Generated.Models
     {
         public string ConversationId { get; set; }
         public string MessageId { get; set; }
-        public int MessageSeq { get; set; }
+        public string MessageSeq { get; set; }
         public string EventId { get; set; }
     }
 }

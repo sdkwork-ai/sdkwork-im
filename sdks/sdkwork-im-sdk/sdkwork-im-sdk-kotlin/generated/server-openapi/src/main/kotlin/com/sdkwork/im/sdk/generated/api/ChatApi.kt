@@ -20,6 +20,12 @@ class ChatApi(private val client: HttpClient) {
         return client.convertValue(raw, object : TypeReference<InboxListResponse>() {})
     }
 
+    /** Ensure the current user received the system-agent Welcome message */
+    suspend fun meWelcomeEnsure(): ChatMeWelcomeEnsureResponse? {
+        val raw = client.post(ApiPaths.imPath("/chat/me/welcome/ensure"), null)
+        return client.convertValue(raw, object : TypeReference<ChatMeWelcomeEnsureResponse>() {})
+    }
+
     /** Create a conversation */
     suspend fun conversationsCreate(body: CreateConversationRequest): ConversationsCreateResponse201? {
         val raw = client.post(ApiPaths.imPath("/chat/conversations"), body, null, null, "application/json")
@@ -54,6 +60,12 @@ class ChatApi(private val client: HttpClient) {
     suspend fun conversationsDirectChatsBindingsCreate(body: BindDirectChatRequest): ConversationsDirectChatsBindingsCreateResponse201? {
         val raw = client.post(ApiPaths.imPath("/chat/conversations/direct_chats/bindings"), body, null, null, "application/json")
         return client.convertValue(raw, object : TypeReference<ConversationsDirectChatsBindingsCreateResponse201>() {})
+    }
+
+    /** Sync a shared-channel linked member into a conversation */
+    suspend fun conversationsSharedChannelLinksSync(body: SharedChannelLinkSyncRequest): ConversationsSharedChannelLinksSyncResponse? {
+        val raw = client.post(ApiPaths.imPath("/chat/conversations/shared_channel_links/sync"), body, null, null, "application/json")
+        return client.convertValue(raw, object : TypeReference<ConversationsSharedChannelLinksSyncResponse>() {})
     }
 
     /** Retrieve agent handoff state */
@@ -112,6 +124,12 @@ class ChatApi(private val client: HttpClient) {
     suspend fun conversationsAgentsUpdate(conversationId: String, body: UpdateConversationAgentsRequest): ConversationsAgentsUpdateResponse? {
         val raw = client.put(ApiPaths.imPath("/chat/conversations/${serializePathParameter(conversationId, PathParameterSpec("conversationId", "simple", false))}/agents"), body, null, null, "application/json")
         return client.convertValue(raw, object : TypeReference<ConversationsAgentsUpdateResponse>() {})
+    }
+
+    /** Retrieve the business binding of a conversation */
+    suspend fun conversationsBindingRetrieve(conversationId: String): ConversationsBindingRetrieveResponse? {
+        val raw = client.get(ApiPaths.imPath("/chat/conversations/${serializePathParameter(conversationId, PathParameterSpec("conversationId", "simple", false))}/binding"))
+        return client.convertValue(raw, object : TypeReference<ConversationsBindingRetrieveResponse>() {})
     }
 
     /** Add a conversation member */
@@ -186,6 +204,18 @@ class ChatApi(private val client: HttpClient) {
         return client.convertValue(raw, object : TypeReference<ConversationsReadCursorUpdateResponse>() {})
     }
 
+    /** List live typing indicators */
+    suspend fun conversationsTypingList(conversationId: String): ConversationsTypingListResponse? {
+        val raw = client.get(ApiPaths.imPath("/chat/conversations/${serializePathParameter(conversationId, PathParameterSpec("conversationId", "simple", false))}/typing"))
+        return client.convertValue(raw, object : TypeReference<ConversationsTypingListResponse>() {})
+    }
+
+    /** Signal typing in a conversation */
+    suspend fun conversationsTypingSignal(conversationId: String): ConversationsTypingSignalResponse? {
+        val raw = client.post(ApiPaths.imPath("/chat/conversations/${serializePathParameter(conversationId, PathParameterSpec("conversationId", "simple", false))}/typing/signal"), null)
+        return client.convertValue(raw, object : TypeReference<ConversationsTypingSignalResponse>() {})
+    }
+
     /** List member directory */
     suspend fun conversationsMemberDirectoryList(conversationId: String, cursor: String? = null, pageSize: Int? = null): ConversationsMemberDirectoryListResponse? {
         val query = buildQueryString(listOf(
@@ -234,6 +264,18 @@ class ChatApi(private val client: HttpClient) {
         return client.convertValue(raw, object : TypeReference<ConversationsMessagesInteractionSummaryRetrieveResponse>() {})
     }
 
+    /** Search conversation message history */
+    suspend fun messagesSearchList(q: String, conversationId: String? = null, pageSize: Int? = null, cursor: String? = null): MessageSearchResponse? {
+        val query = buildQueryString(listOf(
+            QueryParameterSpec("q", q, "form", true, false, null),
+            QueryParameterSpec("conversation_id", conversationId, "form", true, false, null),
+            QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+            QueryParameterSpec("cursor", cursor, "form", true, false, null)
+        ))
+        val raw = client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/chat/messages/search"), query))
+        return client.convertValue(raw, object : TypeReference<MessageSearchResponse>() {})
+    }
+
     /** Edit a message */
     suspend fun messagesEdit(messageId: String, body: EditMessageRequest): MessagesEditResponse? {
         val raw = client.post(ApiPaths.imPath("/chat/messages/${serializePathParameter(messageId, PathParameterSpec("messageId", "simple", false))}/edit"), body, null, null, "application/json")
@@ -251,7 +293,7 @@ class ChatApi(private val client: HttpClient) {
         val query = buildQueryString(listOf(
             QueryParameterSpec("page_size", pageSize, "form", true, false, null),
             QueryParameterSpec("cursor", cursor, "form", true, false, null),
-            QueryParameterSpec("favoriteType", favoriteType, "form", true, false, null),
+            QueryParameterSpec("favorite_type", favoriteType, "form", true, false, null),
             QueryParameterSpec("q", q, "form", true, false, null)
         ))
         val raw = client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/chat/messages/favorites"), query))

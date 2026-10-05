@@ -15,7 +15,7 @@ public class ConversationInboxEntry {
     private String lastMessageId;
     private String lastSenderId;
     private Integer messageCount;
-    private Integer lastMessageSeq;
+    private String lastMessageSeq;
     private String lastSummary;
     private String lastMessageAt;
     private Integer unreadCount;
@@ -124,11 +124,11 @@ public class ConversationInboxEntry {
         this.messageCount = messageCount;
     }
 
-    public Integer getLastMessageSeq() {
+    public String getLastMessageSeq() {
         return this.lastMessageSeq;
     }
 
-    public void setLastMessageSeq(Integer lastMessageSeq) {
+    public void setLastMessageSeq(String lastMessageSeq) {
         this.lastMessageSeq = lastMessageSeq;
     }
 

@@ -51,16 +51,6 @@ func (a *OpsApi) LagRetrieve(pageSize *int, cursor *string) (sdktypes.LagListRes
     return decodeResult[sdktypes.LagListResponse](raw)
 }
 
-// Retrieve commercial readiness
-func (a *OpsApi) CommercialReadinessRetrieve() (sdktypes.CommercialReadinessRetrieveResponse, error) {
-    raw, err := a.client.Get(BackendApiPath("/ops/commercial_readiness"), nil, nil)
-    if err != nil {
-        var zero sdktypes.CommercialReadinessRetrieveResponse
-        return zero, err
-    }
-    return decodeResult[sdktypes.CommercialReadinessRetrieveResponse](raw)
-}
-
 // Inspect runtime directory
 func (a *OpsApi) RuntimeDirRetrieve() (sdktypes.RuntimeDirRetrieveResponse, error) {
     raw, err := a.client.Get(BackendApiPath("/ops/runtime_dir"), nil, nil)
@@ -107,6 +97,29 @@ func (a *OpsApi) DiagnosticsRetrieve() (sdktypes.DiagnosticsRetrieveResponse, er
         return zero, err
     }
     return decodeResult[sdktypes.DiagnosticsRetrieveResponse](raw)
+}
+
+// Retrieve commit-journal replay status
+func (a *OpsApi) ReplayStatusRetrieve() (sdktypes.ReplayStatusRetrieveResponse, error) {
+    raw, err := a.client.Get(BackendApiPath("/ops/replay_status"), nil, nil)
+    if err != nil {
+        var zero sdktypes.ReplayStatusRetrieveResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.ReplayStatusRetrieveResponse](raw)
+}
+
+// Purge expired retention batches
+func (a *OpsApi) RetentionPurge(batchSize *string) (sdktypes.RetentionPurgePostResponse, error) {
+    query := BuildQueryString([]QueryParameterSpec{
+        {Name: "batch_size", Value: func() interface{} { if batchSize == nil { return nil }; return *batchSize }(), Style: "form", Explode: true, AllowReserved: false},
+    })
+    raw, err := a.client.Post(AppendQueryString(BackendApiPath("/ops/retention/purge"), query), nil, nil, nil, "")
+    if err != nil {
+        var zero sdktypes.RetentionPurgePostResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.RetentionPurgePostResponse](raw)
 }
 
 

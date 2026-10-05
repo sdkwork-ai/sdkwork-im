@@ -5,7 +5,7 @@ public class ConversationSummaryView {
     private String tenantId;
     private String conversationId;
     private Integer messageCount;
-    private Integer lastMessageSeq;
+    private String lastMessageSeq;
     private String lastSummary;
     private String lastMessageAt;
 
@@ -33,11 +33,11 @@ public class ConversationSummaryView {
         this.messageCount = messageCount;
     }
 
-    public Integer getLastMessageSeq() {
+    public String getLastMessageSeq() {
         return this.lastMessageSeq;
     }
 
-    public void setLastMessageSeq(Integer lastMessageSeq) {
+    public void setLastMessageSeq(String lastMessageSeq) {
         this.lastMessageSeq = lastMessageSeq;
     }
 

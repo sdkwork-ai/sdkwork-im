@@ -7,6 +7,5 @@ public struct API {
     public static let calls = CallsApi.self
     public static let social = SocialApi.self
     public static let chat = ChatApi.self
-    public static let streams = StreamsApi.self
     public static let spaces = SpacesApi.self
 }

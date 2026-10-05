@@ -9,5 +9,7 @@ data class FriendRequest(
     val requestMessage: String? = null,
     val expiredAt: String? = null,
     val createdAt: String? = null,
-    val updatedAt: String? = null
+    val updatedAt: String? = null,
+    val requesterDisplayName: String? = null,
+    val requesterAvatarUrl: String? = null
 )

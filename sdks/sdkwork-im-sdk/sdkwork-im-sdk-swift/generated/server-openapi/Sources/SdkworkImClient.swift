@@ -8,7 +8,6 @@ public class SdkworkImClient {
     public let calls: CallsApi
     public let social: SocialApi
     public let chat: ChatApi
-    public let streams: StreamsApi
     public let spaces: SpacesApi
 
     public init(baseURL: String) {
@@ -18,7 +17,6 @@ public class SdkworkImClient {
         self.calls = CallsApi(client: httpClient)
         self.social = SocialApi(client: httpClient)
         self.chat = ChatApi(client: httpClient)
-        self.streams = StreamsApi(client: httpClient)
         self.spaces = SpacesApi(client: httpClient)
     }
 
@@ -29,9 +27,14 @@ public class SdkworkImClient {
         self.calls = CallsApi(client: httpClient)
         self.social = SocialApi(client: httpClient)
         self.chat = ChatApi(client: httpClient)
-        self.streams = StreamsApi(client: httpClient)
         self.spaces = SpacesApi(client: httpClient)
     }
+
+    public func setApiKey(_ apiKey: String) -> SdkworkImClient {
+        httpClient.setApiKey(apiKey)
+        return self
+    }
+
     public func setAuthToken(_ token: String) -> SdkworkImClient {
         httpClient.setAuthToken(token)
         return self

@@ -6,6 +6,6 @@ namespace Sdkwork.Im.Sdk.Generated.Models
 {
     public class UpdateReadCursorRequest
     {
-        public int ReadSeq { get; set; }
+        public string ReadSeq { get; set; }
     }
 }

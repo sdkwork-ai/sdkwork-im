@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 from ..http_client import HttpClient
-from ..models import BlockUserRequest, CreateContactRecommendationRequest, CreateContactTagRequest, SdkWorkListResponse, SocialContactsListResponse, SocialContactsPreferencesRetrieveResponse, SocialContactsPreferencesUpdateResponse, SocialContactsRecommendationsCreateResponse201, SocialContactsTagsCreateResponse201, SocialContactsTagsUpdateResponse, SocialFriendRequestsAcceptResponse, SocialFriendRequestsCancelResponse, SocialFriendRequestsCreateResponse201, SocialFriendRequestsDeclineResponse, SocialFriendRequestsPendingCountRetrieveResponse, SocialFriendshipsRemoveResponse, SocialUserBlocksCreateResponse201, SocialUsersListResponse, SubmitFriendRequestRequest, UpdateContactPreferencesRequest, UpdateContactTagRequest
+from ..models import BlockUserRequest, CreateContactRecommendationRequest, CreateContactTagRequest, SdkWorkListResponse, SocialContactsListResponse, SocialContactsPreferencesRetrieveResponse, SocialContactsPreferencesUpdateResponse, SocialContactsRecommendationsCreateResponse201, SocialContactsTagsCreateResponse201, SocialContactsTagsUpdateResponse, SocialDirectChatsListResponse, SocialDirectChatsRetrieveResponse, SocialFriendRequestsAcceptResponse, SocialFriendRequestsCancelResponse, SocialFriendRequestsCreateResponse201, SocialFriendRequestsDeclineResponse, SocialFriendRequestsPendingCountRetrieveResponse, SocialFriendshipsListResponse, SocialFriendshipsRemoveResponse, SocialUserBlocksCreateResponse201, SocialUserBlocksListResponse, SocialUsersListResponse, SocialUsersProfileRetrieveResponse, SocialUsersProfileUpdateResponse, SocialUsersSettingsRetrieveResponse, SocialUsersSettingsUpdateResponse, SubmitFriendRequestRequest, UpdateContactPreferencesRequest, UpdateContactTagRequest, UpdateSocialUserProfileRequest, UpdateSocialUserSettingsRequest
 
 def _append_query_string(path: str, raw_query_string: str) -> str:
     query = raw_query_string.lstrip('?')
@@ -190,8 +190,9 @@ class SocialApi:
     def __init__(self, client: HttpClient):
         self._client = client
         self.users = SocialUsersApi(client)
-        self.friend_requests = SocialFriendRequestsApi(client)
         self.friendships = SocialFriendshipsApi(client)
+        self.direct_chats = SocialDirectChatsApi(client)
+        self.friend_requests = SocialFriendRequestsApi(client)
         self.user_blocks = SocialUserBlocksApi(client)
         self.contacts = SocialContactsApi(client)
 
@@ -201,6 +202,8 @@ class SocialUsersApi:
 
     def __init__(self, client: HttpClient):
         self._client = client
+        self.profile = SocialUsersProfileApi(client)
+        self.settings = SocialUsersSettingsApi(client)
 
 
     def list(self, q: Optional[str] = None, page_size: Optional[int] = None, cursor: Optional[str] = None) -> SocialUsersListResponse:
@@ -211,6 +214,74 @@ class SocialUsersApi:
             {'name': 'cursor', 'value': cursor, 'style': 'form', 'explode': True, 'allow_reserved': False},
         ])
         return self._client.get(_append_query_string(f"/im/v3/api/social/users", query))
+
+class SocialUsersProfileApi:
+    """social social.users.profile API client."""
+
+    def __init__(self, client: HttpClient):
+        self._client = client
+
+
+    def list(self, user_id: str) -> SocialUsersProfileRetrieveResponse:
+        """Retrieve a social user profile"""
+        return self._client.get(f"/im/v3/api/social/users/{serialize_path_parameter(user_id, {'name': 'userId', 'style': 'simple', 'explode': False})}/profile")
+
+    def update(self, user_id: str, body: UpdateSocialUserProfileRequest) -> SocialUsersProfileUpdateResponse:
+        """Update the authenticated user profile"""
+        return self._client.patch(f"/im/v3/api/social/users/{serialize_path_parameter(user_id, {'name': 'userId', 'style': 'simple', 'explode': False})}/profile", json=body)
+
+class SocialUsersSettingsApi:
+    """social social.users.settings API client."""
+
+    def __init__(self, client: HttpClient):
+        self._client = client
+
+
+    def list(self, user_id: str) -> SocialUsersSettingsRetrieveResponse:
+        """Retrieve social user settings"""
+        return self._client.get(f"/im/v3/api/social/users/{serialize_path_parameter(user_id, {'name': 'userId', 'style': 'simple', 'explode': False})}/settings")
+
+    def update(self, user_id: str, body: UpdateSocialUserSettingsRequest) -> SocialUsersSettingsUpdateResponse:
+        """Update social user settings"""
+        return self._client.patch(f"/im/v3/api/social/users/{serialize_path_parameter(user_id, {'name': 'userId', 'style': 'simple', 'explode': False})}/settings", json=body)
+
+class SocialFriendshipsApi:
+    """social social.friendships API client."""
+
+    def __init__(self, client: HttpClient):
+        self._client = client
+
+
+    def list(self, page_size: Optional[int] = None, cursor: Optional[str] = None) -> SocialFriendshipsListResponse:
+        """List friendships of the authenticated user"""
+        query = build_query_string([
+            {'name': 'page_size', 'value': page_size, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'cursor', 'value': cursor, 'style': 'form', 'explode': True, 'allow_reserved': False},
+        ])
+        return self._client.get(_append_query_string(f"/im/v3/api/social/friendships", query))
+
+    def create_remove(self, friendship_id: str) -> SocialFriendshipsRemoveResponse:
+        """Remove a friendship"""
+        return self._client.post(f"/im/v3/api/social/friendships/{serialize_path_parameter(friendship_id, {'name': 'friendshipId', 'style': 'simple', 'explode': False})}/remove")
+
+class SocialDirectChatsApi:
+    """social social.direct_chats API client."""
+
+    def __init__(self, client: HttpClient):
+        self._client = client
+
+
+    def list(self, page_size: Optional[int] = None, cursor: Optional[str] = None) -> SocialDirectChatsListResponse:
+        """List direct chats of the authenticated user"""
+        query = build_query_string([
+            {'name': 'page_size', 'value': page_size, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'cursor', 'value': cursor, 'style': 'form', 'explode': True, 'allow_reserved': False},
+        ])
+        return self._client.get(_append_query_string(f"/im/v3/api/social/direct_chats", query))
+
+    def retrieve(self, direct_chat_id: str) -> SocialDirectChatsRetrieveResponse:
+        """Retrieve a direct chat"""
+        return self._client.get(f"/im/v3/api/social/direct_chats/{serialize_path_parameter(direct_chat_id, {'name': 'directChatId', 'style': 'simple', 'explode': False})}")
 
 class SocialFriendRequestsApi:
     """social social.friend_requests API client."""
@@ -265,23 +336,20 @@ class SocialFriendRequestsPendingCountApi:
         """Retrieve pending incoming friend request count"""
         return self._client.get(f"/im/v3/api/social/friend_requests/pending/count")
 
-class SocialFriendshipsApi:
-    """social social.friendships API client."""
-
-    def __init__(self, client: HttpClient):
-        self._client = client
-
-
-    def create_remove(self, friendship_id: str) -> SocialFriendshipsRemoveResponse:
-        """Remove a friendship"""
-        return self._client.post(f"/im/v3/api/social/friendships/{serialize_path_parameter(friendship_id, {'name': 'friendshipId', 'style': 'simple', 'explode': False})}/remove")
-
 class SocialUserBlocksApi:
     """social social.user_blocks API client."""
 
     def __init__(self, client: HttpClient):
         self._client = client
 
+
+    def list(self, page_size: Optional[int] = None, cursor: Optional[str] = None) -> SocialUserBlocksListResponse:
+        """List user blocks created by the authenticated user"""
+        query = build_query_string([
+            {'name': 'page_size', 'value': page_size, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'cursor', 'value': cursor, 'style': 'form', 'explode': True, 'allow_reserved': False},
+        ])
+        return self._client.get(_append_query_string(f"/im/v3/api/social/user_blocks", query))
 
     def create(self, body: BlockUserRequest) -> SocialUserBlocksCreateResponse201:
         """Block a social user"""

@@ -14,7 +14,7 @@ public class MediaResource {
     private String title;
     private String fileName;
     private String mimeType;
-    private Integer size;
+    private String size;
     private String sizeBytes;
     private String fileSize;
     private Integer durationSeconds;
@@ -109,11 +109,11 @@ public class MediaResource {
         this.mimeType = mimeType;
     }
 
-    public Integer getSize() {
+    public String getSize() {
         return this.size;
     }
 
-    public void setSize(Integer size) {
+    public void setSize(String size) {
         this.size = size;
     }
 

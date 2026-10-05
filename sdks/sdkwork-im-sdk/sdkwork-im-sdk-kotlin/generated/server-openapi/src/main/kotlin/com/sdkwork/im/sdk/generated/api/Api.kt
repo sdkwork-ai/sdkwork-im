@@ -11,6 +11,5 @@ class Api(private val client: HttpClient) {
     val calls: CallsApi = CallsApi(client)
     val social: SocialApi = SocialApi(client)
     val chat: ChatApi = ChatApi(client)
-    val streams: StreamsApi = StreamsApi(client)
     val spaces: SpacesApi = SpacesApi(client)
 }

@@ -29,13 +29,13 @@ import com.sdkwork.im.backend.api.generated.model.*;
 
 public class Main {
     public static void main(String[] args) throws Exception {
-        Types.SdkConfig config = new Types.SdkConfig("http://127.0.0.1:18079");
+        Types.SdkConfig config = new Types.SdkConfig("http://127.0.0.1:18089");
         SdkworkImBackendClient client = new SdkworkImBackendClient(config);
         client.setAuthToken("your-auth-token");
 client.setAccessToken("your-access-token");
 
         // Use the SDK
-        BillingEventsSummaryRetrieveResponse result = client.getAdmin().billingEventsSummaryRetrieve();
+        VerifyRetrieveResponse result = client.getAudit().verifyRetrieve();
         System.out.println(result);
     }
 }
@@ -52,7 +52,7 @@ Access-Token: <accessToken>
 ## Configuration (Non-Auth)
 
 ```java
-Types.SdkConfig config = new Types.SdkConfig("http://127.0.0.1:18079");
+Types.SdkConfig config = new Types.SdkConfig("http://127.0.0.1:18089");
 SdkworkImBackendClient client = new SdkworkImBackendClient(config);
 
 // Set custom headers
@@ -65,7 +65,6 @@ client.getHttpClient().setHeader("X-Custom-Header", "value");
 - `client.getAudit()` - audit API
 - `client.getAutomation()` - automation API
 - `client.getControl()` - control API
-- `client.getAdmin()` - admin API
 
 ## Usage Examples
 
@@ -80,8 +79,8 @@ System.out.println(result);
 ### audit
 
 ```java
-// Export audit bundle
-ExportRetrieveResponse result = client.getAudit().exportRetrieve();
+// Verify audit chain integrity
+VerifyRetrieveResponse result = client.getAudit().verifyRetrieve();
 System.out.println(result);
 ```
 
@@ -101,19 +100,11 @@ ProtocolGovernanceRetrieveResponse result = client.getControl().protocolGovernan
 System.out.println(result);
 ```
 
-### admin
-
-```java
-// getBillingEventSummary
-BillingEventsSummaryRetrieveResponse result = client.getAdmin().billingEventsSummaryRetrieve();
-System.out.println(result);
-```
-
 ## Error Handling
 
 ```java
 try {
-    BillingEventsSummaryRetrieveResponse result = client.getAdmin().billingEventsSummaryRetrieve();
+    VerifyRetrieveResponse result = client.getAudit().verifyRetrieve();
     System.out.println(result);
 } catch (Exception e) {
     System.err.println("Error: " + e.getMessage());

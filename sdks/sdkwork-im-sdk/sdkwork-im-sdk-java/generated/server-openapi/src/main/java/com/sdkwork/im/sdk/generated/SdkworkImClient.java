@@ -7,7 +7,6 @@ import com.sdkwork.im.sdk.generated.api.RealtimeApi;
 import com.sdkwork.im.sdk.generated.api.CallsApi;
 import com.sdkwork.im.sdk.generated.api.SocialApi;
 import com.sdkwork.im.sdk.generated.api.ChatApi;
-import com.sdkwork.im.sdk.generated.api.StreamsApi;
 import com.sdkwork.im.sdk.generated.api.SpacesApi;
 
 public class SdkworkImClient {
@@ -17,7 +16,6 @@ public class SdkworkImClient {
     private CallsApi calls;
     private SocialApi social;
     private ChatApi chat;
-    private StreamsApi streams;
     private SpacesApi spaces;
 
     public SdkworkImClient(String baseUrl) {
@@ -27,7 +25,6 @@ public class SdkworkImClient {
         this.calls = new CallsApi(httpClient);
         this.social = new SocialApi(httpClient);
         this.chat = new ChatApi(httpClient);
-        this.streams = new StreamsApi(httpClient);
         this.spaces = new SpacesApi(httpClient);
     }
 
@@ -38,7 +35,6 @@ public class SdkworkImClient {
         this.calls = new CallsApi(httpClient);
         this.social = new SocialApi(httpClient);
         this.chat = new ChatApi(httpClient);
-        this.streams = new StreamsApi(httpClient);
         this.spaces = new SpacesApi(httpClient);
     }
 
@@ -62,13 +58,15 @@ public class SdkworkImClient {
         return this.chat;
     }
 
-    public StreamsApi getStreams() {
-        return this.streams;
-    }
-
     public SpacesApi getSpaces() {
         return this.spaces;
     }
+
+    public SdkworkImClient setApiKey(String apiKey) {
+        httpClient.setApiKey(apiKey);
+        return this;
+    }
+
     public SdkworkImClient setAuthToken(String token) {
         httpClient.setAuthToken(token);
         return this;

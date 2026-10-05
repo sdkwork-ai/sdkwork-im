@@ -3,15 +3,15 @@ package com.sdkwork.im.sdk.generated.model;
 import java.util.List;
 
 public class ConversationAgentAssignments {
-    private Integer generation;
+    private String generation;
     private String source;
     private List<ConversationAgentAssignment> agents;
 
-    public Integer getGeneration() {
+    public String getGeneration() {
         return this.generation;
     }
 
-    public void setGeneration(Integer generation) {
+    public void setGeneration(String generation) {
         this.generation = generation;
     }
 

@@ -14,7 +14,7 @@ pub struct ConversationMessageEntry {
     pub message_id: String,
 
     #[serde(rename = "messageSeq")]
-    pub message_seq: i64,
+    pub message_seq: String,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,

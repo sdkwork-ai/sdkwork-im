@@ -17,40 +17,51 @@ func NewAuditApi(client *sdkhttp.Client) *AuditApi {
     return &AuditApi{client: client}
 }
 
+// Record an audit anchor
+func (a *AuditApi) RecordsCreate(body sdktypes.AuditRecordAnchorRequest) (sdktypes.AuditRecordsCreateResponse201, error) {
+    raw, err := a.client.Post(BackendApiPath("/audit/records"), body, nil, nil, "application/json")
+    if err != nil {
+        var zero sdktypes.AuditRecordsCreateResponse201
+        return zero, err
+    }
+    return decodeResult[sdktypes.AuditRecordsCreateResponse201](raw)
+}
+
 // List audit records
-func (a *AuditApi) RecordsList(pageSize *int, cursor *string, page *int, q *string) (sdktypes.SdkWorkListResponse, error) {
+func (a *AuditApi) RecordsList(afterAuditSeq *string, pageSize *int) (sdktypes.AuditRecordsListResponse, error) {
     query := BuildQueryString([]QueryParameterSpec{
+        {Name: "after_audit_seq", Value: func() interface{} { if afterAuditSeq == nil { return nil }; return *afterAuditSeq }(), Style: "form", Explode: true, AllowReserved: false},
         {Name: "page_size", Value: func() interface{} { if pageSize == nil { return nil }; return *pageSize }(), Style: "form", Explode: true, AllowReserved: false},
-        {Name: "cursor", Value: func() interface{} { if cursor == nil { return nil }; return *cursor }(), Style: "form", Explode: true, AllowReserved: false},
-        {Name: "page", Value: func() interface{} { if page == nil { return nil }; return *page }(), Style: "form", Explode: true, AllowReserved: false},
-        {Name: "q", Value: func() interface{} { if q == nil { return nil }; return *q }(), Style: "form", Explode: true, AllowReserved: false},
     })
     raw, err := a.client.Get(AppendQueryString(BackendApiPath("/audit/records"), query), nil, nil)
     if err != nil {
-        var zero sdktypes.SdkWorkListResponse
+        var zero sdktypes.AuditRecordsListResponse
         return zero, err
     }
-    return decodeResult[sdktypes.SdkWorkListResponse](raw)
+    return decodeResult[sdktypes.AuditRecordsListResponse](raw)
 }
 
-// Record audit anchor
-func (a *AuditApi) RecordsCreate() (sdktypes.RecordsCreateResponse201, error) {
-    raw, err := a.client.Post(BackendApiPath("/audit/records"), nil, nil, nil, "")
+// Export the audit ledger
+func (a *AuditApi) ExportRetrieve(pageSize *int) (sdktypes.AuditExportRetrieveResponse, error) {
+    query := BuildQueryString([]QueryParameterSpec{
+        {Name: "page_size", Value: func() interface{} { if pageSize == nil { return nil }; return *pageSize }(), Style: "form", Explode: true, AllowReserved: false},
+    })
+    raw, err := a.client.Get(AppendQueryString(BackendApiPath("/audit/export"), query), nil, nil)
     if err != nil {
-        var zero sdktypes.RecordsCreateResponse201
+        var zero sdktypes.AuditExportRetrieveResponse
         return zero, err
     }
-    return decodeResult[sdktypes.RecordsCreateResponse201](raw)
+    return decodeResult[sdktypes.AuditExportRetrieveResponse](raw)
 }
 
-// Export audit bundle
-func (a *AuditApi) ExportRetrieve() (sdktypes.ExportRetrieveResponse, error) {
-    raw, err := a.client.Get(BackendApiPath("/audit/export"), nil, nil)
+// Verify audit chain integrity
+func (a *AuditApi) VerifyRetrieve() (sdktypes.VerifyRetrieveResponse, error) {
+    raw, err := a.client.Get(BackendApiPath("/audit/verify"), nil, nil)
     if err != nil {
-        var zero sdktypes.ExportRetrieveResponse
+        var zero sdktypes.VerifyRetrieveResponse
         return zero, err
     }
-    return decodeResult[sdktypes.ExportRetrieveResponse](raw)
+    return decodeResult[sdktypes.VerifyRetrieveResponse](raw)
 }
 
 

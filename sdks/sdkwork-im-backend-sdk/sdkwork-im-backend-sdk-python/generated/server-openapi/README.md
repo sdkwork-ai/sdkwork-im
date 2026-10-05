@@ -14,7 +14,7 @@ pip install sdkwork-im-backend-api-generated
 from sdkwork_im_backend_api_generated import SdkworkImBackendClient, SdkConfig
 
 config = SdkConfig(
-    base_url="http://127.0.0.1:18079",
+    base_url="http://127.0.0.1:18089",
 )
 
 client = SdkworkImBackendClient(config)
@@ -22,7 +22,7 @@ client.set_auth_token("your-auth-token")
 client.set_access_token("your-access-token")
 
 # Use the SDK
-result = client.admin.billing.events.summary.retrieve()
+result = client.audit.verify.retrieve()
 ```
 
 ## Authentication
@@ -39,7 +39,7 @@ Access-Token: <accessToken>
 from sdkwork_im_backend_api_generated import SdkworkImBackendClient, SdkConfig
 
 config = SdkConfig(
-    base_url="http://127.0.0.1:18079",
+    base_url="http://127.0.0.1:18089",
 )
 
 client = SdkworkImBackendClient(config)
@@ -52,7 +52,6 @@ client.set_header('X-Custom-Header', 'value')
 - `client.audit` - audit API
 - `client.automation` - automation API
 - `client.control` - control API
-- `client.admin` - admin API
 
 ## Usage Examples
 
@@ -67,8 +66,8 @@ print(result)
 ### audit
 
 ```python
-# Export audit bundle
-result = client.audit.export.retrieve()
+# Verify audit chain integrity
+result = client.audit.verify.retrieve()
 print(result)
 ```
 
@@ -88,19 +87,11 @@ result = client.control.protocol_governance.retrieve()
 print(result)
 ```
 
-### admin
-
-```python
-# getBillingEventSummary
-result = client.admin.billing.events.summary.retrieve()
-print(result)
-```
-
 ## Error Handling
 
 ```python
 try:
-    client.admin.billing.events.summary.retrieve()
+    client.audit.verify.retrieve()
 except Exception as error:
     print(f"Error: {error}")
 ```

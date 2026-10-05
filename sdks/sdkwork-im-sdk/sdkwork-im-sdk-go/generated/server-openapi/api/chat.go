@@ -33,6 +33,16 @@ func (a *ChatApi) InboxList(pageSize *int, cursor *string, conversationType *str
     return decodeResult[sdktypes.InboxListResponse](raw)
 }
 
+// Ensure the current user received the system-agent Welcome message
+func (a *ChatApi) MeWelcomeEnsure() (sdktypes.ChatMeWelcomeEnsureResponse, error) {
+    raw, err := a.client.Post(ImApiPath("/chat/me/welcome/ensure"), nil, nil, nil, "")
+    if err != nil {
+        var zero sdktypes.ChatMeWelcomeEnsureResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.ChatMeWelcomeEnsureResponse](raw)
+}
+
 // Create a conversation
 func (a *ChatApi) ConversationsCreate(body sdktypes.CreateConversationRequest) (sdktypes.ConversationsCreateResponse201, error) {
     raw, err := a.client.Post(ImApiPath("/chat/conversations"), body, nil, nil, "application/json")
@@ -91,6 +101,16 @@ func (a *ChatApi) ConversationsDirectChatsBindingsCreate(body sdktypes.BindDirec
         return zero, err
     }
     return decodeResult[sdktypes.ConversationsDirectChatsBindingsCreateResponse201](raw)
+}
+
+// Sync a shared-channel linked member into a conversation
+func (a *ChatApi) ConversationsSharedChannelLinksSync(body sdktypes.SharedChannelLinkSyncRequest) (sdktypes.ConversationsSharedChannelLinksSyncResponse, error) {
+    raw, err := a.client.Post(ImApiPath("/chat/conversations/shared_channel_links/sync"), body, nil, nil, "application/json")
+    if err != nil {
+        var zero sdktypes.ConversationsSharedChannelLinksSyncResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.ConversationsSharedChannelLinksSyncResponse](raw)
 }
 
 // Retrieve agent handoff state
@@ -185,6 +205,16 @@ func (a *ChatApi) ConversationsAgentsUpdate(conversationId string, body sdktypes
         return zero, err
     }
     return decodeResult[sdktypes.ConversationsAgentsUpdateResponse](raw)
+}
+
+// Retrieve the business binding of a conversation
+func (a *ChatApi) ConversationsBindingRetrieve(conversationId string) (sdktypes.ConversationsBindingRetrieveResponse, error) {
+    raw, err := a.client.Get(ImApiPath(fmt.Sprintf("/chat/conversations/%s/binding", SerializePathParameter(conversationId, PathParameterSpec{Name: "conversationId", Style: "simple", Explode: false}))), nil, nil)
+    if err != nil {
+        var zero sdktypes.ConversationsBindingRetrieveResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.ConversationsBindingRetrieveResponse](raw)
 }
 
 // Add a conversation member
@@ -307,6 +337,26 @@ func (a *ChatApi) ConversationsReadCursorUpdate(conversationId string, body sdkt
     return decodeResult[sdktypes.ConversationsReadCursorUpdateResponse](raw)
 }
 
+// List live typing indicators
+func (a *ChatApi) ConversationsTypingList(conversationId string) (sdktypes.ConversationsTypingListResponse, error) {
+    raw, err := a.client.Get(ImApiPath(fmt.Sprintf("/chat/conversations/%s/typing", SerializePathParameter(conversationId, PathParameterSpec{Name: "conversationId", Style: "simple", Explode: false}))), nil, nil)
+    if err != nil {
+        var zero sdktypes.ConversationsTypingListResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.ConversationsTypingListResponse](raw)
+}
+
+// Signal typing in a conversation
+func (a *ChatApi) ConversationsTypingSignal(conversationId string) (sdktypes.ConversationsTypingSignalResponse, error) {
+    raw, err := a.client.Post(ImApiPath(fmt.Sprintf("/chat/conversations/%s/typing/signal", SerializePathParameter(conversationId, PathParameterSpec{Name: "conversationId", Style: "simple", Explode: false}))), nil, nil, nil, "")
+    if err != nil {
+        var zero sdktypes.ConversationsTypingSignalResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.ConversationsTypingSignalResponse](raw)
+}
+
 // List member directory
 func (a *ChatApi) ConversationsMemberDirectoryList(conversationId string, cursor *string, pageSize *int) (sdktypes.ConversationsMemberDirectoryListResponse, error) {
     query := BuildQueryString([]QueryParameterSpec{
@@ -379,6 +429,22 @@ func (a *ChatApi) ConversationsMessagesInteractionSummaryRetrieve(conversationId
     return decodeResult[sdktypes.ConversationsMessagesInteractionSummaryRetrieveResponse](raw)
 }
 
+// Search conversation message history
+func (a *ChatApi) MessagesSearchList(q string, conversationId *string, pageSize *int, cursor *string) (sdktypes.MessageSearchResponse, error) {
+    query := BuildQueryString([]QueryParameterSpec{
+        {Name: "q", Value: q, Style: "form", Explode: true, AllowReserved: false},
+        {Name: "conversation_id", Value: func() interface{} { if conversationId == nil { return nil }; return *conversationId }(), Style: "form", Explode: true, AllowReserved: false},
+        {Name: "page_size", Value: func() interface{} { if pageSize == nil { return nil }; return *pageSize }(), Style: "form", Explode: true, AllowReserved: false},
+        {Name: "cursor", Value: func() interface{} { if cursor == nil { return nil }; return *cursor }(), Style: "form", Explode: true, AllowReserved: false},
+    })
+    raw, err := a.client.Get(AppendQueryString(ImApiPath("/chat/messages/search"), query), nil, nil)
+    if err != nil {
+        var zero sdktypes.MessageSearchResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.MessageSearchResponse](raw)
+}
+
 // Edit a message
 func (a *ChatApi) MessagesEdit(messageId string, body sdktypes.EditMessageRequest) (sdktypes.MessagesEditResponse, error) {
     raw, err := a.client.Post(ImApiPath(fmt.Sprintf("/chat/messages/%s/edit", SerializePathParameter(messageId, PathParameterSpec{Name: "messageId", Style: "simple", Explode: false}))), body, nil, nil, "application/json")
@@ -404,7 +470,7 @@ func (a *ChatApi) MessagesFavoritesList(pageSize *int, cursor *string, favoriteT
     query := BuildQueryString([]QueryParameterSpec{
         {Name: "page_size", Value: func() interface{} { if pageSize == nil { return nil }; return *pageSize }(), Style: "form", Explode: true, AllowReserved: false},
         {Name: "cursor", Value: func() interface{} { if cursor == nil { return nil }; return *cursor }(), Style: "form", Explode: true, AllowReserved: false},
-        {Name: "favoriteType", Value: func() interface{} { if favoriteType == nil { return nil }; return *favoriteType }(), Style: "form", Explode: true, AllowReserved: false},
+        {Name: "favorite_type", Value: func() interface{} { if favoriteType == nil { return nil }; return *favoriteType }(), Style: "form", Explode: true, AllowReserved: false},
         {Name: "q", Value: func() interface{} { if q == nil { return nil }; return *q }(), Style: "form", Explode: true, AllowReserved: false},
     })
     raw, err := a.client.Get(AppendQueryString(ImApiPath("/chat/messages/favorites"), query), nil, nil)

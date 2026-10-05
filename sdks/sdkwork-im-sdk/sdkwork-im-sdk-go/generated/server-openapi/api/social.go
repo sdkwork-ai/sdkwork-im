@@ -32,6 +32,84 @@ func (a *SocialApi) UsersList(q *string, pageSize *int, cursor *string) (sdktype
     return decodeResult[sdktypes.SocialUsersListResponse](raw)
 }
 
+// Retrieve a social user profile
+func (a *SocialApi) UsersProfileRetrieve(userId string) (sdktypes.SocialUsersProfileRetrieveResponse, error) {
+    raw, err := a.client.Get(ImApiPath(fmt.Sprintf("/social/users/%s/profile", SerializePathParameter(userId, PathParameterSpec{Name: "userId", Style: "simple", Explode: false}))), nil, nil)
+    if err != nil {
+        var zero sdktypes.SocialUsersProfileRetrieveResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.SocialUsersProfileRetrieveResponse](raw)
+}
+
+// Update the authenticated user profile
+func (a *SocialApi) UsersProfileUpdate(userId string, body sdktypes.UpdateSocialUserProfileRequest) (sdktypes.SocialUsersProfileUpdateResponse, error) {
+    raw, err := a.client.Patch(ImApiPath(fmt.Sprintf("/social/users/%s/profile", SerializePathParameter(userId, PathParameterSpec{Name: "userId", Style: "simple", Explode: false}))), body, nil, nil, "application/json")
+    if err != nil {
+        var zero sdktypes.SocialUsersProfileUpdateResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.SocialUsersProfileUpdateResponse](raw)
+}
+
+// Retrieve social user settings
+func (a *SocialApi) UsersSettingsRetrieve(userId string) (sdktypes.SocialUsersSettingsRetrieveResponse, error) {
+    raw, err := a.client.Get(ImApiPath(fmt.Sprintf("/social/users/%s/settings", SerializePathParameter(userId, PathParameterSpec{Name: "userId", Style: "simple", Explode: false}))), nil, nil)
+    if err != nil {
+        var zero sdktypes.SocialUsersSettingsRetrieveResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.SocialUsersSettingsRetrieveResponse](raw)
+}
+
+// Update social user settings
+func (a *SocialApi) UsersSettingsUpdate(userId string, body sdktypes.UpdateSocialUserSettingsRequest) (sdktypes.SocialUsersSettingsUpdateResponse, error) {
+    raw, err := a.client.Patch(ImApiPath(fmt.Sprintf("/social/users/%s/settings", SerializePathParameter(userId, PathParameterSpec{Name: "userId", Style: "simple", Explode: false}))), body, nil, nil, "application/json")
+    if err != nil {
+        var zero sdktypes.SocialUsersSettingsUpdateResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.SocialUsersSettingsUpdateResponse](raw)
+}
+
+// List friendships of the authenticated user
+func (a *SocialApi) FriendshipsList(pageSize *int, cursor *string) (sdktypes.SocialFriendshipsListResponse, error) {
+    query := BuildQueryString([]QueryParameterSpec{
+        {Name: "page_size", Value: func() interface{} { if pageSize == nil { return nil }; return *pageSize }(), Style: "form", Explode: true, AllowReserved: false},
+        {Name: "cursor", Value: func() interface{} { if cursor == nil { return nil }; return *cursor }(), Style: "form", Explode: true, AllowReserved: false},
+    })
+    raw, err := a.client.Get(AppendQueryString(ImApiPath("/social/friendships"), query), nil, nil)
+    if err != nil {
+        var zero sdktypes.SocialFriendshipsListResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.SocialFriendshipsListResponse](raw)
+}
+
+// List direct chats of the authenticated user
+func (a *SocialApi) DirectChatsList(pageSize *int, cursor *string) (sdktypes.SocialDirectChatsListResponse, error) {
+    query := BuildQueryString([]QueryParameterSpec{
+        {Name: "page_size", Value: func() interface{} { if pageSize == nil { return nil }; return *pageSize }(), Style: "form", Explode: true, AllowReserved: false},
+        {Name: "cursor", Value: func() interface{} { if cursor == nil { return nil }; return *cursor }(), Style: "form", Explode: true, AllowReserved: false},
+    })
+    raw, err := a.client.Get(AppendQueryString(ImApiPath("/social/direct_chats"), query), nil, nil)
+    if err != nil {
+        var zero sdktypes.SocialDirectChatsListResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.SocialDirectChatsListResponse](raw)
+}
+
+// Retrieve a direct chat
+func (a *SocialApi) DirectChatsRetrieve(directChatId string) (sdktypes.SocialDirectChatsRetrieveResponse, error) {
+    raw, err := a.client.Get(ImApiPath(fmt.Sprintf("/social/direct_chats/%s", SerializePathParameter(directChatId, PathParameterSpec{Name: "directChatId", Style: "simple", Explode: false}))), nil, nil)
+    if err != nil {
+        var zero sdktypes.SocialDirectChatsRetrieveResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.SocialDirectChatsRetrieveResponse](raw)
+}
+
 // List friend requests
 func (a *SocialApi) FriendRequestsList(direction *string, status *string, pageSize *int, cursor *string) (sdktypes.SdkWorkListResponse, error) {
     query := BuildQueryString([]QueryParameterSpec{
@@ -106,6 +184,20 @@ func (a *SocialApi) FriendshipsRemove(friendshipId string) (sdktypes.SocialFrien
         return zero, err
     }
     return decodeResult[sdktypes.SocialFriendshipsRemoveResponse](raw)
+}
+
+// List user blocks created by the authenticated user
+func (a *SocialApi) UserBlocksList(pageSize *int, cursor *string) (sdktypes.SocialUserBlocksListResponse, error) {
+    query := BuildQueryString([]QueryParameterSpec{
+        {Name: "page_size", Value: func() interface{} { if pageSize == nil { return nil }; return *pageSize }(), Style: "form", Explode: true, AllowReserved: false},
+        {Name: "cursor", Value: func() interface{} { if cursor == nil { return nil }; return *cursor }(), Style: "form", Explode: true, AllowReserved: false},
+    })
+    raw, err := a.client.Get(AppendQueryString(ImApiPath("/social/user_blocks"), query), nil, nil)
+    if err != nil {
+        var zero sdktypes.SocialUserBlocksListResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.SocialUserBlocksListResponse](raw)
 }
 
 // Block a social user

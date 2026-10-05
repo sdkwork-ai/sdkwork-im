@@ -10,6 +10,6 @@ namespace Sdkwork.Im.Sdk.Generated.Models
         public string TargetKind { get; set; }
         public string TargetId { get; set; }
         public string DisplayText { get; set; }
-        public int AssignmentGeneration { get; set; }
+        public string AssignmentGeneration { get; set; }
     }
 }

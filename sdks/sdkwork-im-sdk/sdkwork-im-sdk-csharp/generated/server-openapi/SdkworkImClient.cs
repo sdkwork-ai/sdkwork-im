@@ -14,7 +14,6 @@ namespace Sdkwork.Im.Sdk.Generated
         public CallsApi Calls { get; }
         public SocialApi Social { get; }
         public ChatApi Chat { get; }
-        public StreamsApi Streams { get; }
         public SpacesApi Spaces { get; }
 
         public SdkworkImClient(string baseUrl)
@@ -25,7 +24,6 @@ namespace Sdkwork.Im.Sdk.Generated
             Calls = new CallsApi(_httpClient);
             Social = new SocialApi(_httpClient);
             Chat = new ChatApi(_httpClient);
-            Streams = new StreamsApi(_httpClient);
             Spaces = new SpacesApi(_httpClient);
         }
 
@@ -37,9 +35,15 @@ namespace Sdkwork.Im.Sdk.Generated
             Calls = new CallsApi(_httpClient);
             Social = new SocialApi(_httpClient);
             Chat = new ChatApi(_httpClient);
-            Streams = new StreamsApi(_httpClient);
             Spaces = new SpacesApi(_httpClient);
         }
+
+        public SdkworkImClient SetApiKey(string apiKey)
+        {
+            _httpClient.SetApiKey(apiKey);
+            return this;
+        }
+
         public SdkworkImClient SetAuthToken(string token)
         {
             _httpClient.SetAuthToken(token);

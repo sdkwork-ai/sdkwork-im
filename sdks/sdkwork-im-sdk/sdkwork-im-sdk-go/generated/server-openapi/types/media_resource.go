@@ -13,7 +13,7 @@ type MediaResource struct {
 	Title string `json:"title"`
 	FileName string `json:"fileName"`
 	MimeType string `json:"mimeType"`
-	Size int `json:"size"`
+	Size string `json:"size"`
 	SizeBytes string `json:"sizeBytes"`
 	FileSize string `json:"fileSize"`
 	DurationSeconds int `json:"durationSeconds"`

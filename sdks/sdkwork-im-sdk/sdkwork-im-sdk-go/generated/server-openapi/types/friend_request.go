@@ -11,4 +11,6 @@ type FriendRequest struct {
 	ExpiredAt string `json:"expiredAt"`
 	CreatedAt string `json:"createdAt"`
 	UpdatedAt string `json:"updatedAt"`
+	RequesterDisplayName string `json:"requesterDisplayName"`
+	RequesterAvatarUrl string `json:"requesterAvatarUrl"`
 }

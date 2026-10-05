@@ -151,6 +151,14 @@ namespace Sdkwork.Im.Sdk.Generated.Api
         }
 
         /// <summary>
+        /// Transfer spaces groups owner
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.SpacesGroupsTransferOwnerResponse?> GroupsTransferOwnerAsync(string spaceId, string groupId, Sdkwork.Im.Sdk.Generated.Models.SpaceGroupTransferOwnerRequest body)
+        {
+            return await _client.PostAsync<Sdkwork.Im.Sdk.Generated.Models.SpacesGroupsTransferOwnerResponse>(ApiPaths.ImPath($"/spaces/{SerializePathParameter(spaceId, new PathParameterSpec("spaceId", "simple", false))}/groups/{SerializePathParameter(groupId, new PathParameterSpec("groupId", "simple", false))}/transfer_owner"), body, null, null, "application/json");
+        }
+
+        /// <summary>
         /// List spaces groups members
         /// </summary>
         public async Task<Sdkwork.Im.Sdk.Generated.Models.SpacesGroupsMembersListResponse?> GroupsMembersListAsync(string spaceId, string groupId, int? pageSize = null, string? cursor = null)

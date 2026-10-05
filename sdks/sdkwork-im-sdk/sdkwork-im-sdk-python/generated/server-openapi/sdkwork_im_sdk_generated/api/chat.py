@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 from ..http_client import HttpClient
-from ..models import AddConversationMemberRequest, BindDirectChatRequest, ChangeConversationMemberRoleRequest, ConversationMessageListResponse, ConversationsAgentDialogsCreateResponse201, ConversationsAgentHandoffAcceptResponse, ConversationsAgentHandoffCloseResponse, ConversationsAgentHandoffResolveResponse, ConversationsAgentHandoffRetrieveResponse, ConversationsAgentHandoffsCreateResponse201, ConversationsAgentsRetrieveResponse, ConversationsAgentsUpdateResponse, ConversationsCreateResponse201, ConversationsDirectChatsBindingsCreateResponse201, ConversationsMemberDirectoryListResponse, ConversationsMembersAcceptInvitationResponse, ConversationsMembersAddResponse, ConversationsMembersChangeRoleResponse, ConversationsMembersCurrentRetrieveResponse, ConversationsMembersLeaveResponse, ConversationsMembersListResponse, ConversationsMembersRemoveResponse, ConversationsMembersTransferOwnerResponse, ConversationsMessagesCreateResponse201, ConversationsMessagesInteractionSummaryRetrieveResponse, ConversationsPinsListResponse, ConversationsPreferencesRetrieveResponse, ConversationsPreferencesUpdateResponse, ConversationsProfileRetrieveResponse, ConversationsProfileUpdateResponse, ConversationsReadCursorRetrieveResponse, ConversationsReadCursorUpdateResponse, ConversationsRetrieveResponse, ConversationsSystemChannelPublishResponse, ConversationsSystemChannelsCreateResponse201, ConversationsThreadsCreateResponse201, CreateAgentDialogRequest, CreateAgentHandoffRequest, CreateConversationRequest, CreateRoomRequest, CreateSystemChannelRequest, CreateThreadConversationRequest, EditMessageRequest, FavoriteMessageRequest, InboxListResponse, MessageReactionRequest, MessagesEditResponse, MessagesFavoritesCreateResponse201, MessagesFavoritesListResponse, MessagesPinResponse, MessagesReactionsCreateResponse201, MessagesReactionsRemoveResponse, MessagesRecallResponse, MessagesUnpinResponse, PostMessageRequest, RecallMessageRequest, RemoveConversationMemberRequest, RoomsCreateResponse201, RoomsEnterResponse, RoomsLeaveResponse, RoomsRetrieveResponse, TransferConversationOwnerRequest, UpdateConversationAgentsRequest, UpdateConversationPreferencesRequest, UpdateConversationProfileRequest, UpdateReadCursorRequest
+from ..models import AddConversationMemberRequest, BindDirectChatRequest, ChangeConversationMemberRoleRequest, ChatMeWelcomeEnsureResponse, ConversationMessageListResponse, ConversationsAgentDialogsCreateResponse201, ConversationsAgentHandoffAcceptResponse, ConversationsAgentHandoffCloseResponse, ConversationsAgentHandoffResolveResponse, ConversationsAgentHandoffRetrieveResponse, ConversationsAgentHandoffsCreateResponse201, ConversationsAgentsRetrieveResponse, ConversationsAgentsUpdateResponse, ConversationsBindingRetrieveResponse, ConversationsCreateResponse201, ConversationsDirectChatsBindingsCreateResponse201, ConversationsMemberDirectoryListResponse, ConversationsMembersAcceptInvitationResponse, ConversationsMembersAddResponse, ConversationsMembersChangeRoleResponse, ConversationsMembersCurrentRetrieveResponse, ConversationsMembersLeaveResponse, ConversationsMembersListResponse, ConversationsMembersRemoveResponse, ConversationsMembersTransferOwnerResponse, ConversationsMessagesCreateResponse201, ConversationsMessagesInteractionSummaryRetrieveResponse, ConversationsPinsListResponse, ConversationsPreferencesRetrieveResponse, ConversationsPreferencesUpdateResponse, ConversationsProfileRetrieveResponse, ConversationsProfileUpdateResponse, ConversationsReadCursorRetrieveResponse, ConversationsReadCursorUpdateResponse, ConversationsRetrieveResponse, ConversationsSharedChannelLinksSyncResponse, ConversationsSystemChannelPublishResponse, ConversationsSystemChannelsCreateResponse201, ConversationsThreadsCreateResponse201, ConversationsTypingListResponse, ConversationsTypingSignalResponse, CreateAgentDialogRequest, CreateAgentHandoffRequest, CreateConversationRequest, CreateRoomRequest, CreateSystemChannelRequest, CreateThreadConversationRequest, EditMessageRequest, FavoriteMessageRequest, InboxListResponse, MessageReactionRequest, MessageSearchResponse, MessagesEditResponse, MessagesFavoritesCreateResponse201, MessagesFavoritesListResponse, MessagesPinResponse, MessagesReactionsCreateResponse201, MessagesReactionsRemoveResponse, MessagesRecallResponse, MessagesUnpinResponse, PostMessageRequest, RecallMessageRequest, RemoveConversationMemberRequest, RoomsCreateResponse201, RoomsEnterResponse, RoomsLeaveResponse, RoomsRetrieveResponse, SharedChannelLinkSyncRequest, TransferConversationOwnerRequest, UpdateConversationAgentsRequest, UpdateConversationPreferencesRequest, UpdateConversationProfileRequest, UpdateReadCursorRequest
 
 def _append_query_string(path: str, raw_query_string: str) -> str:
     query = raw_query_string.lstrip('?')
@@ -190,6 +190,7 @@ class ChatApi:
     def __init__(self, client: HttpClient):
         self._client = client
         self.inbox = ChatInboxApi(client)
+        self.me = ChatMeApi(client)
         self.conversations = ChatConversationsApi(client)
         self.messages = ChatMessagesApi(client)
         self.rooms = ChatRoomsApi(client)
@@ -212,6 +213,25 @@ class ChatInboxApi:
         ])
         return self._client.get(_append_query_string(f"/im/v3/api/chat/inbox", query))
 
+class ChatMeApi:
+    """chat chat.me API client."""
+
+    def __init__(self, client: HttpClient):
+        self._client = client
+        self.welcome = ChatMeWelcomeApi(client)
+
+
+class ChatMeWelcomeApi:
+    """chat chat.me.welcome API client."""
+
+    def __init__(self, client: HttpClient):
+        self._client = client
+
+
+    def create_ensure(self) -> ChatMeWelcomeEnsureResponse:
+        """Ensure the current user received the system-agent Welcome message"""
+        return self._client.post(f"/im/v3/api/chat/me/welcome/ensure")
+
 class ChatConversationsApi:
     """chat chat.conversations API client."""
 
@@ -222,11 +242,14 @@ class ChatConversationsApi:
         self.system_channels = ChatConversationsSystemChannelsApi(client)
         self.threads = ChatConversationsThreadsApi(client)
         self.direct_chats = ChatConversationsDirectChatsApi(client)
+        self.shared_channel_links = ChatConversationsSharedChannelLinksApi(client)
         self.members = ChatConversationsMembersApi(client)
         self.agents = ChatConversationsAgentsApi(client)
+        self.binding = ChatConversationsBindingApi(client)
         self.preferences = ChatConversationsPreferencesApi(client)
         self.profile = ChatConversationsProfileApi(client)
         self.read_cursor = ChatConversationsReadCursorApi(client)
+        self.typing = ChatConversationsTypingApi(client)
         self.member_directory = ChatConversationsMemberDirectoryApi(client)
         self.messages = ChatConversationsMessagesApi(client)
         self.pins = ChatConversationsPinsApi(client)
@@ -323,6 +346,17 @@ class ChatConversationsDirectChatsBindingsApi:
         """Create a direct chat conversation binding"""
         return self._client.post(f"/im/v3/api/chat/conversations/direct_chats/bindings", json=body)
 
+class ChatConversationsSharedChannelLinksApi:
+    """chat chat.conversations.shared_channel_links API client."""
+
+    def __init__(self, client: HttpClient):
+        self._client = client
+
+
+    def sync(self, body: SharedChannelLinkSyncRequest) -> ConversationsSharedChannelLinksSyncResponse:
+        """Sync a shared-channel linked member into a conversation"""
+        return self._client.post(f"/im/v3/api/chat/conversations/shared_channel_links/sync", json=body)
+
 class ChatConversationsMembersApi:
     """chat chat.conversations.members API client."""
 
@@ -389,6 +423,17 @@ class ChatConversationsAgentsApi:
         """Update assigned group agents"""
         return self._client.put(f"/im/v3/api/chat/conversations/{serialize_path_parameter(conversation_id, {'name': 'conversationId', 'style': 'simple', 'explode': False})}/agents", json=body)
 
+class ChatConversationsBindingApi:
+    """chat chat.conversations.binding API client."""
+
+    def __init__(self, client: HttpClient):
+        self._client = client
+
+
+    def retrieve(self, conversation_id: str) -> ConversationsBindingRetrieveResponse:
+        """Retrieve the business binding of a conversation"""
+        return self._client.get(f"/im/v3/api/chat/conversations/{serialize_path_parameter(conversation_id, {'name': 'conversationId', 'style': 'simple', 'explode': False})}/binding")
+
 class ChatConversationsPreferencesApi:
     """chat chat.conversations.preferences API client."""
 
@@ -433,6 +478,21 @@ class ChatConversationsReadCursorApi:
     def update(self, conversation_id: str, body: UpdateReadCursorRequest) -> ConversationsReadCursorUpdateResponse:
         """Update read cursor"""
         return self._client.patch(f"/im/v3/api/chat/conversations/{serialize_path_parameter(conversation_id, {'name': 'conversationId', 'style': 'simple', 'explode': False})}/read_cursor", json=body)
+
+class ChatConversationsTypingApi:
+    """chat chat.conversations.typing API client."""
+
+    def __init__(self, client: HttpClient):
+        self._client = client
+
+
+    def list(self, conversation_id: str) -> ConversationsTypingListResponse:
+        """List live typing indicators"""
+        return self._client.get(f"/im/v3/api/chat/conversations/{serialize_path_parameter(conversation_id, {'name': 'conversationId', 'style': 'simple', 'explode': False})}/typing")
+
+    def signal(self, conversation_id: str) -> ConversationsTypingSignalResponse:
+        """Signal typing in a conversation"""
+        return self._client.post(f"/im/v3/api/chat/conversations/{serialize_path_parameter(conversation_id, {'name': 'conversationId', 'style': 'simple', 'explode': False})}/typing/signal")
 
 class ChatConversationsMemberDirectoryApi:
     """chat chat.conversations.member_directory API client."""
@@ -500,6 +560,7 @@ class ChatMessagesApi:
 
     def __init__(self, client: HttpClient):
         self._client = client
+        self.search = ChatMessagesSearchApi(client)
         self.favorites = ChatMessagesFavoritesApi(client)
         self.visibility = ChatMessagesVisibilityApi(client)
         self.reactions = ChatMessagesReactionsApi(client)
@@ -521,6 +582,23 @@ class ChatMessagesApi:
         """Unpin a message"""
         return self._client.post(f"/im/v3/api/chat/messages/{serialize_path_parameter(message_id, {'name': 'messageId', 'style': 'simple', 'explode': False})}/unpin")
 
+class ChatMessagesSearchApi:
+    """chat chat.messages.search API client."""
+
+    def __init__(self, client: HttpClient):
+        self._client = client
+
+
+    def list(self, q: str, conversation_id: Optional[str] = None, page_size: Optional[int] = None, cursor: Optional[str] = None) -> MessageSearchResponse:
+        """Search conversation message history"""
+        query = build_query_string([
+            {'name': 'q', 'value': q, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'conversation_id', 'value': conversation_id, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'page_size', 'value': page_size, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'cursor', 'value': cursor, 'style': 'form', 'explode': True, 'allow_reserved': False},
+        ])
+        return self._client.get(_append_query_string(f"/im/v3/api/chat/messages/search", query))
+
 class ChatMessagesFavoritesApi:
     """chat chat.messages.favorites API client."""
 
@@ -533,7 +611,7 @@ class ChatMessagesFavoritesApi:
         query = build_query_string([
             {'name': 'page_size', 'value': page_size, 'style': 'form', 'explode': True, 'allow_reserved': False},
             {'name': 'cursor', 'value': cursor, 'style': 'form', 'explode': True, 'allow_reserved': False},
-            {'name': 'favoriteType', 'value': favorite_type, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'favorite_type', 'value': favorite_type, 'style': 'form', 'explode': True, 'allow_reserved': False},
             {'name': 'q', 'value': q, 'style': 'form', 'explode': True, 'allow_reserved': False},
         ])
         return self._client.get(_append_query_string(f"/im/v3/api/chat/messages/favorites", query))

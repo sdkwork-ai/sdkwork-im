@@ -1,6 +1,6 @@
 # sdkwork-im-sdk (Python)
 
-Generated SDKWork v3 dual-token transport SDK.
+Professional Python SDK for SDKWork API.
 
 ## Installation
 
@@ -14,24 +14,42 @@ pip install sdkwork-im-sdk-generated
 from sdkwork_im_sdk_generated import SdkworkImClient, SdkConfig
 
 config = SdkConfig(
-    base_url="http://127.0.0.1:18079",
+    base_url="http://127.0.0.1:18089",
 )
 
 client = SdkworkImClient(config)
-client.set_auth_token("your-auth-token")
-client.set_access_token("your-access-token")
+client.set_api_key("your-api-key")
 
 # Use the SDK
 result = client.presence.me.list()
 ```
 
-## Authentication
+## Authentication Modes (Mutually Exclusive)
 
-```text
-Authorization: Bearer <authToken>
-Access-Token: <accessToken>
+Choose exactly one mode for the same client instance.
+
+### Mode A: API Key
+
+```python
+config = SdkConfig(base_url="http://127.0.0.1:18089")
+client = SdkworkImClient(config)
+client.set_api_key("your-api-key")
+# Sends: X-API-Key: <apiKey>
 ```
 
+### Mode B: Dual Token
+
+```python
+config = SdkConfig(base_url="http://127.0.0.1:18089")
+client = SdkworkImClient(config)
+client.set_auth_token("your-auth-token")
+client.set_access_token("your-access-token")
+# Sends:
+# Authorization: Bearer <authToken>
+# Access-Token: <accessToken>
+```
+
+> Do not call `set_api_key(...)` together with `set_auth_token(...)` + `set_access_token(...)` on the same client.
 
 ## Configuration (Non-Auth)
 
@@ -39,7 +57,7 @@ Access-Token: <accessToken>
 from sdkwork_im_sdk_generated import SdkworkImClient, SdkConfig
 
 config = SdkConfig(
-    base_url="http://127.0.0.1:18079",
+    base_url="http://127.0.0.1:18089",
 )
 
 client = SdkworkImClient(config)
@@ -53,7 +71,6 @@ client.set_header('X-Custom-Header', 'value')
 - `client.calls` - calls API
 - `client.social` - social API
 - `client.chat` - chat API
-- `client.streams` - streams API
 - `client.spaces` - spaces API
 
 ## Usage Examples
@@ -102,26 +119,8 @@ print(result)
 ### chat
 
 ```python
-# List current inbox window
-params = {
-    'page_size': 1,
-    'cursor': 'cursor',
-    'conversation_type': 'conversation_type',
-    'q': 'q',
-}
-result = client.chat.inbox.list(params)
-print(result)
-```
-
-### streams
-
-```python
-# Open a stream
-body = {
-    'streamType': 'streamType',
-    'conversationId': 'conversationId',
-}
-result = client.streams.create(body)
+# Ensure the current user received the system-agent Welcome message
+result = client.chat.me.welcome.create_ensure()
 print(result)
 ```
 
@@ -169,7 +168,7 @@ This SDK includes cross-platform publish scripts in `bin/`:
 .\bin\publish.ps1 --action publish --channel test --dry-run
 ```
 
-> Configure Python package registry credentials before release publish.
+> Set `PYPI_TOKEN` for release (or `TEST_PYPI_TOKEN` for test channel).
 
 ## License
 

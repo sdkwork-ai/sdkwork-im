@@ -4,7 +4,7 @@ use crate::models::{ConversationAgentAssignment};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ConversationAgentAssignments {
-    pub generation: i64,
+    pub generation: String,
 
     pub source: String,
 

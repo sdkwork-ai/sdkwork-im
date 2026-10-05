@@ -3,7 +3,7 @@ package com.sdkwork.im.sdk.generated
 data class RtcSignalEvent(
     val tenantId: String? = null,
     val rtcSessionId: String? = null,
-    val signalSeq: Int? = null,
+    val signalSeq: String? = null,
     val conversationId: String? = null,
     val rtcMode: String? = null,
     val signalType: String? = null,

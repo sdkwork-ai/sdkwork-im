@@ -4,7 +4,7 @@ data class ConversationMessageEntry(
     val tenantId: String? = null,
     val conversationId: String? = null,
     val messageId: String? = null,
-    val messageSeq: Int? = null,
+    val messageSeq: String? = null,
     val summary: String? = null,
     val sender: Sender? = null,
     val body: MessageBody? = null,

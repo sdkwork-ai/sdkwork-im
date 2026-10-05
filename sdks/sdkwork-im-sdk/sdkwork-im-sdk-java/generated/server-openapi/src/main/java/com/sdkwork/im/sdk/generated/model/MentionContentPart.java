@@ -6,7 +6,7 @@ public class MentionContentPart extends ContentPart {
     private String targetKind;
     private String targetId;
     private String displayText;
-    private Integer assignmentGeneration;
+    private String assignmentGeneration;
 
     public String getKind() {
         return this.kind;
@@ -40,11 +40,11 @@ public class MentionContentPart extends ContentPart {
         this.displayText = displayText;
     }
 
-    public Integer getAssignmentGeneration() {
+    public String getAssignmentGeneration() {
         return this.assignmentGeneration;
     }
 
-    public void setAssignmentGeneration(Integer assignmentGeneration) {
+    public void setAssignmentGeneration(String assignmentGeneration) {
         this.assignmentGeneration = assignmentGeneration;
     }
 }

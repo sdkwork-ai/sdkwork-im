@@ -94,6 +94,11 @@ public class SpacesApi {
         _ = try await client.delete(ApiPaths.imPath("/spaces/\(serializePathParameter(spaceId, PathParameterSpec(name: "spaceId", style: "simple", explode: false)))/groups/\(serializePathParameter(groupId, PathParameterSpec(name: "groupId", style: "simple", explode: false)))"))
     }
 
+    /// Transfer spaces groups owner
+    public func groupsTransferOwner(spaceId: String, groupId: String, body: SpaceGroupTransferOwnerRequest) async throws -> SpacesGroupsTransferOwnerResponse? {
+        return try await client.post(ApiPaths.imPath("/spaces/\(serializePathParameter(spaceId, PathParameterSpec(name: "spaceId", style: "simple", explode: false)))/groups/\(serializePathParameter(groupId, PathParameterSpec(name: "groupId", style: "simple", explode: false)))/transfer_owner"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: SpacesGroupsTransferOwnerResponse.self)
+    }
+
     /// List spaces groups members
     public func groupsMembersList(spaceId: String, groupId: String, pageSize: Int? = nil, cursor: String? = nil) async throws -> SpacesGroupsMembersListResponse? {
         let query = buildQueryString([

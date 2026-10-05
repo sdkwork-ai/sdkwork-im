@@ -6,7 +6,7 @@ public class MessageInteractionSummaryView {
     private String tenantId;
     private String conversationId;
     private String messageId;
-    private Integer messageSeq;
+    private String messageSeq;
     private Integer totalReactionCount;
     private List<MessageReactionCountView> reactionCounts;
     private MessagePinView pin;
@@ -35,11 +35,11 @@ public class MessageInteractionSummaryView {
         this.messageId = messageId;
     }
 
-    public Integer getMessageSeq() {
+    public String getMessageSeq() {
         return this.messageSeq;
     }
 
-    public void setMessageSeq(Integer messageSeq) {
+    public void setMessageSeq(String messageSeq) {
         this.messageSeq = messageSeq;
     }
 

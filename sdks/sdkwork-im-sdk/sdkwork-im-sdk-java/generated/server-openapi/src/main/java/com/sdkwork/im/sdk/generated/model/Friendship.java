@@ -5,12 +5,11 @@ public class Friendship {
     private String tenantId;
     private String friendshipId;
     private String initiatorUserId;
-    private String leftUserId;
-    private String rightUserId;
-    private String userHighId;
     private String userLowId;
+    private String userHighId;
     private String status;
-    private String createdAt;
+    private String establishedAt;
+    private String updatedAt;
 
     public String getTenantId() {
         return this.tenantId;
@@ -36,20 +35,12 @@ public class Friendship {
         this.initiatorUserId = initiatorUserId;
     }
 
-    public String getLeftUserId() {
-        return this.leftUserId;
+    public String getUserLowId() {
+        return this.userLowId;
     }
 
-    public void setLeftUserId(String leftUserId) {
-        this.leftUserId = leftUserId;
-    }
-
-    public String getRightUserId() {
-        return this.rightUserId;
-    }
-
-    public void setRightUserId(String rightUserId) {
-        this.rightUserId = rightUserId;
+    public void setUserLowId(String userLowId) {
+        this.userLowId = userLowId;
     }
 
     public String getUserHighId() {
@@ -60,14 +51,6 @@ public class Friendship {
         this.userHighId = userHighId;
     }
 
-    public String getUserLowId() {
-        return this.userLowId;
-    }
-
-    public void setUserLowId(String userLowId) {
-        this.userLowId = userLowId;
-    }
-
     public String getStatus() {
         return this.status;
     }
@@ -76,11 +59,19 @@ public class Friendship {
         this.status = status;
     }
 
-    public String getCreatedAt() {
-        return this.createdAt;
+    public String getEstablishedAt() {
+        return this.establishedAt;
     }
 
-    public void setCreatedAt(String createdAt) {
-        this.createdAt = createdAt;
+    public void setEstablishedAt(String establishedAt) {
+        this.establishedAt = establishedAt;
+    }
+
+    public String getUpdatedAt() {
+        return this.updatedAt;
+    }
+
+    public void setUpdatedAt(String updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

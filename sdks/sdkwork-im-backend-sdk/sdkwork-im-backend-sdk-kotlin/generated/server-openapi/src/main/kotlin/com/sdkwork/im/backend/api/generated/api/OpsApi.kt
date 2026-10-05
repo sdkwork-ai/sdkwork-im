@@ -30,12 +30,6 @@ class OpsApi(private val client: HttpClient) {
         return client.convertValue(raw, object : TypeReference<LagListResponse>() {})
     }
 
-    /** Retrieve commercial readiness */
-    suspend fun commercialReadinessRetrieve(): CommercialReadinessRetrieveResponse? {
-        val raw = client.get(ApiPaths.backendPath("/ops/commercial_readiness"))
-        return client.convertValue(raw, object : TypeReference<CommercialReadinessRetrieveResponse>() {})
-    }
-
     /** Inspect runtime directory */
     suspend fun runtimeDirRetrieve(): RuntimeDirRetrieveResponse? {
         val raw = client.get(ApiPaths.backendPath("/ops/runtime_dir"))
@@ -66,6 +60,21 @@ class OpsApi(private val client: HttpClient) {
     suspend fun diagnosticsRetrieve(): DiagnosticsRetrieveResponse? {
         val raw = client.get(ApiPaths.backendPath("/ops/diagnostics"))
         return client.convertValue(raw, object : TypeReference<DiagnosticsRetrieveResponse>() {})
+    }
+
+    /** Retrieve commit-journal replay status */
+    suspend fun replayStatusRetrieve(): ReplayStatusRetrieveResponse? {
+        val raw = client.get(ApiPaths.backendPath("/ops/replay_status"))
+        return client.convertValue(raw, object : TypeReference<ReplayStatusRetrieveResponse>() {})
+    }
+
+    /** Purge expired retention batches */
+    suspend fun retentionPurge(batchSize: String? = null): RetentionPurgePostResponse? {
+        val query = buildQueryString(listOf(
+            QueryParameterSpec("batch_size", batchSize, "form", true, false, null)
+        ))
+        val raw = client.post(ApiPaths.appendQueryString(ApiPaths.backendPath("/ops/retention/purge"), query), null)
+        return client.convertValue(raw, object : TypeReference<RetentionPurgePostResponse>() {})
     }
 
 

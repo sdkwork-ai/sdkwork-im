@@ -2,6 +2,6 @@ package types
 
 
 type UpdateConversationAgentsRequest struct {
-	ExpectedGeneration int `json:"expectedGeneration"`
+	ExpectedGeneration string `json:"expectedGeneration"`
 	AgentAssignments []ConversationAgentAssignment `json:"agentAssignments"`
 }

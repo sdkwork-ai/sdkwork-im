@@ -12,7 +12,7 @@ class ConversationMessageEntry:
     tenant_id: str
     conversation_id: str
     message_id: str
-    message_seq: int
+    message_seq: str
     sender: Sender
     body: MessageBody
     message_type: str

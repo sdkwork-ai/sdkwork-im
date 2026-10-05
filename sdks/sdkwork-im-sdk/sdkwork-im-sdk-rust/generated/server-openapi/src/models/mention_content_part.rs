@@ -14,5 +14,5 @@ pub struct MentionContentPart {
     pub display_text: String,
 
     #[serde(rename = "assignmentGeneration")]
-    pub assignment_generation: i64,
+    pub assignment_generation: String,
 }

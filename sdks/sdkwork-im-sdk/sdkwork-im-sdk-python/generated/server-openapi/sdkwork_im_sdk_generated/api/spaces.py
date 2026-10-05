@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 from ..http_client import HttpClient
-from ..models import SdkWorkCommandResponse, SpaceBanCreateRequest, SpaceChannelAccessRuleCreateRequest, SpaceChannelCreateRequest, SpaceChannelUpdateRequest, SpaceCreateRequest, SpaceGroupCreateRequest, SpaceGroupMemberCreateRequest, SpaceGroupMemberUpdateRequest, SpaceGroupUpdateRequest, SpaceInviteCreateRequest, SpaceMemberCreateRequest, SpaceMemberUpdateRequest, SpacesBansCreateResponse201, SpacesBansListResponse, SpacesBansRetrieveResponse, SpacesChannelsAccessRulesCreateResponse201, SpacesChannelsAccessRulesListResponse, SpacesChannelsCreateResponse201, SpacesChannelsListResponse, SpacesChannelsRetrieveResponse, SpacesChannelsUpdateResponse, SpacesCreateResponse201, SpacesGroupsCreateResponse201, SpacesGroupsListResponse, SpacesGroupsMembersCreateResponse201, SpacesGroupsMembersListResponse, SpacesGroupsMembersRetrieveResponse, SpacesGroupsMembersUpdateResponse, SpacesGroupsRetrieveResponse, SpacesGroupsUpdateResponse, SpacesInvitesCreateResponse201, SpacesInvitesListResponse, SpacesInvitesRetrieveResponse, SpacesListResponse, SpacesMembersCreateResponse201, SpacesMembersListResponse, SpacesMembersRetrieveResponse, SpacesMembersUpdateResponse, SpacesRetrieveResponse, SpacesUpdateResponse, SpaceUpdateRequest
+from ..models import SdkWorkCommandResponse, SpaceBanCreateRequest, SpaceChannelAccessRuleCreateRequest, SpaceChannelCreateRequest, SpaceChannelUpdateRequest, SpaceCreateRequest, SpaceGroupCreateRequest, SpaceGroupMemberCreateRequest, SpaceGroupMemberUpdateRequest, SpaceGroupTransferOwnerRequest, SpaceGroupUpdateRequest, SpaceInviteCreateRequest, SpaceMemberCreateRequest, SpaceMemberUpdateRequest, SpacesBansCreateResponse201, SpacesBansListResponse, SpacesBansRetrieveResponse, SpacesChannelsAccessRulesCreateResponse201, SpacesChannelsAccessRulesListResponse, SpacesChannelsCreateResponse201, SpacesChannelsListResponse, SpacesChannelsRetrieveResponse, SpacesChannelsUpdateResponse, SpacesCreateResponse201, SpacesGroupsCreateResponse201, SpacesGroupsListResponse, SpacesGroupsMembersCreateResponse201, SpacesGroupsMembersListResponse, SpacesGroupsMembersRetrieveResponse, SpacesGroupsMembersUpdateResponse, SpacesGroupsRetrieveResponse, SpacesGroupsTransferOwnerResponse, SpacesGroupsUpdateResponse, SpacesInvitesCreateResponse201, SpacesInvitesListResponse, SpacesInvitesRetrieveResponse, SpacesListResponse, SpacesMembersCreateResponse201, SpacesMembersListResponse, SpacesMembersRetrieveResponse, SpacesMembersUpdateResponse, SpacesRetrieveResponse, SpacesUpdateResponse, SpaceUpdateRequest
 
 def _append_query_string(path: str, raw_query_string: str) -> str:
     query = raw_query_string.lstrip('?')
@@ -282,6 +282,10 @@ class SpacesGroupsApi:
     def delete(self, space_id: str, group_id: str) -> None:
         """Delete spaces groups"""
         return self._client.delete(f"/im/v3/api/spaces/{serialize_path_parameter(space_id, {'name': 'spaceId', 'style': 'simple', 'explode': False})}/groups/{serialize_path_parameter(group_id, {'name': 'groupId', 'style': 'simple', 'explode': False})}")
+
+    def create_transfer_owner(self, space_id: str, group_id: str, body: SpaceGroupTransferOwnerRequest) -> SpacesGroupsTransferOwnerResponse:
+        """Transfer spaces groups owner"""
+        return self._client.post(f"/im/v3/api/spaces/{serialize_path_parameter(space_id, {'name': 'spaceId', 'style': 'simple', 'explode': False})}/groups/{serialize_path_parameter(group_id, {'name': 'groupId', 'style': 'simple', 'explode': False})}/transfer_owner", json=body)
 
 class SpacesGroupsMembersApi:
     """spaces spaces.groups.members API client."""

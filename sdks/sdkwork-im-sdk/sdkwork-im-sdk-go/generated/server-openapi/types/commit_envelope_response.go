@@ -11,7 +11,7 @@ type CommitEnvelopeResponse struct {
 	ScopeType string `json:"scopeType"`
 	ScopeId string `json:"scopeId"`
 	OrderingKey string `json:"orderingKey"`
-	OrderingSeq int `json:"orderingSeq"`
+	OrderingSeq string `json:"orderingSeq"`
 	CausationId string `json:"causationId"`
 	CorrelationId string `json:"correlationId"`
 	IdempotencyKey string `json:"idempotencyKey"`

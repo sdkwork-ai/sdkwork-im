@@ -115,6 +115,12 @@ public class SpacesApi {
         return null;
     }
 
+    /** Transfer spaces groups owner */
+    public SpacesGroupsTransferOwnerResponse groupsTransferOwner(String spaceId, String groupId, SpaceGroupTransferOwnerRequest body) throws Exception {
+        Object raw = client.post(ApiPaths.imPath("/spaces/" + serializePathParameter(spaceId, new PathParameterSpec("spaceId", "simple", false)) + "/groups/" + serializePathParameter(groupId, new PathParameterSpec("groupId", "simple", false)) + "/transfer_owner"), body, null, null, "application/json");
+        return client.convertValue(raw, new TypeReference<SpacesGroupsTransferOwnerResponse>() {});
+    }
+
     /** List spaces groups members */
     public SpacesGroupsMembersListResponse groupsMembersList(String spaceId, String groupId, Integer pageSize, String cursor) throws Exception {
         String query = buildQueryString(List.of(

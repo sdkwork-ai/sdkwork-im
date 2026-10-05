@@ -10,7 +10,7 @@ data class CommitEnvelopeResponse(
     val scopeType: String? = null,
     val scopeId: String? = null,
     val orderingKey: String? = null,
-    val orderingSeq: Int? = null,
+    val orderingSeq: String? = null,
     val causationId: String? = null,
     val correlationId: String? = null,
     val idempotencyKey: String? = null,

@@ -16,11 +16,11 @@ use sdkwork_im_backend_api_generated::{SdkworkImBackendClient, SdkworkConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = SdkworkImBackendClient::new(SdkworkConfig::new("http://127.0.0.1:18079"))?;
+    let client = SdkworkImBackendClient::new(SdkworkConfig::new("http://127.0.0.1:18089"))?;
     client.set_auth_token("your-auth-token");
 client.set_access_token("your-access-token");
 
-    let result = client.admin().billing_events_summary_retrieve().await?;
+    let result = client.audit().verify_retrieve().await?;
     println!("{result:?}");
     Ok(())
 }
@@ -37,7 +37,7 @@ Access-Token: <accessToken>
 ## Configuration (Non-Auth)
 
 ```rust
-let client = SdkworkImBackendClient::new(SdkworkConfig::new("http://127.0.0.1:18079"))?;
+let client = SdkworkImBackendClient::new(SdkworkConfig::new("http://127.0.0.1:18089"))?;
 client.set_header("X-Custom-Header", "value");
 ```
 
@@ -47,7 +47,6 @@ client.set_header("X-Custom-Header", "value");
 - `client.audit()` - audit API
 - `client.automation()` - automation API
 - `client.control()` - control API
-- `client.admin()` - admin API
 
 ## Usage Examples
 
@@ -62,8 +61,8 @@ println!("{result:?}");
 ### audit
 
 ```rust
-// Export audit bundle
-let result = client.audit().export_retrieve().await?;
+// Verify audit chain integrity
+let result = client.audit().verify_retrieve().await?;
 println!("{result:?}");
 ```
 
@@ -83,24 +82,16 @@ let result = client.control().protocol_governance_retrieve().await?;
 println!("{result:?}");
 ```
 
-### admin
-
-```rust
-// getBillingEventSummary
-let result = client.admin().billing_events_summary_retrieve().await?;
-println!("{result:?}");
-```
-
 ## Error Handling
 
 ```rust
 use sdkwork_im_backend_api_generated::{SdkworkImBackendClient, SdkworkConfig};
 
 
-let client = SdkworkImBackendClient::new(SdkworkConfig::new("http://127.0.0.1:18079"))?;
+let client = SdkworkImBackendClient::new(SdkworkConfig::new("http://127.0.0.1:18089"))?;
 
 let outcome: Result<(), _> = async {
-    client.admin().billing_events_summary_retrieve().await?;
+    client.audit().verify_retrieve().await?;
     Ok(())
 }.await;
 

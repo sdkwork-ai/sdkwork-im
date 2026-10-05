@@ -19,7 +19,7 @@ namespace Sdkwork.Im.Sdk.Generated.Models
         public string? LastMessageId { get; set; }
         public string? LastSenderId { get; set; }
         public int MessageCount { get; set; }
-        public int LastMessageSeq { get; set; }
+        public string LastMessageSeq { get; set; }
         public string? LastSummary { get; set; }
         public string? LastMessageAt { get; set; }
         public int UnreadCount { get; set; }

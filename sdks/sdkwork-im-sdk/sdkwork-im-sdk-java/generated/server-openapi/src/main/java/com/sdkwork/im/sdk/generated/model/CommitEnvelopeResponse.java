@@ -11,7 +11,7 @@ public class CommitEnvelopeResponse {
     private String scopeType;
     private String scopeId;
     private String orderingKey;
-    private Integer orderingSeq;
+    private String orderingSeq;
     private String causationId;
     private String correlationId;
     private String idempotencyKey;
@@ -95,11 +95,11 @@ public class CommitEnvelopeResponse {
         this.orderingKey = orderingKey;
     }
 
-    public Integer getOrderingSeq() {
+    public String getOrderingSeq() {
         return this.orderingSeq;
     }
 
-    public void setOrderingSeq(Integer orderingSeq) {
+    public void setOrderingSeq(String orderingSeq) {
         this.orderingSeq = orderingSeq;
     }
 

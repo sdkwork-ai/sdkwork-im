@@ -9,7 +9,7 @@ namespace Sdkwork.Im.Sdk.Generated.Models
         public string TenantId { get; set; }
         public string ConversationId { get; set; }
         public string PrincipalId { get; set; }
-        public int ReadSeq { get; set; }
+        public string ReadSeq { get; set; }
         public string UpdatedAt { get; set; }
     }
 }

@@ -5,7 +5,7 @@ use crate::models::{ConversationAgentAssignment};
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct UpdateConversationAgentsRequest {
     #[serde(rename = "expectedGeneration")]
-    pub expected_generation: i64,
+    pub expected_generation: String,
 
     #[serde(rename = "agentAssignments")]
     pub agent_assignments: Vec<ConversationAgentAssignment>,

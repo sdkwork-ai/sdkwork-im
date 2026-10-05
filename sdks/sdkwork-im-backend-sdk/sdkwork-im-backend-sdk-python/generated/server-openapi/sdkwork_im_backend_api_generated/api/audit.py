@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 from ..http_client import HttpClient
-from ..models import ExportRetrieveResponse, RecordsCreateResponse201, SdkWorkListResponse
+from ..models import AuditExportRetrieveResponse, AuditRecordAnchorRequest, AuditRecordsCreateResponse201, AuditRecordsListResponse, VerifyRetrieveResponse
 
 def _append_query_string(path: str, raw_query_string: str) -> str:
     query = raw_query_string.lstrip('?')
@@ -130,6 +130,7 @@ class AuditApi:
         self._client = client
         self.records = AuditRecordsApi(client)
         self.export = AuditExportApi(client)
+        self.verify = AuditVerifyApi(client)
 
 
 class AuditRecordsApi:
@@ -139,19 +140,17 @@ class AuditRecordsApi:
         self._client = client
 
 
-    def list(self, page_size: Optional[int] = None, cursor: Optional[str] = None, page: Optional[int] = None, q: Optional[str] = None) -> SdkWorkListResponse:
+    def create(self, body: AuditRecordAnchorRequest) -> AuditRecordsCreateResponse201:
+        """Record an audit anchor"""
+        return self._client.post(f"/backend/v3/api/audit/records", json=body)
+
+    def list(self, after_audit_seq: Optional[str] = None, page_size: Optional[int] = None) -> AuditRecordsListResponse:
         """List audit records"""
         query = build_query_string([
+            {'name': 'after_audit_seq', 'value': after_audit_seq, 'style': 'form', 'explode': True, 'allow_reserved': False},
             {'name': 'page_size', 'value': page_size, 'style': 'form', 'explode': True, 'allow_reserved': False},
-            {'name': 'cursor', 'value': cursor, 'style': 'form', 'explode': True, 'allow_reserved': False},
-            {'name': 'page', 'value': page, 'style': 'form', 'explode': True, 'allow_reserved': False},
-            {'name': 'q', 'value': q, 'style': 'form', 'explode': True, 'allow_reserved': False},
         ])
         return self._client.get(_append_query_string(f"/backend/v3/api/audit/records", query))
-
-    def create(self) -> RecordsCreateResponse201:
-        """Record audit anchor"""
-        return self._client.post(f"/backend/v3/api/audit/records")
 
 class AuditExportApi:
     """audit audit.export API client."""
@@ -160,6 +159,20 @@ class AuditExportApi:
         self._client = client
 
 
-    def retrieve(self) -> ExportRetrieveResponse:
-        """Export audit bundle"""
-        return self._client.get(f"/backend/v3/api/audit/export")
+    def list(self, page_size: Optional[int] = None) -> AuditExportRetrieveResponse:
+        """Export the audit ledger"""
+        query = build_query_string([
+            {'name': 'page_size', 'value': page_size, 'style': 'form', 'explode': True, 'allow_reserved': False},
+        ])
+        return self._client.get(_append_query_string(f"/backend/v3/api/audit/export", query))
+
+class AuditVerifyApi:
+    """audit audit.verify API client."""
+
+    def __init__(self, client: HttpClient):
+        self._client = client
+
+
+    def retrieve(self) -> VerifyRetrieveResponse:
+        """Verify audit chain integrity"""
+        return self._client.get(f"/backend/v3/api/audit/verify")

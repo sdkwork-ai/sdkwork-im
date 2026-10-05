@@ -31,6 +31,14 @@ namespace Sdkwork.Im.Sdk.Generated.Api
         }
 
         /// <summary>
+        /// Ensure the current user received the system-agent Welcome message
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.ChatMeWelcomeEnsureResponse?> MeWelcomeEnsureAsync()
+        {
+            return await _client.PostAsync<Sdkwork.Im.Sdk.Generated.Models.ChatMeWelcomeEnsureResponse>(ApiPaths.ImPath("/chat/me/welcome/ensure"), null);
+        }
+
+        /// <summary>
         /// Create a conversation
         /// </summary>
         public async Task<Sdkwork.Im.Sdk.Generated.Models.ConversationsCreateResponse201?> ConversationsCreateAsync(Sdkwork.Im.Sdk.Generated.Models.CreateConversationRequest body)
@@ -76,6 +84,14 @@ namespace Sdkwork.Im.Sdk.Generated.Api
         public async Task<Sdkwork.Im.Sdk.Generated.Models.ConversationsDirectChatsBindingsCreateResponse201?> ConversationsDirectChatsBindingsCreateAsync(Sdkwork.Im.Sdk.Generated.Models.BindDirectChatRequest body)
         {
             return await _client.PostAsync<Sdkwork.Im.Sdk.Generated.Models.ConversationsDirectChatsBindingsCreateResponse201>(ApiPaths.ImPath("/chat/conversations/direct_chats/bindings"), body, null, null, "application/json");
+        }
+
+        /// <summary>
+        /// Sync a shared-channel linked member into a conversation
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.ConversationsSharedChannelLinksSyncResponse?> ConversationsSharedChannelLinksSyncAsync(Sdkwork.Im.Sdk.Generated.Models.SharedChannelLinkSyncRequest body)
+        {
+            return await _client.PostAsync<Sdkwork.Im.Sdk.Generated.Models.ConversationsSharedChannelLinksSyncResponse>(ApiPaths.ImPath("/chat/conversations/shared_channel_links/sync"), body, null, null, "application/json");
         }
 
         /// <summary>
@@ -153,6 +169,14 @@ namespace Sdkwork.Im.Sdk.Generated.Api
         public async Task<Sdkwork.Im.Sdk.Generated.Models.ConversationsAgentsUpdateResponse?> ConversationsAgentsUpdateAsync(string conversationId, Sdkwork.Im.Sdk.Generated.Models.UpdateConversationAgentsRequest body)
         {
             return await _client.PutAsync<Sdkwork.Im.Sdk.Generated.Models.ConversationsAgentsUpdateResponse>(ApiPaths.ImPath($"/chat/conversations/{SerializePathParameter(conversationId, new PathParameterSpec("conversationId", "simple", false))}/agents"), body, null, null, "application/json");
+        }
+
+        /// <summary>
+        /// Retrieve the business binding of a conversation
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.ConversationsBindingRetrieveResponse?> ConversationsBindingRetrieveAsync(string conversationId)
+        {
+            return await _client.GetAsync<Sdkwork.Im.Sdk.Generated.Models.ConversationsBindingRetrieveResponse>(ApiPaths.ImPath($"/chat/conversations/{SerializePathParameter(conversationId, new PathParameterSpec("conversationId", "simple", false))}/binding"));
         }
 
         /// <summary>
@@ -252,6 +276,22 @@ namespace Sdkwork.Im.Sdk.Generated.Api
         }
 
         /// <summary>
+        /// List live typing indicators
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.ConversationsTypingListResponse?> ConversationsTypingListAsync(string conversationId)
+        {
+            return await _client.GetAsync<Sdkwork.Im.Sdk.Generated.Models.ConversationsTypingListResponse>(ApiPaths.ImPath($"/chat/conversations/{SerializePathParameter(conversationId, new PathParameterSpec("conversationId", "simple", false))}/typing"));
+        }
+
+        /// <summary>
+        /// Signal typing in a conversation
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.ConversationsTypingSignalResponse?> ConversationsTypingSignalAsync(string conversationId)
+        {
+            return await _client.PostAsync<Sdkwork.Im.Sdk.Generated.Models.ConversationsTypingSignalResponse>(ApiPaths.ImPath($"/chat/conversations/{SerializePathParameter(conversationId, new PathParameterSpec("conversationId", "simple", false))}/typing/signal"), null);
+        }
+
+        /// <summary>
         /// List member directory
         /// </summary>
         public async Task<Sdkwork.Im.Sdk.Generated.Models.ConversationsMemberDirectoryListResponse?> ConversationsMemberDirectoryListAsync(string conversationId, string? cursor = null, int? pageSize = null)
@@ -315,6 +355,21 @@ namespace Sdkwork.Im.Sdk.Generated.Api
         }
 
         /// <summary>
+        /// Search conversation message history
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.MessageSearchResponse?> MessagesSearchListAsync(string q, string? conversationId = null, int? pageSize = null, string? cursor = null)
+        {
+            var queryString = BuildQueryString(new[]
+            {
+                new QueryParameterSpec("q", q, "form", true, false, null),
+                new QueryParameterSpec("conversation_id", conversationId, "form", true, false, null),
+                new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+                new QueryParameterSpec("cursor", cursor, "form", true, false, null),
+            });
+            return await _client.GetAsync<Sdkwork.Im.Sdk.Generated.Models.MessageSearchResponse>(ApiPaths.AppendQueryString(ApiPaths.ImPath("/chat/messages/search"), queryString));
+        }
+
+        /// <summary>
         /// Edit a message
         /// </summary>
         public async Task<Sdkwork.Im.Sdk.Generated.Models.MessagesEditResponse?> MessagesEditAsync(string messageId, Sdkwork.Im.Sdk.Generated.Models.EditMessageRequest body)
@@ -339,7 +394,7 @@ namespace Sdkwork.Im.Sdk.Generated.Api
             {
                 new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
                 new QueryParameterSpec("cursor", cursor, "form", true, false, null),
-                new QueryParameterSpec("favoriteType", favoriteType, "form", true, false, null),
+                new QueryParameterSpec("favorite_type", favoriteType, "form", true, false, null),
                 new QueryParameterSpec("q", q, "form", true, false, null),
             });
             return await _client.GetAsync<Sdkwork.Im.Sdk.Generated.Models.MessagesFavoritesListResponse>(ApiPaths.AppendQueryString(ApiPaths.ImPath("/chat/messages/favorites"), queryString));

@@ -21,12 +21,12 @@ using Sdkwork.Im.BackendApi.Generated.Models;
 using Sdkwork.Im.BackendApi.Generated;
 using SDKwork.Common.Core;
 
-var config = new SdkConfig("http://127.0.0.1:18079");
+var config = new SdkConfig("http://127.0.0.1:18089");
 var client = new SdkworkImBackendClient(config);
 client.SetAuthToken("your-auth-token");
 client.SetAccessToken("your-access-token");
 
-var result = await client.Admin.BillingEventsSummaryRetrieveAsync();
+var result = await client.Audit.VerifyRetrieveAsync();
 Console.WriteLine(result);
 ```
 
@@ -41,7 +41,7 @@ Access-Token: <accessToken>
 ## Configuration (Non-Auth)
 
 ```csharp
-var config = new SdkConfig("http://127.0.0.1:18079");
+var config = new SdkConfig("http://127.0.0.1:18089");
 var client = new SdkworkImBackendClient(config);
 
 // Set custom headers
@@ -54,7 +54,6 @@ client.SetHeader("X-Custom-Header", "value");
 - `client.Audit` - audit API
 - `client.Automation` - automation API
 - `client.Control` - control API
-- `client.Admin` - admin API
 
 ## Usage Examples
 
@@ -69,8 +68,8 @@ Console.WriteLine(result);
 ### audit
 
 ```csharp
-// Export audit bundle
-var result = await client.Audit.ExportRetrieveAsync();
+// Verify audit chain integrity
+var result = await client.Audit.VerifyRetrieveAsync();
 Console.WriteLine(result);
 ```
 
@@ -90,20 +89,12 @@ var result = await client.Control.ProtocolGovernanceRetrieveAsync();
 Console.WriteLine(result);
 ```
 
-### admin
-
-```csharp
-// getBillingEventSummary
-var result = await client.Admin.BillingEventsSummaryRetrieveAsync();
-Console.WriteLine(result);
-```
-
 ## Error Handling
 
 ```csharp
 try
 {
-    await client.Admin.BillingEventsSummaryRetrieveAsync();
+    await client.Audit.VerifyRetrieveAsync();
 }
 catch (HttpRequestException ex)
 {

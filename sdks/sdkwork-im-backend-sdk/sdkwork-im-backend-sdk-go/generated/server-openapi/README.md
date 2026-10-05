@@ -21,13 +21,13 @@ import (
 )
 
 func main() {
-    cfg := sdkhttp.NewDefaultConfig("http://127.0.0.1:18079")
+    cfg := sdkhttp.NewDefaultConfig("http://127.0.0.1:18089")
     client := github.com/sdkwork/im-backend-api-generated.NewSdkworkImBackendClientWithConfig(cfg)
     client.SetAuthToken("your-auth-token")
 client.SetAccessToken("your-access-token")
     
     // Use the SDK
-    result, err := client.Admin.BillingEventsSummaryRetrieve()
+    result, err := client.Audit.VerifyRetrieve()
     if err != nil {
         panic(err)
     }
@@ -46,7 +46,7 @@ Access-Token: <accessToken>
 ## Configuration (Non-Auth)
 
 ```go
-cfg := sdkhttp.NewDefaultConfig("http://127.0.0.1:18079")
+cfg := sdkhttp.NewDefaultConfig("http://127.0.0.1:18089")
 client := github.com/sdkwork/im-backend-api-generated.NewSdkworkImBackendClientWithConfig(cfg)
 
 // Set custom headers
@@ -59,7 +59,6 @@ client.SetHeader("X-Custom-Header", "value")
 - `client.Audit` - audit API
 - `client.Automation` - automation API
 - `client.Control` - control API
-- `client.Admin` - admin API
 
 ## Usage Examples
 
@@ -77,8 +76,8 @@ fmt.Println(result)
 ### audit
 
 ```go
-// Export audit bundle
-result, err := client.Audit.ExportRetrieve()
+// Verify audit chain integrity
+result, err := client.Audit.VerifyRetrieve()
 if err != nil {
     panic(err)
 }
@@ -107,21 +106,10 @@ if err != nil {
 fmt.Println(result)
 ```
 
-### admin
-
-```go
-// getBillingEventSummary
-result, err := client.Admin.BillingEventsSummaryRetrieve()
-if err != nil {
-    panic(err)
-}
-fmt.Println(result)
-```
-
 ## Error Handling
 
 ```go
-_, err := client.Admin.BillingEventsSummaryRetrieve()
+_, err := client.Audit.VerifyRetrieve()
 if err != nil {
     // Handle error
     fmt.Println("Error:", err)

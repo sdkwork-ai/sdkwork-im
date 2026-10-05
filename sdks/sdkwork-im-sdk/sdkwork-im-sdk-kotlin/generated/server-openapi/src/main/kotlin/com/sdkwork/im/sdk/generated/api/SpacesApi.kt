@@ -107,6 +107,12 @@ class SpacesApi(private val client: HttpClient) {
         client.delete(ApiPaths.imPath("/spaces/${serializePathParameter(spaceId, PathParameterSpec("spaceId", "simple", false))}/groups/${serializePathParameter(groupId, PathParameterSpec("groupId", "simple", false))}"))
     }
 
+    /** Transfer spaces groups owner */
+    suspend fun groupsTransferOwner(spaceId: String, groupId: String, body: SpaceGroupTransferOwnerRequest): SpacesGroupsTransferOwnerResponse? {
+        val raw = client.post(ApiPaths.imPath("/spaces/${serializePathParameter(spaceId, PathParameterSpec("spaceId", "simple", false))}/groups/${serializePathParameter(groupId, PathParameterSpec("groupId", "simple", false))}/transfer_owner"), body, null, null, "application/json")
+        return client.convertValue(raw, object : TypeReference<SpacesGroupsTransferOwnerResponse>() {})
+    }
+
     /** List spaces groups members */
     suspend fun groupsMembersList(spaceId: String, groupId: String, pageSize: Int? = null, cursor: String? = null): SpacesGroupsMembersListResponse? {
         val query = buildQueryString(listOf(

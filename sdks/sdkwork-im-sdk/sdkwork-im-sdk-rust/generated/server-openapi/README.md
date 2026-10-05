@@ -1,6 +1,6 @@
 # sdkwork-im-sdk (Rust)
 
-Generated SDKWork v3 dual-token transport SDK.
+Professional Rust SDK for SDKWork API.
 
 ## Installation
 
@@ -16,9 +16,8 @@ use im_sdk_generated::{SdkworkImClient, SdkworkConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = SdkworkImClient::new(SdkworkConfig::new("http://127.0.0.1:18079"))?;
-    client.set_auth_token("your-auth-token");
-client.set_access_token("your-access-token");
+    let client = SdkworkImClient::new(SdkworkConfig::new("http://127.0.0.1:18089"))?;
+    client.set_api_key("your-api-key");
 
     let result = client.presence().me_retrieve().await?;
     println!("{result:?}");
@@ -26,18 +25,35 @@ client.set_access_token("your-access-token");
 }
 ```
 
-## Authentication
+## Authentication Modes (Mutually Exclusive)
 
-```text
-Authorization: Bearer <authToken>
-Access-Token: <accessToken>
+Choose exactly one mode for the same client instance.
+
+### Mode A: API Key
+
+```rust
+let client = SdkworkImClient::new(SdkworkConfig::new("http://127.0.0.1:18089"))?;
+client.set_api_key("your-api-key");
+// Sends: X-API-Key: <apiKey>
 ```
 
+### Mode B: Dual Token
+
+```rust
+let client = SdkworkImClient::new(SdkworkConfig::new("http://127.0.0.1:18089"))?;
+client.set_auth_token("your-auth-token");
+client.set_access_token("your-access-token");
+// Sends:
+// Authorization: Bearer <authToken>
+// Access-Token: <accessToken>
+```
+
+> Do not call `set_api_key(...)` together with `set_auth_token(...)` + `set_access_token(...)` on the same client.
 
 ## Configuration (Non-Auth)
 
 ```rust
-let client = SdkworkImClient::new(SdkworkConfig::new("http://127.0.0.1:18079"))?;
+let client = SdkworkImClient::new(SdkworkConfig::new("http://127.0.0.1:18089"))?;
 client.set_header("X-Custom-Header", "value");
 ```
 
@@ -48,7 +64,6 @@ client.set_header("X-Custom-Header", "value");
 - `client.calls()` - calls API
 - `client.social()` - social API
 - `client.chat()` - chat API
-- `client.streams()` - streams API
 - `client.spaces()` - spaces API
 
 ## Usage Examples
@@ -99,28 +114,8 @@ println!("{result:?}");
 ### chat
 
 ```rust
-use std::collections::HashMap;
-// List current inbox window
-let mut query = HashMap::new();
-query.insert("page_size".to_string(), serde_json::json!(1));
-query.insert("cursor".to_string(), serde_json::json!("cursor"));
-query.insert("conversation_type".to_string(), serde_json::json!("conversation-type"));
-query.insert("q".to_string(), serde_json::json!("q"));
-let result = client.chat().inbox_list(Some(&query)).await?;
-println!("{result:?}");
-```
-
-### streams
-
-```rust
-use im_sdk_generated::*;
-// Open a stream
-let body = OpenStreamRequest {
-    stream_type: "streamtype".to_string(),
-    conversation_id: Some("1".to_string()),
-    ..Default::default()
-};
-let result = client.streams().create(&body).await?;
+// Ensure the current user received the system-agent Welcome message
+let result = client.chat().me_welcome_ensure().await?;
 println!("{result:?}");
 ```
 
@@ -142,7 +137,7 @@ println!("{result:?}");
 use im_sdk_generated::{SdkworkImClient, SdkworkConfig};
 
 
-let client = SdkworkImClient::new(SdkworkConfig::new("http://127.0.0.1:18079"))?;
+let client = SdkworkImClient::new(SdkworkConfig::new("http://127.0.0.1:18089"))?;
 
 let outcome: Result<(), _> = async {
     client.presence().me_retrieve().await?;

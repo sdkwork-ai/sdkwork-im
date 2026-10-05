@@ -1,6 +1,6 @@
 # sdkwork-im-sdk (Java)
 
-Generated SDKWork v3 dual-token transport SDK.
+Professional Java SDK for SDKWork API.
 
 ## Installation
 
@@ -29,10 +29,9 @@ import com.sdkwork.im.sdk.generated.model.*;
 
 public class Main {
     public static void main(String[] args) throws Exception {
-        Types.SdkConfig config = new Types.SdkConfig("http://127.0.0.1:18079");
+        Types.SdkConfig config = new Types.SdkConfig("http://127.0.0.1:18089");
         SdkworkImClient client = new SdkworkImClient(config);
-        client.setAuthToken("your-auth-token");
-client.setAccessToken("your-access-token");
+        client.setApiKey("your-api-key");
 
         // Use the SDK
         PresenceMeRetrieveResponse result = client.getPresence().meRetrieve();
@@ -41,18 +40,37 @@ client.setAccessToken("your-access-token");
 }
 ```
 
-## Authentication
+## Authentication Modes (Mutually Exclusive)
 
-```text
-Authorization: Bearer <authToken>
-Access-Token: <accessToken>
+Choose exactly one mode for the same client instance.
+
+### Mode A: API Key
+
+```java
+Types.SdkConfig config = new Types.SdkConfig("http://127.0.0.1:18089");
+SdkworkImClient client = new SdkworkImClient(config);
+client.setApiKey("your-api-key");
+// Sends: X-API-Key: <apiKey>
 ```
 
+### Mode B: Dual Token
+
+```java
+Types.SdkConfig config = new Types.SdkConfig("http://127.0.0.1:18089");
+SdkworkImClient client = new SdkworkImClient(config);
+client.setAuthToken("your-auth-token");
+client.setAccessToken("your-access-token");
+// Sends:
+// Authorization: Bearer <authToken>
+// Access-Token: <accessToken>
+```
+
+> Do not call `setApiKey(...)` together with `setAuthToken(...)` + `setAccessToken(...)` on the same client.
 
 ## Configuration (Non-Auth)
 
 ```java
-Types.SdkConfig config = new Types.SdkConfig("http://127.0.0.1:18079");
+Types.SdkConfig config = new Types.SdkConfig("http://127.0.0.1:18089");
 SdkworkImClient client = new SdkworkImClient(config);
 
 // Set custom headers
@@ -66,7 +84,6 @@ client.getHttpClient().setHeader("X-Custom-Header", "value");
 - `client.getCalls()` - calls API
 - `client.getSocial()` - social API
 - `client.getChat()` - chat API
-- `client.getStreams()` - streams API
 - `client.getSpaces()` - spaces API
 
 ## Usage Examples
@@ -113,24 +130,8 @@ System.out.println(result);
 ### chat
 
 ```java
-// List current inbox window
-Map<String, Object> params = new LinkedHashMap<>();
-params.put("page_size", 1);
-params.put("cursor", "cursor");
-params.put("conversation_type", "conversation-type");
-params.put("q", "q");
-InboxListResponse result = client.getChat().inboxList(params);
-System.out.println(result);
-```
-
-### streams
-
-```java
-// Open a stream
-OpenStreamRequest body = new OpenStreamRequest();
-body.setStreamType("streamtype");
-body.setConversationId("1");
-StreamsCreateResponse201 result = client.getStreams().create(body);
+// Ensure the current user received the system-agent Welcome message
+ChatMeWelcomeEnsureResponse result = client.getChat().meWelcomeEnsure();
 System.out.println(result);
 ```
 

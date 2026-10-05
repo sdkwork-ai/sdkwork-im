@@ -5,4 +5,4 @@ from typing import TYPE_CHECKING, Optional, List, Dict, Any
 
 @dataclass
 class UpdateReadCursorRequest:
-    read_seq: int
+    read_seq: str

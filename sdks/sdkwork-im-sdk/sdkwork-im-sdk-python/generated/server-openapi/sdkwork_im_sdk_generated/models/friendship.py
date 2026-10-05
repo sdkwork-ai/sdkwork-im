@@ -8,9 +8,8 @@ class Friendship:
     tenant_id: str
     friendship_id: str
     initiator_user_id: str
-    left_user_id: str
-    right_user_id: str
-    user_high_id: str
     user_low_id: str
+    user_high_id: str
     status: str
-    created_at: str
+    updated_at: str
+    established_at: Optional[str] = None

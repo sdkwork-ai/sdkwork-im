@@ -45,14 +45,6 @@ namespace Sdkwork.Im.BackendApi.Generated.Api
         }
 
         /// <summary>
-        /// Retrieve commercial readiness
-        /// </summary>
-        public async Task<Sdkwork.Im.BackendApi.Generated.Models.CommercialReadinessRetrieveResponse?> CommercialReadinessRetrieveAsync()
-        {
-            return await _client.GetAsync<Sdkwork.Im.BackendApi.Generated.Models.CommercialReadinessRetrieveResponse>(ApiPaths.BackendPath("/ops/commercial_readiness"));
-        }
-
-        /// <summary>
         /// Inspect runtime directory
         /// </summary>
         public async Task<Sdkwork.Im.BackendApi.Generated.Models.RuntimeDirRetrieveResponse?> RuntimeDirRetrieveAsync()
@@ -92,6 +84,26 @@ namespace Sdkwork.Im.BackendApi.Generated.Api
         public async Task<Sdkwork.Im.BackendApi.Generated.Models.DiagnosticsRetrieveResponse?> DiagnosticsRetrieveAsync()
         {
             return await _client.GetAsync<Sdkwork.Im.BackendApi.Generated.Models.DiagnosticsRetrieveResponse>(ApiPaths.BackendPath("/ops/diagnostics"));
+        }
+
+        /// <summary>
+        /// Retrieve commit-journal replay status
+        /// </summary>
+        public async Task<Sdkwork.Im.BackendApi.Generated.Models.ReplayStatusRetrieveResponse?> ReplayStatusRetrieveAsync()
+        {
+            return await _client.GetAsync<Sdkwork.Im.BackendApi.Generated.Models.ReplayStatusRetrieveResponse>(ApiPaths.BackendPath("/ops/replay_status"));
+        }
+
+        /// <summary>
+        /// Purge expired retention batches
+        /// </summary>
+        public async Task<Sdkwork.Im.BackendApi.Generated.Models.RetentionPurgePostResponse?> RetentionPurgeAsync(string? batchSize = null)
+        {
+            var queryString = BuildQueryString(new[]
+            {
+                new QueryParameterSpec("batch_size", batchSize, "form", true, false, null),
+            });
+            return await _client.PostAsync<Sdkwork.Im.BackendApi.Generated.Models.RetentionPurgePostResponse>(ApiPaths.AppendQueryString(ApiPaths.BackendPath("/ops/retention/purge"), queryString), null);
         }
 
 

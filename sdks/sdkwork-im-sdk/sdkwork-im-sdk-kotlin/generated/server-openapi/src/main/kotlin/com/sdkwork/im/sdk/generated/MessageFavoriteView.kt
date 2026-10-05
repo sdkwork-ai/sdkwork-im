@@ -8,7 +8,7 @@ data class MessageFavoriteView(
     val favoriteType: String? = null,
     val conversationId: String? = null,
     val messageId: String? = null,
-    val messageSeq: Int? = null,
+    val messageSeq: String? = null,
     val title: String? = null,
     val contentPreview: String? = null,
     val sourceDisplayName: String? = null,

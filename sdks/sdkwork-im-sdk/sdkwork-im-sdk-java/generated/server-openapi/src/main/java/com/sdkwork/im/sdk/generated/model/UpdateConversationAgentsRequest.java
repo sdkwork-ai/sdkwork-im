@@ -3,14 +3,14 @@ package com.sdkwork.im.sdk.generated.model;
 import java.util.List;
 
 public class UpdateConversationAgentsRequest {
-    private Integer expectedGeneration;
+    private String expectedGeneration;
     private List<ConversationAgentAssignment> agentAssignments;
 
-    public Integer getExpectedGeneration() {
+    public String getExpectedGeneration() {
         return this.expectedGeneration;
     }
 
-    public void setExpectedGeneration(Integer expectedGeneration) {
+    public void setExpectedGeneration(String expectedGeneration) {
         this.expectedGeneration = expectedGeneration;
     }
 

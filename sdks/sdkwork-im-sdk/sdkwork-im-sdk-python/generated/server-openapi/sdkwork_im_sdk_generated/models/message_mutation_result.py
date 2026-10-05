@@ -7,5 +7,5 @@ from typing import TYPE_CHECKING, Optional, List, Dict, Any
 class MessageMutationResult:
     conversation_id: str
     message_id: str
-    message_seq: int
+    message_seq: str
     event_id: str

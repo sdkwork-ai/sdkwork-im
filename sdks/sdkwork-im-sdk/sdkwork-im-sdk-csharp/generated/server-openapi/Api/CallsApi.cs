@@ -66,11 +66,11 @@ namespace Sdkwork.Im.Sdk.Generated.Api
         /// <summary>
         /// List IM call signaling events
         /// </summary>
-        public async Task<Sdkwork.Im.Sdk.Generated.Models.CallsSessionsSignalsListResponse?> SessionsSignalsListAsync(string rtcSessionId, int? afterSignalSeq = null, string? cursor = null, int? pageSize = null)
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.CallsSessionsSignalsListResponse?> SessionsSignalsListAsync(string rtcSessionId, string? afterSignalSeq = null, string? cursor = null, int? pageSize = null)
         {
             var queryString = BuildQueryString(new[]
             {
-                new QueryParameterSpec("afterSignalSeq", afterSignalSeq, "form", true, false, null),
+                new QueryParameterSpec("after_signal_seq", afterSignalSeq, "form", true, false, null),
                 new QueryParameterSpec("cursor", cursor, "form", true, false, null),
                 new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
             });

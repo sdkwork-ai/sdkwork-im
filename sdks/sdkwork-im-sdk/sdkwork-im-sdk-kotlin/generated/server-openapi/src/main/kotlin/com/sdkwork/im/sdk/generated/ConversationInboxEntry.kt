@@ -14,7 +14,7 @@ data class ConversationInboxEntry(
     val lastMessageId: String? = null,
     val lastSenderId: String? = null,
     val messageCount: Int? = null,
-    val lastMessageSeq: Int? = null,
+    val lastMessageSeq: String? = null,
     val lastSummary: String? = null,
     val lastMessageAt: String? = null,
     val unreadCount: Int? = null

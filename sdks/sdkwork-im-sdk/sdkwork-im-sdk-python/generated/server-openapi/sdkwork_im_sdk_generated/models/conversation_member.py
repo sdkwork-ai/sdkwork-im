@@ -13,3 +13,6 @@ class ConversationMember:
     role: str
     state: str
     joined_at: str
+    invited_by: Optional[str] = None
+    removed_at: Optional[str] = None
+    attributes: Optional[Dict[str, str]] = None

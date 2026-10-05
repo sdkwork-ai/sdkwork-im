@@ -13,7 +13,6 @@ namespace Sdkwork.Im.BackendApi.Generated
         public AuditApi Audit { get; }
         public AutomationApi Automation { get; }
         public ControlApi Control { get; }
-        public AdminApi Admin { get; }
 
         public SdkworkImBackendClient(string baseUrl)
         {
@@ -22,7 +21,6 @@ namespace Sdkwork.Im.BackendApi.Generated
             Audit = new AuditApi(_httpClient);
             Automation = new AutomationApi(_httpClient);
             Control = new ControlApi(_httpClient);
-            Admin = new AdminApi(_httpClient);
         }
 
         public SdkworkImBackendClient(SdkConfig config)
@@ -32,7 +30,6 @@ namespace Sdkwork.Im.BackendApi.Generated
             Audit = new AuditApi(_httpClient);
             Automation = new AutomationApi(_httpClient);
             Control = new ControlApi(_httpClient);
-            Admin = new AdminApi(_httpClient);
         }
         public SdkworkImBackendClient SetAuthToken(string token)
         {

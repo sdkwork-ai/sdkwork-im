@@ -7,25 +7,31 @@ public class AuditApi {
         self.client = client
     }
 
+    /// Record an audit anchor
+    public func recordsCreate(body: AuditRecordAnchorRequest) async throws -> AuditRecordsCreateResponse201? {
+        return try await client.post(ApiPaths.backendPath("/audit/records"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: AuditRecordsCreateResponse201.self)
+    }
+
     /// List audit records
-    public func recordsList(pageSize: Int? = nil, cursor: String? = nil, page: Int? = nil, q: String? = nil) async throws -> SdkWorkListResponse? {
+    public func recordsList(afterAuditSeq: String? = nil, pageSize: Int? = nil) async throws -> AuditRecordsListResponse? {
         let query = buildQueryString([
-            QueryParameterSpec(name: "page_size", value: pageSize, style: "form", explode: true, allowReserved: false, contentType: nil),
-            QueryParameterSpec(name: "cursor", value: cursor, style: "form", explode: true, allowReserved: false, contentType: nil),
-            QueryParameterSpec(name: "page", value: page, style: "form", explode: true, allowReserved: false, contentType: nil),
-            QueryParameterSpec(name: "q", value: q, style: "form", explode: true, allowReserved: false, contentType: nil)
+            QueryParameterSpec(name: "after_audit_seq", value: afterAuditSeq, style: "form", explode: true, allowReserved: false, contentType: nil),
+            QueryParameterSpec(name: "page_size", value: pageSize, style: "form", explode: true, allowReserved: false, contentType: nil)
         ])
-        return try await client.get(ApiPaths.appendQueryString(ApiPaths.backendPath("/audit/records"), query), responseType: SdkWorkListResponse.self)
+        return try await client.get(ApiPaths.appendQueryString(ApiPaths.backendPath("/audit/records"), query), responseType: AuditRecordsListResponse.self)
     }
 
-    /// Record audit anchor
-    public func recordsCreate() async throws -> RecordsCreateResponse201? {
-        return try await client.post(ApiPaths.backendPath("/audit/records"), body: nil, responseType: RecordsCreateResponse201.self)
+    /// Export the audit ledger
+    public func exportRetrieve(pageSize: Int? = nil) async throws -> AuditExportRetrieveResponse? {
+        let query = buildQueryString([
+            QueryParameterSpec(name: "page_size", value: pageSize, style: "form", explode: true, allowReserved: false, contentType: nil)
+        ])
+        return try await client.get(ApiPaths.appendQueryString(ApiPaths.backendPath("/audit/export"), query), responseType: AuditExportRetrieveResponse.self)
     }
 
-    /// Export audit bundle
-    public func exportRetrieve() async throws -> ExportRetrieveResponse? {
-        return try await client.get(ApiPaths.backendPath("/audit/export"), responseType: ExportRetrieveResponse.self)
+    /// Verify audit chain integrity
+    public func verifyRetrieve() async throws -> VerifyRetrieveResponse? {
+        return try await client.get(ApiPaths.backendPath("/audit/verify"), responseType: VerifyRetrieveResponse.self)
     }
 
 

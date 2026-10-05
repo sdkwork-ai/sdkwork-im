@@ -232,10 +232,10 @@ class CallsSessionsSignalsApi:
         self._client = client
 
 
-    def list(self, rtc_session_id: str, after_signal_seq: Optional[int] = None, cursor: Optional[str] = None, page_size: Optional[int] = None) -> CallsSessionsSignalsListResponse:
+    def list(self, rtc_session_id: str, after_signal_seq: Optional[str] = None, cursor: Optional[str] = None, page_size: Optional[int] = None) -> CallsSessionsSignalsListResponse:
         """List IM call signaling events"""
         query = build_query_string([
-            {'name': 'afterSignalSeq', 'value': after_signal_seq, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'after_signal_seq', 'value': after_signal_seq, 'style': 'form', 'explode': True, 'allow_reserved': False},
             {'name': 'cursor', 'value': cursor, 'style': 'form', 'explode': True, 'allow_reserved': False},
             {'name': 'page_size', 'value': page_size, 'style': 'form', 'explode': True, 'allow_reserved': False},
         ])

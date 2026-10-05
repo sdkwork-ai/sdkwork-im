@@ -23,4 +23,15 @@ pub struct ConversationMember {
 
     #[serde(rename = "joinedAt")]
     pub joined_at: String,
+
+    #[serde(rename = "invitedBy")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invited_by: Option<String>,
+
+    #[serde(rename = "removedAt")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub removed_at: Option<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attributes: Option<std::collections::HashMap<String, String>>,
 }

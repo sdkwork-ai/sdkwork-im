@@ -8,6 +8,6 @@ class ConversationSummaryView:
     tenant_id: str
     conversation_id: str
     message_count: int
-    last_message_seq: int
+    last_message_seq: str
     last_summary: Optional[str] = None
     last_message_at: Optional[str] = None

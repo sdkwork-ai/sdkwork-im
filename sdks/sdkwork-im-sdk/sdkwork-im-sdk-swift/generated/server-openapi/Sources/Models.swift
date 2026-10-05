@@ -257,7 +257,7 @@ public struct RtcSignalSender: Codable {
 public struct RtcSignalEvent: Codable {
     public let tenantId: String?
     public let rtcSessionId: String?
-    public let signalSeq: Int?
+    public let signalSeq: String?
     public let conversationId: String?
     public let rtcMode: String?
     public let signalType: String?
@@ -268,7 +268,7 @@ public struct RtcSignalEvent: Codable {
     public let occurredAt: String?
 
 
-    public init(tenantId: String? = nil, rtcSessionId: String? = nil, signalSeq: Int? = nil, conversationId: String? = nil, rtcMode: String? = nil, signalType: String? = nil, schemaRef: String? = nil, payload: String? = nil, sender: RtcSignalSender? = nil, signalingStreamId: String? = nil, occurredAt: String? = nil) {
+    public init(tenantId: String? = nil, rtcSessionId: String? = nil, signalSeq: String? = nil, conversationId: String? = nil, rtcMode: String? = nil, signalType: String? = nil, schemaRef: String? = nil, payload: String? = nil, sender: RtcSignalSender? = nil, signalingStreamId: String? = nil, occurredAt: String? = nil) {
         self.tenantId = tenantId
         self.rtcSessionId = rtcSessionId
         self.signalSeq = signalSeq
@@ -359,7 +359,7 @@ public struct MediaResource: Codable {
     public let title: String?
     public let fileName: String?
     public let mimeType: String?
-    public let size: Int?
+    public let size: String?
     public let sizeBytes: String?
     public let fileSize: String?
     public let durationSeconds: Int?
@@ -367,7 +367,7 @@ public struct MediaResource: Codable {
     public let thumbnails: [MediaResource]?
 
 
-    public init(id: String? = nil, kind: String? = nil, mediaKind: String? = nil, source: String? = nil, uri: String? = nil, publicUrl: String? = nil, url: String? = nil, name: String? = nil, title: String? = nil, fileName: String? = nil, mimeType: String? = nil, size: Int? = nil, sizeBytes: String? = nil, fileSize: String? = nil, durationSeconds: Int? = nil, poster: MediaResource? = nil, thumbnails: [MediaResource]? = nil) {
+    public init(id: String? = nil, kind: String? = nil, mediaKind: String? = nil, source: String? = nil, uri: String? = nil, publicUrl: String? = nil, url: String? = nil, name: String? = nil, title: String? = nil, fileName: String? = nil, mimeType: String? = nil, size: String? = nil, sizeBytes: String? = nil, fileSize: String? = nil, durationSeconds: Int? = nil, poster: MediaResource? = nil, thumbnails: [MediaResource]? = nil) {
         self.id = id
         self.kind = kind
         self.mediaKind = mediaKind
@@ -450,7 +450,7 @@ public struct ConversationMessageEntry: Codable {
     public let tenantId: String?
     public let conversationId: String?
     public let messageId: String?
-    public let messageSeq: Int?
+    public let messageSeq: String?
     public let summary: String?
     public let sender: Sender?
     public let body: MessageBody?
@@ -463,7 +463,7 @@ public struct ConversationMessageEntry: Codable {
     public let committedAt: String?
 
 
-    public init(tenantId: String? = nil, conversationId: String? = nil, messageId: String? = nil, messageSeq: Int? = nil, summary: String? = nil, sender: Sender? = nil, body: MessageBody? = nil, messageType: String? = nil, deliveryMode: String? = nil, clientMsgId: String? = nil, streamSessionId: String? = nil, rtcSessionId: String? = nil, occurredAt: String? = nil, committedAt: String? = nil) {
+    public init(tenantId: String? = nil, conversationId: String? = nil, messageId: String? = nil, messageSeq: String? = nil, summary: String? = nil, sender: Sender? = nil, body: MessageBody? = nil, messageType: String? = nil, deliveryMode: String? = nil, clientMsgId: String? = nil, streamSessionId: String? = nil, rtcSessionId: String? = nil, occurredAt: String? = nil, committedAt: String? = nil) {
         self.tenantId = tenantId
         self.conversationId = conversationId
         self.messageId = messageId
@@ -482,6 +482,32 @@ public struct ConversationMessageEntry: Codable {
 }
 
 public struct ConversationMessageListResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
+public struct MessageSearchHit: Codable {
+    public let conversationId: String?
+    public let messageId: String?
+    public let messageSeq: String?
+
+
+    public init(conversationId: String? = nil, messageId: String? = nil, messageSeq: String? = nil) {
+        self.conversationId = conversationId
+        self.messageId = messageId
+        self.messageSeq = messageSeq
+    }
+}
+
+public struct MessageSearchResponse: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?
@@ -541,16 +567,31 @@ public struct RecallMessageRequest: Codable {
     }
 }
 
+public struct WelcomeEnsureView: Codable {
+    public let status: String?
+    public let conversationId: String?
+    public let messageId: String?
+    public let messageSeq: String?
+
+
+    public init(status: String? = nil, conversationId: String? = nil, messageId: String? = nil, messageSeq: String? = nil) {
+        self.status = status
+        self.conversationId = conversationId
+        self.messageId = messageId
+        self.messageSeq = messageSeq
+    }
+}
+
 public struct PostMessageResult: Codable {
     public let messageId: String?
-    public let messageSeq: Int?
+    public let messageSeq: String?
     public let eventId: String?
     public let requestKey: String?
     public let deliveryStatus: String?
     public let proofVersion: String?
 
 
-    public init(messageId: String? = nil, messageSeq: Int? = nil, eventId: String? = nil, requestKey: String? = nil, deliveryStatus: String? = nil, proofVersion: String? = nil) {
+    public init(messageId: String? = nil, messageSeq: String? = nil, eventId: String? = nil, requestKey: String? = nil, deliveryStatus: String? = nil, proofVersion: String? = nil) {
         self.messageId = messageId
         self.messageSeq = messageSeq
         self.eventId = eventId
@@ -563,11 +604,11 @@ public struct PostMessageResult: Codable {
 public struct MessageMutationResult: Codable {
     public let conversationId: String?
     public let messageId: String?
-    public let messageSeq: Int?
+    public let messageSeq: String?
     public let eventId: String?
 
 
-    public init(conversationId: String? = nil, messageId: String? = nil, messageSeq: Int? = nil, eventId: String? = nil) {
+    public init(conversationId: String? = nil, messageId: String? = nil, messageSeq: String? = nil, eventId: String? = nil) {
         self.conversationId = conversationId
         self.messageId = messageId
         self.messageSeq = messageSeq
@@ -621,13 +662,13 @@ public struct MessageInteractionSummaryView: Codable {
     public let tenantId: String?
     public let conversationId: String?
     public let messageId: String?
-    public let messageSeq: Int?
+    public let messageSeq: String?
     public let totalReactionCount: Int?
     public let reactionCounts: [MessageReactionCountView]?
     public let pin: MessagePinView?
 
 
-    public init(tenantId: String? = nil, conversationId: String? = nil, messageId: String? = nil, messageSeq: Int? = nil, totalReactionCount: Int? = nil, reactionCounts: [MessageReactionCountView]? = nil, pin: MessagePinView? = nil) {
+    public init(tenantId: String? = nil, conversationId: String? = nil, messageId: String? = nil, messageSeq: String? = nil, totalReactionCount: Int? = nil, reactionCounts: [MessageReactionCountView]? = nil, pin: MessagePinView? = nil) {
         self.tenantId = tenantId
         self.conversationId = conversationId
         self.messageId = messageId
@@ -699,14 +740,14 @@ public struct MessageFavoriteView: Codable {
     public let favoriteType: String?
     public let conversationId: String?
     public let messageId: String?
-    public let messageSeq: Int?
+    public let messageSeq: String?
     public let title: String?
     public let contentPreview: String?
     public let sourceDisplayName: String?
     public let favoritedAt: String?
 
 
-    public init(tenantId: String? = nil, principalKind: String? = nil, principalId: String? = nil, favoriteId: String? = nil, favoriteType: String? = nil, conversationId: String? = nil, messageId: String? = nil, messageSeq: Int? = nil, title: String? = nil, contentPreview: String? = nil, sourceDisplayName: String? = nil, favoritedAt: String? = nil) {
+    public init(tenantId: String? = nil, principalKind: String? = nil, principalId: String? = nil, favoriteId: String? = nil, favoriteType: String? = nil, conversationId: String? = nil, messageId: String? = nil, messageSeq: String? = nil, title: String? = nil, contentPreview: String? = nil, sourceDisplayName: String? = nil, favoritedAt: String? = nil) {
         self.tenantId = tenantId
         self.principalKind = principalKind
         self.principalId = principalId
@@ -802,12 +843,12 @@ public struct ConversationSummaryView: Codable {
     public let tenantId: String?
     public let conversationId: String?
     public let messageCount: Int?
-    public let lastMessageSeq: Int?
+    public let lastMessageSeq: String?
     public let lastSummary: String?
     public let lastMessageAt: String?
 
 
-    public init(tenantId: String? = nil, conversationId: String? = nil, messageCount: Int? = nil, lastMessageSeq: Int? = nil, lastSummary: String? = nil, lastMessageAt: String? = nil) {
+    public init(tenantId: String? = nil, conversationId: String? = nil, messageCount: Int? = nil, lastMessageSeq: String? = nil, lastSummary: String? = nil, lastMessageAt: String? = nil) {
         self.tenantId = tenantId
         self.conversationId = conversationId
         self.messageCount = messageCount
@@ -867,13 +908,13 @@ public struct ConversationInboxEntry: Codable {
     public let lastMessageId: String?
     public let lastSenderId: String?
     public let messageCount: Int?
-    public let lastMessageSeq: Int?
+    public let lastMessageSeq: String?
     public let lastSummary: String?
     public let lastMessageAt: String?
     public let unreadCount: Int?
 
 
-    public init(tenantId: String? = nil, conversationId: String? = nil, agentHandoff: Bool? = nil, conversationType: String? = nil, displayName: String? = nil, avatarUrl: String? = nil, displaySource: String? = nil, peer: ConversationInboxPeerView? = nil, preferences: ConversationInboxPreferencesView? = nil, lastActivityAt: String? = nil, lastMessageId: String? = nil, lastSenderId: String? = nil, messageCount: Int? = nil, lastMessageSeq: Int? = nil, lastSummary: String? = nil, lastMessageAt: String? = nil, unreadCount: Int? = nil) {
+    public init(tenantId: String? = nil, conversationId: String? = nil, agentHandoff: Bool? = nil, conversationType: String? = nil, displayName: String? = nil, avatarUrl: String? = nil, displaySource: String? = nil, peer: ConversationInboxPeerView? = nil, preferences: ConversationInboxPreferencesView? = nil, lastActivityAt: String? = nil, lastMessageId: String? = nil, lastSenderId: String? = nil, messageCount: Int? = nil, lastMessageSeq: String? = nil, lastSummary: String? = nil, lastMessageAt: String? = nil, unreadCount: Int? = nil) {
         self.tenantId = tenantId
         self.conversationId = conversationId
         self.agentHandoff = agentHandoff
@@ -1134,7 +1175,7 @@ public struct CommitEnvelopeResponse: Codable {
     public let scopeType: String?
     public let scopeId: String?
     public let orderingKey: String?
-    public let orderingSeq: Int?
+    public let orderingSeq: String?
     public let causationId: String?
     public let correlationId: String?
     public let idempotencyKey: String?
@@ -1147,7 +1188,7 @@ public struct CommitEnvelopeResponse: Codable {
     public let auditClass: String?
 
 
-    public init(eventId: String? = nil, tenantId: String? = nil, eventType: String? = nil, eventVersion: Int? = nil, aggregateType: String? = nil, aggregateId: String? = nil, scopeType: String? = nil, scopeId: String? = nil, orderingKey: String? = nil, orderingSeq: Int? = nil, causationId: String? = nil, correlationId: String? = nil, idempotencyKey: String? = nil, actor_: EventActor? = nil, occurredAt: String? = nil, committedAt: String? = nil, payloadSchema: String? = nil, payload: String? = nil, retentionClass: String? = nil, auditClass: String? = nil) {
+    public init(eventId: String? = nil, tenantId: String? = nil, eventType: String? = nil, eventVersion: Int? = nil, aggregateType: String? = nil, aggregateId: String? = nil, scopeType: String? = nil, scopeId: String? = nil, orderingKey: String? = nil, orderingSeq: String? = nil, causationId: String? = nil, correlationId: String? = nil, idempotencyKey: String? = nil, actor_: EventActor? = nil, occurredAt: String? = nil, committedAt: String? = nil, payloadSchema: String? = nil, payload: String? = nil, retentionClass: String? = nil, auditClass: String? = nil) {
         self.eventId = eventId
         self.tenantId = tenantId
         self.eventType = eventType
@@ -1230,9 +1271,11 @@ public struct FriendRequest: Codable {
     public let expiredAt: String?
     public let createdAt: String?
     public let updatedAt: String?
+    public let requesterDisplayName: String?
+    public let requesterAvatarUrl: String?
 
 
-    public init(tenantId: String? = nil, friendRequestId: String? = nil, requesterUserId: String? = nil, targetUserId: String? = nil, status: String? = nil, requestMessage: String? = nil, expiredAt: String? = nil, createdAt: String? = nil, updatedAt: String? = nil) {
+    public init(tenantId: String? = nil, friendRequestId: String? = nil, requesterUserId: String? = nil, targetUserId: String? = nil, status: String? = nil, requestMessage: String? = nil, expiredAt: String? = nil, createdAt: String? = nil, updatedAt: String? = nil, requesterDisplayName: String? = nil, requesterAvatarUrl: String? = nil) {
         self.tenantId = tenantId
         self.friendRequestId = friendRequestId
         self.requesterUserId = requesterUserId
@@ -1242,6 +1285,8 @@ public struct FriendRequest: Codable {
         self.expiredAt = expiredAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.requesterDisplayName = requesterDisplayName
+        self.requesterAvatarUrl = requesterAvatarUrl
     }
 }
 
@@ -1249,39 +1294,47 @@ public struct Friendship: Codable {
     public let tenantId: String?
     public let friendshipId: String?
     public let initiatorUserId: String?
-    public let leftUserId: String?
-    public let rightUserId: String?
-    public let userHighId: String?
     public let userLowId: String?
+    public let userHighId: String?
     public let status: String?
-    public let createdAt: String?
+    public let establishedAt: String?
+    public let updatedAt: String?
 
 
-    public init(tenantId: String? = nil, friendshipId: String? = nil, initiatorUserId: String? = nil, leftUserId: String? = nil, rightUserId: String? = nil, userHighId: String? = nil, userLowId: String? = nil, status: String? = nil, createdAt: String? = nil) {
+    public init(tenantId: String? = nil, friendshipId: String? = nil, initiatorUserId: String? = nil, userLowId: String? = nil, userHighId: String? = nil, status: String? = nil, establishedAt: String? = nil, updatedAt: String? = nil) {
         self.tenantId = tenantId
         self.friendshipId = friendshipId
         self.initiatorUserId = initiatorUserId
-        self.leftUserId = leftUserId
-        self.rightUserId = rightUserId
-        self.userHighId = userHighId
         self.userLowId = userLowId
+        self.userHighId = userHighId
         self.status = status
-        self.createdAt = createdAt
+        self.establishedAt = establishedAt
+        self.updatedAt = updatedAt
     }
 }
 
 public struct DirectChat: Codable {
     public let tenantId: String?
     public let directChatId: String?
-    public let conversationId: String?
+    public let leftActorId: String?
+    public let rightActorId: String?
+    public let pairHash: String?
     public let status: String?
+    public let conversationId: String?
+    public let createdAt: String?
+    public let updatedAt: String?
 
 
-    public init(tenantId: String? = nil, directChatId: String? = nil, conversationId: String? = nil, status: String? = nil) {
+    public init(tenantId: String? = nil, directChatId: String? = nil, leftActorId: String? = nil, rightActorId: String? = nil, pairHash: String? = nil, status: String? = nil, conversationId: String? = nil, createdAt: String? = nil, updatedAt: String? = nil) {
         self.tenantId = tenantId
         self.directChatId = directChatId
-        self.conversationId = conversationId
+        self.leftActorId = leftActorId
+        self.rightActorId = rightActorId
+        self.pairHash = pairHash
         self.status = status
+        self.conversationId = conversationId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
 }
 
@@ -1315,6 +1368,163 @@ public struct SocialFriendRequestPendingCountResponse: Codable {
 
     public init(count: Int? = nil) {
         self.count = count
+    }
+}
+
+public struct SocialUserBlockSummary: Codable {
+    public let blockId: String?
+    public let blockerUserId: String?
+    public let blockedUserId: String?
+    public let scope: String?
+    public let createdAt: String?
+
+
+    public init(blockId: String? = nil, blockerUserId: String? = nil, blockedUserId: String? = nil, scope: String? = nil, createdAt: String? = nil) {
+        self.blockId = blockId
+        self.blockerUserId = blockerUserId
+        self.blockedUserId = blockedUserId
+        self.scope = scope
+        self.createdAt = createdAt
+    }
+}
+
+public struct SocialDirectChatView: Codable {
+    public let directChatId: String?
+    public let leftActorId: String?
+    public let rightActorId: String?
+    public let status: String?
+    public let conversationId: String?
+    public let createdAt: String?
+    public let updatedAt: String?
+
+
+    public init(directChatId: String? = nil, leftActorId: String? = nil, rightActorId: String? = nil, status: String? = nil, conversationId: String? = nil, createdAt: String? = nil, updatedAt: String? = nil) {
+        self.directChatId = directChatId
+        self.leftActorId = leftActorId
+        self.rightActorId = rightActorId
+        self.status = status
+        self.conversationId = conversationId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct SocialUserProfileView: Codable {
+    public let userId: String?
+    public let imNickname: String?
+    public let imAvatarUrl: String?
+    public let imStatusMessage: String?
+    public let imOnlineStatus: String?
+    public let lastActiveAt: String?
+
+
+    public init(userId: String? = nil, imNickname: String? = nil, imAvatarUrl: String? = nil, imStatusMessage: String? = nil, imOnlineStatus: String? = nil, lastActiveAt: String? = nil) {
+        self.userId = userId
+        self.imNickname = imNickname
+        self.imAvatarUrl = imAvatarUrl
+        self.imStatusMessage = imStatusMessage
+        self.imOnlineStatus = imOnlineStatus
+        self.lastActiveAt = lastActiveAt
+    }
+}
+
+public struct UpdateSocialUserProfileRequest: Codable {
+    public let imNickname: String?
+    public let imAvatarUrl: String?
+    public let imStatusMessage: String?
+
+
+    public init(imNickname: String? = nil, imAvatarUrl: String? = nil, imStatusMessage: String? = nil) {
+        self.imNickname = imNickname
+        self.imAvatarUrl = imAvatarUrl
+        self.imStatusMessage = imStatusMessage
+    }
+}
+
+public struct SocialUserSettingsView: Codable {
+    public let settings: [String: Any]?
+
+
+    public init(settings: [String: Any]? = nil) {
+        self.settings = settings
+    }
+}
+
+public struct UpdateSocialUserSettingsRequest: Codable {
+    public let settings: [String: Any]?
+
+
+    public init(settings: [String: Any]? = nil) {
+        self.settings = settings
+    }
+}
+
+public struct SharedChannelLinkSyncRequest: Codable {
+    public let conversationId: String?
+    public let sharedChannelPolicyId: String?
+    public let externalConnectionId: String?
+    public let localActorId: String?
+    public let localActorKind: String?
+    public let externalMemberId: String?
+    public let requestKey: String?
+
+
+    public init(conversationId: String? = nil, sharedChannelPolicyId: String? = nil, externalConnectionId: String? = nil, localActorId: String? = nil, localActorKind: String? = nil, externalMemberId: String? = nil, requestKey: String? = nil) {
+        self.conversationId = conversationId
+        self.sharedChannelPolicyId = sharedChannelPolicyId
+        self.externalConnectionId = externalConnectionId
+        self.localActorId = localActorId
+        self.localActorKind = localActorKind
+        self.externalMemberId = externalMemberId
+        self.requestKey = requestKey
+    }
+}
+
+public struct SharedChannelLinkSyncResponse: Codable {
+    public let tenantId: String?
+    public let conversationId: String?
+    public let memberId: String?
+    public let principalId: String?
+    public let principalKind: String?
+    public let role: String?
+    public let state: String?
+    public let joinedAt: String?
+    public let invitedBy: String?
+    public let removedAt: String?
+    public let attributes: [String: String]?
+    public let proofVersion: String?
+    public let requestKey: String?
+    public let status: String?
+
+
+    public init(tenantId: String? = nil, conversationId: String? = nil, memberId: String? = nil, principalId: String? = nil, principalKind: String? = nil, role: String? = nil, state: String? = nil, joinedAt: String? = nil, invitedBy: String? = nil, removedAt: String? = nil, attributes: [String: String]? = nil, proofVersion: String? = nil, requestKey: String? = nil, status: String? = nil) {
+        self.tenantId = tenantId
+        self.conversationId = conversationId
+        self.memberId = memberId
+        self.principalId = principalId
+        self.principalKind = principalKind
+        self.role = role
+        self.state = state
+        self.joinedAt = joinedAt
+        self.invitedBy = invitedBy
+        self.removedAt = removedAt
+        self.attributes = attributes
+        self.proofVersion = proofVersion
+        self.requestKey = requestKey
+        self.status = status
+    }
+}
+
+public struct ConversationBindingView: Codable {
+    public let conversationId: String?
+    public let businessType: String?
+    public let businessId: String?
+
+
+    public init(conversationId: String? = nil, businessType: String? = nil, businessId: String? = nil) {
+        self.conversationId = conversationId
+        self.businessType = businessType
+        self.businessId = businessId
     }
 }
 
@@ -1383,12 +1593,12 @@ public struct ConversationAgentAssignment: Codable {
 }
 
 public struct ConversationAgentAssignments: Codable {
-    public let generation: Int?
+    public let generation: String?
     public let source: String?
     public let agents: [ConversationAgentAssignment]?
 
 
-    public init(generation: Int? = nil, source: String? = nil, agents: [ConversationAgentAssignment]? = nil) {
+    public init(generation: String? = nil, source: String? = nil, agents: [ConversationAgentAssignment]? = nil) {
         self.generation = generation
         self.source = source
         self.agents = agents
@@ -1396,11 +1606,11 @@ public struct ConversationAgentAssignments: Codable {
 }
 
 public struct UpdateConversationAgentsRequest: Codable {
-    public let expectedGeneration: Int?
+    public let expectedGeneration: String?
     public let agentAssignments: [ConversationAgentAssignment]?
 
 
-    public init(expectedGeneration: Int? = nil, agentAssignments: [ConversationAgentAssignment]? = nil) {
+    public init(expectedGeneration: String? = nil, agentAssignments: [ConversationAgentAssignment]? = nil) {
         self.expectedGeneration = expectedGeneration
         self.agentAssignments = agentAssignments
     }
@@ -1588,9 +1798,12 @@ public struct ConversationMember: Codable {
     public let role: String?
     public let state: String?
     public let joinedAt: String?
+    public let invitedBy: String?
+    public let removedAt: String?
+    public let attributes: [String: String]?
 
 
-    public init(tenantId: String? = nil, conversationId: String? = nil, memberId: String? = nil, principalId: String? = nil, principalKind: String? = nil, role: String? = nil, state: String? = nil, joinedAt: String? = nil) {
+    public init(tenantId: String? = nil, conversationId: String? = nil, memberId: String? = nil, principalId: String? = nil, principalKind: String? = nil, role: String? = nil, state: String? = nil, joinedAt: String? = nil, invitedBy: String? = nil, removedAt: String? = nil, attributes: [String: String]? = nil) {
         self.tenantId = tenantId
         self.conversationId = conversationId
         self.memberId = memberId
@@ -1599,6 +1812,9 @@ public struct ConversationMember: Codable {
         self.role = role
         self.state = state
         self.joinedAt = joinedAt
+        self.invitedBy = invitedBy
+        self.removedAt = removedAt
+        self.attributes = attributes
     }
 }
 
@@ -1606,11 +1822,11 @@ public struct ReadCursorView: Codable {
     public let tenantId: String?
     public let conversationId: String?
     public let principalId: String?
-    public let readSeq: Int?
+    public let readSeq: String?
     public let updatedAt: String?
 
 
-    public init(tenantId: String? = nil, conversationId: String? = nil, principalId: String? = nil, readSeq: Int? = nil, updatedAt: String? = nil) {
+    public init(tenantId: String? = nil, conversationId: String? = nil, principalId: String? = nil, readSeq: String? = nil, updatedAt: String? = nil) {
         self.tenantId = tenantId
         self.conversationId = conversationId
         self.principalId = principalId
@@ -1620,61 +1836,31 @@ public struct ReadCursorView: Codable {
 }
 
 public struct UpdateReadCursorRequest: Codable {
-    public let readSeq: Int?
+    public let readSeq: String?
 
 
-    public init(readSeq: Int? = nil) {
+    public init(readSeq: String? = nil) {
         self.readSeq = readSeq
     }
 }
 
-public struct StreamView: Codable {
-    public let tenantId: String?
-    public let streamId: String?
-    public let state: String?
-    public let openedAt: String?
+public struct TypingIndicatorListItem: Codable {
+    public let userId: String?
+    public let userKind: String?
 
 
-    public init(tenantId: String? = nil, streamId: String? = nil, state: String? = nil, openedAt: String? = nil) {
-        self.tenantId = tenantId
-        self.streamId = streamId
-        self.state = state
-        self.openedAt = openedAt
+    public init(userId: String? = nil, userKind: String? = nil) {
+        self.userId = userId
+        self.userKind = userKind
     }
 }
 
-public struct OpenStreamRequest: Codable {
-    public let streamType: String?
-    public let conversationId: String?
+public struct SignalTypingResult: Codable {
+    public let delivered: Int?
 
 
-    public init(streamType: String? = nil, conversationId: String? = nil) {
-        self.streamType = streamType
-        self.conversationId = conversationId
-    }
-}
-
-public struct StreamFrameView: Codable {
-    public let streamId: String?
-    public let frameSeq: Int?
-    public let payload: String?
-    public let createdAt: String?
-
-
-    public init(streamId: String? = nil, frameSeq: Int? = nil, payload: String? = nil, createdAt: String? = nil) {
-        self.streamId = streamId
-        self.frameSeq = frameSeq
-        self.payload = payload
-        self.createdAt = createdAt
-    }
-}
-
-public struct AppendStreamFrameRequest: Codable {
-    public let payload: String?
-
-
-    public init(payload: String? = nil) {
-        self.payload = payload
+    public init(delivered: Int? = nil) {
+        self.delivered = delivered
     }
 }
 
@@ -1900,6 +2086,15 @@ public struct SpaceGroupUpdateRequest: Codable {
     }
 }
 
+public struct SpaceGroupTransferOwnerRequest: Codable {
+    public let newOwnerUserId: String?
+
+
+    public init(newOwnerUserId: String? = nil) {
+        self.newOwnerUserId = newOwnerUserId
+    }
+}
+
 public struct SpaceGroupView: Codable {
     public let groupId: String?
     public let groupName: String?
@@ -2024,22 +2219,48 @@ public struct SpaceChannelAccessRuleView: Codable {
 }
 
 public struct SpaceInviteCreateRequest: Codable {
-    public let maxUses: Int?
+    public let inviteeUserId: String?
+    public let inviteeEmail: String?
+    public let inviteePhone: String?
+    public let targetType: String?
+    public let targetId: String?
+    public let role: String?
+    public let message: String?
+    public let expiresAt: String?
 
 
-    public init(maxUses: Int? = nil) {
-        self.maxUses = maxUses
+    public init(inviteeUserId: String? = nil, inviteeEmail: String? = nil, inviteePhone: String? = nil, targetType: String? = nil, targetId: String? = nil, role: String? = nil, message: String? = nil, expiresAt: String? = nil) {
+        self.inviteeUserId = inviteeUserId
+        self.inviteeEmail = inviteeEmail
+        self.inviteePhone = inviteePhone
+        self.targetType = targetType
+        self.targetId = targetId
+        self.role = role
+        self.message = message
+        self.expiresAt = expiresAt
     }
 }
 
 public struct SpaceInviteView: Codable {
-    public let inviteCode: String?
-    public let spaceId: String?
+    public let invitationId: String?
+    public let inviterUserId: String?
+    public let inviteeUserId: String?
+    public let targetType: String?
+    public let targetId: String?
+    public let role: String?
+    public let status: String?
+    public let createdAt: String?
 
 
-    public init(inviteCode: String? = nil, spaceId: String? = nil) {
-        self.inviteCode = inviteCode
-        self.spaceId = spaceId
+    public init(invitationId: String? = nil, inviterUserId: String? = nil, inviteeUserId: String? = nil, targetType: String? = nil, targetId: String? = nil, role: String? = nil, status: String? = nil, createdAt: String? = nil) {
+        self.invitationId = invitationId
+        self.inviterUserId = inviterUserId
+        self.inviteeUserId = inviteeUserId
+        self.targetType = targetType
+        self.targetId = targetId
+        self.role = role
+        self.status = status
+        self.createdAt = createdAt
     }
 }
 
@@ -2111,10 +2332,10 @@ public struct MentionContentPart: Codable {
     public let targetKind: String
     public let targetId: String
     public let displayText: String
-    public let assignmentGeneration: Int
+    public let assignmentGeneration: String
 
 
-    public init(kind: String, targetKind: String, targetId: String, displayText: String, assignmentGeneration: Int) {
+    public init(kind: String, targetKind: String, targetId: String, displayText: String, assignmentGeneration: String) {
         self.kind = kind
         self.targetKind = targetKind
         self.targetId = targetId
@@ -2361,6 +2582,97 @@ public struct SocialUsersListResponse: Codable {
     }
 }
 
+public struct SocialUsersProfileRetrieveResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
+public struct SocialUsersProfileUpdateResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
+public struct SocialUsersSettingsRetrieveResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
+public struct SocialUsersSettingsUpdateResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
+public struct SocialFriendshipsListResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
+public struct SocialDirectChatsListResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
+public struct SocialDirectChatsRetrieveResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
 public struct SocialFriendRequestsCreateResponse201: Codable {
     public let code: Int?
     public let data: Any?
@@ -2427,6 +2739,19 @@ public struct SocialFriendRequestsCancelResponse: Codable {
 }
 
 public struct SocialFriendshipsRemoveResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
+public struct SocialUserBlocksListResponse: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?
@@ -2543,6 +2868,19 @@ public struct InboxListResponse: Codable {
     }
 }
 
+public struct ChatMeWelcomeEnsureResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
 public struct ConversationsCreateResponse201: Codable {
     public let code: Int?
     public let data: Any?
@@ -2609,6 +2947,19 @@ public struct ConversationsThreadsCreateResponse201: Codable {
 }
 
 public struct ConversationsDirectChatsBindingsCreateResponse201: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
+public struct ConversationsSharedChannelLinksSyncResponse: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?
@@ -2726,6 +3077,19 @@ public struct ConversationsAgentsRetrieveResponse: Codable {
 }
 
 public struct ConversationsAgentsUpdateResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
+public struct ConversationsBindingRetrieveResponse: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?
@@ -2882,6 +3246,32 @@ public struct ConversationsReadCursorRetrieveResponse: Codable {
 }
 
 public struct ConversationsReadCursorUpdateResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
+public struct ConversationsTypingListResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
+public struct ConversationsTypingSignalResponse: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?
@@ -3115,84 +3505,6 @@ public struct RoomsLeaveResponse: Codable {
     }
 }
 
-public struct StreamsCreateResponse201: Codable {
-    public let code: Int?
-    public let data: Any?
-    public let traceId: String?
-
-
-    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
-        self.code = code
-        self.data = data
-        self.traceId = traceId
-    }
-}
-
-public struct StreamsFramesListResponse: Codable {
-    public let code: Int?
-    public let data: Any?
-    public let traceId: String?
-
-
-    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
-        self.code = code
-        self.data = data
-        self.traceId = traceId
-    }
-}
-
-public struct StreamsFramesCreateResponse201: Codable {
-    public let code: Int?
-    public let data: Any?
-    public let traceId: String?
-
-
-    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
-        self.code = code
-        self.data = data
-        self.traceId = traceId
-    }
-}
-
-public struct StreamsCheckpointResponse: Codable {
-    public let code: Int?
-    public let data: Any?
-    public let traceId: String?
-
-
-    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
-        self.code = code
-        self.data = data
-        self.traceId = traceId
-    }
-}
-
-public struct StreamsCompleteResponse: Codable {
-    public let code: Int?
-    public let data: Any?
-    public let traceId: String?
-
-
-    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
-        self.code = code
-        self.data = data
-        self.traceId = traceId
-    }
-}
-
-public struct StreamsAbortResponse: Codable {
-    public let code: Int?
-    public let data: Any?
-    public let traceId: String?
-
-
-    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
-        self.code = code
-        self.data = data
-        self.traceId = traceId
-    }
-}
-
 public struct SpacesCreateResponse201: Codable {
     public let code: Int?
     public let data: Any?
@@ -3337,6 +3649,19 @@ public struct SpacesGroupsRetrieveResponse: Codable {
 }
 
 public struct SpacesGroupsUpdateResponse: Codable {
+    public let code: Int?
+    public let data: Any?
+    public let traceId: String?
+
+
+    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
+        self.code = code
+        self.data = data
+        self.traceId = traceId
+    }
+}
+
+public struct SpacesGroupsTransferOwnerResponse: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?

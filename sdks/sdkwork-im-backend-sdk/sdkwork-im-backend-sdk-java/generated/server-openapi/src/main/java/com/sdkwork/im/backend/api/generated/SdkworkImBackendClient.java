@@ -6,7 +6,6 @@ import com.sdkwork.im.backend.api.generated.api.OpsApi;
 import com.sdkwork.im.backend.api.generated.api.AuditApi;
 import com.sdkwork.im.backend.api.generated.api.AutomationApi;
 import com.sdkwork.im.backend.api.generated.api.ControlApi;
-import com.sdkwork.im.backend.api.generated.api.AdminApi;
 
 public class SdkworkImBackendClient {
     private final HttpClient httpClient;
@@ -14,7 +13,6 @@ public class SdkworkImBackendClient {
     private AuditApi audit;
     private AutomationApi automation;
     private ControlApi control;
-    private AdminApi admin;
 
     public SdkworkImBackendClient(String baseUrl) {
         this.httpClient = new HttpClient(baseUrl);
@@ -22,7 +20,6 @@ public class SdkworkImBackendClient {
         this.audit = new AuditApi(httpClient);
         this.automation = new AutomationApi(httpClient);
         this.control = new ControlApi(httpClient);
-        this.admin = new AdminApi(httpClient);
     }
 
     public SdkworkImBackendClient(Types.SdkConfig config) {
@@ -31,7 +28,6 @@ public class SdkworkImBackendClient {
         this.audit = new AuditApi(httpClient);
         this.automation = new AutomationApi(httpClient);
         this.control = new ControlApi(httpClient);
-        this.admin = new AdminApi(httpClient);
     }
 
     public OpsApi getOps() {
@@ -48,10 +44,6 @@ public class SdkworkImBackendClient {
 
     public ControlApi getControl() {
         return this.control;
-    }
-
-    public AdminApi getAdmin() {
-        return this.admin;
     }
     public SdkworkImBackendClient setAuthToken(String token) {
         httpClient.setAuthToken(token);

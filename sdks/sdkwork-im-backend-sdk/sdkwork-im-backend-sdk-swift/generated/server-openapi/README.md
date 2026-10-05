@@ -18,13 +18,13 @@ dependencies: [
 import BackendSDK
 import SDKworkCommon
 
-let config = SdkConfig(baseUrl: "http://127.0.0.1:18079")
+let config = SdkConfig(baseUrl: "http://127.0.0.1:18089")
 let client = SdkworkImBackendClient(config: config)
 client.setAuthToken("your-auth-token")
 client.setAccessToken("your-access-token")
 
 // Use the SDK
-let result = try await client.admin.billingEventsSummaryRetrieve()
+let result = try await client.audit.verifyRetrieve()
 print(result)
 ```
 
@@ -39,7 +39,7 @@ Access-Token: <accessToken>
 ## Configuration (Non-Auth)
 
 ```swift
-let config = SdkConfig(baseUrl: "http://127.0.0.1:18079")
+let config = SdkConfig(baseUrl: "http://127.0.0.1:18089")
 let client = SdkworkImBackendClient(config: config)
 
 // Set custom headers
@@ -52,7 +52,6 @@ client.setHeader("X-Custom-Header", value: "value")
 - `client.audit` - audit API
 - `client.automation` - automation API
 - `client.control` - control API
-- `client.admin` - admin API
 
 ## Usage Examples
 
@@ -67,8 +66,8 @@ print(result)
 ### audit
 
 ```swift
-// Export audit bundle
-let result = try await client.audit.exportRetrieve()
+// Verify audit chain integrity
+let result = try await client.audit.verifyRetrieve()
 print(result)
 ```
 
@@ -88,19 +87,11 @@ let result = try await client.control.protocolGovernanceRetrieve()
 print(result)
 ```
 
-### admin
-
-```swift
-// getBillingEventSummary
-let result = try await client.admin.billingEventsSummaryRetrieve()
-print(result)
-```
-
 ## Error Handling
 
 ```swift
 do {
-    try await client.admin.billingEventsSummaryRetrieve()
+    try await client.audit.verifyRetrieve()
 } catch {
     print("Error: \(error)")
 }

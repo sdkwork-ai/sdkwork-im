@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::api::paths::backend_path;
 use crate::api::paths::append_query_string;
 use crate::http::{SdkworkError, SdkworkHttpClient};
-use crate::models::{SdkWorkPageData};
+use crate::models::{AuditChainVerification, AuditRecordAnchorRequest, AuditRecordListResponse, AuditRecordView};
 
 #[derive(Clone)]
 pub struct AuditApi {
@@ -15,27 +15,34 @@ impl AuditApi {
         Self { client }
     }
 
+    /// Record an audit anchor
+    pub async fn records_create(&self, body: &AuditRecordAnchorRequest) -> Result<AuditRecordView, SdkworkError> {
+        let path = backend_path(&"/audit/records".to_string());
+        self.client.post(&path, Some(body), None, None, Some("application/json")).await
+    }
+
     /// List audit records
-    pub async fn records_list(&self, page_size: Option<i64>, cursor: Option<&str>, page: Option<i64>, q: Option<&str>) -> Result<SdkWorkPageData, SdkworkError> {
+    pub async fn records_list(&self, after_audit_seq: Option<&str>, page_size: Option<i64>) -> Result<AuditRecordListResponse, SdkworkError> {
         let query = build_query_string(&[
+            QueryParameterSpec::new("after_audit_seq", after_audit_seq, "form", true, false, None),
             QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
-            QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
-            QueryParameterSpec::new("page", page, "form", true, false, None),
-            QueryParameterSpec::new("q", q, "form", true, false, None),
         ]);
         let path = append_query_string(backend_path(&"/audit/records".to_string()), &query);
         self.client.get(&path, None, None).await
     }
 
-    /// Record audit anchor
-    pub async fn records_create(&self) -> Result<std::collections::HashMap<String, serde_json::Value>, SdkworkError> {
-        let path = backend_path(&"/audit/records".to_string());
-        self.client.post(&path, Option::<&serde_json::Value>::None, None, None, None).await
+    /// Export the audit ledger
+    pub async fn export_retrieve(&self, page_size: Option<i64>) -> Result<serde_json::Value, SdkworkError> {
+        let query = build_query_string(&[
+            QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
+        ]);
+        let path = append_query_string(backend_path(&"/audit/export".to_string()), &query);
+        self.client.get(&path, None, None).await
     }
 
-    /// Export audit bundle
-    pub async fn export_retrieve(&self) -> Result<std::collections::HashMap<String, serde_json::Value>, SdkworkError> {
-        let path = backend_path(&"/audit/export".to_string());
+    /// Verify audit chain integrity
+    pub async fn verify_retrieve(&self) -> Result<AuditChainVerification, SdkworkError> {
+        let path = backend_path(&"/audit/verify".to_string());
         self.client.get(&path, None, None).await
     }
 

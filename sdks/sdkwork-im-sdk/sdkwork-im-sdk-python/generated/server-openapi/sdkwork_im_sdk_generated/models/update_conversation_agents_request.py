@@ -8,5 +8,5 @@ if TYPE_CHECKING:
 
 @dataclass
 class UpdateConversationAgentsRequest:
-    expected_generation: int
+    expected_generation: str
     agent_assignments: List[ConversationAgentAssignment]

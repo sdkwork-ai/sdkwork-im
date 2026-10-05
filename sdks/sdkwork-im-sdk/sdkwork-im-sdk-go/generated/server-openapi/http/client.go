@@ -15,10 +15,15 @@ import (
     common "github.com/sdkwork/sdk-common-go/common"
 )
 
+const (
+    defaultApiKeyHeader = "X-API-Key"
+    defaultApiKeyUseBearer = false
+)
 
 // Config wraps sdk-common Go config and adds SDK auth fields.
 type Config struct {
     common.SdkConfig
+    ApiKey      string
     AuthToken   string
     AccessToken string
 }
@@ -60,6 +65,10 @@ func NewClient(config Config) *Client {
         },
         headers: headers,
     }
+
+    if config.ApiKey != "" {
+        client.SetApiKey(config.ApiKey)
+    }
     if config.AuthToken != "" {
         client.SetAuthToken(config.AuthToken)
     }
@@ -70,11 +79,34 @@ func NewClient(config Config) *Client {
     return client
 }
 
+func (c *Client) SetApiKey(apiKey string) {
+    if defaultApiKeyUseBearer {
+        c.headers[defaultApiKeyHeader] = "Bearer " + apiKey
+    } else {
+        c.headers[defaultApiKeyHeader] = apiKey
+    }
+    if defaultApiKeyHeader != "Authorization" {
+        delete(c.headers, "Authorization")
+    }
+    if defaultApiKeyHeader != "Access-Token" {
+        delete(c.headers, "Access-Token")
+    }
+}
+
 func (c *Client) SetAuthToken(token string) {
+    if defaultApiKeyHeader != "Authorization" {
+        delete(c.headers, defaultApiKeyHeader)
+    }
     c.headers["Authorization"] = "Bearer " + token
 }
 
 func (c *Client) SetAccessToken(token string) {
+    // Dual-token mode keeps the 'Authorization' bearer set by SetAuthToken;
+    // only a stale API key header (when the API key header is not
+    // 'Authorization') is cleared here.
+    if defaultApiKeyHeader != "Authorization" {
+        delete(c.headers, defaultApiKeyHeader)
+    }
     c.headers["Access-Token"] = token
 }
 
@@ -83,7 +115,7 @@ func (c *Client) SetHeader(key, value string) {
 }
 
 func (c *Client) Get(path string, query map[string]interface{}, requestHeaders map[string]string) (interface{}, error) {
-    return c.request("GET", path, query, nil, requestHeaders, "", false)
+    return c.request("GET", path, query, nil, requestHeaders, "", false, false)
 }
 
 func (c *Client) Post(
@@ -93,7 +125,7 @@ func (c *Client) Post(
     requestHeaders map[string]string,
     contentType string,
 ) (interface{}, error) {
-    return c.request("POST", path, query, body, requestHeaders, contentType, false)
+    return c.request("POST", path, query, body, requestHeaders, contentType, false, false)
 }
 
 func (c *Client) Put(
@@ -103,11 +135,11 @@ func (c *Client) Put(
     requestHeaders map[string]string,
     contentType string,
 ) (interface{}, error) {
-    return c.request("PUT", path, query, body, requestHeaders, contentType, false)
+    return c.request("PUT", path, query, body, requestHeaders, contentType, false, false)
 }
 
 func (c *Client) Delete(path string, query map[string]interface{}, requestHeaders map[string]string) (interface{}, error) {
-    return c.request("DELETE", path, query, nil, requestHeaders, "", false)
+    return c.request("DELETE", path, query, nil, requestHeaders, "", false, false)
 }
 
 func (c *Client) Patch(
@@ -117,7 +149,7 @@ func (c *Client) Patch(
     requestHeaders map[string]string,
     contentType string,
 ) (interface{}, error) {
-    return c.request("PATCH", path, query, body, requestHeaders, contentType, false)
+    return c.request("PATCH", path, query, body, requestHeaders, contentType, false, false)
 }
 
 func (c *Client) Request(
@@ -128,8 +160,9 @@ func (c *Client) Request(
     requestHeaders map[string]string,
     contentType string,
     skipAuth bool,
+    accessTokenOnly bool,
 ) (interface{}, error) {
-    return c.request(method, path, query, body, requestHeaders, contentType, skipAuth)
+    return c.request(method, path, query, body, requestHeaders, contentType, skipAuth, accessTokenOnly)
 }
 
 func (c *Client) RequestBytes(
@@ -140,8 +173,9 @@ func (c *Client) RequestBytes(
     requestHeaders map[string]string,
     contentType string,
     skipAuth bool,
+    accessTokenOnly bool,
 ) ([]byte, error) {
-    raw, err := c.request(method, path, query, body, requestHeaders, contentType, skipAuth)
+    raw, err := c.request(method, path, query, body, requestHeaders, contentType, skipAuth, accessTokenOnly)
     if err != nil {
         return nil, err
     }
@@ -208,6 +242,7 @@ func Stream[T any](
     requestHeaders map[string]string,
     contentType string,
     skipAuth bool,
+    accessTokenOnly bool,
 ) (*SSEStream[T], error) {
     requestURL, err := url.Parse(c.baseURL + path)
     if err != nil {
@@ -232,7 +267,10 @@ func Stream[T any](
         return nil, requestErr
     }
 
-    mergedHeaders := c.mergeHeaders(requestHeaders, skipAuth)
+    mergedHeaders, headerErr := c.mergeHeaders(requestHeaders, skipAuth, accessTokenOnly)
+    if headerErr != nil {
+        return nil, headerErr
+    }
     for key, value := range mergedHeaders {
         req.Header.Set(key, value)
     }
@@ -258,17 +296,41 @@ func Stream[T any](
     }, nil
 }
 
-func (c *Client) mergeHeaders(requestHeaders map[string]string, skipAuth bool) common.HttpHeaders {
+func (c *Client) mergeHeaders(requestHeaders map[string]string, skipAuth, accessTokenOnly bool) (common.HttpHeaders, error) {
     merged := common.HttpHeaders{}
-    if !skipAuth {
+    if !skipAuth && !accessTokenOnly {
         for key, value := range c.headers {
             merged[key] = value
         }
     }
     for key, value := range requestHeaders {
-        merged[key] = value
+        if (!skipAuth && !accessTokenOnly) || !isCredentialHeader(key) {
+            merged[key] = value
+        }
     }
-    return merged
+    if accessTokenOnly {
+        accessToken := ""
+        for key, value := range c.headers {
+            if strings.EqualFold(key, "Access-Token") {
+                accessToken = strings.TrimSpace(value)
+                break
+            }
+        }
+        if accessToken == "" {
+            return nil, fmt.Errorf("access-token-only request requires Access-Token before request dispatch")
+        }
+        merged["Access-Token"] = accessToken
+    }
+    return merged, nil
+}
+
+func isCredentialHeader(key string) bool {
+    switch strings.ToLower(key) {
+    case "authorization", "access-token", "x-api-key", "x-tenant-id", "x-organization-id", "x-platform", "x-user-id", "x-sdkwork-tenant-id", "x-sdkwork-organization-id", "x-sdkwork-user-id":
+        return true
+    default:
+        return false
+    }
 }
 
 func (c *Client) buildMultipartBody(body interface{}) (io.Reader, string, error) {
@@ -408,6 +470,7 @@ func (c *Client) request(
     requestHeaders map[string]string,
     contentType string,
     skipAuth bool,
+    accessTokenOnly bool,
 ) (interface{}, error) {
     requestURL, err := url.Parse(c.baseURL + path)
     if err != nil {
@@ -432,7 +495,10 @@ func (c *Client) request(
         return nil, requestErr
     }
 
-    mergedHeaders := c.mergeHeaders(requestHeaders, skipAuth)
+    mergedHeaders, headerErr := c.mergeHeaders(requestHeaders, skipAuth, accessTokenOnly)
+    if headerErr != nil {
+        return nil, headerErr
+    }
     for key, value := range mergedHeaders {
         req.Header.Set(key, value)
     }

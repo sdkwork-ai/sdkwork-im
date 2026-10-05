@@ -13,7 +13,7 @@ namespace Sdkwork.Im.Sdk.Generated.Models
         public string FavoriteType { get; set; }
         public string ConversationId { get; set; }
         public string MessageId { get; set; }
-        public int MessageSeq { get; set; }
+        public string MessageSeq { get; set; }
         public string Title { get; set; }
         public string ContentPreview { get; set; }
         public string SourceDisplayName { get; set; }

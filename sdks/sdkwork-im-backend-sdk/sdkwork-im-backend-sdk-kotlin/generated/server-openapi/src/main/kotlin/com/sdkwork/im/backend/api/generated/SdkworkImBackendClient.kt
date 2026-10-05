@@ -6,7 +6,6 @@ import com.sdkwork.im.backend.api.generated.api.OpsApi
 import com.sdkwork.im.backend.api.generated.api.AuditApi
 import com.sdkwork.im.backend.api.generated.api.AutomationApi
 import com.sdkwork.im.backend.api.generated.api.ControlApi
-import com.sdkwork.im.backend.api.generated.api.AdminApi
 
 open class SdkworkImBackendClient {
     private val httpClient: HttpClient
@@ -15,7 +14,6 @@ open class SdkworkImBackendClient {
     lateinit var audit: AuditApi
     lateinit var automation: AutomationApi
     lateinit var control: ControlApi
-    lateinit var admin: AdminApi
 
     constructor(baseUrl: String) {
         this.httpClient = HttpClient(baseUrl)
@@ -23,7 +21,6 @@ open class SdkworkImBackendClient {
         audit = AuditApi(httpClient)
         automation = AutomationApi(httpClient)
         control = ControlApi(httpClient)
-        admin = AdminApi(httpClient)
     }
 
     constructor(config: SdkConfig) {
@@ -32,7 +29,6 @@ open class SdkworkImBackendClient {
         audit = AuditApi(httpClient)
         automation = AutomationApi(httpClient)
         control = ControlApi(httpClient)
-        admin = AdminApi(httpClient)
     }
     fun setAuthToken(token: String): SdkworkImBackendClient {
         httpClient.setAuthToken(token)

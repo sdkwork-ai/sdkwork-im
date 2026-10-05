@@ -14,5 +14,8 @@ namespace Sdkwork.Im.Sdk.Generated.Models
         public string Role { get; set; }
         public string State { get; set; }
         public string JoinedAt { get; set; }
+        public string? InvitedBy { get; set; }
+        public string? RemovedAt { get; set; }
+        public Dictionary<string, string>? Attributes { get; set; }
     }
 }

@@ -7,7 +7,6 @@ public class SdkworkImBackendClient {
     public let audit: AuditApi
     public let automation: AutomationApi
     public let control: ControlApi
-    public let admin: AdminApi
 
     public init(baseURL: String) {
         self.httpClient = HttpClient(baseURL: baseURL)
@@ -15,7 +14,6 @@ public class SdkworkImBackendClient {
         self.audit = AuditApi(client: httpClient)
         self.automation = AutomationApi(client: httpClient)
         self.control = ControlApi(client: httpClient)
-        self.admin = AdminApi(client: httpClient)
     }
 
     public init(config: SdkConfig) {
@@ -24,7 +22,6 @@ public class SdkworkImBackendClient {
         self.audit = AuditApi(client: httpClient)
         self.automation = AutomationApi(client: httpClient)
         self.control = ControlApi(client: httpClient)
-        self.admin = AdminApi(client: httpClient)
     }
     public func setAuthToken(_ token: String) -> SdkworkImBackendClient {
         httpClient.setAuthToken(token)

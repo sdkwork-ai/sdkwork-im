@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::api::paths::im_path;
 use crate::api::paths::append_query_string;
 use crate::http::{SdkworkError, SdkworkHttpClient};
-use crate::models::{SdkWorkCommandData, SpaceBanCreateRequest, SpaceBanView, SpaceChannelAccessRuleCreateRequest, SpaceChannelAccessRuleView, SpaceChannelCreateRequest, SpaceChannelUpdateRequest, SpaceChannelView, SpaceCreateRequest, SpaceGroupCreateRequest, SpaceGroupMemberCreateRequest, SpaceGroupMemberUpdateRequest, SpaceGroupMemberView, SpaceGroupUpdateRequest, SpaceGroupView, SpaceInviteCreateRequest, SpaceInviteView, SpaceMemberCreateRequest, SpaceMemberUpdateRequest, SpaceMemberView, SpaceUpdateRequest, SpaceView};
+use crate::models::{SdkWorkCommandData, SpaceBanCreateRequest, SpaceBanView, SpaceChannelAccessRuleCreateRequest, SpaceChannelAccessRuleView, SpaceChannelCreateRequest, SpaceChannelUpdateRequest, SpaceChannelView, SpaceCreateRequest, SpaceGroupCreateRequest, SpaceGroupMemberCreateRequest, SpaceGroupMemberUpdateRequest, SpaceGroupMemberView, SpaceGroupTransferOwnerRequest, SpaceGroupUpdateRequest, SpaceGroupView, SpaceInviteCreateRequest, SpaceInviteView, SpaceMemberCreateRequest, SpaceMemberUpdateRequest, SpaceMemberView, SpaceUpdateRequest, SpaceView};
 
 #[derive(Clone)]
 pub struct SpacesApi {
@@ -115,6 +115,12 @@ impl SpacesApi {
     pub async fn groups_delete(&self, space_id: &str, group_id: &str) -> Result<(), SdkworkError> {
         let path = im_path(&format!("/spaces/{}/groups/{}", serialize_path_parameter(space_id, PathParameterSpec::new("spaceId", "simple", false)), serialize_path_parameter(group_id, PathParameterSpec::new("groupId", "simple", false))));
         self.client.delete(&path, None, None).await
+    }
+
+    /// Transfer spaces groups owner
+    pub async fn groups_transfer_owner(&self, space_id: &str, group_id: &str, body: &SpaceGroupTransferOwnerRequest) -> Result<SpaceGroupView, SdkworkError> {
+        let path = im_path(&format!("/spaces/{}/groups/{}/transfer_owner", serialize_path_parameter(space_id, PathParameterSpec::new("spaceId", "simple", false)), serialize_path_parameter(group_id, PathParameterSpec::new("groupId", "simple", false))));
+        self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// List spaces groups members

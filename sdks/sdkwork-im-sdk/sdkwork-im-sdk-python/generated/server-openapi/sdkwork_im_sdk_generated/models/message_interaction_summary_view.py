@@ -12,7 +12,7 @@ class MessageInteractionSummaryView:
     tenant_id: str
     conversation_id: str
     message_id: str
-    message_seq: int
+    message_seq: str
     total_reaction_count: int
     reaction_counts: List[MessageReactionCountView]
     pin: Optional[MessagePinView] = None

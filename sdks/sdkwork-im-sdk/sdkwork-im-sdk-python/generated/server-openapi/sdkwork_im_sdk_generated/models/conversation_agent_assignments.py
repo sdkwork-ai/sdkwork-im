@@ -8,6 +8,6 @@ if TYPE_CHECKING:
 
 @dataclass
 class ConversationAgentAssignments:
-    generation: int
+    generation: str
     source: str
     agents: List[ConversationAgentAssignment]

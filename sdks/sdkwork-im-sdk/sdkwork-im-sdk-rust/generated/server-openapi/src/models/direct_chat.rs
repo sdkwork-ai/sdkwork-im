@@ -8,8 +8,24 @@ pub struct DirectChat {
     #[serde(rename = "directChatId")]
     pub direct_chat_id: String,
 
-    #[serde(rename = "conversationId")]
-    pub conversation_id: String,
+    #[serde(rename = "leftActorId")]
+    pub left_actor_id: String,
+
+    #[serde(rename = "rightActorId")]
+    pub right_actor_id: String,
+
+    #[serde(rename = "pairHash")]
+    pub pair_hash: String,
 
     pub status: String,
+
+    #[serde(rename = "conversationId")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conversation_id: Option<String>,
+
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
+
+    #[serde(rename = "updatedAt")]
+    pub updated_at: String,
 }

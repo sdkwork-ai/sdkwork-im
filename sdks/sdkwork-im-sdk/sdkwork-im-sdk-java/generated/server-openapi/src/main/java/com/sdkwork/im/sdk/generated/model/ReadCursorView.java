@@ -5,7 +5,7 @@ public class ReadCursorView {
     private String tenantId;
     private String conversationId;
     private String principalId;
-    private Integer readSeq;
+    private String readSeq;
     private String updatedAt;
 
     public String getTenantId() {
@@ -32,11 +32,11 @@ public class ReadCursorView {
         this.principalId = principalId;
     }
 
-    public Integer getReadSeq() {
+    public String getReadSeq() {
         return this.readSeq;
     }
 
-    public void setReadSeq(Integer readSeq) {
+    public void setReadSeq(String readSeq) {
         this.readSeq = readSeq;
     }
 

@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 from ..http_client import HttpClient
-from ..models import ClusterRetrieveResponse, CommercialReadinessRetrieveResponse, DiagnosticsRetrieveResponse, HealthRetrieveResponse, LagListResponse, ProviderBindingDriftListResponse, ProviderBindingSnapshotListResponse, RuntimeDirRetrieveResponse
+from ..models import ClusterRetrieveResponse, DiagnosticsRetrieveResponse, HealthRetrieveResponse, LagListResponse, ProviderBindingDriftListResponse, ProviderBindingSnapshotListResponse, ReplayStatusRetrieveResponse, RetentionPurgePostResponse, RuntimeDirRetrieveResponse
 
 def _append_query_string(path: str, raw_query_string: str) -> str:
     query = raw_query_string.lstrip('?')
@@ -131,10 +131,11 @@ class OpsApi:
         self.health = OpsHealthApi(client)
         self.cluster = OpsClusterApi(client)
         self.lag = OpsLagApi(client)
-        self.commercial_readiness = OpsCommercialReadinessApi(client)
         self.runtime_dir = OpsRuntimeDirApi(client)
         self.provider_bindings = OpsProviderBindingsApi(client)
         self.diagnostics = OpsDiagnosticsApi(client)
+        self.replay_status = OpsReplayStatusApi(client)
+        self.retention = OpsRetentionApi(client)
 
 
 class OpsHealthApi:
@@ -173,17 +174,6 @@ class OpsLagApi:
             {'name': 'cursor', 'value': cursor, 'style': 'form', 'explode': True, 'allow_reserved': False},
         ])
         return self._client.get(_append_query_string(f"/backend/v3/api/ops/lag", query))
-
-class OpsCommercialReadinessApi:
-    """ops ops.commercial_readiness API client."""
-
-    def __init__(self, client: HttpClient):
-        self._client = client
-
-
-    def retrieve(self) -> CommercialReadinessRetrieveResponse:
-        """Retrieve commercial readiness"""
-        return self._client.get(f"/backend/v3/api/ops/commercial_readiness")
 
 class OpsRuntimeDirApi:
     """ops ops.runtime_dir API client."""
@@ -237,3 +227,28 @@ class OpsDiagnosticsApi:
     def retrieve(self) -> DiagnosticsRetrieveResponse:
         """Retrieve diagnostics"""
         return self._client.get(f"/backend/v3/api/ops/diagnostics")
+
+class OpsReplayStatusApi:
+    """ops ops.replay_status API client."""
+
+    def __init__(self, client: HttpClient):
+        self._client = client
+
+
+    def retrieve(self) -> ReplayStatusRetrieveResponse:
+        """Retrieve commit-journal replay status"""
+        return self._client.get(f"/backend/v3/api/ops/replay_status")
+
+class OpsRetentionApi:
+    """ops ops.retention API client."""
+
+    def __init__(self, client: HttpClient):
+        self._client = client
+
+
+    def purge(self, batch_size: Optional[str] = None) -> RetentionPurgePostResponse:
+        """Purge expired retention batches"""
+        query = build_query_string([
+            {'name': 'batch_size', 'value': batch_size, 'style': 'form', 'explode': True, 'allow_reserved': False},
+        ])
+        return self._client.post(_append_query_string(f"/backend/v3/api/ops/retention/purge", query))

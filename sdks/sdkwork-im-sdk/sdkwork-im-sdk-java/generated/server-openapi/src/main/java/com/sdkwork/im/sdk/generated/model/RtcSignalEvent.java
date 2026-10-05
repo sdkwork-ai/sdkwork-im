@@ -4,7 +4,7 @@ package com.sdkwork.im.sdk.generated.model;
 public class RtcSignalEvent {
     private String tenantId;
     private String rtcSessionId;
-    private Integer signalSeq;
+    private String signalSeq;
     private String conversationId;
     private String rtcMode;
     private String signalType;
@@ -30,11 +30,11 @@ public class RtcSignalEvent {
         this.rtcSessionId = rtcSessionId;
     }
 
-    public Integer getSignalSeq() {
+    public String getSignalSeq() {
         return this.signalSeq;
     }
 
-    public void setSignalSeq(Integer signalSeq) {
+    public void setSignalSeq(String signalSeq) {
         this.signalSeq = signalSeq;
     }
 

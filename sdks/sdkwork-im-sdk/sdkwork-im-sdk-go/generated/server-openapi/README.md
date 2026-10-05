@@ -1,6 +1,6 @@
 # sdkwork-im-sdk (Go)
 
-Generated SDKWork v3 dual-token transport SDK.
+Professional Go SDK for SDKWork API.
 
 ## Installation
 
@@ -21,10 +21,9 @@ import (
 )
 
 func main() {
-    cfg := sdkhttp.NewDefaultConfig("http://127.0.0.1:18079")
+    cfg := sdkhttp.NewDefaultConfig("http://127.0.0.1:18089")
     client := github.com/sdkwork/im-sdk-generated.NewSdkworkImClientWithConfig(cfg)
-    client.SetAuthToken("your-auth-token")
-client.SetAccessToken("your-access-token")
+    client.SetApiKey("your-api-key")
     
     // Use the SDK
     result, err := client.Presence.MeRetrieve()
@@ -35,18 +34,37 @@ client.SetAccessToken("your-access-token")
 }
 ```
 
-## Authentication
+## Authentication Modes (Mutually Exclusive)
 
-```text
-Authorization: Bearer <authToken>
-Access-Token: <accessToken>
+Choose exactly one mode for the same client instance.
+
+### Mode A: API Key
+
+```go
+cfg := sdkhttp.NewDefaultConfig("http://127.0.0.1:18089")
+client := github.com/sdkwork/im-sdk-generated.NewSdkworkImClientWithConfig(cfg)
+client.SetApiKey("your-api-key")
+// Sends: X-API-Key: <apiKey>
 ```
 
+### Mode B: Dual Token
+
+```go
+cfg := sdkhttp.NewDefaultConfig("http://127.0.0.1:18089")
+client := github.com/sdkwork/im-sdk-generated.NewSdkworkImClientWithConfig(cfg)
+client.SetAuthToken("your-auth-token")
+client.SetAccessToken("your-access-token")
+// Sends:
+// Authorization: Bearer <authToken>
+// Access-Token: <accessToken>
+```
+
+> Do not call `SetApiKey(...)` together with `SetAuthToken(...)` + `SetAccessToken(...)` on the same client.
 
 ## Configuration (Non-Auth)
 
 ```go
-cfg := sdkhttp.NewDefaultConfig("http://127.0.0.1:18079")
+cfg := sdkhttp.NewDefaultConfig("http://127.0.0.1:18089")
 client := github.com/sdkwork/im-sdk-generated.NewSdkworkImClientWithConfig(cfg)
 
 // Set custom headers
@@ -60,7 +78,6 @@ client.SetHeader("X-Custom-Header", "value")
 - `client.Calls` - calls API
 - `client.Social` - social API
 - `client.Chat` - chat API
-- `client.Streams` - streams API
 - `client.Spaces` - spaces API
 
 ## Usage Examples
@@ -121,29 +138,8 @@ fmt.Println(result)
 ### chat
 
 ```go
-// List current inbox window
-params := map[string]interface{}{
-    "page_size": 1,
-    "cursor": "cursor",
-    "conversation_type": "conversation_type",
-    "q": "q",
-}
-result, err := client.Chat.InboxList(params)
-if err != nil {
-    panic(err)
-}
-fmt.Println(result)
-```
-
-### streams
-
-```go
-// Open a stream
-body := sdktypes.OpenStreamRequest{
-    StreamType: "streamType",
-    ConversationId: "conversationId",
-}
-result, err := client.Streams.Create(body)
+// Ensure the current user received the system-agent Welcome message
+result, err := client.Chat.MeWelcomeEnsure()
 if err != nil {
     panic(err)
 }

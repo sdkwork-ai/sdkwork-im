@@ -29,4 +29,12 @@ pub struct FriendRequest {
 
     #[serde(rename = "updatedAt")]
     pub updated_at: String,
+
+    #[serde(rename = "requesterDisplayName")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requester_display_name: Option<String>,
+
+    #[serde(rename = "requesterAvatarUrl")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requester_avatar_url: Option<String>,
 }

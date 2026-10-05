@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::api::paths::im_path;
 use crate::api::paths::append_query_string;
 use crate::http::{SdkworkError, SdkworkHttpClient};
-use crate::models::{AckResponse, AddConversationMemberRequest, BindDirectChatRequest, ChangeConversationMemberRoleRequest, ConversationAgentAssignments, ConversationMember, ConversationPreferencesView, ConversationProfileView, ConversationSummaryView, CreateAgentDialogRequest, CreateAgentHandoffRequest, CreateConversationRequest, CreateConversationResult, CreateRoomRequest, CreateSystemChannelRequest, CreateThreadConversationRequest, EditMessageRequest, EnterRoomResponse, FavoriteMessageRequest, MessageFavoriteView, MessageInteractionSummaryView, MessageMutationResult, MessagePinMutationResult, MessageReactionMutationResult, MessageReactionRequest, PostMessageRequest, PostMessageResult, ReadCursorView, RecallMessageRequest, RemoveConversationMemberRequest, RoomView, TransferConversationOwnerRequest, UpdateConversationAgentsRequest, UpdateConversationPreferencesRequest, UpdateConversationProfileRequest, UpdateReadCursorRequest};
+use crate::models::{AckResponse, AddConversationMemberRequest, BindDirectChatRequest, ChangeConversationMemberRoleRequest, ConversationAgentAssignments, ConversationBindingView, ConversationMember, ConversationPreferencesView, ConversationProfileView, ConversationSummaryView, CreateAgentDialogRequest, CreateAgentHandoffRequest, CreateConversationRequest, CreateConversationResult, CreateRoomRequest, CreateSystemChannelRequest, CreateThreadConversationRequest, EditMessageRequest, EnterRoomResponse, FavoriteMessageRequest, MessageFavoriteView, MessageInteractionSummaryView, MessageMutationResult, MessagePinMutationResult, MessageReactionMutationResult, MessageReactionRequest, PostMessageRequest, PostMessageResult, ReadCursorView, RecallMessageRequest, RemoveConversationMemberRequest, RoomView, SharedChannelLinkSyncRequest, SharedChannelLinkSyncResponse, SignalTypingResult, TransferConversationOwnerRequest, UpdateConversationAgentsRequest, UpdateConversationPreferencesRequest, UpdateConversationProfileRequest, UpdateReadCursorRequest, WelcomeEnsureView};
 
 #[derive(Clone)]
 pub struct ChatApi {
@@ -25,6 +25,12 @@ impl ChatApi {
         ]);
         let path = append_query_string(im_path(&"/chat/inbox".to_string()), &query);
         self.client.get(&path, None, None).await
+    }
+
+    /// Ensure the current user received the system-agent Welcome message
+    pub async fn me_welcome_ensure(&self) -> Result<WelcomeEnsureView, SdkworkError> {
+        let path = im_path(&"/chat/me/welcome/ensure".to_string());
+        self.client.post(&path, Option::<&serde_json::Value>::None, None, None, None).await
     }
 
     /// Create a conversation
@@ -60,6 +66,12 @@ impl ChatApi {
     /// Create a direct chat conversation binding
     pub async fn conversations_direct_chats_bindings_create(&self, body: &BindDirectChatRequest) -> Result<CreateConversationResult, SdkworkError> {
         let path = im_path(&"/chat/conversations/direct_chats/bindings".to_string());
+        self.client.post(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// Sync a shared-channel linked member into a conversation
+    pub async fn conversations_shared_channel_links_sync(&self, body: &SharedChannelLinkSyncRequest) -> Result<SharedChannelLinkSyncResponse, SdkworkError> {
+        let path = im_path(&"/chat/conversations/shared_channel_links/sync".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
@@ -119,6 +131,12 @@ impl ChatApi {
     pub async fn conversations_agents_update(&self, conversation_id: &str, body: &UpdateConversationAgentsRequest) -> Result<ConversationAgentAssignments, SdkworkError> {
         let path = im_path(&format!("/chat/conversations/{}/agents", serialize_path_parameter(conversation_id, PathParameterSpec::new("conversationId", "simple", false))));
         self.client.put(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// Retrieve the business binding of a conversation
+    pub async fn conversations_binding_retrieve(&self, conversation_id: &str) -> Result<ConversationBindingView, SdkworkError> {
+        let path = im_path(&format!("/chat/conversations/{}/binding", serialize_path_parameter(conversation_id, PathParameterSpec::new("conversationId", "simple", false))));
+        self.client.get(&path, None, None).await
     }
 
     /// Add a conversation member
@@ -193,6 +211,18 @@ impl ChatApi {
         self.client.patch(&path, Some(body), None, None, Some("application/json")).await
     }
 
+    /// List live typing indicators
+    pub async fn conversations_typing_list(&self, conversation_id: &str) -> Result<serde_json::Value, SdkworkError> {
+        let path = im_path(&format!("/chat/conversations/{}/typing", serialize_path_parameter(conversation_id, PathParameterSpec::new("conversationId", "simple", false))));
+        self.client.get(&path, None, None).await
+    }
+
+    /// Signal typing in a conversation
+    pub async fn conversations_typing_signal(&self, conversation_id: &str) -> Result<SignalTypingResult, SdkworkError> {
+        let path = im_path(&format!("/chat/conversations/{}/typing/signal", serialize_path_parameter(conversation_id, PathParameterSpec::new("conversationId", "simple", false))));
+        self.client.post(&path, Option::<&serde_json::Value>::None, None, None, None).await
+    }
+
     /// List member directory
     pub async fn conversations_member_directory_list(&self, conversation_id: &str, cursor: Option<&str>, page_size: Option<i64>) -> Result<serde_json::Value, SdkworkError> {
         let query = build_query_string(&[
@@ -241,6 +271,18 @@ impl ChatApi {
         self.client.get(&path, None, None).await
     }
 
+    /// Search conversation message history
+    pub async fn messages_search_list(&self, q: &str, conversation_id: Option<&str>, page_size: Option<i64>, cursor: Option<&str>) -> Result<serde_json::Value, SdkworkError> {
+        let query = build_query_string(&[
+            QueryParameterSpec::new("q", q, "form", true, false, None),
+            QueryParameterSpec::new("conversation_id", conversation_id, "form", true, false, None),
+            QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
+            QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
+        ]);
+        let path = append_query_string(im_path(&"/chat/messages/search".to_string()), &query);
+        self.client.get(&path, None, None).await
+    }
+
     /// Edit a message
     pub async fn messages_edit(&self, message_id: &str, body: &EditMessageRequest) -> Result<MessageMutationResult, SdkworkError> {
         let path = im_path(&format!("/chat/messages/{}/edit", serialize_path_parameter(message_id, PathParameterSpec::new("messageId", "simple", false))));
@@ -258,7 +300,7 @@ impl ChatApi {
         let query = build_query_string(&[
             QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
             QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
-            QueryParameterSpec::new("favoriteType", favorite_type, "form", true, false, None),
+            QueryParameterSpec::new("favorite_type", favorite_type, "form", true, false, None),
             QueryParameterSpec::new("q", q, "form", true, false, None),
         ]);
         let path = append_query_string(im_path(&"/chat/messages/favorites".to_string()), &query);

@@ -8,7 +8,7 @@ namespace Sdkwork.Im.Sdk.Generated.Models
     {
         public string TenantId { get; set; }
         public string RtcSessionId { get; set; }
-        public int SignalSeq { get; set; }
+        public string SignalSeq { get; set; }
         public string? ConversationId { get; set; }
         public string RtcMode { get; set; }
         public string SignalType { get; set; }

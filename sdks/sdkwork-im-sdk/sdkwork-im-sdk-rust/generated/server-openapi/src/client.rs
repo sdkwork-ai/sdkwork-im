@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::api::{PresenceApi, RealtimeApi, CallsApi, SocialApi, ChatApi, StreamsApi, SpacesApi};
+use crate::api::{PresenceApi, RealtimeApi, CallsApi, SocialApi, ChatApi, SpacesApi};
 use crate::http::{SdkworkConfig, SdkworkError, SdkworkHttpClient};
 
 #[derive(Clone)]
@@ -18,6 +18,12 @@ impl SdkworkImClient {
     pub fn new_with_base_url(base_url: impl Into<String>) -> Result<Self, SdkworkError> {
         Self::new(SdkworkConfig::new(base_url))
     }
+
+    pub fn set_api_key(&self, api_key: impl Into<String>) -> &Self {
+        self.http.set_api_key(api_key);
+        self
+    }
+
     pub fn set_auth_token(&self, token: impl Into<String>) -> &Self {
         self.http.set_auth_token(token);
         self
@@ -56,10 +62,6 @@ impl SdkworkImClient {
 
     pub fn chat(&self) -> ChatApi {
             ChatApi::new(Arc::clone(&self.http))
-        }
-
-    pub fn streams(&self) -> StreamsApi {
-            StreamsApi::new(Arc::clone(&self.http))
         }
 
     pub fn spaces(&self) -> SpacesApi {

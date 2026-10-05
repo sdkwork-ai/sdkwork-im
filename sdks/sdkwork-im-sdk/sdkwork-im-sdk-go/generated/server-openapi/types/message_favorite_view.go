@@ -9,7 +9,7 @@ type MessageFavoriteView struct {
 	FavoriteType MessageFavoriteType `json:"favoriteType"`
 	ConversationId string `json:"conversationId"`
 	MessageId string `json:"messageId"`
-	MessageSeq int `json:"messageSeq"`
+	MessageSeq string `json:"messageSeq"`
 	Title string `json:"title"`
 	ContentPreview string `json:"contentPreview"`
 	SourceDisplayName string `json:"sourceDisplayName"`

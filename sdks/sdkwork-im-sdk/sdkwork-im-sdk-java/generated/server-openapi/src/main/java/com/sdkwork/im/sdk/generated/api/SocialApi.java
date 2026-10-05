@@ -24,6 +24,56 @@ public class SocialApi {
         return client.convertValue(raw, new TypeReference<SocialUsersListResponse>() {});
     }
 
+    /** Retrieve a social user profile */
+    public SocialUsersProfileRetrieveResponse usersProfileRetrieve(String userId) throws Exception {
+        Object raw = client.get(ApiPaths.imPath("/social/users/" + serializePathParameter(userId, new PathParameterSpec("userId", "simple", false)) + "/profile"));
+        return client.convertValue(raw, new TypeReference<SocialUsersProfileRetrieveResponse>() {});
+    }
+
+    /** Update the authenticated user profile */
+    public SocialUsersProfileUpdateResponse usersProfileUpdate(String userId, UpdateSocialUserProfileRequest body) throws Exception {
+        Object raw = client.patch(ApiPaths.imPath("/social/users/" + serializePathParameter(userId, new PathParameterSpec("userId", "simple", false)) + "/profile"), body, null, null, "application/json");
+        return client.convertValue(raw, new TypeReference<SocialUsersProfileUpdateResponse>() {});
+    }
+
+    /** Retrieve social user settings */
+    public SocialUsersSettingsRetrieveResponse usersSettingsRetrieve(String userId) throws Exception {
+        Object raw = client.get(ApiPaths.imPath("/social/users/" + serializePathParameter(userId, new PathParameterSpec("userId", "simple", false)) + "/settings"));
+        return client.convertValue(raw, new TypeReference<SocialUsersSettingsRetrieveResponse>() {});
+    }
+
+    /** Update social user settings */
+    public SocialUsersSettingsUpdateResponse usersSettingsUpdate(String userId, UpdateSocialUserSettingsRequest body) throws Exception {
+        Object raw = client.patch(ApiPaths.imPath("/social/users/" + serializePathParameter(userId, new PathParameterSpec("userId", "simple", false)) + "/settings"), body, null, null, "application/json");
+        return client.convertValue(raw, new TypeReference<SocialUsersSettingsUpdateResponse>() {});
+    }
+
+    /** List friendships of the authenticated user */
+    public SocialFriendshipsListResponse friendshipsList(Integer pageSize, String cursor) throws Exception {
+        String query = buildQueryString(List.of(
+            new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+            new QueryParameterSpec("cursor", cursor, "form", true, false, null)
+        ));
+        Object raw = client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/social/friendships"), query));
+        return client.convertValue(raw, new TypeReference<SocialFriendshipsListResponse>() {});
+    }
+
+    /** List direct chats of the authenticated user */
+    public SocialDirectChatsListResponse directChatsList(Integer pageSize, String cursor) throws Exception {
+        String query = buildQueryString(List.of(
+            new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+            new QueryParameterSpec("cursor", cursor, "form", true, false, null)
+        ));
+        Object raw = client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/social/direct_chats"), query));
+        return client.convertValue(raw, new TypeReference<SocialDirectChatsListResponse>() {});
+    }
+
+    /** Retrieve a direct chat */
+    public SocialDirectChatsRetrieveResponse directChatsRetrieve(String directChatId) throws Exception {
+        Object raw = client.get(ApiPaths.imPath("/social/direct_chats/" + serializePathParameter(directChatId, new PathParameterSpec("directChatId", "simple", false)) + ""));
+        return client.convertValue(raw, new TypeReference<SocialDirectChatsRetrieveResponse>() {});
+    }
+
     /** List friend requests */
     public SdkWorkListResponse friendRequestsList(String direction, String status, Integer pageSize, String cursor) throws Exception {
         String query = buildQueryString(List.of(
@@ -70,6 +120,16 @@ public class SocialApi {
     public SocialFriendshipsRemoveResponse friendshipsRemove(String friendshipId) throws Exception {
         Object raw = client.post(ApiPaths.imPath("/social/friendships/" + serializePathParameter(friendshipId, new PathParameterSpec("friendshipId", "simple", false)) + "/remove"), null);
         return client.convertValue(raw, new TypeReference<SocialFriendshipsRemoveResponse>() {});
+    }
+
+    /** List user blocks created by the authenticated user */
+    public SocialUserBlocksListResponse userBlocksList(Integer pageSize, String cursor) throws Exception {
+        String query = buildQueryString(List.of(
+            new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+            new QueryParameterSpec("cursor", cursor, "form", true, false, null)
+        ));
+        Object raw = client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/social/user_blocks"), query));
+        return client.convertValue(raw, new TypeReference<SocialUserBlocksListResponse>() {});
     }
 
     /** Block a social user */

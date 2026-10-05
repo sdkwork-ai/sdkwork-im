@@ -25,13 +25,13 @@ import com.sdkwork.common.core.SdkConfig
 import kotlinx.coroutines.runBlocking
 
 fun main() = runBlocking {
-    val config = SdkConfig(baseUrl = "http://127.0.0.1:18079")
+    val config = SdkConfig(baseUrl = "http://127.0.0.1:18089")
     val client = SdkworkImBackendClient(config)
     client.setAuthToken("your-auth-token")
 client.setAccessToken("your-access-token")
 
     // Use the SDK
-    val result = client.admin.billingEventsSummaryRetrieve()
+    val result = client.audit.verifyRetrieve()
     println(result)
 }
 ```
@@ -47,7 +47,7 @@ Access-Token: <accessToken>
 ## Configuration (Non-Auth)
 
 ```kotlin
-val config = SdkConfig(baseUrl = "http://127.0.0.1:18079")
+val config = SdkConfig(baseUrl = "http://127.0.0.1:18089")
 val client = SdkworkImBackendClient(config)
 ```
 
@@ -57,7 +57,6 @@ val client = SdkworkImBackendClient(config)
 - `client.audit` - audit API
 - `client.automation` - automation API
 - `client.control` - control API
-- `client.admin` - admin API
 
 ## Usage Examples
 
@@ -72,8 +71,8 @@ println(result)
 ### audit
 
 ```kotlin
-// Export audit bundle
-val result = client.audit.exportRetrieve()
+// Verify audit chain integrity
+val result = client.audit.verifyRetrieve()
 println(result)
 ```
 
@@ -93,14 +92,6 @@ val result = client.control.protocolGovernanceRetrieve()
 println(result)
 ```
 
-### admin
-
-```kotlin
-// getBillingEventSummary
-val result = client.admin.billingEventsSummaryRetrieve()
-println(result)
-```
-
 ## Error Handling
 
 ```kotlin
@@ -108,7 +99,7 @@ import kotlinx.coroutines.runBlocking
 
 fun main() = runBlocking {
     try {
-        val result = client.admin.billingEventsSummaryRetrieve()
+        val result = client.audit.verifyRetrieve()
         println(result)
     } catch (e: Exception) {
         println("Error: ${e.message}")

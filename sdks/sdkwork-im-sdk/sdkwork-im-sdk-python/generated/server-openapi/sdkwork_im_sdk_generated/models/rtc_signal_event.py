@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 class RtcSignalEvent:
     tenant_id: str
     rtc_session_id: str
-    signal_seq: int
+    signal_seq: str
     rtc_mode: str
     signal_type: str
     payload: str

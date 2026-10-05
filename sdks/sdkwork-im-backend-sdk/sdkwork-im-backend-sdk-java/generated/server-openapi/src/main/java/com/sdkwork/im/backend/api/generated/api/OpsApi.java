@@ -35,12 +35,6 @@ public class OpsApi {
         return client.convertValue(raw, new TypeReference<LagListResponse>() {});
     }
 
-    /** Retrieve commercial readiness */
-    public CommercialReadinessRetrieveResponse commercialReadinessRetrieve() throws Exception {
-        Object raw = client.get(ApiPaths.backendPath("/ops/commercial_readiness"));
-        return client.convertValue(raw, new TypeReference<CommercialReadinessRetrieveResponse>() {});
-    }
-
     /** Inspect runtime directory */
     public RuntimeDirRetrieveResponse runtimeDirRetrieve() throws Exception {
         Object raw = client.get(ApiPaths.backendPath("/ops/runtime_dir"));
@@ -71,6 +65,21 @@ public class OpsApi {
     public DiagnosticsRetrieveResponse diagnosticsRetrieve() throws Exception {
         Object raw = client.get(ApiPaths.backendPath("/ops/diagnostics"));
         return client.convertValue(raw, new TypeReference<DiagnosticsRetrieveResponse>() {});
+    }
+
+    /** Retrieve commit-journal replay status */
+    public ReplayStatusRetrieveResponse replayStatusRetrieve() throws Exception {
+        Object raw = client.get(ApiPaths.backendPath("/ops/replay_status"));
+        return client.convertValue(raw, new TypeReference<ReplayStatusRetrieveResponse>() {});
+    }
+
+    /** Purge expired retention batches */
+    public RetentionPurgePostResponse retentionPurge(String batchSize) throws Exception {
+        String query = buildQueryString(List.of(
+            new QueryParameterSpec("batch_size", batchSize, "form", true, false, null)
+        ));
+        Object raw = client.post(ApiPaths.appendQueryString(ApiPaths.backendPath("/ops/retention/purge"), query), null);
+        return client.convertValue(raw, new TypeReference<RetentionPurgePostResponse>() {});
     }
 
 

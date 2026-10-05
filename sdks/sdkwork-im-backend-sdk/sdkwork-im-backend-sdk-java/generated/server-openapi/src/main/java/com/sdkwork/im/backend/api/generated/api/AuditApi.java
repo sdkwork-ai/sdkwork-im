@@ -13,28 +13,35 @@ public class AuditApi {
         this.client = client;
     }
 
+    /** Record an audit anchor */
+    public AuditRecordsCreateResponse201 recordsCreate(AuditRecordAnchorRequest body) throws Exception {
+        Object raw = client.post(ApiPaths.backendPath("/audit/records"), body, null, null, "application/json");
+        return client.convertValue(raw, new TypeReference<AuditRecordsCreateResponse201>() {});
+    }
+
     /** List audit records */
-    public SdkWorkListResponse recordsList(Integer pageSize, String cursor, Integer page, String q) throws Exception {
+    public AuditRecordsListResponse recordsList(String afterAuditSeq, Integer pageSize) throws Exception {
         String query = buildQueryString(List.of(
-            new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
-            new QueryParameterSpec("cursor", cursor, "form", true, false, null),
-            new QueryParameterSpec("page", page, "form", true, false, null),
-            new QueryParameterSpec("q", q, "form", true, false, null)
+            new QueryParameterSpec("after_audit_seq", afterAuditSeq, "form", true, false, null),
+            new QueryParameterSpec("page_size", pageSize, "form", true, false, null)
         ));
         Object raw = client.get(ApiPaths.appendQueryString(ApiPaths.backendPath("/audit/records"), query));
-        return client.convertValue(raw, new TypeReference<SdkWorkListResponse>() {});
+        return client.convertValue(raw, new TypeReference<AuditRecordsListResponse>() {});
     }
 
-    /** Record audit anchor */
-    public RecordsCreateResponse201 recordsCreate() throws Exception {
-        Object raw = client.post(ApiPaths.backendPath("/audit/records"), null);
-        return client.convertValue(raw, new TypeReference<RecordsCreateResponse201>() {});
+    /** Export the audit ledger */
+    public AuditExportRetrieveResponse exportRetrieve(Integer pageSize) throws Exception {
+        String query = buildQueryString(List.of(
+            new QueryParameterSpec("page_size", pageSize, "form", true, false, null)
+        ));
+        Object raw = client.get(ApiPaths.appendQueryString(ApiPaths.backendPath("/audit/export"), query));
+        return client.convertValue(raw, new TypeReference<AuditExportRetrieveResponse>() {});
     }
 
-    /** Export audit bundle */
-    public ExportRetrieveResponse exportRetrieve() throws Exception {
-        Object raw = client.get(ApiPaths.backendPath("/audit/export"));
-        return client.convertValue(raw, new TypeReference<ExportRetrieveResponse>() {});
+    /** Verify audit chain integrity */
+    public VerifyRetrieveResponse verifyRetrieve() throws Exception {
+        Object raw = client.get(ApiPaths.backendPath("/audit/verify"));
+        return client.convertValue(raw, new TypeReference<VerifyRetrieveResponse>() {});
     }
 
 

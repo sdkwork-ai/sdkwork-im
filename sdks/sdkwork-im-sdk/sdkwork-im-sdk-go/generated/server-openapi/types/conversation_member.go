@@ -10,4 +10,7 @@ type ConversationMember struct {
 	Role string `json:"role"`
 	State MembershipState `json:"state"`
 	JoinedAt string `json:"joinedAt"`
+	InvitedBy string `json:"invitedBy"`
+	RemovedAt string `json:"removedAt"`
+	Attributes map[string]string `json:"attributes"`
 }

@@ -10,5 +10,4 @@ class Api(private val client: HttpClient) {
     val audit: AuditApi = AuditApi(client)
     val automation: AutomationApi = AutomationApi(client)
     val control: ControlApi = ControlApi(client)
-    val admin: AdminApi = AdminApi(client)
 }

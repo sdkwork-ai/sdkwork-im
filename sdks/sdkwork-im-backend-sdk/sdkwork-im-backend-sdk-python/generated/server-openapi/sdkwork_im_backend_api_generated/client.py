@@ -3,7 +3,6 @@ from .api.ops import OpsApi
 from .api.audit import AuditApi
 from .api.automation import AutomationApi
 from .api.control import ControlApi
-from .api.admin import AdminApi
 
 
 class SdkworkImBackendClient:
@@ -15,14 +14,12 @@ class SdkworkImBackendClient:
         self.audit: AuditApi
         self.automation: AutomationApi
         self.control: ControlApi
-        self.admin: AdminApi
 
         # Initialize API modules
         self.ops = OpsApi(self._client)
         self.audit = AuditApi(self._client)
         self.automation = AutomationApi(self._client)
         self.control = ControlApi(self._client)
-        self.admin = AdminApi(self._client)
     def set_auth_token(self, token: str) -> 'SdkworkImBackendClient':
         """Set auth token for authentication."""
         self._client.set_auth_token(token)

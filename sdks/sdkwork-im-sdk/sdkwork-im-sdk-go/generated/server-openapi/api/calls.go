@@ -78,9 +78,9 @@ func (a *CallsApi) SessionsEnd(rtcSessionId string, body sdktypes.UpdateRtcSessi
 }
 
 // List IM call signaling events
-func (a *CallsApi) SessionsSignalsList(rtcSessionId string, afterSignalSeq *int, cursor *string, pageSize *int) (sdktypes.CallsSessionsSignalsListResponse, error) {
+func (a *CallsApi) SessionsSignalsList(rtcSessionId string, afterSignalSeq *string, cursor *string, pageSize *int) (sdktypes.CallsSessionsSignalsListResponse, error) {
     query := BuildQueryString([]QueryParameterSpec{
-        {Name: "afterSignalSeq", Value: func() interface{} { if afterSignalSeq == nil { return nil }; return *afterSignalSeq }(), Style: "form", Explode: true, AllowReserved: false},
+        {Name: "after_signal_seq", Value: func() interface{} { if afterSignalSeq == nil { return nil }; return *afterSignalSeq }(), Style: "form", Explode: true, AllowReserved: false},
         {Name: "cursor", Value: func() interface{} { if cursor == nil { return nil }; return *cursor }(), Style: "form", Explode: true, AllowReserved: false},
         {Name: "page_size", Value: func() interface{} { if pageSize == nil { return nil }; return *pageSize }(), Style: "form", Explode: true, AllowReserved: false},
     })

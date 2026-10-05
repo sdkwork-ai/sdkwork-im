@@ -15,7 +15,7 @@ type ConversationInboxEntry struct {
 	LastMessageId string `json:"lastMessageId"`
 	LastSenderId string `json:"lastSenderId"`
 	MessageCount int `json:"messageCount"`
-	LastMessageSeq int `json:"lastMessageSeq"`
+	LastMessageSeq string `json:"lastMessageSeq"`
 	LastSummary string `json:"lastSummary"`
 	LastMessageAt string `json:"lastMessageAt"`
 	UnreadCount int `json:"unreadCount"`

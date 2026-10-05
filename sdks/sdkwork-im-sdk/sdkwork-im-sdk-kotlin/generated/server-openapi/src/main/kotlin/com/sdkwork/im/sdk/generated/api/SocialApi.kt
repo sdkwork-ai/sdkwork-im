@@ -19,6 +19,56 @@ class SocialApi(private val client: HttpClient) {
         return client.convertValue(raw, object : TypeReference<SocialUsersListResponse>() {})
     }
 
+    /** Retrieve a social user profile */
+    suspend fun usersProfileRetrieve(userId: String): SocialUsersProfileRetrieveResponse? {
+        val raw = client.get(ApiPaths.imPath("/social/users/${serializePathParameter(userId, PathParameterSpec("userId", "simple", false))}/profile"))
+        return client.convertValue(raw, object : TypeReference<SocialUsersProfileRetrieveResponse>() {})
+    }
+
+    /** Update the authenticated user profile */
+    suspend fun usersProfileUpdate(userId: String, body: UpdateSocialUserProfileRequest): SocialUsersProfileUpdateResponse? {
+        val raw = client.patch(ApiPaths.imPath("/social/users/${serializePathParameter(userId, PathParameterSpec("userId", "simple", false))}/profile"), body, null, null, "application/json")
+        return client.convertValue(raw, object : TypeReference<SocialUsersProfileUpdateResponse>() {})
+    }
+
+    /** Retrieve social user settings */
+    suspend fun usersSettingsRetrieve(userId: String): SocialUsersSettingsRetrieveResponse? {
+        val raw = client.get(ApiPaths.imPath("/social/users/${serializePathParameter(userId, PathParameterSpec("userId", "simple", false))}/settings"))
+        return client.convertValue(raw, object : TypeReference<SocialUsersSettingsRetrieveResponse>() {})
+    }
+
+    /** Update social user settings */
+    suspend fun usersSettingsUpdate(userId: String, body: UpdateSocialUserSettingsRequest): SocialUsersSettingsUpdateResponse? {
+        val raw = client.patch(ApiPaths.imPath("/social/users/${serializePathParameter(userId, PathParameterSpec("userId", "simple", false))}/settings"), body, null, null, "application/json")
+        return client.convertValue(raw, object : TypeReference<SocialUsersSettingsUpdateResponse>() {})
+    }
+
+    /** List friendships of the authenticated user */
+    suspend fun friendshipsList(pageSize: Int? = null, cursor: String? = null): SocialFriendshipsListResponse? {
+        val query = buildQueryString(listOf(
+            QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+            QueryParameterSpec("cursor", cursor, "form", true, false, null)
+        ))
+        val raw = client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/social/friendships"), query))
+        return client.convertValue(raw, object : TypeReference<SocialFriendshipsListResponse>() {})
+    }
+
+    /** List direct chats of the authenticated user */
+    suspend fun directChatsList(pageSize: Int? = null, cursor: String? = null): SocialDirectChatsListResponse? {
+        val query = buildQueryString(listOf(
+            QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+            QueryParameterSpec("cursor", cursor, "form", true, false, null)
+        ))
+        val raw = client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/social/direct_chats"), query))
+        return client.convertValue(raw, object : TypeReference<SocialDirectChatsListResponse>() {})
+    }
+
+    /** Retrieve a direct chat */
+    suspend fun directChatsRetrieve(directChatId: String): SocialDirectChatsRetrieveResponse? {
+        val raw = client.get(ApiPaths.imPath("/social/direct_chats/${serializePathParameter(directChatId, PathParameterSpec("directChatId", "simple", false))}"))
+        return client.convertValue(raw, object : TypeReference<SocialDirectChatsRetrieveResponse>() {})
+    }
+
     /** List friend requests */
     suspend fun friendRequestsList(direction: String? = null, status: String? = null, pageSize: Int? = null, cursor: String? = null): SdkWorkListResponse? {
         val query = buildQueryString(listOf(
@@ -65,6 +115,16 @@ class SocialApi(private val client: HttpClient) {
     suspend fun friendshipsRemove(friendshipId: String): SocialFriendshipsRemoveResponse? {
         val raw = client.post(ApiPaths.imPath("/social/friendships/${serializePathParameter(friendshipId, PathParameterSpec("friendshipId", "simple", false))}/remove"), null)
         return client.convertValue(raw, object : TypeReference<SocialFriendshipsRemoveResponse>() {})
+    }
+
+    /** List user blocks created by the authenticated user */
+    suspend fun userBlocksList(pageSize: Int? = null, cursor: String? = null): SocialUserBlocksListResponse? {
+        val query = buildQueryString(listOf(
+            QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+            QueryParameterSpec("cursor", cursor, "form", true, false, null)
+        ))
+        val raw = client.get(ApiPaths.appendQueryString(ApiPaths.imPath("/social/user_blocks"), query))
+        return client.convertValue(raw, object : TypeReference<SocialUserBlocksListResponse>() {})
     }
 
     /** Block a social user */

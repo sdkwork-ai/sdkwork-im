@@ -3,7 +3,7 @@ package com.sdkwork.im.sdk.generated.model;
 
 public class PostMessageResult {
     private String messageId;
-    private Integer messageSeq;
+    private String messageSeq;
     private String eventId;
     private String requestKey;
     private String deliveryStatus;
@@ -17,11 +17,11 @@ public class PostMessageResult {
         this.messageId = messageId;
     }
 
-    public Integer getMessageSeq() {
+    public String getMessageSeq() {
         return this.messageSeq;
     }
 
-    public void setMessageSeq(Integer messageSeq) {
+    public void setMessageSeq(String messageSeq) {
         this.messageSeq = messageSeq;
     }
 

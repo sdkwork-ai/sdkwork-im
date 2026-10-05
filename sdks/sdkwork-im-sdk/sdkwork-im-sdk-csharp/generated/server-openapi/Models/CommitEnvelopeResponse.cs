@@ -15,7 +15,7 @@ namespace Sdkwork.Im.Sdk.Generated.Models
         public string ScopeType { get; set; }
         public string ScopeId { get; set; }
         public string OrderingKey { get; set; }
-        public int OrderingSeq { get; set; }
+        public string OrderingSeq { get; set; }
         public string? CausationId { get; set; }
         public string? CorrelationId { get; set; }
         public string? IdempotencyKey { get; set; }

@@ -8,5 +8,3 @@ pub mod automation;
 pub use automation::AutomationApi;
 pub mod control;
 pub use control::ControlApi;
-pub mod admin;
-pub use admin::AdminApi;

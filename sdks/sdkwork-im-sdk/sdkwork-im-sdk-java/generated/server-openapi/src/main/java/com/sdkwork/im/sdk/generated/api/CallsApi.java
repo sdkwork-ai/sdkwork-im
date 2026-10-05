@@ -50,9 +50,9 @@ public class CallsApi {
     }
 
     /** List IM call signaling events */
-    public CallsSessionsSignalsListResponse sessionsSignalsList(String rtcSessionId, Integer afterSignalSeq, String cursor, Integer pageSize) throws Exception {
+    public CallsSessionsSignalsListResponse sessionsSignalsList(String rtcSessionId, String afterSignalSeq, String cursor, Integer pageSize) throws Exception {
         String query = buildQueryString(List.of(
-            new QueryParameterSpec("afterSignalSeq", afterSignalSeq, "form", true, false, null),
+            new QueryParameterSpec("after_signal_seq", afterSignalSeq, "form", true, false, null),
             new QueryParameterSpec("cursor", cursor, "form", true, false, null),
             new QueryParameterSpec("page_size", pageSize, "form", true, false, null)
         ));

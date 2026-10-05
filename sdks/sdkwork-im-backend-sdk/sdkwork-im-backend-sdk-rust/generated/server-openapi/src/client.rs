@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::api::{OpsApi, AuditApi, AutomationApi, ControlApi, AdminApi};
+use crate::api::{OpsApi, AuditApi, AutomationApi, ControlApi};
 use crate::http::{SdkworkConfig, SdkworkError, SdkworkHttpClient};
 
 #[derive(Clone)]
@@ -52,10 +52,6 @@ impl SdkworkImBackendClient {
 
     pub fn control(&self) -> ControlApi {
             ControlApi::new(Arc::clone(&self.http))
-        }
-
-    pub fn admin(&self) -> AdminApi {
-            AdminApi::new(Arc::clone(&self.http))
         }
 }
 

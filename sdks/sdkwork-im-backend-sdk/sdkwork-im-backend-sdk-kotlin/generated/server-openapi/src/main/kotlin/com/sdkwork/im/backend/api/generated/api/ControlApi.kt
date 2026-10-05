@@ -53,8 +53,8 @@ class ControlApi(private val client: HttpClient) {
     /** Read provider policy diff between two versions. */
     suspend fun providerPoliciesDiffList(fromVersion: String, toVersion: String, pageSize: Int? = null, cursor: String? = null, page: Int? = null, q: String? = null): SdkWorkListResponse? {
         val query = buildQueryString(listOf(
-            QueryParameterSpec("fromVersion", fromVersion, "form", true, false, null),
-            QueryParameterSpec("toVersion", toVersion, "form", true, false, null),
+            QueryParameterSpec("from_version", fromVersion, "form", true, false, null),
+            QueryParameterSpec("to_version", toVersion, "form", true, false, null),
             QueryParameterSpec("page_size", pageSize, "form", true, false, null),
             QueryParameterSpec("cursor", cursor, "form", true, false, null),
             QueryParameterSpec("page", page, "form", true, false, null),
@@ -85,7 +85,7 @@ class ControlApi(private val client: HttpClient) {
     /** Read effective provider bindings. */
     suspend fun providerBindingsList(tenantId: String? = null, pageSize: Int? = null, cursor: String? = null, page: Int? = null, q: String? = null): SdkWorkListResponse? {
         val query = buildQueryString(listOf(
-            QueryParameterSpec("tenantId", tenantId, "form", true, false, null),
+            QueryParameterSpec("tenant_id", tenantId, "form", true, false, null),
             QueryParameterSpec("page_size", pageSize, "form", true, false, null),
             QueryParameterSpec("cursor", cursor, "form", true, false, null),
             QueryParameterSpec("page", page, "form", true, false, null),
@@ -135,6 +135,19 @@ class ControlApi(private val client: HttpClient) {
     suspend fun socialExternalMemberLinksRetrieve(linkId: String): SocialExternalMemberLinksRetrieveResponse? {
         val raw = client.get(ApiPaths.backendPath("/control/social/external_member_links/${serializePathParameter(linkId, PathParameterSpec("linkId", "simple", false))}"))
         return client.convertValue(raw, object : TypeReference<SocialExternalMemberLinksRetrieveResponse>() {})
+    }
+
+    /** List friend requests for a user. */
+    suspend fun socialFriendRequestsList(userId: String, direction: String, status: String? = null, pageSize: Int? = null, cursor: String? = null): SocialFriendRequestsListResponse? {
+        val query = buildQueryString(listOf(
+            QueryParameterSpec("user_id", userId, "form", true, false, null),
+            QueryParameterSpec("direction", direction, "form", true, false, null),
+            QueryParameterSpec("status", status, "form", true, false, null),
+            QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+            QueryParameterSpec("cursor", cursor, "form", true, false, null)
+        ))
+        val raw = client.get(ApiPaths.appendQueryString(ApiPaths.backendPath("/control/social/friend_requests"), query))
+        return client.convertValue(raw, object : TypeReference<SocialFriendRequestsListResponse>() {})
     }
 
     /** Submit a friend request event. */

@@ -38,9 +38,9 @@ public class CallsApi {
     }
 
     /// List IM call signaling events
-    public func sessionsSignalsList(rtcSessionId: String, afterSignalSeq: Int? = nil, cursor: String? = nil, pageSize: Int? = nil) async throws -> CallsSessionsSignalsListResponse? {
+    public func sessionsSignalsList(rtcSessionId: String, afterSignalSeq: String? = nil, cursor: String? = nil, pageSize: Int? = nil) async throws -> CallsSessionsSignalsListResponse? {
         let query = buildQueryString([
-            QueryParameterSpec(name: "afterSignalSeq", value: afterSignalSeq, style: "form", explode: true, allowReserved: false, contentType: nil),
+            QueryParameterSpec(name: "after_signal_seq", value: afterSignalSeq, style: "form", explode: true, allowReserved: false, contentType: nil),
             QueryParameterSpec(name: "cursor", value: cursor, style: "form", explode: true, allowReserved: false, contentType: nil),
             QueryParameterSpec(name: "page_size", value: pageSize, style: "form", explode: true, allowReserved: false, contentType: nil)
         ])

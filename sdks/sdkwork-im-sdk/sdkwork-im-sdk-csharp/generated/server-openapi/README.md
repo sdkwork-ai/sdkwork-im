@@ -1,6 +1,6 @@
 # sdkwork-im-sdk (C#)
 
-Generated SDKWork v3 dual-token transport SDK.
+Professional C# SDK for SDKWork API.
 
 ## Installation
 
@@ -21,27 +21,45 @@ using Sdkwork.Im.Sdk.Generated.Models;
 using Sdkwork.Im.Sdk.Generated;
 using SDKwork.Common.Core;
 
-var config = new SdkConfig("http://127.0.0.1:18079");
+var config = new SdkConfig("http://127.0.0.1:18089");
 var client = new SdkworkImClient(config);
-client.SetAuthToken("your-auth-token");
-client.SetAccessToken("your-access-token");
+client.SetApiKey("your-api-key");
 
 var result = await client.Presence.MeRetrieveAsync();
 Console.WriteLine(result);
 ```
 
-## Authentication
+## Authentication Modes (Mutually Exclusive)
 
-```text
-Authorization: Bearer <authToken>
-Access-Token: <accessToken>
+Choose exactly one mode for the same client instance.
+
+### Mode A: API Key
+
+```csharp
+var config = new SdkConfig("http://127.0.0.1:18089");
+var client = new SdkworkImClient(config);
+client.SetApiKey("your-api-key");
+// Sends: X-API-Key: <apiKey>
 ```
 
+### Mode B: Dual Token
+
+```csharp
+var config = new SdkConfig("http://127.0.0.1:18089");
+var client = new SdkworkImClient(config);
+client.SetAuthToken("your-auth-token");
+client.SetAccessToken("your-access-token");
+// Sends:
+// Authorization: Bearer <authToken>
+// Access-Token: <accessToken>
+```
+
+> Do not call `SetApiKey(...)` together with `SetAuthToken(...)` + `SetAccessToken(...)` on the same client.
 
 ## Configuration (Non-Auth)
 
 ```csharp
-var config = new SdkConfig("http://127.0.0.1:18079");
+var config = new SdkConfig("http://127.0.0.1:18089");
 var client = new SdkworkImClient(config);
 
 // Set custom headers
@@ -55,7 +73,6 @@ client.SetHeader("X-Custom-Header", "value");
 - `client.Calls` - calls API
 - `client.Social` - social API
 - `client.Chat` - chat API
-- `client.Streams` - streams API
 - `client.Spaces` - spaces API
 
 ## Usage Examples
@@ -106,28 +123,8 @@ Console.WriteLine(result);
 ### chat
 
 ```csharp
-// List current inbox window
-var query = new Dictionary<string, object>
-{
-    ["page_size"] = 1,
-    ["cursor"] = "cursor",
-    ["conversation_type"] = "conversation-type",
-    ["q"] = "q",
-};
-var result = await client.Chat.InboxListAsync(query);
-Console.WriteLine(result);
-```
-
-### streams
-
-```csharp
-// Open a stream
-var body = new OpenStreamRequest
-{
-    StreamType = "streamtype",
-    ConversationId = "1",
-};
-var result = await client.Streams.CreateAsync(body);
+// Ensure the current user received the system-agent Welcome message
+var result = await client.Chat.MeWelcomeEnsureAsync();
 Console.WriteLine(result);
 ```
 
@@ -180,7 +177,7 @@ This SDK includes cross-platform publish scripts in `bin/`:
 .\bin\publish.ps1 --action publish --channel test --dry-run
 ```
 
-> Configure NuGet registry credentials before release publish.
+> Set `NUGET_API_KEY` for release (or `NUGET_TEST_API_KEY` for test channel).
 
 ## License
 

@@ -9,6 +9,5 @@ namespace Sdkwork.Im.BackendApi.Generated.Api
         public static AuditApi? Audit { get; set; }
         public static AutomationApi? Automation { get; set; }
         public static ControlApi? Control { get; set; }
-        public static AdminApi? Admin { get; set; }
     }
 }

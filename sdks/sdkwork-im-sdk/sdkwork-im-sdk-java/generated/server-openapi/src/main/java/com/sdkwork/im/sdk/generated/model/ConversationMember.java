@@ -1,5 +1,6 @@
 package com.sdkwork.im.sdk.generated.model;
 
+import java.util.Map;
 
 public class ConversationMember {
     private String tenantId;
@@ -10,6 +11,9 @@ public class ConversationMember {
     private String role;
     private String state;
     private String joinedAt;
+    private String invitedBy;
+    private String removedAt;
+    private Map<String, String> attributes;
 
     public String getTenantId() {
         return this.tenantId;
@@ -73,5 +77,29 @@ public class ConversationMember {
 
     public void setJoinedAt(String joinedAt) {
         this.joinedAt = joinedAt;
+    }
+
+    public String getInvitedBy() {
+        return this.invitedBy;
+    }
+
+    public void setInvitedBy(String invitedBy) {
+        this.invitedBy = invitedBy;
+    }
+
+    public String getRemovedAt() {
+        return this.removedAt;
+    }
+
+    public void setRemovedAt(String removedAt) {
+        this.removedAt = removedAt;
+    }
+
+    public Map<String, String> getAttributes() {
+        return this.attributes;
+    }
+
+    public void setAttributes(Map<String, String> attributes) {
+        this.attributes = attributes;
     }
 }

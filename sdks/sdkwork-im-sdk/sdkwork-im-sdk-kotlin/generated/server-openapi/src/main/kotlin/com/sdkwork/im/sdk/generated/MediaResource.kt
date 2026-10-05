@@ -12,7 +12,7 @@ data class MediaResource(
     val title: String? = null,
     val fileName: String? = null,
     val mimeType: String? = null,
-    val size: Int? = null,
+    val size: String? = null,
     val sizeBytes: String? = null,
     val fileSize: String? = null,
     val durationSeconds: Int? = null,

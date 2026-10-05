@@ -11,6 +11,8 @@ public class FriendRequest {
     private String expiredAt;
     private String createdAt;
     private String updatedAt;
+    private String requesterDisplayName;
+    private String requesterAvatarUrl;
 
     public String getTenantId() {
         return this.tenantId;
@@ -82,5 +84,21 @@ public class FriendRequest {
 
     public void setUpdatedAt(String updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getRequesterDisplayName() {
+        return this.requesterDisplayName;
+    }
+
+    public void setRequesterDisplayName(String requesterDisplayName) {
+        this.requesterDisplayName = requesterDisplayName;
+    }
+
+    public String getRequesterAvatarUrl() {
+        return this.requesterAvatarUrl;
+    }
+
+    public void setRequesterAvatarUrl(String requesterAvatarUrl) {
+        this.requesterAvatarUrl = requesterAvatarUrl;
     }
 }

@@ -86,8 +86,8 @@ func (a *ControlApi) ProviderPoliciesList(pageSize *int, cursor *string, page *i
 // Read provider policy diff between two versions.
 func (a *ControlApi) ProviderPoliciesDiffList(fromVersion string, toVersion string, pageSize *int, cursor *string, page *int, q *string) (sdktypes.SdkWorkListResponse, error) {
     query := BuildQueryString([]QueryParameterSpec{
-        {Name: "fromVersion", Value: fromVersion, Style: "form", Explode: true, AllowReserved: false},
-        {Name: "toVersion", Value: toVersion, Style: "form", Explode: true, AllowReserved: false},
+        {Name: "from_version", Value: fromVersion, Style: "form", Explode: true, AllowReserved: false},
+        {Name: "to_version", Value: toVersion, Style: "form", Explode: true, AllowReserved: false},
         {Name: "page_size", Value: func() interface{} { if pageSize == nil { return nil }; return *pageSize }(), Style: "form", Explode: true, AllowReserved: false},
         {Name: "cursor", Value: func() interface{} { if cursor == nil { return nil }; return *cursor }(), Style: "form", Explode: true, AllowReserved: false},
         {Name: "page", Value: func() interface{} { if page == nil { return nil }; return *page }(), Style: "form", Explode: true, AllowReserved: false},
@@ -134,7 +134,7 @@ func (a *ControlApi) ProviderRegistryRetrieve() (sdktypes.ProviderRegistryRetrie
 // Read effective provider bindings.
 func (a *ControlApi) ProviderBindingsList(tenantId *string, pageSize *int, cursor *string, page *int, q *string) (sdktypes.SdkWorkListResponse, error) {
     query := BuildQueryString([]QueryParameterSpec{
-        {Name: "tenantId", Value: func() interface{} { if tenantId == nil { return nil }; return *tenantId }(), Style: "form", Explode: true, AllowReserved: false},
+        {Name: "tenant_id", Value: func() interface{} { if tenantId == nil { return nil }; return *tenantId }(), Style: "form", Explode: true, AllowReserved: false},
         {Name: "page_size", Value: func() interface{} { if pageSize == nil { return nil }; return *pageSize }(), Style: "form", Explode: true, AllowReserved: false},
         {Name: "cursor", Value: func() interface{} { if cursor == nil { return nil }; return *cursor }(), Style: "form", Explode: true, AllowReserved: false},
         {Name: "page", Value: func() interface{} { if page == nil { return nil }; return *page }(), Style: "form", Explode: true, AllowReserved: false},
@@ -216,6 +216,23 @@ func (a *ControlApi) SocialExternalMemberLinksRetrieve(linkId string) (sdktypes.
         return zero, err
     }
     return decodeResult[sdktypes.SocialExternalMemberLinksRetrieveResponse](raw)
+}
+
+// List friend requests for a user.
+func (a *ControlApi) SocialFriendRequestsList(userId string, direction string, status *string, pageSize *int, cursor *string) (sdktypes.SocialFriendRequestsListResponse, error) {
+    query := BuildQueryString([]QueryParameterSpec{
+        {Name: "user_id", Value: userId, Style: "form", Explode: true, AllowReserved: false},
+        {Name: "direction", Value: direction, Style: "form", Explode: true, AllowReserved: false},
+        {Name: "status", Value: func() interface{} { if status == nil { return nil }; return *status }(), Style: "form", Explode: true, AllowReserved: false},
+        {Name: "page_size", Value: func() interface{} { if pageSize == nil { return nil }; return *pageSize }(), Style: "form", Explode: true, AllowReserved: false},
+        {Name: "cursor", Value: func() interface{} { if cursor == nil { return nil }; return *cursor }(), Style: "form", Explode: true, AllowReserved: false},
+    })
+    raw, err := a.client.Get(AppendQueryString(BackendApiPath("/control/social/friend_requests"), query), nil, nil)
+    if err != nil {
+        var zero sdktypes.SocialFriendRequestsListResponse
+        return zero, err
+    }
+    return decodeResult[sdktypes.SocialFriendRequestsListResponse](raw)
 }
 
 // Submit a friend request event.

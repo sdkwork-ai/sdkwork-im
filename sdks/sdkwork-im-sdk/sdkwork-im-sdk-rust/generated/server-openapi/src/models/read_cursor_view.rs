@@ -12,7 +12,7 @@ pub struct ReadCursorView {
     pub principal_id: String,
 
     #[serde(rename = "readSeq")]
-    pub read_seq: i64,
+    pub read_seq: String,
 
     #[serde(rename = "updatedAt")]
     pub updated_at: String,

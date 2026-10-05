@@ -9,7 +9,7 @@ public class MessageFavoriteView {
     private String favoriteType;
     private String conversationId;
     private String messageId;
-    private Integer messageSeq;
+    private String messageSeq;
     private String title;
     private String contentPreview;
     private String sourceDisplayName;
@@ -71,11 +71,11 @@ public class MessageFavoriteView {
         this.messageId = messageId;
     }
 
-    public Integer getMessageSeq() {
+    public String getMessageSeq() {
         return this.messageSeq;
     }
 
-    public void setMessageSeq(Integer messageSeq) {
+    public void setMessageSeq(String messageSeq) {
         this.messageSeq = messageSeq;
     }
 

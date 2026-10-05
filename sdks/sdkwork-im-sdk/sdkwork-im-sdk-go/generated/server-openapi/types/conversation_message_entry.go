@@ -5,7 +5,7 @@ type ConversationMessageEntry struct {
 	TenantId string `json:"tenantId"`
 	ConversationId string `json:"conversationId"`
 	MessageId string `json:"messageId"`
-	MessageSeq int `json:"messageSeq"`
+	MessageSeq string `json:"messageSeq"`
 	Summary string `json:"summary"`
 	Sender Sender `json:"sender"`
 	Body MessageBody `json:"body"`

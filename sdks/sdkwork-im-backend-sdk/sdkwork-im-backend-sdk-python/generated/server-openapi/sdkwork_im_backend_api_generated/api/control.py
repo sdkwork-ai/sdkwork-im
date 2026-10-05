@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 from ..http_client import HttpClient
-from ..models import AcceptFriendRequestRequest, ActivateFriendshipRequest, ApplySharedChannelPolicyRequest, BindDirectChatRequest, BindExternalMemberLinkRequest, BlockUserRequest, CancelFriendRequestRequest, ControlProviderBindingsCreateResponse201, DeclineFriendRequestRequest, EstablishExternalConnectionRequest, MigrateRoutesRequest, NodesActivateResponse, NodesDrainResponse, NodesRoutesMigrateResponse, ProtocolGovernanceRetrieveResponse, ProtocolRegistryRetrieveResponse, ProviderPoliciesPreviewResponse, ProviderPoliciesRollbackResponse, ProviderPolicyRollbackRequest, ProviderRegistryRetrieveResponse, RemoveFriendshipRequest, SdkWorkListResponse, SocialDirectChatsBindingsCreateResponse201, SocialDirectChatsRetrieveResponse, SocialExternalConnectionsCreateResponse201, SocialExternalConnectionsRetrieveResponse, SocialExternalMemberLinksCreateResponse201, SocialExternalMemberLinksRetrieveResponse, SocialFriendRequestsAcceptResponse, SocialFriendRequestsCancelResponse, SocialFriendRequestsCreateResponse201, SocialFriendRequestsDeclineResponse, SocialFriendRequestsRetrieveResponse, SocialFriendshipsCreateResponse201, SocialFriendshipsRemoveResponse, SocialFriendshipsRetrieveResponse, SocialRuntimeClaimPendingSharedChannelSyncTargetedCreateResponse201, SocialRuntimeReclaimStalePendingSharedChannelSyncCreateResponse201, SocialRuntimeReleasePendingSharedChannelSyncTargetedCreateResponse201, SocialRuntimeRepairDerivedSnapshotCreateResponse201, SocialRuntimeRepairSharedChannelSyncCreateResponse201, SocialRuntimeRepublishPendingSharedChannelSyncTargetedCreateResponse201, SocialRuntimeRequeueDeadLetterSharedChannelSyncCreateResponse201, SocialRuntimeRequeueDeadLetterSharedChannelSyncTargetedCreateResponse201, SocialRuntimeTakeoverPendingSharedChannelSyncTargetedCreateResponse201, SocialSharedChannelPoliciesCreateResponse201, SocialSharedChannelPoliciesRetrieveResponse, SocialSharedChannelSyncDeadLetterTargetedRequeueRequest, SocialSharedChannelSyncPendingTargetedClaimRequest, SocialSharedChannelSyncPendingTargetedReleaseRequest, SocialSharedChannelSyncPendingTargetedTakeoverRequest, SocialSharedChannelSyncTargetedRepublishRequest, SocialUserBlocksCreateResponse201, SocialUserBlocksRetrieveResponse, SubmitFriendRequestRequest, UpsertProviderBindingPolicyRequest
+from ..models import AcceptFriendRequestRequest, ActivateFriendshipRequest, ApplySharedChannelPolicyRequest, BindDirectChatRequest, BindExternalMemberLinkRequest, BlockUserRequest, CancelFriendRequestRequest, ControlProviderBindingsCreateResponse201, DeclineFriendRequestRequest, EstablishExternalConnectionRequest, MigrateRoutesRequest, NodesActivateResponse, NodesDrainResponse, NodesRoutesMigrateResponse, ProtocolGovernanceRetrieveResponse, ProtocolRegistryRetrieveResponse, ProviderPoliciesPreviewResponse, ProviderPoliciesRollbackResponse, ProviderPolicyRollbackRequest, ProviderRegistryRetrieveResponse, RemoveFriendshipRequest, SdkWorkListResponse, SocialDirectChatsBindingsCreateResponse201, SocialDirectChatsRetrieveResponse, SocialExternalConnectionsCreateResponse201, SocialExternalConnectionsRetrieveResponse, SocialExternalMemberLinksCreateResponse201, SocialExternalMemberLinksRetrieveResponse, SocialFriendRequestsAcceptResponse, SocialFriendRequestsCancelResponse, SocialFriendRequestsCreateResponse201, SocialFriendRequestsDeclineResponse, SocialFriendRequestsListResponse, SocialFriendRequestsRetrieveResponse, SocialFriendshipsCreateResponse201, SocialFriendshipsRemoveResponse, SocialFriendshipsRetrieveResponse, SocialRuntimeClaimPendingSharedChannelSyncTargetedCreateResponse201, SocialRuntimeReclaimStalePendingSharedChannelSyncCreateResponse201, SocialRuntimeReleasePendingSharedChannelSyncTargetedCreateResponse201, SocialRuntimeRepairDerivedSnapshotCreateResponse201, SocialRuntimeRepairSharedChannelSyncCreateResponse201, SocialRuntimeRepublishPendingSharedChannelSyncTargetedCreateResponse201, SocialRuntimeRequeueDeadLetterSharedChannelSyncCreateResponse201, SocialRuntimeRequeueDeadLetterSharedChannelSyncTargetedCreateResponse201, SocialRuntimeTakeoverPendingSharedChannelSyncTargetedCreateResponse201, SocialSharedChannelPoliciesCreateResponse201, SocialSharedChannelPoliciesRetrieveResponse, SocialSharedChannelSyncDeadLetterTargetedRequeueRequest, SocialSharedChannelSyncPendingTargetedClaimRequest, SocialSharedChannelSyncPendingTargetedReleaseRequest, SocialSharedChannelSyncPendingTargetedTakeoverRequest, SocialSharedChannelSyncTargetedRepublishRequest, SocialUserBlocksCreateResponse201, SocialUserBlocksRetrieveResponse, SubmitFriendRequestRequest, UpsertProviderBindingPolicyRequest
 
 def _append_query_string(path: str, raw_query_string: str) -> str:
     query = raw_query_string.lstrip('?')
@@ -283,8 +283,8 @@ class ControlProviderPoliciesDiffApi:
     def list(self, from_version: str, to_version: str, page_size: Optional[int] = None, cursor: Optional[str] = None, page: Optional[int] = None, q: Optional[str] = None) -> SdkWorkListResponse:
         """Read provider policy diff between two versions."""
         query = build_query_string([
-            {'name': 'fromVersion', 'value': from_version, 'style': 'form', 'explode': True, 'allow_reserved': False},
-            {'name': 'toVersion', 'value': to_version, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'from_version', 'value': from_version, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'to_version', 'value': to_version, 'style': 'form', 'explode': True, 'allow_reserved': False},
             {'name': 'page_size', 'value': page_size, 'style': 'form', 'explode': True, 'allow_reserved': False},
             {'name': 'cursor', 'value': cursor, 'style': 'form', 'explode': True, 'allow_reserved': False},
             {'name': 'page', 'value': page, 'style': 'form', 'explode': True, 'allow_reserved': False},
@@ -313,7 +313,7 @@ class ControlProviderBindingsApi:
     def list(self, tenant_id: Optional[str] = None, page_size: Optional[int] = None, cursor: Optional[str] = None, page: Optional[int] = None, q: Optional[str] = None) -> SdkWorkListResponse:
         """Read effective provider bindings."""
         query = build_query_string([
-            {'name': 'tenantId', 'value': tenant_id, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'tenant_id', 'value': tenant_id, 'style': 'form', 'explode': True, 'allow_reserved': False},
             {'name': 'page_size', 'value': page_size, 'style': 'form', 'explode': True, 'allow_reserved': False},
             {'name': 'cursor', 'value': cursor, 'style': 'form', 'explode': True, 'allow_reserved': False},
             {'name': 'page', 'value': page, 'style': 'form', 'explode': True, 'allow_reserved': False},
@@ -399,6 +399,17 @@ class ControlSocialFriendRequestsApi:
     def __init__(self, client: HttpClient):
         self._client = client
 
+
+    def list(self, user_id: str, direction: str, status: Optional[str] = None, page_size: Optional[int] = None, cursor: Optional[str] = None) -> SocialFriendRequestsListResponse:
+        """List friend requests for a user."""
+        query = build_query_string([
+            {'name': 'user_id', 'value': user_id, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'direction', 'value': direction, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'status', 'value': status, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'page_size', 'value': page_size, 'style': 'form', 'explode': True, 'allow_reserved': False},
+            {'name': 'cursor', 'value': cursor, 'style': 'form', 'explode': True, 'allow_reserved': False},
+        ])
+        return self._client.get(_append_query_string(f"/backend/v3/api/control/social/friend_requests", query))
 
     def create(self, body: SubmitFriendRequestRequest) -> SocialFriendRequestsCreateResponse201:
         """Submit a friend request event."""

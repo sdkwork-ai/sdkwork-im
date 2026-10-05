@@ -14,7 +14,7 @@ class ConversationInboxEntry:
     conversation_type: str
     last_activity_at: str
     message_count: int
-    last_message_seq: int
+    last_message_seq: str
     unread_count: int
     agent_handoff: Optional[bool] = None
     display_name: Optional[str] = None

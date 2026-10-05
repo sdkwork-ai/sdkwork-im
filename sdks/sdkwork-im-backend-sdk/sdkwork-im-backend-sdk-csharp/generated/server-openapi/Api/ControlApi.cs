@@ -77,8 +77,8 @@ namespace Sdkwork.Im.BackendApi.Generated.Api
         {
             var queryString = BuildQueryString(new[]
             {
-                new QueryParameterSpec("fromVersion", fromVersion, "form", true, false, null),
-                new QueryParameterSpec("toVersion", toVersion, "form", true, false, null),
+                new QueryParameterSpec("from_version", fromVersion, "form", true, false, null),
+                new QueryParameterSpec("to_version", toVersion, "form", true, false, null),
                 new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
                 new QueryParameterSpec("cursor", cursor, "form", true, false, null),
                 new QueryParameterSpec("page", page, "form", true, false, null),
@@ -118,7 +118,7 @@ namespace Sdkwork.Im.BackendApi.Generated.Api
         {
             var queryString = BuildQueryString(new[]
             {
-                new QueryParameterSpec("tenantId", tenantId, "form", true, false, null),
+                new QueryParameterSpec("tenant_id", tenantId, "form", true, false, null),
                 new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
                 new QueryParameterSpec("cursor", cursor, "form", true, false, null),
                 new QueryParameterSpec("page", page, "form", true, false, null),
@@ -181,6 +181,22 @@ namespace Sdkwork.Im.BackendApi.Generated.Api
         public async Task<Sdkwork.Im.BackendApi.Generated.Models.SocialExternalMemberLinksRetrieveResponse?> SocialExternalMemberLinksRetrieveAsync(string linkId)
         {
             return await _client.GetAsync<Sdkwork.Im.BackendApi.Generated.Models.SocialExternalMemberLinksRetrieveResponse>(ApiPaths.BackendPath($"/control/social/external_member_links/{SerializePathParameter(linkId, new PathParameterSpec("linkId", "simple", false))}"));
+        }
+
+        /// <summary>
+        /// List friend requests for a user.
+        /// </summary>
+        public async Task<Sdkwork.Im.BackendApi.Generated.Models.SocialFriendRequestsListResponse?> SocialFriendRequestsListAsync(string userId, string direction, string? status = null, int? pageSize = null, string? cursor = null)
+        {
+            var queryString = BuildQueryString(new[]
+            {
+                new QueryParameterSpec("user_id", userId, "form", true, false, null),
+                new QueryParameterSpec("direction", direction, "form", true, false, null),
+                new QueryParameterSpec("status", status, "form", true, false, null),
+                new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+                new QueryParameterSpec("cursor", cursor, "form", true, false, null),
+            });
+            return await _client.GetAsync<Sdkwork.Im.BackendApi.Generated.Models.SocialFriendRequestsListResponse>(ApiPaths.AppendQueryString(ApiPaths.BackendPath("/control/social/friend_requests"), queryString));
         }
 
         /// <summary>

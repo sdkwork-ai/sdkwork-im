@@ -8,5 +8,5 @@ class ReadCursorView:
     tenant_id: str
     conversation_id: str
     principal_id: str
-    read_seq: int
+    read_seq: str
     updated_at: str

@@ -45,9 +45,9 @@ class CallsApi(private val client: HttpClient) {
     }
 
     /** List IM call signaling events */
-    suspend fun sessionsSignalsList(rtcSessionId: String, afterSignalSeq: Int? = null, cursor: String? = null, pageSize: Int? = null): CallsSessionsSignalsListResponse? {
+    suspend fun sessionsSignalsList(rtcSessionId: String, afterSignalSeq: String? = null, cursor: String? = null, pageSize: Int? = null): CallsSessionsSignalsListResponse? {
         val query = buildQueryString(listOf(
-            QueryParameterSpec("afterSignalSeq", afterSignalSeq, "form", true, false, null),
+            QueryParameterSpec("after_signal_seq", afterSignalSeq, "form", true, false, null),
             QueryParameterSpec("cursor", cursor, "form", true, false, null),
             QueryParameterSpec("page_size", pageSize, "form", true, false, null)
         ))

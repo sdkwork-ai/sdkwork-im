@@ -16,34 +16,44 @@ namespace Sdkwork.Im.BackendApi.Generated.Api
         }
 
         /// <summary>
+        /// Record an audit anchor
+        /// </summary>
+        public async Task<Sdkwork.Im.BackendApi.Generated.Models.AuditRecordsCreateResponse201?> RecordsCreateAsync(Sdkwork.Im.BackendApi.Generated.Models.AuditRecordAnchorRequest body)
+        {
+            return await _client.PostAsync<Sdkwork.Im.BackendApi.Generated.Models.AuditRecordsCreateResponse201>(ApiPaths.BackendPath("/audit/records"), body, null, null, "application/json");
+        }
+
+        /// <summary>
         /// List audit records
         /// </summary>
-        public async Task<Sdkwork.Im.BackendApi.Generated.Models.SdkWorkListResponse?> RecordsListAsync(int? pageSize = null, string? cursor = null, int? page = null, string? q = null)
+        public async Task<Sdkwork.Im.BackendApi.Generated.Models.AuditRecordsListResponse?> RecordsListAsync(string? afterAuditSeq = null, int? pageSize = null)
+        {
+            var queryString = BuildQueryString(new[]
+            {
+                new QueryParameterSpec("after_audit_seq", afterAuditSeq, "form", true, false, null),
+                new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+            });
+            return await _client.GetAsync<Sdkwork.Im.BackendApi.Generated.Models.AuditRecordsListResponse>(ApiPaths.AppendQueryString(ApiPaths.BackendPath("/audit/records"), queryString));
+        }
+
+        /// <summary>
+        /// Export the audit ledger
+        /// </summary>
+        public async Task<Sdkwork.Im.BackendApi.Generated.Models.AuditExportRetrieveResponse?> ExportRetrieveAsync(int? pageSize = null)
         {
             var queryString = BuildQueryString(new[]
             {
                 new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
-                new QueryParameterSpec("cursor", cursor, "form", true, false, null),
-                new QueryParameterSpec("page", page, "form", true, false, null),
-                new QueryParameterSpec("q", q, "form", true, false, null),
             });
-            return await _client.GetAsync<Sdkwork.Im.BackendApi.Generated.Models.SdkWorkListResponse>(ApiPaths.AppendQueryString(ApiPaths.BackendPath("/audit/records"), queryString));
+            return await _client.GetAsync<Sdkwork.Im.BackendApi.Generated.Models.AuditExportRetrieveResponse>(ApiPaths.AppendQueryString(ApiPaths.BackendPath("/audit/export"), queryString));
         }
 
         /// <summary>
-        /// Record audit anchor
+        /// Verify audit chain integrity
         /// </summary>
-        public async Task<Sdkwork.Im.BackendApi.Generated.Models.RecordsCreateResponse201?> RecordsCreateAsync()
+        public async Task<Sdkwork.Im.BackendApi.Generated.Models.VerifyRetrieveResponse?> VerifyRetrieveAsync()
         {
-            return await _client.PostAsync<Sdkwork.Im.BackendApi.Generated.Models.RecordsCreateResponse201>(ApiPaths.BackendPath("/audit/records"), null);
-        }
-
-        /// <summary>
-        /// Export audit bundle
-        /// </summary>
-        public async Task<Sdkwork.Im.BackendApi.Generated.Models.ExportRetrieveResponse?> ExportRetrieveAsync()
-        {
-            return await _client.GetAsync<Sdkwork.Im.BackendApi.Generated.Models.ExportRetrieveResponse>(ApiPaths.BackendPath("/audit/export"));
+            return await _client.GetAsync<Sdkwork.Im.BackendApi.Generated.Models.VerifyRetrieveResponse>(ApiPaths.BackendPath("/audit/verify"));
         }
 
 

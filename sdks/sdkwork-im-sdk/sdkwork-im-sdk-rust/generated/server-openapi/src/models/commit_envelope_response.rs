@@ -32,7 +32,7 @@ pub struct CommitEnvelopeResponse {
     pub ordering_key: String,
 
     #[serde(rename = "orderingSeq")]
-    pub ordering_seq: i64,
+    pub ordering_seq: String,
 
     #[serde(rename = "causationId")]
     #[serde(default, skip_serializing_if = "Option::is_none")]

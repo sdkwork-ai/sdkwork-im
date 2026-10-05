@@ -12,7 +12,7 @@ pub struct ConversationSummaryView {
     pub message_count: i64,
 
     #[serde(rename = "lastMessageSeq")]
-    pub last_message_seq: i64,
+    pub last_message_seq: String,
 
     #[serde(rename = "lastSummary")]
     #[serde(default, skip_serializing_if = "Option::is_none")]

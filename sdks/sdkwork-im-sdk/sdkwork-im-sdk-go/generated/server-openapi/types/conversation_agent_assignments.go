@@ -2,7 +2,7 @@ package types
 
 
 type ConversationAgentAssignments struct {
-	Generation int `json:"generation"`
+	Generation string `json:"generation"`
 	Source string `json:"source"`
 	Agents []ConversationAgentAssignment `json:"agents"`
 }

@@ -14,7 +14,7 @@ pub struct MessageInteractionSummaryView {
     pub message_id: String,
 
     #[serde(rename = "messageSeq")]
-    pub message_seq: i64,
+    pub message_seq: String,
 
     #[serde(rename = "totalReactionCount")]
     pub total_reaction_count: i64,

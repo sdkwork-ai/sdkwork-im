@@ -10,7 +10,5 @@ pub mod social;
 pub use social::SocialApi;
 pub mod chat;
 pub use chat::ChatApi;
-pub mod streams;
-pub use streams::StreamsApi;
 pub mod spaces;
 pub use spaces::SpacesApi;

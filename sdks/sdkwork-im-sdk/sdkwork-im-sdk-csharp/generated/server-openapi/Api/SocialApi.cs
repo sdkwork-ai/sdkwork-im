@@ -30,6 +30,72 @@ namespace Sdkwork.Im.Sdk.Generated.Api
         }
 
         /// <summary>
+        /// Retrieve a social user profile
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.SocialUsersProfileRetrieveResponse?> UsersProfileRetrieveAsync(string userId)
+        {
+            return await _client.GetAsync<Sdkwork.Im.Sdk.Generated.Models.SocialUsersProfileRetrieveResponse>(ApiPaths.ImPath($"/social/users/{SerializePathParameter(userId, new PathParameterSpec("userId", "simple", false))}/profile"));
+        }
+
+        /// <summary>
+        /// Update the authenticated user profile
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.SocialUsersProfileUpdateResponse?> UsersProfileUpdateAsync(string userId, Sdkwork.Im.Sdk.Generated.Models.UpdateSocialUserProfileRequest body)
+        {
+            return await _client.PatchAsync<Sdkwork.Im.Sdk.Generated.Models.SocialUsersProfileUpdateResponse>(ApiPaths.ImPath($"/social/users/{SerializePathParameter(userId, new PathParameterSpec("userId", "simple", false))}/profile"), body, null, null, "application/json");
+        }
+
+        /// <summary>
+        /// Retrieve social user settings
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.SocialUsersSettingsRetrieveResponse?> UsersSettingsRetrieveAsync(string userId)
+        {
+            return await _client.GetAsync<Sdkwork.Im.Sdk.Generated.Models.SocialUsersSettingsRetrieveResponse>(ApiPaths.ImPath($"/social/users/{SerializePathParameter(userId, new PathParameterSpec("userId", "simple", false))}/settings"));
+        }
+
+        /// <summary>
+        /// Update social user settings
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.SocialUsersSettingsUpdateResponse?> UsersSettingsUpdateAsync(string userId, Sdkwork.Im.Sdk.Generated.Models.UpdateSocialUserSettingsRequest body)
+        {
+            return await _client.PatchAsync<Sdkwork.Im.Sdk.Generated.Models.SocialUsersSettingsUpdateResponse>(ApiPaths.ImPath($"/social/users/{SerializePathParameter(userId, new PathParameterSpec("userId", "simple", false))}/settings"), body, null, null, "application/json");
+        }
+
+        /// <summary>
+        /// List friendships of the authenticated user
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.SocialFriendshipsListResponse?> FriendshipsListAsync(int? pageSize = null, string? cursor = null)
+        {
+            var queryString = BuildQueryString(new[]
+            {
+                new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+                new QueryParameterSpec("cursor", cursor, "form", true, false, null),
+            });
+            return await _client.GetAsync<Sdkwork.Im.Sdk.Generated.Models.SocialFriendshipsListResponse>(ApiPaths.AppendQueryString(ApiPaths.ImPath("/social/friendships"), queryString));
+        }
+
+        /// <summary>
+        /// List direct chats of the authenticated user
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.SocialDirectChatsListResponse?> DirectChatsListAsync(int? pageSize = null, string? cursor = null)
+        {
+            var queryString = BuildQueryString(new[]
+            {
+                new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+                new QueryParameterSpec("cursor", cursor, "form", true, false, null),
+            });
+            return await _client.GetAsync<Sdkwork.Im.Sdk.Generated.Models.SocialDirectChatsListResponse>(ApiPaths.AppendQueryString(ApiPaths.ImPath("/social/direct_chats"), queryString));
+        }
+
+        /// <summary>
+        /// Retrieve a direct chat
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.SocialDirectChatsRetrieveResponse?> DirectChatsRetrieveAsync(string directChatId)
+        {
+            return await _client.GetAsync<Sdkwork.Im.Sdk.Generated.Models.SocialDirectChatsRetrieveResponse>(ApiPaths.ImPath($"/social/direct_chats/{SerializePathParameter(directChatId, new PathParameterSpec("directChatId", "simple", false))}"));
+        }
+
+        /// <summary>
         /// List friend requests
         /// </summary>
         public async Task<Sdkwork.Im.Sdk.Generated.Models.SdkWorkListResponse?> FriendRequestsListAsync(string? direction = null, string? status = null, int? pageSize = null, string? cursor = null)
@@ -90,6 +156,19 @@ namespace Sdkwork.Im.Sdk.Generated.Api
         public async Task<Sdkwork.Im.Sdk.Generated.Models.SocialFriendshipsRemoveResponse?> FriendshipsRemoveAsync(string friendshipId)
         {
             return await _client.PostAsync<Sdkwork.Im.Sdk.Generated.Models.SocialFriendshipsRemoveResponse>(ApiPaths.ImPath($"/social/friendships/{SerializePathParameter(friendshipId, new PathParameterSpec("friendshipId", "simple", false))}/remove"), null);
+        }
+
+        /// <summary>
+        /// List user blocks created by the authenticated user
+        /// </summary>
+        public async Task<Sdkwork.Im.Sdk.Generated.Models.SocialUserBlocksListResponse?> UserBlocksListAsync(int? pageSize = null, string? cursor = null)
+        {
+            var queryString = BuildQueryString(new[]
+            {
+                new QueryParameterSpec("page_size", pageSize, "form", true, false, null),
+                new QueryParameterSpec("cursor", cursor, "form", true, false, null),
+            });
+            return await _client.GetAsync<Sdkwork.Im.Sdk.Generated.Models.SocialUserBlocksListResponse>(ApiPaths.AppendQueryString(ApiPaths.ImPath("/social/user_blocks"), queryString));
         }
 
         /// <summary>

@@ -26,11 +26,6 @@ public class OpsApi {
         return try await client.get(ApiPaths.appendQueryString(ApiPaths.backendPath("/ops/lag"), query), responseType: LagListResponse.self)
     }
 
-    /// Retrieve commercial readiness
-    public func commercialReadinessRetrieve() async throws -> CommercialReadinessRetrieveResponse? {
-        return try await client.get(ApiPaths.backendPath("/ops/commercial_readiness"), responseType: CommercialReadinessRetrieveResponse.self)
-    }
-
     /// Inspect runtime directory
     public func runtimeDirRetrieve() async throws -> RuntimeDirRetrieveResponse? {
         return try await client.get(ApiPaths.backendPath("/ops/runtime_dir"), responseType: RuntimeDirRetrieveResponse.self)
@@ -57,6 +52,19 @@ public class OpsApi {
     /// Retrieve diagnostics
     public func diagnosticsRetrieve() async throws -> DiagnosticsRetrieveResponse? {
         return try await client.get(ApiPaths.backendPath("/ops/diagnostics"), responseType: DiagnosticsRetrieveResponse.self)
+    }
+
+    /// Retrieve commit-journal replay status
+    public func replayStatusRetrieve() async throws -> ReplayStatusRetrieveResponse? {
+        return try await client.get(ApiPaths.backendPath("/ops/replay_status"), responseType: ReplayStatusRetrieveResponse.self)
+    }
+
+    /// Purge expired retention batches
+    public func retentionPurge(batchSize: String? = nil) async throws -> RetentionPurgePostResponse? {
+        let query = buildQueryString([
+            QueryParameterSpec(name: "batch_size", value: batchSize, style: "form", explode: true, allowReserved: false, contentType: nil)
+        ])
+        return try await client.post(ApiPaths.appendQueryString(ApiPaths.backendPath("/ops/retention/purge"), query), body: nil, responseType: RetentionPurgePostResponse.self)
     }
 
 

@@ -2,13 +2,13 @@ package com.sdkwork.im.sdk.generated.model;
 
 
 public class UpdateReadCursorRequest {
-    private Integer readSeq;
+    private String readSeq;
 
-    public Integer getReadSeq() {
+    public String getReadSeq() {
         return this.readSeq;
     }
 
-    public void setReadSeq(Integer readSeq) {
+    public void setReadSeq(String readSeq) {
         this.readSeq = readSeq;
     }
 }

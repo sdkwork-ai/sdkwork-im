@@ -7,7 +7,6 @@ import com.sdkwork.im.sdk.generated.api.RealtimeApi
 import com.sdkwork.im.sdk.generated.api.CallsApi
 import com.sdkwork.im.sdk.generated.api.SocialApi
 import com.sdkwork.im.sdk.generated.api.ChatApi
-import com.sdkwork.im.sdk.generated.api.StreamsApi
 import com.sdkwork.im.sdk.generated.api.SpacesApi
 
 open class SdkworkImClient {
@@ -18,7 +17,6 @@ open class SdkworkImClient {
     lateinit var calls: CallsApi
     lateinit var social: SocialApi
     lateinit var chat: ChatApi
-    lateinit var streams: StreamsApi
     lateinit var spaces: SpacesApi
 
     constructor(baseUrl: String) {
@@ -28,7 +26,6 @@ open class SdkworkImClient {
         calls = CallsApi(httpClient)
         social = SocialApi(httpClient)
         chat = ChatApi(httpClient)
-        streams = StreamsApi(httpClient)
         spaces = SpacesApi(httpClient)
     }
 
@@ -39,9 +36,14 @@ open class SdkworkImClient {
         calls = CallsApi(httpClient)
         social = SocialApi(httpClient)
         chat = ChatApi(httpClient)
-        streams = StreamsApi(httpClient)
         spaces = SpacesApi(httpClient)
     }
+
+    fun setApiKey(apiKey: String): SdkworkImClient {
+        httpClient.setApiKey(apiKey)
+        return this
+    }
+
     fun setAuthToken(token: String): SdkworkImClient {
         httpClient.setAuthToken(token)
         return this

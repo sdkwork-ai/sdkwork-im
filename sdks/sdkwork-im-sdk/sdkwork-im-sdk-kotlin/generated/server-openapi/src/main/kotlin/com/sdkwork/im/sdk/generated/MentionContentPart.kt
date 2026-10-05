@@ -5,5 +5,5 @@ data class MentionContentPart(
     val targetKind: String,
     val targetId: String,
     val displayText: String,
-    val assignmentGeneration: Int
+    val assignmentGeneration: String
 ) : ContentPart

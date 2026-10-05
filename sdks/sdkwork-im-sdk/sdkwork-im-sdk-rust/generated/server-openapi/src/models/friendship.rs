@@ -11,20 +11,18 @@ pub struct Friendship {
     #[serde(rename = "initiatorUserId")]
     pub initiator_user_id: String,
 
-    #[serde(rename = "leftUserId")]
-    pub left_user_id: String,
-
-    #[serde(rename = "rightUserId")]
-    pub right_user_id: String,
+    #[serde(rename = "userLowId")]
+    pub user_low_id: String,
 
     #[serde(rename = "userHighId")]
     pub user_high_id: String,
 
-    #[serde(rename = "userLowId")]
-    pub user_low_id: String,
-
     pub status: String,
 
-    #[serde(rename = "createdAt")]
-    pub created_at: String,
+    #[serde(rename = "establishedAt")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub established_at: Option<String>,
+
+    #[serde(rename = "updatedAt")]
+    pub updated_at: String,
 }

@@ -9,4 +9,4 @@ class MentionContentPart:
     target_kind: str
     target_id: str
     display_text: str
-    assignment_generation: int
+    assignment_generation: str

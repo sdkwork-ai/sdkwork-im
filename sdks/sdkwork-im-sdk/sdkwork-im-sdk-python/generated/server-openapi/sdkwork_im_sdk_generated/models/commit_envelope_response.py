@@ -17,7 +17,7 @@ class CommitEnvelopeResponse:
     scope_type: str
     scope_id: str
     ordering_key: str
-    ordering_seq: int
+    ordering_seq: str
     actor: EventActor
     occurred_at: str
     committed_at: str

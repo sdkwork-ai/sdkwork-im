@@ -1,6 +1,6 @@
 # sdkwork-im-sdk (Swift)
 
-Generated SDKWork v3 dual-token transport SDK.
+Professional Swift SDK for SDKWork API.
 
 ## Installation
 
@@ -18,28 +18,46 @@ dependencies: [
 import ImSDK
 import SDKworkCommon
 
-let config = SdkConfig(baseUrl: "http://127.0.0.1:18079")
+let config = SdkConfig(baseUrl: "http://127.0.0.1:18089")
 let client = SdkworkImClient(config: config)
-client.setAuthToken("your-auth-token")
-client.setAccessToken("your-access-token")
+client.setApiKey("your-api-key")
 
 // Use the SDK
 let result = try await client.presence.meRetrieve()
 print(result)
 ```
 
-## Authentication
+## Authentication Modes (Mutually Exclusive)
 
-```text
-Authorization: Bearer <authToken>
-Access-Token: <accessToken>
+Choose exactly one mode for the same client instance.
+
+### Mode A: API Key
+
+```swift
+let config = SdkConfig(baseUrl: "http://127.0.0.1:18089")
+let client = SdkworkImClient(config: config)
+client.setApiKey("your-api-key")
+// Sends: X-API-Key: <apiKey>
 ```
 
+### Mode B: Dual Token
+
+```swift
+let config = SdkConfig(baseUrl: "http://127.0.0.1:18089")
+let client = SdkworkImClient(config: config)
+client.setAuthToken("your-auth-token")
+client.setAccessToken("your-access-token")
+// Sends:
+// Authorization: Bearer <authToken>
+// Access-Token: <accessToken>
+```
+
+> Do not call `setApiKey(...)` together with `setAuthToken(...)` + `setAccessToken(...)` on the same client.
 
 ## Configuration (Non-Auth)
 
 ```swift
-let config = SdkConfig(baseUrl: "http://127.0.0.1:18079")
+let config = SdkConfig(baseUrl: "http://127.0.0.1:18089")
 let client = SdkworkImClient(config: config)
 
 // Set custom headers
@@ -53,7 +71,6 @@ client.setHeader("X-Custom-Header", value: "value")
 - `client.calls` - calls API
 - `client.social` - social API
 - `client.chat` - chat API
-- `client.streams` - streams API
 - `client.spaces` - spaces API
 
 ## Usage Examples
@@ -102,26 +119,8 @@ print(result)
 ### chat
 
 ```swift
-// List current inbox window
-let params: [String: Any] = [
-    "page_size": 1,
-    "cursor": "cursor",
-    "conversation_type": "conversation-type",
-    "q": "q"
-]
-let result = try await client.chat.inboxList(params: params)
-print(result)
-```
-
-### streams
-
-```swift
-// Open a stream
-let body = OpenStreamRequest(
-    streamType: "streamtype",
-    conversationId: "1"
-)
-let result = try await client.streams.create(body: body)
+// Ensure the current user received the system-agent Welcome message
+let result = try await client.chat.meWelcomeEnsure()
 print(result)
 ```
 

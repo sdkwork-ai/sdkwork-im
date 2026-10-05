@@ -8,28 +8,35 @@ import com.sdkwork.im.backend.api.generated.http.HttpClient
 
 class AuditApi(private val client: HttpClient) {
 
+    /** Record an audit anchor */
+    suspend fun recordsCreate(body: AuditRecordAnchorRequest): AuditRecordsCreateResponse201? {
+        val raw = client.post(ApiPaths.backendPath("/audit/records"), body, null, null, "application/json")
+        return client.convertValue(raw, object : TypeReference<AuditRecordsCreateResponse201>() {})
+    }
+
     /** List audit records */
-    suspend fun recordsList(pageSize: Int? = null, cursor: String? = null, page: Int? = null, q: String? = null): SdkWorkListResponse? {
+    suspend fun recordsList(afterAuditSeq: String? = null, pageSize: Int? = null): AuditRecordsListResponse? {
         val query = buildQueryString(listOf(
-            QueryParameterSpec("page_size", pageSize, "form", true, false, null),
-            QueryParameterSpec("cursor", cursor, "form", true, false, null),
-            QueryParameterSpec("page", page, "form", true, false, null),
-            QueryParameterSpec("q", q, "form", true, false, null)
+            QueryParameterSpec("after_audit_seq", afterAuditSeq, "form", true, false, null),
+            QueryParameterSpec("page_size", pageSize, "form", true, false, null)
         ))
         val raw = client.get(ApiPaths.appendQueryString(ApiPaths.backendPath("/audit/records"), query))
-        return client.convertValue(raw, object : TypeReference<SdkWorkListResponse>() {})
+        return client.convertValue(raw, object : TypeReference<AuditRecordsListResponse>() {})
     }
 
-    /** Record audit anchor */
-    suspend fun recordsCreate(): RecordsCreateResponse201? {
-        val raw = client.post(ApiPaths.backendPath("/audit/records"), null)
-        return client.convertValue(raw, object : TypeReference<RecordsCreateResponse201>() {})
+    /** Export the audit ledger */
+    suspend fun exportRetrieve(pageSize: Int? = null): AuditExportRetrieveResponse? {
+        val query = buildQueryString(listOf(
+            QueryParameterSpec("page_size", pageSize, "form", true, false, null)
+        ))
+        val raw = client.get(ApiPaths.appendQueryString(ApiPaths.backendPath("/audit/export"), query))
+        return client.convertValue(raw, object : TypeReference<AuditExportRetrieveResponse>() {})
     }
 
-    /** Export audit bundle */
-    suspend fun exportRetrieve(): ExportRetrieveResponse? {
-        val raw = client.get(ApiPaths.backendPath("/audit/export"))
-        return client.convertValue(raw, object : TypeReference<ExportRetrieveResponse>() {})
+    /** Verify audit chain integrity */
+    suspend fun verifyRetrieve(): VerifyRetrieveResponse? {
+        val raw = client.get(ApiPaths.backendPath("/audit/verify"))
+        return client.convertValue(raw, object : TypeReference<VerifyRetrieveResponse>() {})
     }
 
 

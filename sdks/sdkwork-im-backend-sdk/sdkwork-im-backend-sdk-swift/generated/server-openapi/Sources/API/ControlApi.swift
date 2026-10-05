@@ -46,8 +46,8 @@ public class ControlApi {
     /// Read provider policy diff between two versions.
     public func providerPoliciesDiffList(fromVersion: String, toVersion: String, pageSize: Int? = nil, cursor: String? = nil, page: Int? = nil, q: String? = nil) async throws -> SdkWorkListResponse? {
         let query = buildQueryString([
-            QueryParameterSpec(name: "fromVersion", value: fromVersion, style: "form", explode: true, allowReserved: false, contentType: nil),
-            QueryParameterSpec(name: "toVersion", value: toVersion, style: "form", explode: true, allowReserved: false, contentType: nil),
+            QueryParameterSpec(name: "from_version", value: fromVersion, style: "form", explode: true, allowReserved: false, contentType: nil),
+            QueryParameterSpec(name: "to_version", value: toVersion, style: "form", explode: true, allowReserved: false, contentType: nil),
             QueryParameterSpec(name: "page_size", value: pageSize, style: "form", explode: true, allowReserved: false, contentType: nil),
             QueryParameterSpec(name: "cursor", value: cursor, style: "form", explode: true, allowReserved: false, contentType: nil),
             QueryParameterSpec(name: "page", value: page, style: "form", explode: true, allowReserved: false, contentType: nil),
@@ -74,7 +74,7 @@ public class ControlApi {
     /// Read effective provider bindings.
     public func providerBindingsList(tenantId: String? = nil, pageSize: Int? = nil, cursor: String? = nil, page: Int? = nil, q: String? = nil) async throws -> SdkWorkListResponse? {
         let query = buildQueryString([
-            QueryParameterSpec(name: "tenantId", value: tenantId, style: "form", explode: true, allowReserved: false, contentType: nil),
+            QueryParameterSpec(name: "tenant_id", value: tenantId, style: "form", explode: true, allowReserved: false, contentType: nil),
             QueryParameterSpec(name: "page_size", value: pageSize, style: "form", explode: true, allowReserved: false, contentType: nil),
             QueryParameterSpec(name: "cursor", value: cursor, style: "form", explode: true, allowReserved: false, contentType: nil),
             QueryParameterSpec(name: "page", value: page, style: "form", explode: true, allowReserved: false, contentType: nil),
@@ -116,6 +116,18 @@ public class ControlApi {
     /// Read an external member link snapshot.
     public func socialExternalMemberLinksRetrieve(linkId: String) async throws -> SocialExternalMemberLinksRetrieveResponse? {
         return try await client.get(ApiPaths.backendPath("/control/social/external_member_links/\(serializePathParameter(linkId, PathParameterSpec(name: "linkId", style: "simple", explode: false)))"), responseType: SocialExternalMemberLinksRetrieveResponse.self)
+    }
+
+    /// List friend requests for a user.
+    public func socialFriendRequestsList(userId: String, direction: String, status: String? = nil, pageSize: Int? = nil, cursor: String? = nil) async throws -> SocialFriendRequestsListResponse? {
+        let query = buildQueryString([
+            QueryParameterSpec(name: "user_id", value: userId, style: "form", explode: true, allowReserved: false, contentType: nil),
+            QueryParameterSpec(name: "direction", value: direction, style: "form", explode: true, allowReserved: false, contentType: nil),
+            QueryParameterSpec(name: "status", value: status, style: "form", explode: true, allowReserved: false, contentType: nil),
+            QueryParameterSpec(name: "page_size", value: pageSize, style: "form", explode: true, allowReserved: false, contentType: nil),
+            QueryParameterSpec(name: "cursor", value: cursor, style: "form", explode: true, allowReserved: false, contentType: nil)
+        ])
+        return try await client.get(ApiPaths.appendQueryString(ApiPaths.backendPath("/control/social/friend_requests"), query), responseType: SocialFriendRequestsListResponse.self)
     }
 
     /// Submit a friend request event.

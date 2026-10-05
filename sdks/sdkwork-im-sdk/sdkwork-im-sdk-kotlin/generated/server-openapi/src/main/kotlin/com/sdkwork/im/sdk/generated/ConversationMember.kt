@@ -8,5 +8,8 @@ data class ConversationMember(
     val principalKind: String? = null,
     val role: String? = null,
     val state: String? = null,
-    val joinedAt: String? = null
+    val joinedAt: String? = null,
+    val invitedBy: String? = null,
+    val removedAt: String? = null,
+    val attributes: Map<String, String>? = null
 )

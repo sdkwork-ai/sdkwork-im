@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::api::paths::backend_path;
 use crate::api::paths::append_query_string;
 use crate::http::{SdkworkError, SdkworkHttpClient};
-use crate::models::{LagPageData, ProviderBindingDriftPageData, ProviderBindingSnapshotPageData};
+use crate::models::{JournalReplayStatusView, LagPageData, ProviderBindingDriftPageData, ProviderBindingSnapshotPageData, RetentionPurgeResponse};
 
 #[derive(Clone)]
 pub struct OpsApi {
@@ -37,12 +37,6 @@ impl OpsApi {
         self.client.get(&path, None, None).await
     }
 
-    /// Retrieve commercial readiness
-    pub async fn commercial_readiness_retrieve(&self) -> Result<std::collections::HashMap<String, serde_json::Value>, SdkworkError> {
-        let path = backend_path(&"/ops/commercial_readiness".to_string());
-        self.client.get(&path, None, None).await
-    }
-
     /// Inspect runtime directory
     pub async fn runtime_dir_retrieve(&self) -> Result<std::collections::HashMap<String, serde_json::Value>, SdkworkError> {
         let path = backend_path(&"/ops/runtime_dir".to_string());
@@ -73,6 +67,21 @@ impl OpsApi {
     pub async fn diagnostics_retrieve(&self) -> Result<std::collections::HashMap<String, serde_json::Value>, SdkworkError> {
         let path = backend_path(&"/ops/diagnostics".to_string());
         self.client.get(&path, None, None).await
+    }
+
+    /// Retrieve commit-journal replay status
+    pub async fn replay_status_retrieve(&self) -> Result<JournalReplayStatusView, SdkworkError> {
+        let path = backend_path(&"/ops/replay_status".to_string());
+        self.client.get(&path, None, None).await
+    }
+
+    /// Purge expired retention batches
+    pub async fn retention_purge(&self, batch_size: Option<&str>) -> Result<RetentionPurgeResponse, SdkworkError> {
+        let query = build_query_string(&[
+            QueryParameterSpec::new("batch_size", batch_size, "form", true, false, None),
+        ]);
+        let path = append_query_string(backend_path(&"/ops/retention/purge".to_string()), &query);
+        self.client.post(&path, Option::<&serde_json::Value>::None, None, None, None).await
     }
 
 }
