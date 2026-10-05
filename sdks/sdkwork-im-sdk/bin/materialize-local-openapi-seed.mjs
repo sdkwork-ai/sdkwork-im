@@ -1324,6 +1324,9 @@ const paths = Object.fromEntries([
   pathItem('/chat/conversations/{conversationId}/typing', {
     parameters: [p('ConversationIdPath')],
     get: operation({ tag: 'chat', operationId: 'conversations.typing.list', summary: 'List live typing indicators', parameters: [p('ConversationIdPath')], response: 'TypingIndicatorList' }),
+  }),
+  pathItem('/chat/conversations/{conversationId}/typing/signal', {
+    parameters: [p('ConversationIdPath')],
     post: operation({ tag: 'chat', operationId: 'conversations.typing.signal', summary: 'Signal typing in a conversation', parameters: [p('ConversationIdPath')], response: 'SignalTypingResult' }),
   }),
   pathItem('/chat/conversations/{conversationId}/member_directory', {

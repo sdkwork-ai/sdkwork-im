@@ -170,7 +170,7 @@ pub const ROUTES: &[HttpRoute] = &[
     ),
     HttpRoute::api_key_or_dual_token(
         HttpMethod::Post,
-        paths::CONVERSATION_TYPING,
+        paths::CONVERSATION_TYPING_SIGNAL,
         "chat",
         "conversations.typing.signal",
     ),

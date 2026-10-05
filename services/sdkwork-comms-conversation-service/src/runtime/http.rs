@@ -1535,7 +1535,11 @@ pub fn build_domain_api_router(state: AppState) -> Router {
         )
         .route(
             "/im/v3/api/chat/conversations/{conversation_id}/typing",
-            get(list_typing_indicators).post(signal_typing),
+            get(list_typing_indicators),
+        )
+        .route(
+            "/im/v3/api/chat/conversations/{conversation_id}/typing/signal",
+            post(signal_typing),
         )
         .route(
             "/im/v3/api/chat/messages/{message_id}/edit",

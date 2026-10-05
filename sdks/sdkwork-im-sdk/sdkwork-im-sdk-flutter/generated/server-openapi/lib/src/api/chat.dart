@@ -326,7 +326,7 @@ class ChatApi {
 
   /// Signal typing in a conversation
   Future<ConversationsTypingSignalResponse?> conversationsTypingSignal(String conversationId) async {
-    final response = await _client.post(ApiPaths.imPath('/chat/conversations/${serializePathParameter(conversationId, const PathParameterSpec('conversationId', 'simple', false))}/typing'));
+    final response = await _client.post(ApiPaths.imPath('/chat/conversations/${serializePathParameter(conversationId, const PathParameterSpec('conversationId', 'simple', false))}/typing/signal'));
     return (() {
       final map = sdkworkResponseAsMap(response);
       return map == null ? null : ConversationsTypingSignalResponse.fromJson(map);
