@@ -106,6 +106,23 @@ export const IM_H5_COMMUNITY_POST_UPLOAD = {
   uploadProfileCode: "image",
 } as const satisfies ImUploadDeclarationEntry;
 
+/**
+ * Company enterprise media (join logo / banner) uploaded from the IM H5
+ * company surface. The enterprise package's media runtime port receives the
+ * returned drive:// URLs; the backend join entry stores them as-is.
+ * `application`-kind scope label: the join application does not exist at
+ * upload time, so the id is the stable surface label, not an entity id.
+ */
+export const IM_H5_COMPANY_MEDIA_UPLOAD = {
+  appResourceIdKind: "application",
+  appResourceType: "company.enterprise_media",
+  purpose: "Company enterprise logo and banner uploaded from the IM H5 enterprise join surface.",
+  retention: IM_RETENTION,
+  scene: "enterprise-media",
+  source: IM_H5_UPLOAD_SOURCE,
+  uploadProfileCode: "image",
+} as const satisfies ImUploadDeclarationEntry;
+
 /** Every declared upload purpose for this application. */
 export const IM_H5_UPLOAD_DECLARATIONS: readonly ImUploadDeclarationEntry[] = [
   IM_H5_CHAT_IMAGE_UPLOAD,
@@ -114,6 +131,7 @@ export const IM_H5_UPLOAD_DECLARATIONS: readonly ImUploadDeclarationEntry[] = [
   IM_H5_CHAT_ATTACHMENT_UPLOAD,
   IM_H5_VOICE_PROFILE_UPLOAD,
   IM_H5_COMMUNITY_POST_UPLOAD,
+  IM_H5_COMPANY_MEDIA_UPLOAD,
 ];
 
 /**

@@ -55,6 +55,15 @@
       "uploadProfileCode": "image",
       "retention": "long_term",
       "purpose": "Community post media uploaded from the IM H5 community surface."
+    },
+    {
+      "appResourceType": "company.enterprise_media",
+      "appResourceIdKind": "application",
+      "scene": "enterprise-media",
+      "source": "sdkwork-im-h5",
+      "uploadProfileCode": "image",
+      "retention": "long_term",
+      "purpose": "Company enterprise logo and banner uploaded from the IM H5 enterprise join surface."
     }
   ]
 }
