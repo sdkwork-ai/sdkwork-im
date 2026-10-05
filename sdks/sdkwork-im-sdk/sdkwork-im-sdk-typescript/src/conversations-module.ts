@@ -19,6 +19,7 @@ import type {
   PostMessageRequest,
   QueryParams,
   ReadCursorView,
+  SignalTypingResult,
   UpdateConversationPreferencesRequest,
   UpdateConversationProfileRequest,
   UpdateConversationAgentsRequest,
@@ -30,7 +31,11 @@ import type {
   PinnedMessagesResponse,
 } from './openapi-compat-types.js';
 import { requireStringIdentifier } from './identifier-boundary.js';
-import type { ImTransportClientLike, MessageHistoryListParams } from './transport-client-like.js';
+import type {
+  ImTransportClientLike,
+  ImTypingIndicatorPage,
+  MessageHistoryListParams,
+} from './transport-client-like.js';
 import type {
   ImConversationAgentAssignmentSet,
   ImReplaceConversationAgentAssignmentsRequest,
@@ -355,7 +360,7 @@ export class ImConversationsModule {
   }
 
   /** Lists principals currently typing in the conversation (TTL-bounded). */
-  listTypingIndicators(conversationId: string): Promise<TypingIndicatorList> {
+  listTypingIndicators(conversationId: string): Promise<ImTypingIndicatorPage> {
     return this.transportClient.chat.conversations.typing.list(
       requireStringIdentifier(conversationId, 'conversationId'),
     );

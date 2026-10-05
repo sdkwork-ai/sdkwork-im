@@ -3,8 +3,15 @@
  *
  * Runs the typing service and the realtime service from the shipped runtime
  * bundle against structural fakes of the SDK port and the live connection, so
- * the throttle window and the `conversation.typing` scope wiring are exercised
- * exactly as the device will run them.
+ * the throttle window and the `conversation.typing` delivery wiring are
+ * exercised exactly as the device will run them.
+ *
+ * Delivery shape: one wire subscription per conversation carries BOTH the
+ * message stream and the typing pushes (`[message.posted,
+ * conversation.typing]` declared by the connection); the typing lease binds
+ * the conversation's event channel and filters the ephemeral typing events
+ * out of it. A separate same-key scope entry must never be declared — it
+ * would replace the message stream on the wire.
  */
 
 import assert from "node:assert/strict";
@@ -26,33 +33,39 @@ async function flushMicrotasks() {
 
 function createFakeConnection() {
   const calls = {
+    connectConversations: [],
     onConversation: [],
     onScope: [],
     syncConversations: [],
     syncScopes: [],
   };
-  const scopeHandlers = new Map();
+  const conversationMessageHandlers = new Map();
+  const conversationEventHandlers = new Map();
   const connection = {
     disconnect() {},
     events: {
-      onConversation() {
-        return () => {};
-      },
-      onScope(scopeType, scopeId, handler) {
-        calls.onScope.push({ scopeType, scopeId });
-        const key = `${scopeType}:${scopeId}`;
-        const handlers = scopeHandlers.get(key) ?? new Set();
+      onConversation(conversationId, handler) {
+        calls.onConversation.push(conversationId);
+        const handlers = conversationEventHandlers.get(conversationId) ?? new Set();
         handlers.add(handler);
-        scopeHandlers.set(key, handlers);
+        conversationEventHandlers.set(conversationId, handlers);
         return () => {
           handlers.delete(handler);
         };
       },
+      onScope() {
+        return () => {};
+      },
     },
     messages: {
-      onConversation(conversationId) {
+      onConversation(conversationId, handler) {
         calls.onConversation.push(conversationId);
-        return () => {};
+        const handlers = conversationMessageHandlers.get(conversationId) ?? new Set();
+        handlers.add(handler);
+        conversationMessageHandlers.set(conversationId, handlers);
+        return () => {
+          handlers.delete(handler);
+        };
       },
     },
     subscriptions: {
@@ -72,18 +85,21 @@ function createFakeConnection() {
       },
     },
   };
-  const emitScopeEvent = (scopeType, scopeId, event, context) => {
-    const handlers = scopeHandlers.get(`${scopeType}:${scopeId}`) ?? new Set();
+  const emitConversationEvent = (conversationId, event, context) => {
+    const handlers = conversationEventHandlers.get(conversationId) ?? new Set();
     for (const handler of handlers) {
       handler(event, context);
     }
   };
-  return { calls, connection, emitScopeEvent };
+  return { calls, connection, emitConversationEvent };
 }
 
-function createFakeRealtimePort(connection) {
+function createFakeRealtimePort(connection, calls) {
   return {
-    connect: async () => connection,
+    connect: async (options) => {
+      calls.connectConversations.push(options?.subscriptions?.conversations ?? []);
+      return connection;
+    },
   };
 }
 
@@ -120,32 +136,53 @@ test("typing service survives a failing signal without throwing", async () => {
   await flushMicrotasks();
 });
 
-test("realtime typing subscription declares the scope and dispatches the peer id", async () => {
+test("typing lease rides the conversation stream without splitting the wire scope", async () => {
   const fake = createFakeConnection();
-  const service = createImMpChatRealtimeService(() => createFakeRealtimePort(fake.connection));
+  const service = createImMpChatRealtimeService(() =>
+    createFakeRealtimePort(fake.connection, fake.calls),
+  );
   const received = [];
 
-  const unsubscribe = service.subscribeConversationTyping("c_1", (peerUserId) => {
+  // The typing lease is the first demand: it opens the connection with the
+  // conversation declared in the connect options.
+  const unsubscribeTyping = service.subscribeConversationTyping("c_1", (peerUserId) => {
     received.push(peerUserId);
   });
   await flushMicrotasks();
+  assert.deepEqual(fake.calls.connectConversations, [["c_1"]]);
 
-  assert.deepEqual(fake.calls.onScope, [{ scopeType: "conversation", scopeId: "c_1" }]);
-  assert.equal(fake.calls.syncScopes.length >= 1, true);
-  const lastSync = fake.calls.syncScopes[fake.calls.syncScopes.length - 1];
-  assert.deepEqual(lastSync, [
-    { scopeType: "conversation", scopeId: "c_1", eventTypes: ["conversation.typing"] },
-  ]);
+  // The conversation page then adds its message lease on the open connection.
+  const unsubscribeMessages = service.subscribeConversation("c_1", () => {});
+  assert.deepEqual(
+    fake.calls.syncConversations[fake.calls.syncConversations.length - 1],
+    ["c_1"],
+  );
 
-  fake.emitScopeEvent("conversation", "c_1", { userId: "u_9" }, {
-    eventType: "conversation.typing",
-    payload: { conversationId: "c_1", userId: "u_9", userKind: "user" },
-  });
-  fake.emitScopeEvent("conversation", "c_1", {}, { eventType: "message.posted", payload: {} });
+  // One wire subscription for the conversation (no typing scope entry that
+  // could replace the message stream), and both channels are bound.
+  assert.deepEqual(fake.calls.syncScopes, []);
+  assert.equal(fake.calls.onConversation.filter((id) => id === "c_1").length, 2);
 
+  // The typing event is dispatched through the conversation event channel.
+  fake.emitConversationEvent(
+    "c_1",
+    { userId: "u_9" },
+    { eventType: "conversation.typing", payload: { userId: "u_9", userKind: "user" } },
+  );
+  fake.emitConversationEvent("c_1", {}, { eventType: "message.posted", payload: {} });
   assert.deepEqual(received, ["u_9"]);
 
-  unsubscribe();
-  const finalSync = fake.calls.syncScopes[fake.calls.syncScopes.length - 1];
-  assert.deepEqual(finalSync, []);
+  // Releasing the message lease keeps the wire subscription (typing remains).
+  unsubscribeMessages();
+  assert.deepEqual(
+    fake.calls.syncConversations[fake.calls.syncConversations.length - 1],
+    ["c_1"],
+  );
+
+  // Releasing the typing lease drops the wire entry.
+  unsubscribeTyping();
+  assert.deepEqual(
+    fake.calls.syncConversations[fake.calls.syncConversations.length - 1],
+    [],
+  );
 });

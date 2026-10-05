@@ -88,7 +88,7 @@ export function createImMpChatRealtimeService(
   const conversationLeases = new Map<string, Set<ImMpChatRealtimeMessageHandler>>();
   const conversationUnsubs = new Map<string, () => void>();
   const typingLeases = new Map<string, Set<ImMpChatTypingHandler>>();
-  const typingScopeUnsubs = new Map<string, () => void>();
+  const typingEventUnsubs = new Map<string, () => void>();
   const refreshHandlers = new Set<ImMpChatRefreshHandler>();
 
   const notifyRefresh = (): void => {
@@ -115,6 +115,18 @@ export function createImMpChatRealtimeService(
     }, delay);
   };
 
+  /**
+   * Conversations carrying a wire subscription: the union of message leases
+   * and typing leases. One subscription per conversation delivers both the
+   * message stream and the typing pushes (the connection declares
+   * `[message.posted, conversation.typing]` for it), so a same-key typing
+   * scope entry must never be declared separately — it would replace the
+   * message stream.
+   */
+  const wireConversationIds = (): string[] => [
+    ...new Set([...conversationLeases.keys(), ...typingLeases.keys()]),
+  ];
+
   const attachConversation = (conversationId: string): void => {
     if (!connection || conversationUnsubs.has(conversationId)) {
       return;
@@ -140,13 +152,16 @@ export function createImMpChatRealtimeService(
     conversationUnsubs.set(conversationId, unsubscribe);
   };
 
-  /** Typing pushes ride the conversation scope, filtered by event type. */
-  const attachTypingScope = (conversationId: string): void => {
-    if (!connection || typingScopeUnsubs.has(conversationId)) {
+  /**
+   * Typing pushes arrive on the conversation's event channel (same scope, so
+   * the SDK dispatches them to the events listeners); this binding filters
+   * the ephemeral typing events out of that channel.
+   */
+  const attachTypingEvents = (conversationId: string): void => {
+    if (!connection || typingEventUnsubs.has(conversationId)) {
       return;
     }
-    const unsubscribe = connection.events.onScope(
-      "conversation",
+    const unsubscribe = connection.events.onConversation(
       conversationId,
       (event, context) => {
         if ((context.eventType ?? "").trim() !== IM_MP_TYPING_EVENT_TYPE) {
@@ -173,21 +188,7 @@ export function createImMpChatRealtimeService(
         }
       },
     );
-    typingScopeUnsubs.set(conversationId, unsubscribe);
-  };
-
-  /** Declares the typing scopes (and their event-type filter) on the wire. */
-  const syncTypingScopes = (): void => {
-    if (!connection) {
-      return;
-    }
-    connection.subscriptions.syncScopes(
-      [...typingLeases.keys()].map((conversationId) => ({
-        scopeType: "conversation",
-        scopeId: conversationId,
-        eventTypes: [IM_MP_TYPING_EVENT_TYPE],
-      })),
-    );
+    typingEventUnsubs.set(conversationId, unsubscribe);
   };
 
   const detachConnection = (): void => {
@@ -206,14 +207,14 @@ export function createImMpChatRealtimeService(
       }
     }
     conversationUnsubs.clear();
-    for (const unsubscribe of typingScopeUnsubs.values()) {
+    for (const unsubscribe of typingEventUnsubs.values()) {
       try {
         unsubscribe();
       } catch {
         // Teardown best effort.
       }
     }
-    typingScopeUnsubs.clear();
+    typingEventUnsubs.clear();
     if (connection) {
       connection.disconnect();
       connection = null;
@@ -263,7 +264,7 @@ export function createImMpChatRealtimeService(
       try {
         const options: ImConnectOptions = {
           subscriptions: {
-            conversations: [...conversationLeases.keys()],
+            conversations: wireConversationIds(),
           },
         };
         const opened = await resolveClient().connect(options);
@@ -276,13 +277,12 @@ export function createImMpChatRealtimeService(
           opened.lifecycle.onStateChange(handleStateChange),
           opened.lifecycle.onError(handleConnectionError),
         );
-        for (const conversationId of conversationLeases.keys()) {
+        for (const conversationId of wireConversationIds()) {
           attachConversation(conversationId);
         }
         for (const conversationId of typingLeases.keys()) {
-          attachTypingScope(conversationId);
+          attachTypingEvents(conversationId);
         }
-        syncTypingScopes();
       } catch {
         // Transport failures flow through the reconnect backoff.
         scheduleReconnect();
@@ -303,7 +303,7 @@ export function createImMpChatRealtimeService(
       leases.add(handler);
       if (connection) {
         attachConversation(conversationId);
-        connection.subscriptions.syncConversations([...conversationLeases.keys()]);
+        connection.subscriptions.syncConversations(wireConversationIds());
       } else {
         void ensureConnection();
       }
@@ -317,12 +317,17 @@ export function createImMpChatRealtimeService(
           return;
         }
         conversationLeases.delete(conversationId);
+        // A typing lease may still hold the wire subscription for this
+        // conversation; only sync the union so the stream is not dropped.
+        if (typingLeases.has(conversationId)) {
+          return;
+        }
         const unsubscribe = conversationUnsubs.get(conversationId);
         if (unsubscribe) {
           unsubscribe();
           conversationUnsubs.delete(conversationId);
         }
-        connection?.subscriptions.syncConversations([...conversationLeases.keys()]);
+        connection?.subscriptions.syncConversations(wireConversationIds());
       };
     },
 
@@ -335,8 +340,9 @@ export function createImMpChatRealtimeService(
       }
       leases.add(handler);
       if (connection) {
-        attachTypingScope(normalized);
-        syncTypingScopes();
+        attachConversation(normalized);
+        attachTypingEvents(normalized);
+        connection.subscriptions.syncConversations(wireConversationIds());
       } else {
         void ensureConnection();
       }
@@ -350,12 +356,12 @@ export function createImMpChatRealtimeService(
           return;
         }
         typingLeases.delete(normalized);
-        const unsubscribe = typingScopeUnsubs.get(normalized);
+        const unsubscribe = typingEventUnsubs.get(normalized);
         if (unsubscribe) {
           unsubscribe();
-          typingScopeUnsubs.delete(normalized);
+          typingEventUnsubs.delete(normalized);
         }
-        syncTypingScopes();
+        connection?.subscriptions.syncConversations(wireConversationIds());
       };
     },
 
@@ -395,7 +401,7 @@ export function createImMpChatRealtimeService(
       detachConnection();
       conversationLeases.clear();
       typingLeases.clear();
-      typingScopeUnsubs.clear();
+      typingEventUnsubs.clear();
       refreshHandlers.clear();
     },
   };

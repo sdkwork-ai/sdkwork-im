@@ -375,7 +375,11 @@ ImLiveConnection createImLiveConnection(ImCreateLiveConnectionParams params) {
         .map((conversationId) => <String, dynamic>{
           'scopeType': 'conversation',
           'scopeId': conversationId,
-          'eventTypes': <String>['message.posted'],
+          // One wire subscription per conversation carries both the durable
+          // message stream and the ephemeral typing pushes; the gateway
+          // filters events by this list, so a same-key scope entry would
+          // otherwise drop one of the two streams.
+          'eventTypes': <String>['message.posted', 'conversation.typing'],
         })
         .toList();
     final scopeItems = subscriptionScopes

@@ -3,7 +3,8 @@ import type {
   PresenceHeartbeatRequest,
   PresenceView,
   SignalTypingResult,
-  TypingIndicatorList,
+  TypingIndicatorListItem,
+  PageInfo,
   AddConversationMemberRequest,
   BindDirectChatRequest,
   BlockUserRequest,
@@ -104,6 +105,18 @@ export type ImReplaceConversationAgentAssignmentsRequest = Omit<
 
 export type ImReplaceConversationAgentAssignmentsResult = ImConversationAgentAssignmentSet;
 
+/**
+ * Unwrapped page payload of the typing indicator list.
+ *
+ * Mirrors the generated chat API's `typing.list` return (the generator inlines
+ * the envelope's `items` + `pageInfo`), so the composed boundary needs no
+ * phantom wrapper type.
+ */
+export interface ImTypingIndicatorPage {
+  items: TypingIndicatorListItem[];
+  pageInfo: PageInfo;
+}
+
 export interface ImTransportClientLike {
   presence: {
     /** Publishes the current client's presence heartbeat. */
@@ -129,7 +142,7 @@ export interface ImTransportClientLike {
       create(body: CreateConversationRequest): Promise<CreateConversationResult>;
       retrieve(conversationId: string): Promise<ConversationSummaryView>;
       typing: {
-        list(conversationId: string): Promise<TypingIndicatorList>;
+        list(conversationId: string): Promise<ImTypingIndicatorPage>;
         signal(conversationId: string): Promise<SignalTypingResult>;
       };
       agentDialogs: {

@@ -325,7 +325,11 @@ function mergeRealtimeScopeSubscriptions(
     const item = {
       scopeType: 'conversation',
       scopeId: conversationId,
-      eventTypes: ['message.posted'],
+      // One wire subscription per conversation carries both the durable
+      // message stream and the ephemeral typing pushes; the gateway filters
+      // events by this list, so a same-key scope entry would otherwise drop
+      // one of the two streams.
+      eventTypes: ['message.posted', 'conversation.typing'],
     };
     merged.set(realtimeScopeKey(item.scopeType, item.scopeId), item);
   }

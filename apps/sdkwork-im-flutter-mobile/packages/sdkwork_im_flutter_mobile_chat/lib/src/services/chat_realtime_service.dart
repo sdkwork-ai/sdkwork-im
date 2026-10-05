@@ -104,7 +104,10 @@ class _ChatLiveHub {
   }
 
   List<ImRealtimeScopeSubscription> _buildScopeSubscriptions() {
-    final scopes = _inboxHandlers.keys.map((scopeKey) {
+    // Only the inbox lives on a separate scope; conversation streams (messages
+    // + typing) ride the conversation subscription the hub declares through
+    // `syncConversations`, which carries both event types.
+    return _inboxHandlers.keys.map((scopeKey) {
       final parts = scopeKey.split(':');
       final scopeType = parts.first;
       final scopeId = parts.sublist(1).join(':');
@@ -114,17 +117,15 @@ class _ChatLiveHub {
         eventTypes: inboxRealtimeEventTypes,
       );
     }).toList();
-    // Typing scopes declare their own event-type filter so the wire only
-    // pushes `conversation.typing` into this connection for them.
-    for (final conversationId in _typingHandlers.keys) {
-      scopes.add(ImRealtimeScopeSubscription(
-        scopeType: 'conversation',
-        scopeId: conversationId,
-        eventTypes: const [_typingEventType],
-      ));
-    }
-    return scopes;
   }
+
+  /// Conversations carrying a wire subscription: the union of refresh, live
+  /// message, and typing demand.
+  Set<String> _wireConversationIds() => <String>{
+    ..._conversationHandlers.keys,
+    ..._conversationMessageHandlers.keys,
+    ..._typingHandlers.keys,
+  };
 
   void _clearWireSubscriptions() {
     for (final unsubscribe in _inboxUnsubs.values) {
@@ -142,10 +143,7 @@ class _ChatLiveHub {
   }
 
   void _bindWireSubscriptions(ImLiveConnection connection) {
-    final conversationIds = <String>{
-      ..._conversationHandlers.keys,
-      ..._conversationMessageHandlers.keys,
-    };
+    final conversationIds = _wireConversationIds();
     for (final conversationId in conversationIds) {
       if (_conversationUnsubs.containsKey(conversationId)) {
         continue;
@@ -189,6 +187,9 @@ class _ChatLiveHub {
       _inboxUnsubs[scopeKey] = unsubscribe;
     }
 
+    // Typing pushes arrive on the conversation's event channel (same scope,
+    // so the composed connection dispatches them to the events listeners);
+    // this binding filters the ephemeral typing events out of that channel.
     for (final conversationId in _typingHandlers.keys) {
       if (_typingUnsubs.containsKey(conversationId)) {
         continue;
@@ -216,10 +217,7 @@ class _ChatLiveHub {
       return;
     }
     _bindWireSubscriptions(connection);
-    connection.subscriptions.syncConversations(<String>{
-      ..._conversationHandlers.keys,
-      ..._conversationMessageHandlers.keys,
-    }.toList());
+    connection.subscriptions.syncConversations(_wireConversationIds().toList());
     connection.subscriptions.syncScopes(_buildScopeSubscriptions());
   }
 
