@@ -107,12 +107,6 @@
       "tokenSecret": "SDKWORK_RELEASE_TOKEN"
     },
     {
-      "id": "sdkwork-discovery",
-      "repository": "sdkwork-ai/sdkwork-discovery",
-      "refInput": "SDKWORK_DISCOVERY_REF",
-      "tokenSecret": "SDKWORK_RELEASE_TOKEN"
-    },
-    {
       "id": "sdkwork-drive",
       "repository": "sdkwork-ai/sdkwork-drive",
       "ref": "5ee91f5162d114edf2a10165916436aa03f97b4a",
@@ -204,14 +198,14 @@
       "ref": "main",
       "refInput": "SDKWORK_MERCHANDISE_REF",
       "tokenSecret": "SDKWORK_RELEASE_TOKEN"
-    },    {
+    },
+    {
       "id": "sdkwork-models",
       "repository": "sdkwork-ai/sdkwork-models",
       "ref": "main",
       "refInput": "SDKWORK_MODELS_REF",
       "tokenSecret": "SDKWORK_RELEASE_TOKEN"
     },
-
     {
       "id": "sdkwork-music",
       "repository": "sdkwork-ai/sdkwork-music",

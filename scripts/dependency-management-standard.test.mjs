@@ -30,6 +30,22 @@ const expectedDependencyIds = [
   'sdkwork-knowledgebase',
   'sdkwork-sdk-commons',
   'sdkwork-sdk-generator',
+  // Content-surface federation siblings checkout through the packaging
+  // workflow and are referenced by the root Cargo.toml / gateway assembly.
+  'sdkwork-assets',
+  'sdkwork-cloudrouter',
+  'sdkwork-feeds',
+  'sdkwork-generations',
+  'sdkwork-id',
+  'sdkwork-image',
+  'sdkwork-memory',
+  'sdkwork-models',
+  'sdkwork-music',
+  'sdkwork-partner',
+  'sdkwork-prompts',
+  'sdkwork-sandbox',
+  'sdkwork-skills',
+  'sdkwork-video',
 ];
 const siblingDependencyAliases = {};
 const sourceDependencyFiles = [
@@ -392,7 +408,7 @@ function assertProfileResolvedPlatformIntegration() {
 
   for (const relativePath of [
     'crates/sdkwork-api-im-standalone-gateway/src/main.rs',
-    'crates/sdkwork-api-im-standalone-gateway/src/embedded_dependency_routes.rs',
+    'crates/sdkwork-api-im-assembly/src/embedded_dependency_routes.rs',
     'crates/sdkwork-api-im-assembly/src/bootstrap.rs',
   ]) {
     const source = readText(relativePath);
@@ -500,10 +516,14 @@ function assertAgentsDependencyBoundary() {
     rootCargo.includes('sdkwork-api-agents-assembly'),
     'Cargo.toml must declare the canonical Agents API assembly for embedded host composition',
   );
+  // API_ASSEMBLY_SPEC §6.1: the thin standalone gateway imports no external
+  // route/service crates; Agents enters through the canonical IM assembly
+  // bootstrap (bootstrap_embedded_dependency_routes).
   assert(
-    standaloneCargo.includes('sdkwork-api-agents-assembly = { workspace = true }'),
+    standaloneCargo.includes('sdkwork-api-im-assembly.workspace = true'),
     'standalone gateway must consume Agents through the canonical API assembly',
   );
+
 }
 
 assertDependencyDeclaration();
