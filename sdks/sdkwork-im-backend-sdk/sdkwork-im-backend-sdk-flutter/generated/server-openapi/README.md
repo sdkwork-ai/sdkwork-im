@@ -16,12 +16,12 @@ dependencies:
 ```dart
 import 'package:im_backend_api_generated/im_backend_api_generated.dart';
 
-final client = SdkworkImBackendClient.withBaseUrl(baseUrl: 'http://127.0.0.1:18079');
+final client = SdkworkImBackendClient.withBaseUrl(baseUrl: 'http://127.0.0.1:18089');
 client.setAuthToken('your-auth-token');
 client.setAccessToken('your-access-token');
 
 // Use the SDK
-final result = await client.admin.billingEventsSummaryRetrieve();
+final result = await client.audit.verifyRetrieve();
 print(result);
 ```
 
@@ -36,7 +36,7 @@ Access-Token: <accessToken>
 ## Configuration (Non-Auth)
 
 ```dart
-final client = SdkworkImBackendClient.withBaseUrl(baseUrl: 'http://127.0.0.1:18079');
+final client = SdkworkImBackendClient.withBaseUrl(baseUrl: 'http://127.0.0.1:18089');
 
 // Set custom headers
 client.setHeader('X-Custom-Header', 'value');
@@ -48,7 +48,6 @@ client.setHeader('X-Custom-Header', 'value');
 - `client.audit` - audit API
 - `client.automation` - automation API
 - `client.control` - control API
-- `client.admin` - admin API
 
 ## Usage Examples
 
@@ -61,8 +60,8 @@ print(result);
 
 ### audit
 ```dart
-// Export audit bundle
-final result = await client.audit.exportRetrieve();
+// Verify audit chain integrity
+final result = await client.audit.verifyRetrieve();
 print(result);
 ```
 
@@ -80,18 +79,11 @@ final result = await client.control.protocolGovernanceRetrieve();
 print(result);
 ```
 
-### admin
-```dart
-// getBillingEventSummary
-final result = await client.admin.billingEventsSummaryRetrieve();
-print(result);
-```
-
 ## Error Handling
 
 ```dart
 try {
-  final result = await client.admin.billingEventsSummaryRetrieve();
+  final result = await client.audit.verifyRetrieve();
   print(result);
 } catch (e) {
   print('Error: $e');

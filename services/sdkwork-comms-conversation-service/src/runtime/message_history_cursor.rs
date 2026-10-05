@@ -176,6 +176,9 @@ mod tests {
 
     fn scope<'a>(conversation_id: &'a str) -> MessageHistoryCursorScope<'a> {
         static TEST_SECRET: Once = Once::new();
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
         TEST_SECRET.call_once(|| unsafe {
             std::env::set_var(
                 "SDKWORK_IM_MESSAGE_HISTORY_CURSOR_HS256_SECRET",

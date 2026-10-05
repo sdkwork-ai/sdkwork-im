@@ -266,7 +266,7 @@ async fn test_record_list_returns_bounded_audit_seq_cursor_window_over_http() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/backend/v3/api/audit/records?afterAuditSeq=0&page_size=2")
+                .uri("/backend/v3/api/audit/records?after_audit_seq=0&page_size=2")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
                 .with_dual_token_user("1")
@@ -298,7 +298,7 @@ async fn test_record_list_returns_bounded_audit_seq_cursor_window_over_http() {
     let second_window_response = app
         .oneshot(
             Request::builder()
-                .uri("/backend/v3/api/audit/records?afterAuditSeq=2&page_size=2")
+                .uri("/backend/v3/api/audit/records?after_audit_seq=2&page_size=2")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
                 .with_dual_token_user("1")
@@ -666,6 +666,9 @@ fn ensure_test_environment() {
         // Dual-token test helpers rely on the relaxed test posture; production
         // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
         // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
             // Local JWT fixtures carry no AppContext signature headers.

@@ -18,6 +18,9 @@ fn ensure_http_smoke_test_environment() {
         // environment bootstrap is covered separately with PostgreSQL.
         // Local JWT fixtures carry no AppContext signature headers, so the
         // signature gate must be disabled explicitly.
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
             std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
@@ -1513,7 +1516,10 @@ async fn test_message_history_pages_backward_with_opaque_cursor_under_new_insert
         .expect("first history items should be an array")
         .iter()
         .map(|item| {
-            item["messageSeq"].as_str().and_then(|v| v.parse::<u64>().ok()).expect("messageSeq should be a decimal string")
+            item["messageSeq"]
+                .as_str()
+                .and_then(|v| v.parse::<u64>().ok())
+                .expect("messageSeq should be a decimal string")
         })
         .collect::<Vec<_>>();
     assert_eq!(first_sequences, [3, 4]);
@@ -1563,7 +1569,10 @@ async fn test_message_history_pages_backward_with_opaque_cursor_under_new_insert
         .expect("second history items should be an array")
         .iter()
         .map(|item| {
-            item["messageSeq"].as_str().and_then(|v| v.parse::<u64>().ok()).expect("messageSeq should be a decimal string")
+            item["messageSeq"]
+                .as_str()
+                .and_then(|v| v.parse::<u64>().ok())
+                .expect("messageSeq should be a decimal string")
         })
         .collect::<Vec<_>>();
     assert_eq!(second_sequences, [1, 2]);
@@ -6540,7 +6549,13 @@ async fn test_ensure_welcome_message_is_idempotent_over_http() {
         .as_str()
         .expect("sent welcome should carry message id")
         .to_owned();
-    assert!(item["messageSeq"].as_str().and_then(|v| v.parse::<u64>().ok()).unwrap_or(0) >= 1);
+    assert!(
+        item["messageSeq"]
+            .as_str()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(0)
+            >= 1
+    );
 
     // 欢迎消息以 messageType=system 且发送者为系统智能体投递。
     let messages = app

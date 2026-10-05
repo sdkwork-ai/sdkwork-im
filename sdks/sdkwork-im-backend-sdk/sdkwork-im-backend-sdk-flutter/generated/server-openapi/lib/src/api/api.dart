@@ -3,4 +3,3 @@ export 'ops.dart' hide QueryParameterSpec, buildQueryString, appendSerializedPar
 export 'audit.dart' hide QueryParameterSpec, buildQueryString, appendSerializedParameter, appendArrayParameter, appendObjectParameter, appendDeepObjectParameter, encodeQueryValue, urlEncode;
 export 'automation.dart';
 export 'control.dart' hide QueryParameterSpec, buildQueryString, appendSerializedParameter, appendArrayParameter, appendObjectParameter, appendDeepObjectParameter, encodeQueryValue, urlEncode, PathParameterSpec, serializePathParameter, serializePathArray, serializePathObject, pathPrefix, pathPrimitivePrefix;
-export 'admin.dart' hide QueryParameterSpec, buildQueryString, appendSerializedParameter, appendArrayParameter, appendObjectParameter, appendDeepObjectParameter, encodeQueryValue, urlEncode, PathParameterSpec, serializePathParameter, serializePathArray, serializePathObject, pathPrefix, pathPrimitivePrefix;

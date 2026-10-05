@@ -6898,7 +6898,7 @@ var CallsSessionsSignalsApi = class {
   /** List IM call signaling events */
   async list(rtcSessionId, params, requestOptions) {
     const query = buildQueryString$3([
-      { name: "afterSignalSeq", value: params == null ? void 0 : params.afterSignalSeq, style: "form", explode: true, allowReserved: false },
+      { name: "after_signal_seq", value: params == null ? void 0 : params.afterSignalSeq, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false }
     ]);
@@ -7548,7 +7548,7 @@ var ChatMessagesFavoritesApi = class {
     const query = buildQueryString$1([
       { name: "page_size", value: params == null ? void 0 : params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params == null ? void 0 : params.cursor, style: "form", explode: true, allowReserved: false },
-      { name: "favoriteType", value: params == null ? void 0 : params.favoriteType, style: "form", explode: true, allowReserved: false },
+      { name: "favorite_type", value: params == null ? void 0 : params.favoriteType, style: "form", explode: true, allowReserved: false },
       { name: "q", value: params == null ? void 0 : params.q, style: "form", explode: true, allowReserved: false }
     ]);
     return this.client.request(appendQueryString$1(imApiPath(`/chat/messages/favorites`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
@@ -7571,7 +7571,7 @@ var ChatMessagesSearchApi = class {
   async list(params, requestOptions) {
     const query = buildQueryString$1([
       { name: "q", value: params.q, style: "form", explode: true, allowReserved: false },
-      { name: "conversationId", value: params.conversationId, style: "form", explode: true, allowReserved: false },
+      { name: "conversation_id", value: params.conversationId, style: "form", explode: true, allowReserved: false },
       { name: "page_size", value: params.pageSize, style: "form", explode: true, allowReserved: false },
       { name: "cursor", value: params.cursor, style: "form", explode: true, allowReserved: false }
     ]);

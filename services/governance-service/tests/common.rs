@@ -6,6 +6,7 @@ use im_app_context::DualTokenRequestBuilderExt;
 /// signed orchestration headers; disable the signature gate explicitly so
 /// the control plane tests exercise routing logic, not signature validation.
 pub fn ensure_control_plane_test_env() {
+    #[allow(unsafe_code)]
     unsafe {
         std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
     }
@@ -45,6 +46,11 @@ fn ensure_test_environment() {
         // Dual-token test helpers rely on the relaxed test posture; production
         // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
         // Safety: process env is single-threaded at bootstrap time via OnceLock.
-        unsafe { std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test") }
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
+        unsafe {
+            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test")
+        }
     });
 }

@@ -33,7 +33,6 @@ use crate::helpers::{
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct ListRtcSignalsQuery {
     pub after_signal_seq: Option<u64>,
     pub page_size: Option<usize>,

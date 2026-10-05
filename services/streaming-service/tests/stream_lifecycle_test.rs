@@ -15,6 +15,9 @@ use streaming_service::state::{AppState, StreamingRuntime};
 static INIT_STREAM_LIFECYCLE_TEST_ENV: Once = Once::new();
 
 fn init_stream_lifecycle_test_env() {
+    // The workspace lints deny `unsafe_code`; this reviewed process-identity
+    // env-bootstrap site opts back in locally (deny is allow-overrideable).
+    #[allow(unsafe_code)]
     INIT_STREAM_LIFECYCLE_TEST_ENV.call_once(|| unsafe {
         std::env::set_var("SDKWORK_IM_ENVIRONMENT", "dev");
         std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");

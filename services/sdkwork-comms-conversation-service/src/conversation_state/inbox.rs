@@ -489,6 +489,7 @@ mod deadlock_regression_tests {
         fn set_cursor_secret() -> Self {
             let lock = crate::conversation_state::lock_conversation_state_test_environment();
             let previous = std::env::var(TEST_CURSOR_SECRET_ENV).ok();
+            #[allow(unsafe_code)]
             unsafe {
                 std::env::set_var(
                     TEST_CURSOR_SECRET_ENV,
@@ -504,6 +505,9 @@ mod deadlock_regression_tests {
 
     impl Drop for TestEnvGuard {
         fn drop(&mut self) {
+            // The workspace lints deny `unsafe_code`; this reviewed process-identity
+            // env-bootstrap site opts back in locally (deny is allow-overrideable).
+            #[allow(unsafe_code)]
             unsafe {
                 match &self.previous {
                     Some(value) => std::env::set_var(TEST_CURSOR_SECRET_ENV, value),

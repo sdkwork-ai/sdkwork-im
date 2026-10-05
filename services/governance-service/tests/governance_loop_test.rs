@@ -3,6 +3,7 @@ use im_app_context::DualTokenRequestBuilderExt;
 /// Local dual-token test contexts skip the signed orchestration header gate;
 /// disable signature verification explicitly for the control-plane loop test.
 fn ensure_loop_test_env() {
+    #[allow(unsafe_code)]
     unsafe {
         std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
     }
@@ -234,7 +235,7 @@ async fn test_control_plane_provider_bindings_feed_ops_runtime() {
         .oneshot(
             Request::builder()
                 .method("GET")
-                .uri("/backend/v3/api/control/provider_bindings?tenantId=t_provider_combo")
+                .uri("/backend/v3/api/control/provider_bindings?tenant_id=t_provider_combo")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
                 .with_dual_token_user("1080")
@@ -952,7 +953,7 @@ async fn test_control_plane_rejects_empty_tenant_provider_bindings_query_without
         .oneshot(
             Request::builder()
                 .method("GET")
-                .uri("/backend/v3/api/control/provider_bindings?tenantId=")
+                .uri("/backend/v3/api/control/provider_bindings?tenant_id=")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
                 .with_dual_token_user("1080")
@@ -1106,7 +1107,7 @@ async fn test_control_plane_rejects_oversized_tenant_provider_bindings_query_wit
             Request::builder()
                 .method("GET")
                 .uri(format!(
-                    "/backend/v3/api/control/provider_bindings?tenantId={tenant_id}"
+                    "/backend/v3/api/control/provider_bindings?tenant_id={tenant_id}"
                 ))
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
@@ -1220,6 +1221,11 @@ fn ensure_test_environment() {
         // Dual-token test helpers rely on the relaxed test posture; production
         // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
         // Safety: process env is single-threaded at bootstrap time via OnceLock.
-        unsafe { std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test") }
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
+        unsafe {
+            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test")
+        }
     });
 }

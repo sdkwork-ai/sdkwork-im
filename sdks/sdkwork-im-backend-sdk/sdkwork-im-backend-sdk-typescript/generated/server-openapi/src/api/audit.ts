@@ -1,7 +1,7 @@
 import { backendApiPath } from './paths';
 import type { ApiRequestOptions, HttpClient } from '../http/client';
 
-import type { AuditChainVerification, SdkWorkPageData } from '../types';
+import type { AuditChainVerification, AuditRecordAnchorRequest, AuditRecordListResponse, AuditRecordView, PageInfo } from '../types';
 
 
 export class AuditVerifyApi {
@@ -18,6 +18,10 @@ export class AuditVerifyApi {
   }
 }
 
+export interface AuditExportRetrieveParams {
+  pageSize?: number;
+}
+
 export class AuditExportApi {
   private client: HttpClient;
 
@@ -26,15 +30,18 @@ export class AuditExportApi {
   }
 
 
-/** Export audit bundle */
-  async retrieve(requestOptions?: ApiRequestOptions): Promise<Record<string, unknown>> {
-    return this.client.request<Record<string, unknown>>(backendApiPath(`/audit/export`), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'GET' as any, sdkworkUnwrapKind: 'item' });
+/** Export the audit ledger */
+  async retrieve(params?: AuditExportRetrieveParams, requestOptions?: ApiRequestOptions): Promise<{ items: AuditRecordView[]; pageInfo: PageInfo; }> {
+    const query = buildQueryString([
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.request<{ items: AuditRecordView[]; pageInfo: PageInfo; }>(appendQueryString(backendApiPath(`/audit/export`), query), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'GET' as any, sdkworkUnwrapKind: 'page' });
   }
 }
 
 export interface AuditRecordsListParams {
-  pageSize?: number;
   afterAuditSeq?: string;
+  pageSize?: number;
 }
 
 export class AuditRecordsApi {
@@ -45,18 +52,18 @@ export class AuditRecordsApi {
   }
 
 
-/** List audit records */
-  async list(params?: AuditRecordsListParams, requestOptions?: ApiRequestOptions): Promise<SdkWorkPageData> {
-    const query = buildQueryString([
-      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
-      { name: 'afterAuditSeq', value: params?.afterAuditSeq, style: 'form', explode: true, allowReserved: false },
-    ]);
-    return this.client.request<SdkWorkPageData>(appendQueryString(backendApiPath(`/audit/records`), query), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'GET' as any, sdkworkUnwrapKind: 'page' });
+/** Record an audit anchor */
+  async create(body: AuditRecordAnchorRequest, requestOptions?: ApiRequestOptions): Promise<AuditRecordView> {
+    return this.client.request<AuditRecordView>(backendApiPath(`/audit/records`), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
-/** Record audit anchor */
-  async create(requestOptions?: ApiRequestOptions): Promise<Record<string, unknown>> {
-    return this.client.request<Record<string, unknown>>(backendApiPath(`/audit/records`), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'POST' as any, sdkworkUnwrapKind: 'item' });
+/** List audit records */
+  async list(params?: AuditRecordsListParams, requestOptions?: ApiRequestOptions): Promise<AuditRecordListResponse> {
+    const query = buildQueryString([
+      { name: 'after_audit_seq', value: params?.afterAuditSeq, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.request<AuditRecordListResponse>(appendQueryString(backendApiPath(`/audit/records`), query), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'GET' as any, sdkworkUnwrapKind: 'page' });
   }
 }
 

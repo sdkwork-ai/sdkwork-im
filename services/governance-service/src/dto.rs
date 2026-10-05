@@ -11,7 +11,6 @@ pub(crate) struct MigrateRoutesRequest {
 }
 
 #[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct ProviderBindingsQuery {
     pub(crate) tenant_id: Option<String>,
 }
@@ -32,7 +31,6 @@ pub(crate) struct ProviderPolicyRollbackRequest {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct ProviderPolicyDiffQuery {
     pub(crate) from_version: u64,
     pub(crate) to_version: u64,

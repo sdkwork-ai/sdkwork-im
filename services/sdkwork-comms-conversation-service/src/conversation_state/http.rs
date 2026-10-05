@@ -34,7 +34,7 @@ use super::{
 };
 
 #[derive(Debug, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(default)]
 struct SearchMessagesQuery {
     pub q: Option<String>,
     pub conversation_id: Option<String>,
@@ -43,7 +43,6 @@ struct SearchMessagesQuery {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
 struct FavoriteMessagesQuery {
     #[serde(flatten)]
     paging: SdkWorkCursorListQuery,

@@ -194,7 +194,7 @@ async fn test_control_plane_exposes_tenant_override_provider_bindings_to_control
         .oneshot(
             Request::builder()
                 .method("GET")
-                .uri("/backend/v3/api/control/provider_bindings?tenantId=t_provider_combo")
+                .uri("/backend/v3/api/control/provider_bindings?tenant_id=t_provider_combo")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
                 .with_dual_token_user("1080")
@@ -410,7 +410,7 @@ async fn test_control_plane_allows_control_writers_to_update_provider_policies_a
         .oneshot(
             Request::builder()
                 .method("GET")
-                .uri("/backend/v3/api/control/provider_bindings?tenantId=t_provider_combo")
+                .uri("/backend/v3/api/control/provider_bindings?tenant_id=t_provider_combo")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
                 .with_dual_token_user("1080")
@@ -742,7 +742,7 @@ async fn test_control_plane_exposes_provider_policy_history_and_supports_rollbac
         .oneshot(
             Request::builder()
                 .method("GET")
-                .uri("/backend/v3/api/control/provider_bindings?tenantId=t_provider_combo")
+                .uri("/backend/v3/api/control/provider_bindings?tenant_id=t_provider_combo")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
                 .with_dual_token_user("1080")
@@ -849,7 +849,7 @@ async fn test_control_plane_exposes_provider_policy_diff_between_committed_versi
         .oneshot(
             Request::builder()
                 .method("GET")
-                .uri("/backend/v3/api/control/provider_policies/diff?fromVersion=2&toVersion=4")
+                .uri("/backend/v3/api/control/provider_policies/diff?from_version=2&to_version=4")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
                 .with_dual_token_user("1080")
@@ -1129,7 +1129,7 @@ async fn test_control_plane_rejects_stale_provider_policy_confirm_write_after_pr
         .oneshot(
             Request::builder()
                 .method("GET")
-                .uri("/backend/v3/api/control/provider_bindings?tenantId=t_provider_combo")
+                .uri("/backend/v3/api/control/provider_bindings?tenant_id=t_provider_combo")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
                 .with_dual_token_user("1080")
@@ -1190,7 +1190,7 @@ async fn test_control_plane_returns_unavailable_status_when_provider_policy_runt
         ),
         (
             "GET",
-            "/backend/v3/api/control/provider_policies/diff?fromVersion=1&toVersion=2",
+            "/backend/v3/api/control/provider_policies/diff?from_version=1&to_version=2",
             None,
             50301,
         ),
@@ -1247,7 +1247,7 @@ async fn test_control_plane_returns_conflict_status_for_unknown_provider_policy_
     for (method, uri, permission, body) in [
         (
             "GET",
-            "/backend/v3/api/control/provider_policies/diff?fromVersion=1&toVersion=9",
+            "/backend/v3/api/control/provider_policies/diff?from_version=1&to_version=9",
             "control.read",
             None,
         ),
@@ -1333,7 +1333,7 @@ async fn test_control_plane_rejects_provider_policy_diff_with_reversed_version_r
         .oneshot(
             Request::builder()
                 .method("GET")
-                .uri("/backend/v3/api/control/provider_policies/diff?fromVersion=2&toVersion=1")
+                .uri("/backend/v3/api/control/provider_policies/diff?from_version=2&to_version=1")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
                 .with_dual_token_user("1080")
@@ -1370,6 +1370,9 @@ fn ensure_test_environment() {
         // Dual-token test helpers rely on the relaxed test posture; production
         // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
         // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
             // Local JWT fixtures carry no AppContext signature headers.

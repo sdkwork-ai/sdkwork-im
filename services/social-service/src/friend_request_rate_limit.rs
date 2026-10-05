@@ -226,6 +226,7 @@ mod tests {
     impl ScopedEnvVar {
         fn set(name: &'static str, value: &str) -> Self {
             let previous = std::env::var(name).ok();
+            #[allow(unsafe_code)]
             unsafe {
                 std::env::set_var(name, value);
             }
@@ -235,6 +236,9 @@ mod tests {
 
     impl Drop for ScopedEnvVar {
         fn drop(&mut self) {
+            // The workspace lints deny `unsafe_code`; this reviewed process-identity
+            // env-bootstrap site opts back in locally (deny is allow-overrideable).
+            #[allow(unsafe_code)]
             unsafe {
                 if let Some(value) = self.previous.as_ref() {
                     std::env::set_var(self.name, value);

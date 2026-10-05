@@ -3429,6 +3429,7 @@ mod tests {
     impl ScopedEnvVar {
         fn set(name: &'static str, value: &str) -> Self {
             let previous = std::env::var(name).ok();
+            #[allow(unsafe_code)]
             unsafe {
                 std::env::set_var(name, value);
             }
@@ -3439,11 +3440,13 @@ mod tests {
     impl Drop for ScopedEnvVar {
         fn drop(&mut self) {
             if let Some(previous) = &self.previous {
+                #[allow(unsafe_code)]
                 unsafe {
                     std::env::set_var(self.name, previous);
                 }
                 return;
             }
+            #[allow(unsafe_code)]
             unsafe {
                 std::env::remove_var(self.name);
             }
@@ -3568,6 +3571,7 @@ mod tests {
         TEST_ENVIRONMENT.get_or_init(|| {
             // Safety: one-time bootstrap under OnceLock; process env write is
             // single-threaded here.
+            #[allow(unsafe_code)]
             unsafe {
                 std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
                 std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
@@ -4156,6 +4160,7 @@ mod tests {
         // branch is reachable before the allow-all fallback).
         // SAFETY: single-threaded test; the variable is restored immediately
         // after the bootstrap call and no other test reads this key.
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var(
                 PRINCIPAL_DIRECTORY_MODE_ENV,
@@ -4163,7 +4168,12 @@ mod tests {
             )
         };
         let result = bootstrap_conversation_app_state_from_env();
-        unsafe { std::env::remove_var(PRINCIPAL_DIRECTORY_MODE_ENV) };
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
+        unsafe {
+            std::env::remove_var(PRINCIPAL_DIRECTORY_MODE_ENV)
+        };
         let error = match result {
             Err(error) => error,
             Ok(_) => panic!(

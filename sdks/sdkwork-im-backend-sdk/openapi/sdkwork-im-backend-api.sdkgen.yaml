@@ -575,7 +575,7 @@ paths:
         Lists the current tenant's audit ledger in descending audit-sequence order using an opaque keyset cursor bounded
         by page_size.
       parameters:
-        - name: afterAuditSeq
+        - name: after_audit_seq
           in: query
           required: false
           schema:
@@ -1250,7 +1250,7 @@ paths:
       parameters:
         - description: Base provider policy version.
           in: query
-          name: fromVersion
+          name: from_version
           required: true
           schema:
             type: string
@@ -1260,7 +1260,7 @@ paths:
             x-sdkwork-rust-type: i64
         - description: Target provider policy version.
           in: query
-          name: toVersion
+          name: to_version
           required: true
           schema:
             type: string
@@ -1556,7 +1556,7 @@ paths:
       parameters:
         - description: Optional tenant scope for effective provider bindings.
           in: query
-          name: tenantId
+          name: tenant_id
           required: false
           schema:
             type: string
@@ -2163,7 +2163,7 @@ paths:
       parameters:
         - description: Owner user identifier whose inventory is listed.
           in: query
-          name: userId
+          name: user_id
           required: true
           schema:
             type: string
@@ -5631,5 +5631,46 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/SdkWorkPageData'
+    SdkWorkResourceData:
+      type: object
+      additionalProperties: false
+      required:
+        - item
+      properties:
+        item:
+          type: object
+          additionalProperties: true
+          description: Typed domain resource for the operation.
+    SdkWorkCommandData:
+      type: object
+      additionalProperties: false
+      required:
+        - accepted
+      properties:
+        accepted:
+          type: boolean
+          const: true
+        resourceId:
+          type: string
+        status:
+          type: string
+    SdkWorkResourceResponse:
+      allOf:
+        - $ref: '#/components/schemas/SdkWorkApiResponse'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              $ref: '#/components/schemas/SdkWorkResourceData'
+    SdkWorkCommandResponse:
+      allOf:
+        - $ref: '#/components/schemas/SdkWorkApiResponse'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              $ref: '#/components/schemas/SdkWorkCommandData'
 x-sdkwork-owner: sdkwork-im
 x-sdkwork-api-authority: sdkwork-im.backend

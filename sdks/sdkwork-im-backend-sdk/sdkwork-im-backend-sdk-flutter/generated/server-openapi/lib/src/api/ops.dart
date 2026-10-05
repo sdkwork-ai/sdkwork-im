@@ -42,15 +42,6 @@ class OpsApi {
     })();
   }
 
-  /// Retrieve commercial readiness
-  Future<CommercialReadinessRetrieveResponse?> commercialReadinessRetrieve() async {
-    final response = await _client.get(ApiPaths.backendPath('/ops/commercial_readiness'));
-    return (() {
-      final map = sdkworkResponseAsMap(response);
-      return map == null ? null : CommercialReadinessRetrieveResponse.fromJson(map);
-    })();
-  }
-
   /// Inspect runtime directory
   Future<RuntimeDirRetrieveResponse?> runtimeDirRetrieve() async {
     final response = await _client.get(ApiPaths.backendPath('/ops/runtime_dir'));
@@ -92,6 +83,27 @@ class OpsApi {
     return (() {
       final map = sdkworkResponseAsMap(response);
       return map == null ? null : DiagnosticsRetrieveResponse.fromJson(map);
+    })();
+  }
+
+  /// Retrieve commit-journal replay status
+  Future<ReplayStatusRetrieveResponse?> replayStatusRetrieve() async {
+    final response = await _client.get(ApiPaths.backendPath('/ops/replay_status'));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : ReplayStatusRetrieveResponse.fromJson(map);
+    })();
+  }
+
+  /// Purge expired retention batches
+  Future<RetentionPurgePostResponse?> retentionPurge([String? batchSize]) async {
+    final query = buildQueryString([
+      QueryParameterSpec('batch_size', batchSize, 'form', true, false, null)
+    ]);
+    final response = await _client.post(ApiPaths.appendQueryString(ApiPaths.backendPath('/ops/retention/purge'), query));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : RetentionPurgePostResponse.fromJson(map);
     })();
   }
 }

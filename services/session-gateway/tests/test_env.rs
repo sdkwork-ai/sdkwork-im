@@ -14,6 +14,9 @@ pub struct DevTestEnvironment {
 pub fn dev_test_environment() -> DevTestEnvironment {
     let guard = TEST_ENV_LOCK.lock().expect("session-gateway test env lock");
     // SAFETY: integration tests run serially under the mutex guard.
+    // The workspace lints deny `unsafe_code`; this reviewed process-identity
+    // env-bootstrap site opts back in locally (deny is allow-overrideable).
+    #[allow(unsafe_code)]
     unsafe {
         std::env::set_var("SDKWORK_IM_ENVIRONMENT", "dev");
         // Local dual-token fallback tests do not attach signed orchestration

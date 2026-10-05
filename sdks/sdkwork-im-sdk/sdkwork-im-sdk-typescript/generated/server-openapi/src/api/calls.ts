@@ -40,7 +40,7 @@ export class CallsSessionsSignalsApi {
 /** List IM call signaling events */
   async list(rtcSessionId: string, params?: CallsSessionsSignalsListParams, requestOptions?: ApiRequestOptions): Promise<{ items: RtcSignalEvent[]; pageInfo: { mode: 'cursor'; nextCursor?: string | null; hasMore: boolean; }; }> {
     const query = buildQueryString([
-      { name: 'afterSignalSeq', value: params?.afterSignalSeq, style: 'form', explode: true, allowReserved: false },
+      { name: 'after_signal_seq', value: params?.afterSignalSeq, style: 'form', explode: true, allowReserved: false },
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);

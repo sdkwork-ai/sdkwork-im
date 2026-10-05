@@ -134,6 +134,7 @@ mod tests {
     fn production_requires_database_url_for_stream_state_store() {
         let database_url = std::env::var(IM_DATABASE_URL_ENV).ok();
         let im_env = std::env::var("SDKWORK_IM_ENVIRONMENT").ok();
+        #[allow(unsafe_code)]
         unsafe {
             std::env::remove_var(IM_DATABASE_URL_ENV);
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "prod");
@@ -142,6 +143,9 @@ mod tests {
         let result = resolve_stream_state_store_from_env();
         assert!(result.is_err());
 
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
         unsafe {
             if let Some(value) = database_url {
                 std::env::set_var(IM_DATABASE_URL_ENV, value);

@@ -4,7 +4,6 @@ import 'src/api/ops.dart';
 import 'src/api/audit.dart';
 import 'src/api/automation.dart';
 import 'src/api/control.dart';
-import 'src/api/admin.dart';
 
 class SdkworkImBackendClient {
   final HttpClient _httpClient;
@@ -13,7 +12,6 @@ class SdkworkImBackendClient {
   late final AuditApi audit;
   late final AutomationApi automation;
   late final ControlApi control;
-  late final AdminApi admin;
 
   SdkworkImBackendClient({
     required SdkConfig config,
@@ -22,7 +20,6 @@ class SdkworkImBackendClient {
     audit = AuditApi(_httpClient);
     automation = AutomationApi(_httpClient);
     control = ControlApi(_httpClient);
-    admin = AdminApi(_httpClient);
   }
 
   factory SdkworkImBackendClient.withBaseUrl({

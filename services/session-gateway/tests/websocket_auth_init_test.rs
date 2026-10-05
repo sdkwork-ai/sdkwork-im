@@ -23,6 +23,9 @@ async fn spawn_server(app: Router) -> (String, tokio::task::JoinHandle<()>) {
 
 fn ensure_dev_environment() {
     static INIT: std::sync::Once = std::sync::Once::new();
+    // The workspace lints deny `unsafe_code`; this reviewed process-identity
+    // env-bootstrap site opts back in locally (deny is allow-overrideable).
+    #[allow(unsafe_code)]
     INIT.call_once(|| unsafe {
         std::env::set_var("SDKWORK_IM_ENVIRONMENT", "dev");
         std::env::set_var("SDKWORK_ENV", "dev");

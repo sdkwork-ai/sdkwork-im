@@ -11,36 +11,47 @@ class AuditApi {
 
   AuditApi(this._client);
 
+  /// Record an audit anchor
+  Future<AuditRecordsCreateResponse201?> recordsCreate(AuditRecordAnchorRequest body) async {
+    final payload = body.toJson();
+    final response = await _client.post(ApiPaths.backendPath('/audit/records'), body: payload, contentType: 'application/json');
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : AuditRecordsCreateResponse201.fromJson(map);
+    })();
+  }
+
   /// List audit records
-  Future<SdkWorkListResponse?> recordsList([int? pageSize, String? cursor, int? page, String? q]) async {
+  Future<AuditRecordsListResponse?> recordsList([String? afterAuditSeq, int? pageSize]) async {
     final query = buildQueryString([
-      QueryParameterSpec('page_size', pageSize, 'form', true, false, null),
-      QueryParameterSpec('cursor', cursor, 'form', true, false, null),
-      QueryParameterSpec('page', page, 'form', true, false, null),
-      QueryParameterSpec('q', q, 'form', true, false, null)
+      QueryParameterSpec('after_audit_seq', afterAuditSeq, 'form', true, false, null),
+      QueryParameterSpec('page_size', pageSize, 'form', true, false, null)
     ]);
     final response = await _client.get(ApiPaths.appendQueryString(ApiPaths.backendPath('/audit/records'), query));
     return (() {
       final map = sdkworkResponseAsMap(response);
-      return map == null ? null : SdkWorkListResponse.fromJson(map);
+      return map == null ? null : AuditRecordsListResponse.fromJson(map);
     })();
   }
 
-  /// Record audit anchor
-  Future<RecordsCreateResponse201?> recordsCreate() async {
-    final response = await _client.post(ApiPaths.backendPath('/audit/records'));
+  /// Export the audit ledger
+  Future<AuditExportRetrieveResponse?> exportRetrieve([int? pageSize]) async {
+    final query = buildQueryString([
+      QueryParameterSpec('page_size', pageSize, 'form', true, false, null)
+    ]);
+    final response = await _client.get(ApiPaths.appendQueryString(ApiPaths.backendPath('/audit/export'), query));
     return (() {
       final map = sdkworkResponseAsMap(response);
-      return map == null ? null : RecordsCreateResponse201.fromJson(map);
+      return map == null ? null : AuditExportRetrieveResponse.fromJson(map);
     })();
   }
 
-  /// Export audit bundle
-  Future<ExportRetrieveResponse?> exportRetrieve() async {
-    final response = await _client.get(ApiPaths.backendPath('/audit/export'));
+  /// Verify audit chain integrity
+  Future<VerifyRetrieveResponse?> verifyRetrieve() async {
+    final response = await _client.get(ApiPaths.backendPath('/audit/verify'));
     return (() {
       final map = sdkworkResponseAsMap(response);
-      return map == null ? null : ExportRetrieveResponse.fromJson(map);
+      return map == null ? null : VerifyRetrieveResponse.fromJson(map);
     })();
   }
 }

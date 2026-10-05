@@ -21,6 +21,9 @@ fn ensure_test_environment() {
     if std::env::var("SDKWORK_IM_ENVIRONMENT").is_err() {
         // SAFETY: Test-only environment setup. Tests in this file do not race
         // with other tests modifying the same env var within the same process.
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
         }

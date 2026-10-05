@@ -11,6 +11,9 @@ mod tests {
 
     fn pin_test_im_environment() {
         let _guard = TEST_IM_ENV_LOCK.lock().expect("test im env lock");
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
         }

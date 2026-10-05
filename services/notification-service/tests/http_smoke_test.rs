@@ -9,6 +9,9 @@ use tower::ServiceExt;
 static INIT_NOTIFICATION_HTTP_TEST_ENV: Once = Once::new();
 
 fn init_notification_http_test_env() {
+    // The workspace lints deny `unsafe_code`; this reviewed process-identity
+    // env-bootstrap site opts back in locally (deny is allow-overrideable).
+    #[allow(unsafe_code)]
     INIT_NOTIFICATION_HTTP_TEST_ENV.call_once(|| unsafe {
         std::env::set_var("SDKWORK_IM_ENVIRONMENT", "dev");
         // Local dual-token fallback tests do not attach signed orchestration

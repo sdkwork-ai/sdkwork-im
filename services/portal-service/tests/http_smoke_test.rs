@@ -8,6 +8,9 @@ use tower::ServiceExt;
 static INIT_PORTAL_HTTP_TEST_ENV: Once = Once::new();
 
 fn init_portal_http_test_env() {
+    // The workspace lints deny `unsafe_code`; this reviewed process-identity
+    // env-bootstrap site opts back in locally (deny is allow-overrideable).
+    #[allow(unsafe_code)]
     INIT_PORTAL_HTTP_TEST_ENV.call_once(|| unsafe {
         std::env::set_var("SDKWORK_IM_ENVIRONMENT", "dev");
     });

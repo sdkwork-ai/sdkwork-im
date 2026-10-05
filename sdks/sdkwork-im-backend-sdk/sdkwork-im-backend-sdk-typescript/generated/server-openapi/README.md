@@ -27,7 +27,7 @@ client.setAuthToken('your-auth-token');
 client.setAccessToken('your-access-token');
 
 // Use the SDK
-const result = await client.admin.billing.events.summary.retrieve();
+const result = await client.audit.verify.retrieve();
 ```
 
 ## Authentication
@@ -58,7 +58,6 @@ const client = new SdkworkImBackendClient({
 - `client.audit` - audit API
 - `client.automation` - automation API
 - `client.control` - control API
-- `client.admin` - admin API
 
 ## Usage Examples
 
@@ -72,8 +71,8 @@ const result = await client.ops.health.retrieve();
 ### audit
 
 ```typescript
-// Export audit bundle
-const result = await client.audit.export.retrieve();
+// Verify audit chain integrity
+const result = await client.audit.verify.retrieve();
 ```
 
 ### automation
@@ -90,20 +89,13 @@ const result = await client.automation.governance.retrieve();
 const result = await client.control.protocolGovernance.retrieve();
 ```
 
-### admin
-
-```typescript
-// getBillingEventSummary
-const result = await client.admin.billing.events.summary.retrieve();
-```
-
 ## Error Handling
 
 ```typescript
 import { SdkworkImBackendClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/im-backend-sdk';
 
 try {
-  const result = await client.admin.billing.events.summary.retrieve();
+  const result = await client.audit.verify.retrieve();
 } catch (error) {
   if (error instanceof AuthenticationError) {
     console.error('Authentication failed:', error.message);
@@ -124,7 +116,7 @@ This SDK includes cross-platform publish scripts in `bin/`:
 - `bin/publish.sh`
 - `bin/publish.ps1`
 
-TypeScript check and publish commands use pnpm to materialize workspace dependency versions in a temporary tarball. They reject local-only dependency protocols before npm publication and do not rewrite the source `package.json`.
+TypeScript check and publish commands materialize workspace dependency versions in a temporary tarball with pnpm. They reject local-only dependency protocols before npm publication and do not rewrite the source `package.json`.
 
 ### Check
 

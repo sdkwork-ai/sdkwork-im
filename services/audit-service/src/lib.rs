@@ -147,7 +147,7 @@ pub struct RecordAuditAnchor {
 }
 
 #[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(default)]
 pub struct ListAuditRecordsQuery {
     pub after_audit_seq: Option<u64>,
     #[serde(flatten)]

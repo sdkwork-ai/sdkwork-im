@@ -13,7 +13,12 @@ fn ensure_test_environment() {
     static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
     TEST_ENVIRONMENT.get_or_init(|| {
         // Safety: one-time bootstrap under OnceLock; process env write is single-threaded here.
-        unsafe { std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test") }
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
+        unsafe {
+            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test")
+        }
     });
 }
 
@@ -44,9 +49,7 @@ fn wrapped_control_api_app(state: AppState) -> axum::Router {
     // Compose through the owning social-backend route crate so the
     // interceptor pipeline receives the real backend route manifest; an
     // empty-manifest wrap cannot resolve `/backend/v3/api/control/*` routes.
-    social_backend_routes::build_control_embedded_public_app(
-        state.social_runtime,
-    )
+    social_backend_routes::build_control_embedded_public_app(state.social_runtime)
 }
 
 #[tokio::test]
@@ -108,7 +111,7 @@ async fn backend_control_friend_requests_list_uses_page_size_query() {
 
     let mut request = Request::builder()
         .method("GET")
-        .uri("/backend/v3/api/control/social/friend_requests?userId=30&direction=incoming&status=pending&page_size=7")
+        .uri("/backend/v3/api/control/social/friend_requests?user_id=30&direction=incoming&status=pending&page_size=7")
         .body(Body::empty())
         .expect("request builder should succeed");
     *request.headers_mut() = backend_control_auth_headers();
@@ -146,7 +149,7 @@ async fn backend_control_friend_requests_list_rejects_limit_alias() {
 
     let mut request = Request::builder()
         .method("GET")
-        .uri("/backend/v3/api/control/social/friend_requests?userId=30&direction=incoming&status=pending&limit=7")
+        .uri("/backend/v3/api/control/social/friend_requests?user_id=30&direction=incoming&status=pending&limit=7")
         .body(Body::empty())
         .expect("request builder should succeed");
     *request.headers_mut() = backend_control_auth_headers();

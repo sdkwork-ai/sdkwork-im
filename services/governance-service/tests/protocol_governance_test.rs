@@ -138,6 +138,9 @@ fn ensure_test_environment() {
         // Dual-token test helpers rely on the relaxed test posture; production
         // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
         // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
             // Local JWT fixtures carry no AppContext signature headers.

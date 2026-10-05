@@ -6,7 +6,6 @@ import { OpsApi, createOpsApi } from './api/ops';
 import { AuditApi, createAuditApi } from './api/audit';
 import { AutomationApi, createAutomationApi } from './api/automation';
 import { ControlApi, createControlApi } from './api/control';
-import { AdminApi, createAdminApi } from './api/admin';
 
 export class SdkworkImBackendClient {
   private httpClient: HttpClient;
@@ -15,7 +14,6 @@ export class SdkworkImBackendClient {
   public readonly audit: AuditApi;
   public readonly automation: AutomationApi;
   public readonly control: ControlApi;
-  public readonly admin: AdminApi;
 
   constructor(config: SdkworkBackendConfig) {
     this.httpClient = createHttpClient(config);
@@ -26,8 +24,6 @@ export class SdkworkImBackendClient {
     this.automation = createAutomationApi(this.httpClient);
 
     this.control = createControlApi(this.httpClient);
-
-    this.admin = createAdminApi(this.httpClient);
   }
   setAuthToken(token: string): this {
     this.httpClient.setAuthToken(token);

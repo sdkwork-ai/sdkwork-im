@@ -6,6 +6,9 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn diag_503_actual_error() {
+    // The workspace lints deny `unsafe_code`; this reviewed process-identity
+    // env-bootstrap site opts back in locally (deny is allow-overrideable).
+    #[allow(unsafe_code)]
     unsafe {
         std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
     }

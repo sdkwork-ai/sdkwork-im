@@ -19,6 +19,9 @@ fn ensure_test_environment() {
         // single-threaded here. `AuditRuntime::from_env` (pulled in by the
         // composed gateway router) fail-closes in production without
         // `SDKWORK_DATABASE_URL`; these tests run on the in-memory ledger.
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
         }

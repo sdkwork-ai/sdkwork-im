@@ -69,6 +69,9 @@ fn ensure_rpc_smoke_test_environment() {
         // once for the whole test process and is not mutated afterwards.
         // Local JWT fixtures carry no AppContext signature headers, matching
         // the other integration test binaries.
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
             std::env::set_var("SDKWORK_IM_ALLOW_ALL_PRINCIPALS", "true");

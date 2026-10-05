@@ -123,14 +123,14 @@ const pathParameters = {
 };
 
 const queryParameters = {
-  AfterSignalSeqQuery: parameter('afterSignalSeq', 'query', int64StringSchema({ minimum: 0 }), { required: false }),
+  AfterSignalSeqQuery: parameter('after_signal_seq', 'query', int64StringSchema({ minimum: 0 }), { required: false }),
   ConversationTypeQuery: parameter('conversation_type', 'query', stringSchema(), {
     description: 'Optional conversation type filter applied by the inbox projection before pagination.',
     required: false,
   }),
   CursorQuery: parameter('cursor', 'query', stringSchema(), { required: false }),
   DirectionQuery: parameter('direction', 'query', stringSchema({ enum: ['incoming', 'outgoing'] }), { required: false }),
-  FavoriteTypeQuery: parameter('favoriteType', 'query', { $ref: '#/components/schemas/MessageFavoriteType' }, { required: false }),
+  FavoriteTypeQuery: parameter('favorite_type', 'query', { $ref: '#/components/schemas/MessageFavoriteType' }, { required: false }),
   PageSizeQuery: parameter('page_size', 'query', {
     type: 'integer',
     format: 'int32',
@@ -140,7 +140,7 @@ const queryParameters = {
   }, { required: false }),
   QQuery: parameter('q', 'query', stringSchema({ maxLength: 256 }), { required: false }),
   SearchQQuery: parameter('q', 'query', stringSchema({ maxLength: 256 }), { required: true }),
-  ConversationIdQuery: parameter('conversationId', 'query', stringSchema(), { required: false }),
+  ConversationIdQuery: parameter('conversation_id', 'query', stringSchema(), { required: false }),
   StatusQuery: parameter('status', 'query', stringSchema({ enum: ['pending', 'accepted', 'declined', 'canceled', 'expired', 'all'] }), { required: false }),
 };
 

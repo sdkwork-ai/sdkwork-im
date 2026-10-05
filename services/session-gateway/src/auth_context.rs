@@ -116,6 +116,7 @@ mod tests {
 
     impl Drop for TestEnvGuard {
         fn drop(&mut self) {
+            #[allow(unsafe_code)]
             unsafe {
                 std::env::set_var("SDKWORK_IM_ENVIRONMENT", "dev");
             }
@@ -132,6 +133,9 @@ mod tests {
 
     fn test_environment(value: &str) -> TestEnvGuard {
         let guard = TEST_ENV_LOCK.lock().expect("test env lock");
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", value);
             // Local dual-token tests simulate trusted-edge context without

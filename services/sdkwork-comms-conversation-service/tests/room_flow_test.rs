@@ -85,6 +85,7 @@ fn test_live_room_message_rate_limit_rejects_burst_posts() {
     assert!(created.conversation_id.starts_with("r_"));
     let conversation_id = created.conversation_id;
 
+    #[allow(unsafe_code)]
     unsafe {
         std::env::set_var("SDKWORK_IM_LIVE_ROOM_MESSAGE_RATE_LIMIT", "2");
     }
@@ -121,6 +122,9 @@ fn test_live_room_message_rate_limit_rejects_burst_posts() {
         "expected rate limit error, got: {burst:?}"
     );
 
+    // The workspace lints deny `unsafe_code`; this reviewed process-identity
+    // env-bootstrap site opts back in locally (deny is allow-overrideable).
+    #[allow(unsafe_code)]
     unsafe {
         std::env::remove_var("SDKWORK_IM_LIVE_ROOM_MESSAGE_RATE_LIMIT");
     }

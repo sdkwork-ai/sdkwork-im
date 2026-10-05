@@ -530,11 +530,15 @@ mod canonical_path_contract_tests {
     #[test]
     fn legacy_websocket_json_compat_defaults_to_reject_when_unset() {
         let previous = std::env::var(REALTIME_ACCEPT_LEGACY_WEBSOCKET_JSON_ENV).ok();
+        #[allow(unsafe_code)]
         unsafe {
             std::env::remove_var(REALTIME_ACCEPT_LEGACY_WEBSOCKET_JSON_ENV);
         }
         assert!(!realtime_accepts_legacy_websocket_json());
         if let Some(value) = previous {
+            // The workspace lints deny `unsafe_code`; this reviewed process-identity
+            // env-bootstrap site opts back in locally (deny is allow-overrideable).
+            #[allow(unsafe_code)]
             unsafe {
                 std::env::set_var(REALTIME_ACCEPT_LEGACY_WEBSOCKET_JSON_ENV, value);
             }

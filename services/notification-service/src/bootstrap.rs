@@ -257,6 +257,7 @@ mod tests {
         let database_url = std::env::var(IM_DATABASE_URL_ENV).ok();
         let task_store_file = std::env::var(NOTIFICATION_TASK_STORE_FILE_ENV).ok();
         let im_env = std::env::var("SDKWORK_IM_ENVIRONMENT").ok();
+        #[allow(unsafe_code)]
         unsafe {
             std::env::remove_var(IM_DATABASE_URL_ENV);
             std::env::remove_var(NOTIFICATION_TASK_STORE_FILE_ENV);
@@ -266,6 +267,7 @@ mod tests {
         assert!(resolve_notification_commit_journal_from_env().is_err());
         assert!(build_runtime_from_env().is_err());
 
+        #[allow(unsafe_code)]
         unsafe {
             if let Some(value) = database_url {
                 std::env::set_var(IM_DATABASE_URL_ENV, value);
@@ -292,6 +294,7 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let task_store_file = std::env::var(NOTIFICATION_TASK_STORE_FILE_ENV).ok();
         let im_env = std::env::var("SDKWORK_IM_ENVIRONMENT").ok();
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var(NOTIFICATION_TASK_STORE_FILE_ENV, "notification-test.json");
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "prod");
@@ -303,6 +306,9 @@ mod tests {
             .expect("production file store must fail closed");
         assert!(error.contains("forbidden in production"));
 
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
         unsafe {
             if let Some(value) = task_store_file {
                 std::env::set_var(NOTIFICATION_TASK_STORE_FILE_ENV, value);

@@ -746,7 +746,7 @@ fn control_plane_openapi_paths() -> JsonValue {
                 "providers",
                 vec![
                     openapi_query_parameter(
-                        "tenantId",
+                        "tenant_id",
                         false,
                         openapi_string_schema(),
                         "Optional tenant scope for effective provider bindings."
@@ -793,13 +793,13 @@ fn control_plane_openapi_paths() -> JsonValue {
                 "providers",
                 vec![
                     openapi_query_parameter(
-                        "fromVersion",
+                        "from_version",
                         true,
                         openapi_integer_schema(),
                         "Base provider policy version."
                     ),
                     openapi_query_parameter(
-                        "toVersion",
+                        "to_version",
                         true,
                         openapi_integer_schema(),
                         "Target provider policy version."

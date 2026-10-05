@@ -115,20 +115,6 @@ export class OpsRuntimeDirApi {
   }
 }
 
-export class OpsCommercialReadinessApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-  }
-
-
-/** Retrieve commercial readiness */
-  async retrieve(requestOptions?: ApiRequestOptions): Promise<Record<string, unknown>> {
-    return this.client.request<Record<string, unknown>>(backendApiPath(`/ops/commercial_readiness`), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'GET' as any, sdkworkUnwrapKind: 'item' });
-  }
-}
-
 export interface OpsLagRetrieveParams {
   pageSize?: number;
   cursor?: string;
@@ -184,7 +170,6 @@ export class OpsApi {
   public readonly health: OpsHealthApi;
   public readonly cluster: OpsClusterApi;
   public readonly lag: OpsLagApi;
-  public readonly commercialReadiness: OpsCommercialReadinessApi;
   public readonly runtimeDir: OpsRuntimeDirApi;
   public readonly providerBindings: OpsProviderBindingsApi;
   public readonly diagnostics: OpsDiagnosticsApi;
@@ -195,7 +180,6 @@ export class OpsApi {
     this.health = new OpsHealthApi(client);
     this.cluster = new OpsClusterApi(client);
     this.lag = new OpsLagApi(client);
-    this.commercialReadiness = new OpsCommercialReadinessApi(client);
     this.runtimeDir = new OpsRuntimeDirApi(client);
     this.providerBindings = new OpsProviderBindingsApi(client);
     this.diagnostics = new OpsDiagnosticsApi(client);

@@ -2071,7 +2071,7 @@ async fn test_message_favorites_support_list_create_and_delete() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/im/v3/api/chat/messages/favorites?page_size=100&favoriteType=chat")
+                .uri("/im/v3/api/chat/messages/favorites?page_size=100&favorite_type=chat")
                 .with_dual_token_context("100001", "1", "user", None, ["*"])
                 .body(Body::empty())
                 .unwrap(),
@@ -2154,6 +2154,9 @@ fn ensure_test_environment() {
         // Dual-token test helpers rely on the relaxed test posture; production
         // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
         // Safety: process env is single-threaded at bootstrap time via OnceLock.
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
             // Local JWT fixtures carry no AppContext signature headers.

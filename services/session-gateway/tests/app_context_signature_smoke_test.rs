@@ -19,6 +19,7 @@ struct ScopedEnvVar {
 impl ScopedEnvVar {
     fn set(name: &'static str, value: &str) -> Self {
         let previous = std::env::var(name).ok();
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var(name, value);
         }
@@ -29,10 +30,12 @@ impl ScopedEnvVar {
 impl Drop for ScopedEnvVar {
     fn drop(&mut self) {
         if let Some(previous) = &self.previous {
+            #[allow(unsafe_code)]
             unsafe {
                 std::env::set_var(self.name, previous);
             }
         } else {
+            #[allow(unsafe_code)]
             unsafe {
                 std::env::remove_var(self.name);
             }
@@ -170,6 +173,11 @@ fn ensure_test_environment() {
         // Dual-token test helpers rely on the relaxed test posture; production
         // processes always configure SDKWORK_IM_ENVIRONMENT explicitly.
         // Safety: process env is single-threaded at bootstrap time via OnceLock.
-        unsafe { std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test") }
+        // The workspace lints deny `unsafe_code`; this reviewed process-identity
+        // env-bootstrap site opts back in locally (deny is allow-overrideable).
+        #[allow(unsafe_code)]
+        unsafe {
+            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test")
+        }
     });
 }

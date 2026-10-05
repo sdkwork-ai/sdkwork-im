@@ -86,7 +86,7 @@ export class ChatMessagesFavoritesApi {
     const query = buildQueryString([
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
-      { name: 'favoriteType', value: params?.favoriteType, style: 'form', explode: true, allowReserved: false },
+      { name: 'favorite_type', value: params?.favoriteType, style: 'form', explode: true, allowReserved: false },
       { name: 'q', value: params?.q, style: 'form', explode: true, allowReserved: false },
     ]);
     return this.client.request<{ items: MessageFavoriteView[]; pageInfo: { mode: 'cursor'; nextCursor?: string | null; hasMore: boolean; }; }>(appendQueryString(imApiPath(`/chat/messages/favorites`), query), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'GET' as any, sdkworkUnwrapKind: 'page' });
@@ -122,7 +122,7 @@ export class ChatMessagesSearchApi {
   async list(params: ChatMessagesSearchListParams, requestOptions?: ApiRequestOptions): Promise<{ items: MessageSearchHit[]; pageInfo: PageInfo; }> {
     const query = buildQueryString([
       { name: 'q', value: params.q, style: 'form', explode: true, allowReserved: false },
-      { name: 'conversationId', value: params.conversationId, style: 'form', explode: true, allowReserved: false },
+      { name: 'conversation_id', value: params.conversationId, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
       { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
     ]);

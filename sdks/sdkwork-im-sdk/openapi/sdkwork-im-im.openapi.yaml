@@ -7853,7 +7853,7 @@ components:
       schema:
         type: string
     AfterSignalSeqQuery:
-      name: afterSignalSeq
+      name: after_signal_seq
       in: query
       required: false
       schema:
@@ -7885,7 +7885,7 @@ components:
           - incoming
           - outgoing
     FavoriteTypeQuery:
-      name: favoriteType
+      name: favorite_type
       in: query
       required: false
       schema:
@@ -7915,7 +7915,7 @@ components:
         type: string
         maxLength: 256
     ConversationIdQuery:
-      name: conversationId
+      name: conversation_id
       in: query
       required: false
       schema:

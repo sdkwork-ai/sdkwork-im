@@ -75,8 +75,8 @@ class ControlApi {
   /// Read provider policy diff between two versions.
   Future<SdkWorkListResponse?> providerPoliciesDiffList(String fromVersion, String toVersion, [int? pageSize, String? cursor, int? page, String? q]) async {
     final query = buildQueryString([
-      QueryParameterSpec('fromVersion', fromVersion, 'form', true, false, null),
-      QueryParameterSpec('toVersion', toVersion, 'form', true, false, null),
+      QueryParameterSpec('from_version', fromVersion, 'form', true, false, null),
+      QueryParameterSpec('to_version', toVersion, 'form', true, false, null),
       QueryParameterSpec('page_size', pageSize, 'form', true, false, null),
       QueryParameterSpec('cursor', cursor, 'form', true, false, null),
       QueryParameterSpec('page', page, 'form', true, false, null),
@@ -121,7 +121,7 @@ class ControlApi {
   /// Read effective provider bindings.
   Future<SdkWorkListResponse?> providerBindingsList([String? tenantId, int? pageSize, String? cursor, int? page, String? q]) async {
     final query = buildQueryString([
-      QueryParameterSpec('tenantId', tenantId, 'form', true, false, null),
+      QueryParameterSpec('tenant_id', tenantId, 'form', true, false, null),
       QueryParameterSpec('page_size', pageSize, 'form', true, false, null),
       QueryParameterSpec('cursor', cursor, 'form', true, false, null),
       QueryParameterSpec('page', page, 'form', true, false, null),
@@ -198,6 +198,22 @@ class ControlApi {
     return (() {
       final map = sdkworkResponseAsMap(response);
       return map == null ? null : SocialExternalMemberLinksRetrieveResponse.fromJson(map);
+    })();
+  }
+
+  /// List friend requests for a user.
+  Future<SocialFriendRequestsListResponse?> socialFriendRequestsList(String userId, String direction, [String? status, int? pageSize, String? cursor]) async {
+    final query = buildQueryString([
+      QueryParameterSpec('user_id', userId, 'form', true, false, null),
+      QueryParameterSpec('direction', direction, 'form', true, false, null),
+      QueryParameterSpec('status', status, 'form', true, false, null),
+      QueryParameterSpec('page_size', pageSize, 'form', true, false, null),
+      QueryParameterSpec('cursor', cursor, 'form', true, false, null)
+    ]);
+    final response = await _client.get(ApiPaths.appendQueryString(ApiPaths.backendPath('/control/social/friend_requests'), query));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : SocialFriendRequestsListResponse.fromJson(map);
     })();
   }
 

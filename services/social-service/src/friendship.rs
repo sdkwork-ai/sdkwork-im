@@ -440,13 +440,11 @@ pub(crate) enum FriendRequestInventoryStatusQuery {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct FriendRequestInventoryQuery {
     pub(crate) user_id: String,
     pub(crate) direction: FriendRequestInventoryDirectionQuery,
     #[serde(default)]
     pub(crate) status: FriendRequestInventoryStatusQuery,
-    #[serde(rename = "page_size")]
     pub(crate) page_size: Option<i32>,
     pub(crate) cursor: Option<String>,
 }
@@ -3909,6 +3907,7 @@ mod friendship_lifecycle_tests {
         let _env_guard = crate::friend_request_rate_limit::social_service_test_env_lock();
         crate::friend_request_rate_limit::reset_friend_request_rate_limiter_for_tests();
         let previous_im_env = std::env::var("SDKWORK_IM_ENVIRONMENT").ok();
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
         }
@@ -3916,6 +3915,7 @@ mod friendship_lifecycle_tests {
         struct RestoreImEnv(Option<String>);
         impl Drop for RestoreImEnv {
             fn drop(&mut self) {
+                #[allow(unsafe_code)]
                 unsafe {
                     match self.0.as_ref() {
                         Some(value) => std::env::set_var("SDKWORK_IM_ENVIRONMENT", value),
@@ -4014,6 +4014,7 @@ mod friendship_lifecycle_tests {
         let _env_guard = crate::friend_request_rate_limit::social_service_test_env_lock();
         crate::friend_request_rate_limit::reset_friend_request_rate_limiter_for_tests();
         let previous_im_env = std::env::var("SDKWORK_IM_ENVIRONMENT").ok();
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
         }
@@ -4021,6 +4022,9 @@ mod friendship_lifecycle_tests {
         struct RestoreImEnv(Option<String>);
         impl Drop for RestoreImEnv {
             fn drop(&mut self) {
+                // The workspace lints deny `unsafe_code`; this reviewed process-identity
+                // env-bootstrap site opts back in locally (deny is allow-overrideable).
+                #[allow(unsafe_code)]
                 unsafe {
                     match self.0.as_ref() {
                         Some(value) => std::env::set_var("SDKWORK_IM_ENVIRONMENT", value),

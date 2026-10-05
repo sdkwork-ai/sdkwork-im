@@ -405,7 +405,7 @@ class ChatApi {
   Future<MessageSearchResponse?> messagesSearchList(String q, [String? conversationId, int? pageSize, String? cursor]) async {
     final query = buildQueryString([
       QueryParameterSpec('q', q, 'form', true, false, null),
-      QueryParameterSpec('conversationId', conversationId, 'form', true, false, null),
+      QueryParameterSpec('conversation_id', conversationId, 'form', true, false, null),
       QueryParameterSpec('page_size', pageSize, 'form', true, false, null),
       QueryParameterSpec('cursor', cursor, 'form', true, false, null)
     ]);
@@ -441,7 +441,7 @@ class ChatApi {
     final query = buildQueryString([
       QueryParameterSpec('page_size', pageSize, 'form', true, false, null),
       QueryParameterSpec('cursor', cursor, 'form', true, false, null),
-      QueryParameterSpec('favoriteType', favoriteType, 'form', true, false, null),
+      QueryParameterSpec('favorite_type', favoriteType, 'form', true, false, null),
       QueryParameterSpec('q', q, 'form', true, false, null)
     ]);
     final response = await _client.get(ApiPaths.appendQueryString(ApiPaths.imPath('/chat/messages/favorites'), query));

@@ -17,6 +17,9 @@ pub fn dev_test_environment() -> DevTestEnvironment {
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     // SAFETY: integration tests run serially under the mutex guard.
+    // The workspace denies `unsafe_code`; this reviewed process-identity
+    // bootstrap site opts back in locally.
+    #[allow(unsafe_code)]
     unsafe {
         std::env::set_var("SDKWORK_IM_ENVIRONMENT", "dev");
     }
