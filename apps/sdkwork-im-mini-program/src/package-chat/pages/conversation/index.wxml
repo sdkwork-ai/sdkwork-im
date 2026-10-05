@@ -58,6 +58,10 @@
     </view>
   </scroll-view>
 
+  <view wx:if="{{peerTyping}}" class="conversation-page__typing" data-testid="peer-typing">
+    {{texts.peerTyping}}
+  </view>
+
   <view class="conversation-page__composer">
     <button
       class="conversation-page__image"

@@ -39,6 +39,7 @@ import {
   createImMpChatConversationService,
   createImMpChatMediaService,
   createImMpChatRealtimeService,
+  createImMpChatTypingService,
   createImMpChatGroupService,
   createImMpContactsService,
   formatImMpChatMessage,
@@ -49,6 +50,7 @@ import {
   type ImMpChatInboxStore,
   type ImMpChatMediaService,
   type ImMpChatRealtimeService,
+  type ImMpChatTypingService,
   type ImMpChatGroupService,
   type ImMpContactsService,
 } from "@sdkwork/im-mp-chat";
@@ -111,6 +113,8 @@ export interface ImMpRuntime {
   inboxStore(): ImMpChatInboxStore;
   /** Shared live connection; pages lease conversations and refresh events. */
   realtime(): ImMpChatRealtimeService;
+  /** Throttled typing signal service for the open conversation thread. */
+  typing(): ImMpChatTypingService;
   /** Contacts capability service (list, search, friend requests, direct chat). */
   contactsService(): ImMpContactsService;
   /** Chat media service (Drive upload + download grants). */
@@ -175,6 +179,7 @@ export async function bootstrapImMpRuntime(
   );
   const conversationService = createImMpChatConversationService(() => clients.imSdkClient);
   const realtimeService = createImMpChatRealtimeService(() => clients.imSdkClient);
+  const typingService = createImMpChatTypingService(() => clients.imSdkClient);
   const contactsService = createImMpContactsService(() => clients.imSdkClient);
   const groupService = createImMpChatGroupService(() => clients.imSdkClient);
   const mediaService = createImMpChatMediaService(() => ({
@@ -205,6 +210,7 @@ export async function bootstrapImMpRuntime(
     format: formatImMpChatMessage,
     inboxStore: () => inbox,
     realtime: () => realtimeService,
+    typing: () => typingService,
     contactsService: () => contactsService,
     mediaService: () => mediaService,
     groupService: () => groupService,

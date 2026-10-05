@@ -71,6 +71,8 @@ __export(runtimeBundle_exports, {
   createImMpChatConversationStore: () => createImMpChatConversationStore,
   createImMpChatInboxService: () => createImMpChatInboxService,
   createImMpChatInboxStore: () => createImMpChatInboxStore,
+  createImMpChatRealtimeService: () => createImMpChatRealtimeService,
+  createImMpChatTypingService: () => createImMpChatTypingService,
   createImMpContactsService: () => createImMpContactsService,
   evaluateImMpAuthGate: () => evaluateImMpAuthGate,
   formatImMpBadgeCount: () => formatImMpBadgeCount,
@@ -767,6 +769,7 @@ function prependImMpChatMessages(existing, older) {
 }
 
 // packages/sdkwork-im-mp-chat/src/services/chatRealtimeService.ts
+var IM_MP_TYPING_EVENT_TYPE = "conversation.typing";
 var INITIAL_BACKOFF_MS = 1e3;
 var MAX_BACKOFF_MS = 3e4;
 var AUTH_FAILURE_PATTERN = /(?:^|_)(?:auth|session|token).*(?:failed|expired|invalid|required)|websocket_auth/iu;
@@ -780,6 +783,8 @@ function createImMpChatRealtimeService(resolveClient) {
   const connectionUnsubs = [];
   const conversationLeases = /* @__PURE__ */ new Map();
   const conversationUnsubs = /* @__PURE__ */ new Map();
+  const typingLeases = /* @__PURE__ */ new Map();
+  const typingScopeUnsubs = /* @__PURE__ */ new Map();
   const refreshHandlers = /* @__PURE__ */ new Set();
   const notifyRefresh = () => {
     for (const handler of refreshHandlers) {
@@ -822,6 +827,47 @@ function createImMpChatRealtimeService(resolveClient) {
     );
     conversationUnsubs.set(conversationId, unsubscribe);
   };
+  const attachTypingScope = (conversationId) => {
+    if (!connection || typingScopeUnsubs.has(conversationId)) {
+      return;
+    }
+    const unsubscribe = connection.events.onScope(
+      "conversation",
+      conversationId,
+      (event, context) => {
+        var _a, _b;
+        if (((_a = context.eventType) != null ? _a : "").trim() !== IM_MP_TYPING_EVENT_TYPE) {
+          return;
+        }
+        const eventPayload = event != null ? event : {};
+        const contextPayload = (_b = context.payload) != null ? _b : {};
+        const peerUserId = typeof eventPayload.userId === "string" && eventPayload.userId.trim() ? eventPayload.userId.trim() : typeof contextPayload.userId === "string" && contextPayload.userId.trim() ? contextPayload.userId.trim() : "";
+        const handlers = typingLeases.get(conversationId);
+        if (!handlers) {
+          return;
+        }
+        for (const handler of handlers) {
+          try {
+            handler(peerUserId);
+          } catch {
+          }
+        }
+      }
+    );
+    typingScopeUnsubs.set(conversationId, unsubscribe);
+  };
+  const syncTypingScopes = () => {
+    if (!connection) {
+      return;
+    }
+    connection.subscriptions.syncScopes(
+      [...typingLeases.keys()].map((conversationId) => ({
+        scopeType: "conversation",
+        scopeId: conversationId,
+        eventTypes: [IM_MP_TYPING_EVENT_TYPE]
+      }))
+    );
+  };
   const detachConnection = () => {
     for (const unsubscribe of connectionUnsubs.splice(0)) {
       try {
@@ -836,6 +882,13 @@ function createImMpChatRealtimeService(resolveClient) {
       }
     }
     conversationUnsubs.clear();
+    for (const unsubscribe of typingScopeUnsubs.values()) {
+      try {
+        unsubscribe();
+      } catch {
+      }
+    }
+    typingScopeUnsubs.clear();
     if (connection) {
       connection.disconnect();
       connection = null;
@@ -893,6 +946,10 @@ function createImMpChatRealtimeService(resolveClient) {
         for (const conversationId of conversationLeases.keys()) {
           attachConversation(conversationId);
         }
+        for (const conversationId of typingLeases.keys()) {
+          attachTypingScope(conversationId);
+        }
+        syncTypingScopes();
       } catch {
         scheduleReconnect();
       } finally {
@@ -933,6 +990,38 @@ function createImMpChatRealtimeService(resolveClient) {
         connection == null ? void 0 : connection.subscriptions.syncConversations([...conversationLeases.keys()]);
       };
     },
+    subscribeConversationTyping(conversationId, handler) {
+      const normalized = conversationId.trim();
+      let leases = typingLeases.get(normalized);
+      if (!leases) {
+        leases = /* @__PURE__ */ new Set();
+        typingLeases.set(normalized, leases);
+      }
+      leases.add(handler);
+      if (connection) {
+        attachTypingScope(normalized);
+        syncTypingScopes();
+      } else {
+        void ensureConnection();
+      }
+      return () => {
+        const current = typingLeases.get(normalized);
+        if (!current) {
+          return;
+        }
+        current.delete(handler);
+        if (current.size > 0) {
+          return;
+        }
+        typingLeases.delete(normalized);
+        const unsubscribe = typingScopeUnsubs.get(normalized);
+        if (unsubscribe) {
+          unsubscribe();
+          typingScopeUnsubs.delete(normalized);
+        }
+        syncTypingScopes();
+      };
+    },
     subscribeRefresh(handler) {
       refreshHandlers.add(handler);
       if (!connection) {
@@ -965,7 +1054,30 @@ function createImMpChatRealtimeService(resolveClient) {
       }
       detachConnection();
       conversationLeases.clear();
+      typingLeases.clear();
+      typingScopeUnsubs.clear();
       refreshHandlers.clear();
+    }
+  };
+}
+
+// packages/sdkwork-im-mp-chat/src/services/chatTypingService.ts
+var IM_MP_TYPING_SIGNAL_THROTTLE_MS = 3e3;
+function createImMpChatTypingService(resolveClient) {
+  const signalSentAt = /* @__PURE__ */ new Map();
+  return {
+    signalTyping(conversationId) {
+      var _a;
+      const normalized = conversationId.trim();
+      if (!normalized) {
+        return;
+      }
+      const now = Date.now();
+      if (now - ((_a = signalSentAt.get(normalized)) != null ? _a : 0) < IM_MP_TYPING_SIGNAL_THROTTLE_MS) {
+        return;
+      }
+      signalSentAt.set(normalized, now);
+      void resolveClient().conversations.signalTyping(normalized).catch(() => void 0);
     }
   };
 }
@@ -1903,7 +2015,8 @@ var imMpChatConversationMessages = {
   "chat.conversation.send": "\u53D1\u9001",
   "chat.conversation.sending": "\u53D1\u9001\u4E2D\u2026",
   "chat.conversation.send_failed": "\u53D1\u9001\u5931\u8D25",
-  "chat.conversation.empty_input": "\u8BF7\u8F93\u5165\u6D88\u606F\u5185\u5BB9"
+  "chat.conversation.empty_input": "\u8BF7\u8F93\u5165\u6D88\u606F\u5185\u5BB9",
+  "chat.conversation.peer_typing": "\u5BF9\u65B9\u6B63\u5728\u8F93\u5165\u2026"
 };
 
 // packages/sdkwork-im-mp-chat/src/i18n/zh-CN/communication/chat/create-group.ts
@@ -1999,7 +2112,8 @@ var imMpChatConversationMessages2 = {
   "chat.conversation.send": "Send",
   "chat.conversation.sending": "Sending\u2026",
   "chat.conversation.send_failed": "Failed to send",
-  "chat.conversation.empty_input": "Enter a message first"
+  "chat.conversation.empty_input": "Enter a message first",
+  "chat.conversation.peer_typing": "Peer is typing\u2026"
 };
 
 // packages/sdkwork-im-mp-chat/src/i18n/en-US/communication/chat/create-group.ts
@@ -7571,6 +7685,20 @@ var ChatConversationsMemberDirectoryApi = class {
     return this.client.request(appendQueryString4(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/member_directory`), query), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
   }
 };
+var ChatConversationsTypingApi = class {
+  constructor(client) {
+    __publicField(this, "client");
+    this.client = client;
+  }
+  /** List live typing indicators */
+  async list(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/typing`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "GET", sdkworkUnwrapKind: "page" });
+  }
+  /** Signal typing in a conversation */
+  async signal(conversationId, requestOptions) {
+    return this.client.request(imApiPath(`/chat/conversations/${serializePathParameter3(conversationId, { name: "conversationId", style: "simple", explode: false })}/typing`), { ...(requestOptions == null ? void 0 : requestOptions.signal) !== void 0 ? { signal: requestOptions.signal } : {}, ...(requestOptions == null ? void 0 : requestOptions.timeout) !== void 0 ? { timeout: requestOptions.timeout } : {}, method: "POST", sdkworkUnwrapKind: "item" });
+  }
+};
 var ChatConversationsReadCursorApi = class {
   constructor(client) {
     __publicField(this, "client");
@@ -7788,6 +7916,7 @@ var ChatConversationsApi = class {
     __publicField(this, "preferences");
     __publicField(this, "profile");
     __publicField(this, "readCursor");
+    __publicField(this, "typing");
     __publicField(this, "memberDirectory");
     __publicField(this, "messages");
     __publicField(this, "pins");
@@ -7804,6 +7933,7 @@ var ChatConversationsApi = class {
     this.preferences = new ChatConversationsPreferencesApi(client);
     this.profile = new ChatConversationsProfileApi(client);
     this.readCursor = new ChatConversationsReadCursorApi(client);
+    this.typing = new ChatConversationsTypingApi(client);
     this.memberDirectory = new ChatConversationsMemberDirectoryApi(client);
     this.messages = new ChatConversationsMessagesApi(client);
     this.pins = new ChatConversationsPinsApi(client);
@@ -9037,6 +9167,19 @@ var ImConversationsModule = class {
   }
   acceptInvitation(conversationId) {
     return this.transportClient.chat.conversations.members.acceptInvitation(requireStringIdentifier(conversationId, "conversationId"));
+  }
+  /** Lists principals currently typing in the conversation (TTL-bounded). */
+  listTypingIndicators(conversationId) {
+    return this.transportClient.chat.conversations.typing.list(requireStringIdentifier(conversationId, "conversationId"));
+  }
+  /**
+   * Signals typing on behalf of the authenticated principal.
+   *
+   * Ephemeral: the marker expires server-side and peers receive a
+   * `conversation.typing` realtime push; no durable state is written.
+   */
+  signalTyping(conversationId) {
+    return this.transportClient.chat.conversations.typing.signal(requireStringIdentifier(conversationId, "conversationId"));
   }
 };
 
@@ -16952,6 +17095,7 @@ async function bootstrapImMpRuntime(options) {
   );
   const conversationService = createImMpChatConversationService(() => clients.imSdkClient);
   const realtimeService = createImMpChatRealtimeService(() => clients.imSdkClient);
+  const typingService = createImMpChatTypingService(() => clients.imSdkClient);
   const contactsService = createImMpContactsService(() => clients.imSdkClient);
   const groupService = createImMpChatGroupService(() => clients.imSdkClient);
   const mediaService = createImMpChatMediaService(() => ({
@@ -16981,6 +17125,7 @@ async function bootstrapImMpRuntime(options) {
     format: formatImMpChatMessage,
     inboxStore: () => inbox,
     realtime: () => realtimeService,
+    typing: () => typingService,
     contactsService: () => contactsService,
     mediaService: () => mediaService,
     groupService: () => groupService,

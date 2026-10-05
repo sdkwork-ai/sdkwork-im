@@ -23,6 +23,7 @@ export const imMpChatConversationMessages: Record<string, string> = {
   "chat.conversation.sending": "Sending…",
   "chat.conversation.send_failed": "Failed to send",
   "chat.conversation.empty_input": "Enter a message first",
+  "chat.conversation.peer_typing": "Peer is typing…",
 } as const;
 
 export type ImMpChatConversationMessageKey = keyof typeof imMpChatConversationMessages;

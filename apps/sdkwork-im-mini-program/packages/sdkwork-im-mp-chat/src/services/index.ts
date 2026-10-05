@@ -21,7 +21,13 @@ export {
   type ImMpChatRealtimeMessageHandler,
   type ImMpChatRealtimeService,
   type ImMpChatRealtimeSubscription,
+  type ImMpChatTypingHandler,
 } from "./chatRealtimeService";
+
+export {
+  createImMpChatTypingService,
+  type ImMpChatTypingService,
+} from "./chatTypingService";
 
 export {
   createImMpContactsService,

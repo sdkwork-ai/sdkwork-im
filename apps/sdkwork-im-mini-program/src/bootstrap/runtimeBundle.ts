@@ -122,6 +122,8 @@ export {
   assertImMpCursorPage,
   createImMpChatConversationService,
   createImMpChatConversationStore,
+  createImMpChatRealtimeService,
+  createImMpChatTypingService,
   createImMpContactsService,
   createImMpChatInboxService,
   createImMpChatInboxStore,
@@ -151,5 +153,7 @@ export {
   type ImMpChatMessageItem,
   type ImMpChatMessagePage,
   type ImMpChatPage,
+  type ImMpChatRealtimeService,
   type ImMpChatSendTextResult,
+  type ImMpChatTypingService,
 } from "@sdkwork/im-mp-chat";

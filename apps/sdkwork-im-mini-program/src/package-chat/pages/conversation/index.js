@@ -32,11 +32,14 @@ Page({
     imageUrls: {},
     uploadingImage: false,
     isGroup: false,
+    peerTyping: false,
     texts: {},
   },
 
   unsubscribeStore: null,
   unsubscribeRealtime: null,
+  unsubscribeTyping: null,
+  typingClearTimer: null,
   store: null,
 
   onLoad(options) {
@@ -67,6 +70,13 @@ Page({
             void this.store.markRead();
           });
       });
+    // Peer typing pushes ride the same connection; the marker auto-clears
+    // after 5s of quiet (matching the server-side typing TTL).
+    this.unsubscribeTyping = runtime
+      .realtime()
+      .subscribeConversationTyping(conversationId, () => {
+        this.markPeerTyping();
+      });
     void this.store
       .load({
         conversationId,
@@ -85,6 +95,14 @@ Page({
     if (typeof this.unsubscribeRealtime === "function") {
       this.unsubscribeRealtime();
       this.unsubscribeRealtime = null;
+    }
+    if (typeof this.unsubscribeTyping === "function") {
+      this.unsubscribeTyping();
+      this.unsubscribeTyping = null;
+    }
+    if (this.typingClearTimer) {
+      clearTimeout(this.typingClearTimer);
+      this.typingClearTimer = null;
     }
   },
 
@@ -111,6 +129,24 @@ Page({
 
   onInput(event) {
     this.setData({ inputValue: event.detail.value });
+    // Throttled typing signal while the user drafts; empty input signals
+    // nothing (matching the PC and H5 composers).
+    if (event.detail.value.trim()) {
+      getImMpRuntime()
+        .typing()
+        .signalTyping(this.store ? this.store.getState().conversationId : "");
+    }
+  },
+
+  markPeerTyping() {
+    if (this.typingClearTimer) {
+      clearTimeout(this.typingClearTimer);
+    }
+    this.setData({ peerTyping: true });
+    this.typingClearTimer = setTimeout(() => {
+      this.typingClearTimer = null;
+      this.setData({ peerTyping: false });
+    }, 5000);
   },
 
   async onSend() {
@@ -284,6 +320,7 @@ Page({
       editPlaceholder: t("chat.conversation.edit_placeholder"),
       actionFailed: t("chat.conversation.action_failed"),
       groupProfile: t("chat.group_profile.title"),
+      peerTyping: t("chat.conversation.peer_typing"),
     };
   },
 

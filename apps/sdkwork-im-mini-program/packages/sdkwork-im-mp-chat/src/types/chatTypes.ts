@@ -141,6 +141,11 @@ export interface ImMpChatConversationPort {
     removeMember(conversationId: string, body: { memberId: string }): Promise<unknown>;
     /** Leaves the conversation as the current principal. */
     leave(conversationId: string): Promise<unknown>;
+    /**
+     * Signals typing on behalf of the authenticated principal. Ephemeral: the
+     * marker expires server-side; peers receive a `conversation.typing` push.
+     */
+    signalTyping(conversationId: string): Promise<unknown>;
     create(body: CreateConversationRequest): Promise<CreateConversationResult>;
   };
   messages: {
