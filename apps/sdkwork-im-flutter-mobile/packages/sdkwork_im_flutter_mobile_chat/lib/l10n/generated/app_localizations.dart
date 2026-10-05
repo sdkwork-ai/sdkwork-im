@@ -200,6 +200,12 @@ abstract class AppLocalizations {
   /// **'Type a message'**
   String get composerHint;
 
+  /// Hint shown above the composer while a peer is typing in the conversation.
+  ///
+  /// In en, this message translates to:
+  /// **'Peer is typing…'**
+  String get peerTyping;
+
   /// Label of the button that sends the composed message.
   ///
   /// In en, this message translates to:

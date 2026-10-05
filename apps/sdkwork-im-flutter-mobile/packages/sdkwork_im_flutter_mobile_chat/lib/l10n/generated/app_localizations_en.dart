@@ -73,6 +73,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get composerHint => 'Type a message';
 
   @override
+  String get peerTyping => 'Peer is typing…';
+
+  @override
   String get send => 'Send';
 
   @override

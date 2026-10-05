@@ -93,6 +93,10 @@
   "@composerHint": {
     "description": "Hint text of the message composer input field."
   },
+  "peerTyping": "Peer is typing…",
+  "@peerTyping": {
+    "description": "Hint shown above the composer while a peer is typing in the conversation."
+  },
   "send": "Send",
   "@send": {
     "description": "Label of the button that sends the composed message."

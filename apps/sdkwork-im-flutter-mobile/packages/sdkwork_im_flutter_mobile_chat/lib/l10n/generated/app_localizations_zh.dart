@@ -70,6 +70,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get composerHint => '输入消息';
 
   @override
+  String get peerTyping => '对方正在输入…';
+
+  @override
   String get send => '发送';
 
   @override

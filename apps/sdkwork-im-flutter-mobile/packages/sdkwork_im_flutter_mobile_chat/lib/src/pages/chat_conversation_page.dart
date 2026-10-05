@@ -82,6 +82,8 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
   bool _uploading = false;
   bool _sending = false;
   bool _liveConnected = false;
+  bool _peerTyping = false;
+  Timer? _peerTypingTimer;
   _ErrorMessageBuilder? _error;
   int _latestSeq = 0;
   bool _loadingOlderGuard = false;
@@ -99,6 +101,10 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
   void dispose() {
     _scrollController.removeListener(_handleScroll);
     unawaited(widget.realtimeService.stopConversation());
+    // The typing lease must not outlive the page, or the hub keeps the
+    // conversation scope subscribed after the thread is closed.
+    unawaited(widget.realtimeService.stopConversationTyping());
+    _peerTypingTimer?.cancel();
     _scrollController.dispose();
     _composerController.dispose();
     super.dispose();
@@ -263,6 +269,12 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
         conversationId: widget.conversationId,
         onRefresh: _appendNewMessageEntries,
       );
+      // Peer typing pushes ride the same connection; the marker auto-clears
+      // after 5s of quiet (matching the server-side typing TTL).
+      await widget.realtimeService.startConversationTyping(
+        conversationId: widget.conversationId,
+        onTyping: _handlePeerTyping,
+      );
       if (mounted) {
         setState(() => _liveConnected = widget.realtimeService.isLiveConnected);
       }
@@ -270,6 +282,27 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
       if (mounted) {
         setState(() => _liveConnected = false);
       }
+    }
+  }
+
+  void _handlePeerTyping(String peerUserId) {
+    if (!mounted) {
+      return;
+    }
+    setState(() => _peerTyping = true);
+    _peerTypingTimer?.cancel();
+    _peerTypingTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) {
+        setState(() => _peerTyping = false);
+      }
+    });
+  }
+
+  /// Throttled typing signal while the user drafts; empty input signals
+  /// nothing (matching the PC and H5 composers).
+  void _handleComposerChanged(String text) {
+    if (text.trim().isNotEmpty) {
+      widget.conversationService.signalTyping(widget.conversationId);
     }
   }
 
@@ -665,34 +698,50 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
             top: false,
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    onPressed: _uploading ? null : _handleImageUpload,
-                    icon: _uploading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.image_outlined),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _composerController,
-                      minLines: 1,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        hintText: l10n.composerHint,
-                        border: const OutlineInputBorder(),
+                  if (_peerTyping)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 4),
+                      child: Text(
+                        l10n.peerTyping,
+                        key: const ValueKey('peer-typing'),
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      onSubmitted: (_) => _handleSend(),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _sending ? null : _handleSend,
-                    child: Text(_sending ? l10n.sending : l10n.send),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: _uploading ? null : _handleImageUpload,
+                        icon: _uploading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.image_outlined),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _composerController,
+                          minLines: 1,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            hintText: l10n.composerHint,
+                            border: const OutlineInputBorder(),
+                          ),
+                          onChanged: _handleComposerChanged,
+                          onSubmitted: (_) => _handleSend(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: _sending ? null : _handleSend,
+                        child: Text(_sending ? l10n.sending : l10n.send),
+                      ),
+                    ],
                   ),
                 ],
               ),

@@ -5,6 +5,36 @@ import 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.da
 typedef RealtimeRefreshHandler = Future<void> Function();
 typedef RealtimeMessageHandler = Future<void> Function();
 
+/// Notified with the typing peer's user id (`conversation.typing` payload).
+typedef RealtimeTypingHandler = void Function(String peerUserId);
+
+/// The wire event type tag for typing pushes (`im-domain-core` typing.rs).
+const String _typingEventType = 'conversation.typing';
+
+/// Extracts the typing peer user id from a conversation-scope event.
+///
+/// Returns null for anything but a `conversation.typing` event without a
+/// usable user id (camelCase payload first, snake_case as the fallback).
+String? extractTypingPeerUserId(Map<String, dynamic> event) {
+  final eventType = _pickFirstString([event['eventType'], event['type']]);
+  if (eventType != null && eventType != _typingEventType) {
+    return null;
+  }
+  final payload = event['payload'];
+  final payloadMap =
+      payload is Map ? Map<String, dynamic>.from(payload) : event;
+  return _pickFirstString([payloadMap['userId'], payloadMap['user_id']]);
+}
+
+String? _pickFirstString(List<Object?> values) {
+  for (final value in values) {
+    if (value is String && value.trim().isNotEmpty) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
 final _liveHubs = <int, _ChatLiveHub>{};
 
 class _ChatLiveHub {
@@ -24,15 +54,18 @@ class _ChatLiveHub {
   final Map<String, Set<RealtimeRefreshHandler>> _inboxHandlers = {};
   final Map<String, Set<RealtimeRefreshHandler>> _conversationHandlers = {};
   final Map<String, Set<RealtimeMessageHandler>> _conversationMessageHandlers = {};
+  final Map<String, Set<RealtimeTypingHandler>> _typingHandlers = {};
   final Map<String, ImSubscription> _inboxUnsubs = {};
   final Map<String, ImSubscription> _conversationUnsubs = {};
+  final Map<String, ImSubscription> _typingUnsubs = {};
 
   bool get isLiveConnected => _liveConnected;
 
   bool get _hasSubscriptionDemand =>
       _inboxHandlers.isNotEmpty ||
       _conversationHandlers.isNotEmpty ||
-      _conversationMessageHandlers.isNotEmpty;
+      _conversationMessageHandlers.isNotEmpty ||
+      _typingHandlers.isNotEmpty;
 
   String _scopeKey(String scopeType, String scopeId) => '$scopeType:$scopeId';
 
@@ -71,7 +104,7 @@ class _ChatLiveHub {
   }
 
   List<ImRealtimeScopeSubscription> _buildScopeSubscriptions() {
-    return _inboxHandlers.keys.map((scopeKey) {
+    final scopes = _inboxHandlers.keys.map((scopeKey) {
       final parts = scopeKey.split(':');
       final scopeType = parts.first;
       final scopeId = parts.sublist(1).join(':');
@@ -81,6 +114,16 @@ class _ChatLiveHub {
         eventTypes: inboxRealtimeEventTypes,
       );
     }).toList();
+    // Typing scopes declare their own event-type filter so the wire only
+    // pushes `conversation.typing` into this connection for them.
+    for (final conversationId in _typingHandlers.keys) {
+      scopes.add(ImRealtimeScopeSubscription(
+        scopeType: 'conversation',
+        scopeId: conversationId,
+        eventTypes: const [_typingEventType],
+      ));
+    }
+    return scopes;
   }
 
   void _clearWireSubscriptions() {
@@ -90,8 +133,12 @@ class _ChatLiveHub {
     for (final unsubscribe in _conversationUnsubs.values) {
       unsubscribe();
     }
+    for (final unsubscribe in _typingUnsubs.values) {
+      unsubscribe();
+    }
     _inboxUnsubs.clear();
     _conversationUnsubs.clear();
+    _typingUnsubs.clear();
   }
 
   void _bindWireSubscriptions(ImLiveConnection connection) {
@@ -140,6 +187,27 @@ class _ChatLiveHub {
         },
       );
       _inboxUnsubs[scopeKey] = unsubscribe;
+    }
+
+    for (final conversationId in _typingHandlers.keys) {
+      if (_typingUnsubs.containsKey(conversationId)) {
+        continue;
+      }
+      final handlers = _typingHandlers[conversationId];
+      final unsubscribe = connection.events.onScope(
+        'conversation',
+        conversationId,
+        (event) {
+          final peerUserId = extractTypingPeerUserId(event);
+          if (peerUserId == null) {
+            return;
+          }
+          for (final activeHandler in handlers ?? {}) {
+            activeHandler(peerUserId);
+          }
+        },
+      );
+      _typingUnsubs[conversationId] = unsubscribe;
     }
   }
 
@@ -277,6 +345,41 @@ class _ChatLiveHub {
     _teardownIfIdle();
   }
 
+  Future<void> subscribeConversationTyping({
+    required String conversationId,
+    required RealtimeTypingHandler handler,
+  }) async {
+    final connection = await _ensureConnection();
+    var handlers = _typingHandlers[conversationId];
+    if (handlers == null) {
+      handlers = {};
+      _typingHandlers[conversationId] = handlers;
+    }
+    handlers.add(handler);
+    _syncSubscriptions(connection);
+  }
+
+  void unsubscribeConversationTyping({
+    required String conversationId,
+    required RealtimeTypingHandler handler,
+  }) {
+    final handlers = _typingHandlers[conversationId];
+    if (handlers == null) {
+      return;
+    }
+    handlers.remove(handler);
+    if (handlers.isNotEmpty) {
+      return;
+    }
+
+    _typingUnsubs.remove(conversationId)?.call();
+    _typingHandlers.remove(conversationId);
+    if (_connection != null) {
+      _syncSubscriptions(_connection!);
+    }
+    _teardownIfIdle();
+  }
+
   Future<void> dispose() async {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
@@ -284,6 +387,7 @@ class _ChatLiveHub {
     _inboxHandlers.clear();
     _conversationHandlers.clear();
     _conversationMessageHandlers.clear();
+    _typingHandlers.clear();
     _stateSubscription?.call();
     _stateSubscription = null;
     _connectionGeneration += 1;
@@ -309,8 +413,10 @@ class ChatRealtimeService {
 
   RealtimeRefreshHandler? _inboxHandler;
   RealtimeRefreshHandler? _conversationHandler;
+  RealtimeTypingHandler? _typingHandler;
   String? _inboxUserId;
   String? _conversationId;
+  String? _typingConversationId;
 
   bool get isLiveConnected => _hub.isLiveConnected;
 
@@ -324,6 +430,33 @@ class ChatRealtimeService {
     await _hub.subscribeConversation(
       conversationId: conversationId,
       handler: onRefresh,
+    );
+  }
+
+  Future<void> startConversationTyping({
+    required String conversationId,
+    required RealtimeTypingHandler onTyping,
+  }) async {
+    await stopConversationTyping();
+    _typingConversationId = conversationId;
+    _typingHandler = onTyping;
+    await _hub.subscribeConversationTyping(
+      conversationId: conversationId,
+      handler: onTyping,
+    );
+  }
+
+  Future<void> stopConversationTyping() async {
+    final conversationId = _typingConversationId;
+    final handler = _typingHandler;
+    _typingConversationId = null;
+    _typingHandler = null;
+    if (conversationId == null || handler == null) {
+      return;
+    }
+    _hub.unsubscribeConversationTyping(
+      conversationId: conversationId,
+      handler: handler,
     );
   }
 
@@ -365,6 +498,7 @@ class ChatRealtimeService {
   Future<void> stop() async {
     await stopInbox();
     await stopConversation();
+    stopConversationTyping();
   }
 }
 

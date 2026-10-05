@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:sdkwork_im_flutter_mobile_core/sdkwork_im_flutter_mobile_core.dart';
 
 import 'chat_message_history_utils.dart';
@@ -22,6 +24,33 @@ class ChatConversationService {
   ChatConversationService(this._client);
 
   final SdkworkImClient _client;
+
+  static const _typingSignalThrottle = Duration(seconds: 3);
+  final Map<String, DateTime> _typingSignalSentAt = {};
+
+  /// Throttled per-conversation typing signal (fire-and-forget, mirroring the
+  /// PC and H5 composers): a failed signal is one lost data-point, never a
+  /// chat error.
+  void signalTyping(String conversationId) {
+    final normalized = conversationId.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    final now = DateTime.now();
+    final last = _typingSignalSentAt[normalized];
+    if (last != null && now.difference(last) < _typingSignalThrottle) {
+      return;
+    }
+    _typingSignalSentAt[normalized] = now;
+    // The response carries nothing the UI needs; only the throttle bookkeeping
+    // stays synchronous so a hung request cannot block the composer.
+    unawaited(
+      _client.chat.conversationsTypingSignal(normalized).then(
+            (_) {},
+            onError: (_) {},
+          ),
+    );
+  }
 
   Future<ChatMessageHistoryResult> fetchMessageHistory(
     String conversationId, {
