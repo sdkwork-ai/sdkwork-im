@@ -3039,6 +3039,7 @@ dependencies = [
 name = "im-adapters-redis-cache"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
  "im-domain-core",
  "im-platform-contracts",

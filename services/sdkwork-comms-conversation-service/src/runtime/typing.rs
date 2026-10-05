@@ -22,15 +22,12 @@ pub struct SignalTypingResult {
     pub delivered: usize,
 }
 
-impl<J> ConversationRuntime<J> {
+impl<J> ConversationRuntime<J>
+where
+    J: sdkwork_im_contract_message::CommitJournal,
+{
     pub fn typing_cache(&self) -> Option<&Arc<dyn TypingCache>> {
         self.typing_cache.as_ref()
-    }
-
-    pub fn resolve_realtime_publisher(&self) -> Option<Arc<dyn RealtimeEventPublisher>> {
-        self.realtime_publisher
-            .clone()
-            .or_else(crate::embedded_wiring::resolve_embedded_realtime_publisher)
     }
 
     pub async fn signal_typing_from_auth_context(
@@ -39,7 +36,8 @@ impl<J> ConversationRuntime<J> {
         conversation_id: &str,
     ) -> Result<SignalTypingResult, RuntimeError> {
         let tenant_id = auth.tenant_id.as_str();
-        let organization_id = organization_id_from_auth_context(auth).as_str();
+        let organization_id = organization_id_from_auth_context(auth);
+        let organization_id = organization_id.as_str();
         let actor_id = auth.actor_id.as_str();
         let actor_kind = auth.actor_kind.as_str();
 
@@ -77,7 +75,8 @@ impl<J> ConversationRuntime<J> {
         conversation_id: &str,
     ) -> Result<TypingIndicatorList, RuntimeError> {
         let tenant_id = auth.tenant_id.as_str();
-        let organization_id = organization_id_from_auth_context(auth).as_str();
+        let organization_id = organization_id_from_auth_context(auth);
+        let organization_id = organization_id.as_str();
         let actor_id = auth.actor_id.as_str();
         let actor_kind = auth.actor_kind.as_str();
 

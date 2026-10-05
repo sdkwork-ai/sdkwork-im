@@ -13,6 +13,7 @@ use im_platform_contracts::{
     StoredMessagePinRecord, StoredMessageReactionRecord, StoredMessageRecord, WelcomeSentRecord,
     WelcomeStateStore,
 };
+use im_adapters_redis_cache::TypingCache;
 use sdkwork_im_contract_core::ContractError;
 use sdkwork_im_contract_message::{
     CommitJournal, CommitJournalAggregateEventTypeQuery, CommitJournalAggregateScope,
@@ -71,6 +72,9 @@ mod group_knowledgebase_outbox_relay;
 mod group_lifecycle;
 mod handoff;
 pub mod http;
+mod typing;
+
+pub use typing::SignalTypingResult;
 pub mod internal_rpc_dispatch;
 mod journal_bootstrap;
 mod knowledgebase;
@@ -2878,6 +2882,8 @@ pub struct ConversationRuntime<J> {
     retention_scope_store: Option<Arc<dyn RetentionScopeStore>>,
     /// 可选的会话范围 durable realtime 发布器（TECH-16 message fanout）。
     realtime_publisher: Option<Arc<dyn RealtimeEventPublisher>>,
+    /// 可选的正在输入指示缓存（Redis TTL）。
+    typing_cache: Option<Arc<dyn TypingCache>>,
     /// 可选的私信访问门禁（social user block enforcement）。
     direct_message_access_gate: Option<Arc<dyn DirectMessageAccessGate>>,
     /// 可选的原子消息写入器（Postgres journal + message + outbox 单事务）。
@@ -2910,6 +2916,7 @@ where
             seq_allocator: None,
             retention_scope_store: None,
             realtime_publisher: None,
+            typing_cache: None,
             direct_message_access_gate: None,
             durable_message_post_writer: None,
             durable_message_mutation_writer: None,
@@ -2920,6 +2927,12 @@ where
     }
 
     /// 注入消息真值存储，启用 DB seq 分配 + 真值写入路径。
+        /// 注入正在输入指示缓存，启用 typing signal/list 路由。
+    pub fn with_typing_cache(mut self, cache: Arc<dyn TypingCache>) -> Self {
+        self.typing_cache = Some(cache);
+        self
+    }
+
     pub fn with_message_store(mut self, store: Arc<dyn MessageStore>) -> Self {
         self.message_store = Some(store);
         self

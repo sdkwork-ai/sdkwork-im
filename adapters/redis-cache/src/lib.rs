@@ -24,6 +24,7 @@ pub mod typing_cache;
 pub mod unread_cache;
 
 pub use cluster_bus::{ClusterRouteEvent, RedisClusterBus};
+pub use typing_cache::{RedisTypingCache, TypingCache};
 pub use config::RedisCacheConfig;
 pub use fixed_window_rate_limit::{
     RedisFixedWindowRateLimiter, gateway_rate_limit_redis_fail_closed_from_env,

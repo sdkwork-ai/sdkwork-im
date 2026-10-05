@@ -23,3 +23,4 @@ pub mod security;
 pub mod social;
 pub mod space;
 pub mod stream;
+pub mod typing;

@@ -18,6 +18,7 @@ use im_domain_core::conversation::{
     ConversationMember, ConversationReadCursorView, MembershipRole,
 };
 use im_domain_core::message::{ContentPart, Message, MessageBody, MessageType, Sender};
+use im_domain_core::typing::TypingIndicatorList;
 use sdkwork_im_api_registry::HttpMethod;
 use sdkwork_im_openapi::{
     OpenApiServiceSpec, build_openapi_document, extract_routes_from_function, render_docs_html,
@@ -1533,6 +1534,10 @@ pub fn build_domain_api_router(state: AppState) -> Router {
             get(get_read_cursor).patch(update_read_cursor),
         )
         .route(
+            "/im/v3/api/chat/conversations/{conversation_id}/typing",
+            get(list_typing_indicators).post(signal_typing),
+        )
+        .route(
             "/im/v3/api/chat/messages/{message_id}/edit",
             post(edit_message),
         )
@@ -2941,6 +2946,40 @@ async fn accept_conversation_invitation(
         Ok(member)
     })();
     finish_api_json(&ctx, result)
+}
+
+async fn signal_typing(
+    Extension(ctx): Extension<WebRequestContext>,
+    Extension(auth): Extension<AppContext>,
+    State(state): State<AppState>,
+    Path(conversation_id): Path<String>,
+) -> Response {
+    if let Err(error) = ensure_active_http_auth_principal(&state, &auth) {
+        return finish_api_json::<SignalTypingResult>(&ctx, Err(ApiProblem::from(error)));
+    }
+    let result: ApiResult<SignalTypingResult> = state
+        .runtime
+        .signal_typing_from_auth_context(&auth, conversation_id.as_str())
+        .await
+        .map_err(|error| ApiProblem::from(ApiError::from(error)));
+    resource_response(&ctx, result)
+}
+
+async fn list_typing_indicators(
+    Extension(ctx): Extension<WebRequestContext>,
+    Extension(auth): Extension<AppContext>,
+    State(state): State<AppState>,
+    Path(conversation_id): Path<String>,
+) -> Response {
+    if let Err(error) = ensure_active_http_auth_principal(&state, &auth) {
+        return finish_api_json::<TypingIndicatorList>(&ctx, Err(ApiProblem::from(error)));
+    }
+    let result: ApiResult<TypingIndicatorList> = state
+        .runtime
+        .list_typing_indicators_from_auth_context(&auth, conversation_id.as_str())
+        .await
+        .map_err(|error| ApiProblem::from(ApiError::from(error)));
+    resource_response(&ctx, result)
 }
 
 async fn get_read_cursor(

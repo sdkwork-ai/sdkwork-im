@@ -9,6 +9,7 @@ version.workspace = true
 [lints]
 workspace = true
 [dependencies]
+async-trait = "0.1"
 chrono = "0.4.44"
 im-domain-core = { path = "../../crates/im-domain-core" }
 im-platform-contracts = { path = "../../crates/im-platform-contracts" }
