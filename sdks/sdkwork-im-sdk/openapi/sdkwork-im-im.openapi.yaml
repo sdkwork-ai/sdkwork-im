@@ -4861,6 +4861,135 @@ paths:
       x-sdkwork-auth-mode: api-key-or-dual-token
       x-sdkwork-owner: sdkwork-im
       x-sdkwork-api-authority: sdkwork-im.im
+  /im/v3/api/chat/conversations/{conversationId}/typing:
+    parameters:
+      - $ref: '#/components/parameters/ConversationIdPath'
+    get:
+      tags:
+        - chat
+      operationId: conversations.typing.list
+      summary: List live typing indicators
+      parameters:
+        - $ref: '#/components/parameters/ConversationIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - items
+                          - pageInfo
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/TypingIndicatorListItem'
+                          pageInfo:
+                            $ref: '#/components/schemas/PageInfo'
+        '400':
+          description: HTTP 400 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: HTTP 401 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: HTTP 403 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: HTTP 404 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - ApiKey: []
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: open-api
+      x-sdkwork-route-auth: api-key-or-dual-token
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.im
+    post:
+      tags:
+        - chat
+      operationId: conversations.typing.signal
+      summary: Signal typing in a conversation
+      parameters:
+        - $ref: '#/components/parameters/ConversationIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - item
+                        properties:
+                          item:
+                            $ref: '#/components/schemas/SignalTypingResult'
+        '400':
+          description: HTTP 400 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: HTTP 401 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: HTTP 403 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: HTTP 404 problem
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      security:
+        - ApiKey: []
+        - AuthToken: []
+          AccessToken: []
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-api-surface: open-api
+      x-sdkwork-route-auth: api-key-or-dual-token
+      x-sdkwork-auth-mode: api-key-or-dual-token
+      x-sdkwork-owner: sdkwork-im
+      x-sdkwork-api-authority: sdkwork-im.im
   /im/v3/api/chat/conversations/{conversationId}/member_directory:
     parameters:
       - $ref: '#/components/parameters/ConversationIdPath'
@@ -10258,6 +10387,27 @@ components:
           minimum: 0
       required:
         - readSeq
+    TypingIndicatorListItem:
+      type: object
+      additionalProperties: false
+      properties:
+        userId:
+          type: string
+        userKind:
+          type: string
+      required:
+        - userId
+        - userKind
+    SignalTypingResult:
+      type: object
+      additionalProperties: false
+      properties:
+        delivered:
+          type: integer
+          format: int32
+          minimum: 0
+      required:
+        - delivered
     SdkWorkApiResponse:
       type: object
       additionalProperties: false

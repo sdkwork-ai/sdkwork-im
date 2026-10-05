@@ -1,7 +1,7 @@
 import { imApiPath } from './paths';
 import type { ApiRequestOptions, HttpClient } from '../http/client';
 
-import type { AckResponse, AddConversationMemberRequest, BindDirectChatRequest, ChangeConversationMemberRoleRequest, ConversationAgentAssignments, ConversationBindingView, ConversationInboxEntry, ConversationMember, ConversationMessageEntry, ConversationPreferencesView, ConversationProfileView, ConversationSummaryView, CreateAgentDialogRequest, CreateAgentHandoffRequest, CreateConversationRequest, CreateConversationResult, CreateRoomRequest, CreateSystemChannelRequest, CreateThreadConversationRequest, EditMessageRequest, EnterRoomResponse, FavoriteMessageRequest, MessageFavoriteType, MessageFavoriteView, MessageInteractionSummaryView, MessageMutationResult, MessagePinMutationResult, MessageReactionMutationResult, MessageReactionRequest, MessageSearchHit, PageInfo, PostMessageRequest, PostMessageResult, ReadCursorView, RecallMessageRequest, RemoveConversationMemberRequest, RoomView, SharedChannelLinkSyncRequest, SharedChannelLinkSyncResponse, TransferConversationOwnerRequest, UpdateConversationAgentsRequest, UpdateConversationPreferencesRequest, UpdateConversationProfileRequest, UpdateReadCursorRequest, WelcomeEnsureView } from '../types';
+import type { AckResponse, AddConversationMemberRequest, BindDirectChatRequest, ChangeConversationMemberRoleRequest, ConversationAgentAssignments, ConversationBindingView, ConversationInboxEntry, ConversationMember, ConversationMessageEntry, ConversationPreferencesView, ConversationProfileView, ConversationSummaryView, CreateAgentDialogRequest, CreateAgentHandoffRequest, CreateConversationRequest, CreateConversationResult, CreateRoomRequest, CreateSystemChannelRequest, CreateThreadConversationRequest, EditMessageRequest, EnterRoomResponse, FavoriteMessageRequest, MessageFavoriteType, MessageFavoriteView, MessageInteractionSummaryView, MessageMutationResult, MessagePinMutationResult, MessageReactionMutationResult, MessageReactionRequest, MessageSearchHit, PageInfo, PostMessageRequest, PostMessageResult, ReadCursorView, RecallMessageRequest, RemoveConversationMemberRequest, RoomView, SharedChannelLinkSyncRequest, SharedChannelLinkSyncResponse, SignalTypingResult, TransferConversationOwnerRequest, TypingIndicatorListItem, UpdateConversationAgentsRequest, UpdateConversationPreferencesRequest, UpdateConversationProfileRequest, UpdateReadCursorRequest, WelcomeEnsureView } from '../types';
 
 
 export class ChatRoomsApi {
@@ -254,6 +254,25 @@ export class ChatConversationsMemberDirectoryApi {
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
     return this.client.request<{ items: ConversationMember[]; pageInfo: PageInfo; }>(appendQueryString(imApiPath(`/chat/conversations/${serializePathParameter(conversationId, { name: 'conversationId', style: 'simple', explode: false })}/member_directory`), query), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'GET' as any, sdkworkUnwrapKind: 'page' });
+  }
+}
+
+export class ChatConversationsTypingApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** List live typing indicators */
+  async list(conversationId: string, requestOptions?: ApiRequestOptions): Promise<{ items: TypingIndicatorListItem[]; pageInfo: PageInfo; }> {
+    return this.client.request<{ items: TypingIndicatorListItem[]; pageInfo: PageInfo; }>(imApiPath(`/chat/conversations/${serializePathParameter(conversationId, { name: 'conversationId', style: 'simple', explode: false })}/typing`), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'GET' as any, sdkworkUnwrapKind: 'page' });
+  }
+
+/** Signal typing in a conversation */
+  async signal(conversationId: string, requestOptions?: ApiRequestOptions): Promise<SignalTypingResult> {
+    return this.client.request<SignalTypingResult>(imApiPath(`/chat/conversations/${serializePathParameter(conversationId, { name: 'conversationId', style: 'simple', explode: false })}/typing`), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'POST' as any, sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -548,6 +567,7 @@ export class ChatConversationsApi {
   public readonly preferences: ChatConversationsPreferencesApi;
   public readonly profile: ChatConversationsProfileApi;
   public readonly readCursor: ChatConversationsReadCursorApi;
+  public readonly typing: ChatConversationsTypingApi;
   public readonly memberDirectory: ChatConversationsMemberDirectoryApi;
   public readonly messages: ChatConversationsMessagesApi;
   public readonly pins: ChatConversationsPinsApi;
@@ -566,6 +586,7 @@ export class ChatConversationsApi {
     this.preferences = new ChatConversationsPreferencesApi(client);
     this.profile = new ChatConversationsProfileApi(client);
     this.readCursor = new ChatConversationsReadCursorApi(client);
+    this.typing = new ChatConversationsTypingApi(client);
     this.memberDirectory = new ChatConversationsMemberDirectoryApi(client);
     this.messages = new ChatConversationsMessagesApi(client);
     this.pins = new ChatConversationsPinsApi(client);

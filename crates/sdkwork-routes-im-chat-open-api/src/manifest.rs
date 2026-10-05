@@ -164,6 +164,18 @@ pub const ROUTES: &[HttpRoute] = &[
     ),
     HttpRoute::api_key_or_dual_token(
         HttpMethod::Get,
+        paths::CONVERSATION_TYPING,
+        "chat",
+        "conversations.typing.list",
+    ),
+    HttpRoute::api_key_or_dual_token(
+        HttpMethod::Post,
+        paths::CONVERSATION_TYPING,
+        "chat",
+        "conversations.typing.signal",
+    ),
+    HttpRoute::api_key_or_dual_token(
+        HttpMethod::Get,
         paths::CONVERSATION_MEMBER_DIRECTORY,
         "chat",
         "conversations.memberDirectory.list",

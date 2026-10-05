@@ -353,4 +353,23 @@ export class ImConversationsModule {
       requireStringIdentifier(conversationId, 'conversationId'),
     );
   }
+
+  /** Lists principals currently typing in the conversation (TTL-bounded). */
+  listTypingIndicators(conversationId: string): Promise<TypingIndicatorList> {
+    return this.transportClient.chat.conversations.typing.list(
+      requireStringIdentifier(conversationId, 'conversationId'),
+    );
+  }
+
+  /**
+   * Signals typing on behalf of the authenticated principal.
+   *
+   * Ephemeral: the marker expires server-side and peers receive a
+   * `conversation.typing` realtime push; no durable state is written.
+   */
+  signalTyping(conversationId: string): Promise<SignalTypingResult> {
+    return this.transportClient.chat.conversations.typing.signal(
+      requireStringIdentifier(conversationId, 'conversationId'),
+    );
+  }
 }

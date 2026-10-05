@@ -6215,6 +6215,68 @@ class UpdateReadCursorRequest {
   }
 }
 
+class TypingIndicatorListItem {
+  final String userId;
+  final String userKind;
+
+  TypingIndicatorListItem({
+    required this.userId,
+    required this.userKind
+  });
+
+  factory TypingIndicatorListItem.fromJson(Map<String, dynamic> json) {
+    return TypingIndicatorListItem(
+      userId: (() {
+        final value = json['userId']?.toString();
+        if (value == null) {
+          throw FormatException('TypingIndicatorListItem.userId is required');
+        }
+        return value;
+      })(),
+      userKind: (() {
+        final value = json['userKind']?.toString();
+        if (value == null) {
+          throw FormatException('TypingIndicatorListItem.userKind is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'userId': userId,
+      'userKind': userKind,
+    };
+  }
+}
+
+class SignalTypingResult {
+  final int delivered;
+
+  SignalTypingResult({
+    required this.delivered
+  });
+
+  factory SignalTypingResult.fromJson(Map<String, dynamic> json) {
+    return SignalTypingResult(
+      delivered: (() {
+        final value = json['delivered'];
+        if (value is! int) {
+          throw FormatException('SignalTypingResult.delivered is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'delivered': delivered,
+    };
+  }
+}
+
 class SdkWorkApiResponse {
   final int code;
   final dynamic data;
@@ -10922,6 +10984,98 @@ class ConversationsReadCursorUpdateResponse {
         final value = json['traceId']?.toString();
         if (value == null) {
           throw FormatException('ConversationsReadCursorUpdateResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
+class ConversationsTypingListResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  ConversationsTypingListResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory ConversationsTypingListResponse.fromJson(Map<String, dynamic> json) {
+    return ConversationsTypingListResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('ConversationsTypingListResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('ConversationsTypingListResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('ConversationsTypingListResponse.traceId is required');
+        }
+        return value;
+      })()
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      'data': data,
+      'traceId': traceId,
+    };
+  }
+}
+
+class ConversationsTypingSignalResponse {
+  final int code;
+  final dynamic data;
+  final String traceId;
+
+  ConversationsTypingSignalResponse({
+    required this.code,
+    required this.data,
+    required this.traceId
+  });
+
+  factory ConversationsTypingSignalResponse.fromJson(Map<String, dynamic> json) {
+    return ConversationsTypingSignalResponse(
+      code: (() {
+        final value = json['code'];
+        if (value is! int) {
+          throw FormatException('ConversationsTypingSignalResponse.code is required');
+        }
+        return value;
+      })(),
+      data: (() {
+        final map = _sdkworkAsMap(json['data']);
+        if (map == null) {
+          throw FormatException('ConversationsTypingSignalResponse.data is required');
+        }
+        return map;
+      })(),
+      traceId: (() {
+        final value = json['traceId']?.toString();
+        if (value == null) {
+          throw FormatException('ConversationsTypingSignalResponse.traceId is required');
         }
         return value;
       })()

@@ -2,6 +2,8 @@ import type {
   AckResponse,
   PresenceHeartbeatRequest,
   PresenceView,
+  SignalTypingResult,
+  TypingIndicatorList,
   AddConversationMemberRequest,
   BindDirectChatRequest,
   BlockUserRequest,
@@ -126,6 +128,10 @@ export interface ImTransportClientLike {
     conversations: {
       create(body: CreateConversationRequest): Promise<CreateConversationResult>;
       retrieve(conversationId: string): Promise<ConversationSummaryView>;
+      typing: {
+        list(conversationId: string): Promise<TypingIndicatorList>;
+        signal(conversationId: string): Promise<SignalTypingResult>;
+      };
       agentDialogs: {
         create(body: CreateAgentDialogRequest): Promise<CreateConversationResult>;
       };
@@ -145,8 +151,7 @@ export interface ImTransportClientLike {
         };
       };
       members: {
-        list(conversationId: string, params?: QueryParams): Promise<ListMembersResponse>;
-        current: {
+        list(conversationId: string, params?: QueryParams): Promise<ListMembersResponse>;        current: {
           retrieve(conversationId: string): Promise<ConversationMember>;
         };
         add(conversationId: string, body: AddConversationMemberRequest): Promise<unknown>;

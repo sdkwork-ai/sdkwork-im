@@ -41,6 +41,8 @@ pub const CONVERSATION_MEMBERS_ACCEPT_INVITATION: &str =
     "/im/v3/api/chat/conversations/{conversationId}/members/accept_invitation";
 pub const CONVERSATION_READ_CURSOR: &str =
     "/im/v3/api/chat/conversations/{conversationId}/read_cursor";
+pub const CONVERSATION_TYPING: &str =
+    "/im/v3/api/chat/conversations/{conversationId}/typing";
 pub const CONVERSATION_MEMBER_DIRECTORY: &str =
     "/im/v3/api/chat/conversations/{conversationId}/member_directory";
 pub const CONVERSATION_PINS: &str = "/im/v3/api/chat/conversations/{conversationId}/pins";

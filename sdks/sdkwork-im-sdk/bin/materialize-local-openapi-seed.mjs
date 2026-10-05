@@ -1063,6 +1063,17 @@ const schemas = {
   UpdateReadCursorRequest: objectSchema({
     readSeq: sequenceSchema(),
   }, ['readSeq']),
+  TypingIndicatorList: objectSchema({
+    conversationId: stringSchema(),
+    items: arrayOf(ref('TypingIndicatorListItem')),
+  }, ['conversationId', 'items']),
+  TypingIndicatorListItem: objectSchema({
+    userId: stringSchema(),
+    userKind: stringSchema(),
+  }, ['userId', 'userKind']),
+  SignalTypingResult: objectSchema({
+    delivered: int32Schema({ minimum: 0 }),
+  }, ['delivered']),
   PinnedMessagesResponse: objectSchema({
     items: arrayOf(ref('MessageInteractionSummaryView')),
   }, ['items']),
@@ -1309,6 +1320,11 @@ const paths = Object.fromEntries([
     parameters: [p('ConversationIdPath')],
     get: operation({ tag: 'chat', operationId: 'conversations.readCursor.retrieve', summary: 'Retrieve read cursor', parameters: [p('ConversationIdPath')], response: 'ReadCursorView' }),
     patch: operation({ tag: 'chat', operationId: 'conversations.readCursor.update', summary: 'Update read cursor', parameters: [p('ConversationIdPath')], request: 'UpdateReadCursorRequest', response: 'ReadCursorView' }),
+  }),
+  pathItem('/chat/conversations/{conversationId}/typing', {
+    parameters: [p('ConversationIdPath')],
+    get: operation({ tag: 'chat', operationId: 'conversations.typing.list', summary: 'List live typing indicators', parameters: [p('ConversationIdPath')], response: 'TypingIndicatorList' }),
+    post: operation({ tag: 'chat', operationId: 'conversations.typing.signal', summary: 'Signal typing in a conversation', parameters: [p('ConversationIdPath')], response: 'SignalTypingResult' }),
   }),
   pathItem('/chat/conversations/{conversationId}/member_directory', {
     parameters: [p('ConversationIdPath')],

@@ -111,6 +111,8 @@ export type { MembershipState } from './membership-state';
 export type { ConversationMember } from './conversation-member';
 export type { ReadCursorView } from './read-cursor-view';
 export type { UpdateReadCursorRequest } from './update-read-cursor-request';
+export type { TypingIndicatorListItem } from './typing-indicator-list-item';
+export type { SignalTypingResult } from './signal-typing-result';
 export type { SdkWorkApiResponse } from './sdk-work-api-response';
 export type { SdkWorkPageData } from './sdk-work-page-data';
 export type { SdkWorkCommandData } from './sdk-work-command-data';
@@ -216,6 +218,8 @@ export type { ConversationsProfileRetrieveResponse } from './conversations-profi
 export type { ConversationsProfileUpdateResponse } from './conversations-profile-update-response';
 export type { ConversationsReadCursorRetrieveResponse } from './conversations-read-cursor-retrieve-response';
 export type { ConversationsReadCursorUpdateResponse } from './conversations-read-cursor-update-response';
+export type { ConversationsTypingListResponse } from './conversations-typing-list-response';
+export type { ConversationsTypingSignalResponse } from './conversations-typing-signal-response';
 export type { ConversationsMemberDirectoryListResponse } from './conversations-member-directory-list-response';
 export type { ConversationsMessagesCreateResponse201 } from './conversations-messages-create-response201';
 export type { ConversationsSystemChannelPublishResponse } from './conversations-system-channel-publish-response';

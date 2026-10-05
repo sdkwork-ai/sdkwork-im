@@ -315,6 +315,24 @@ class ChatApi {
     })();
   }
 
+  /// List live typing indicators
+  Future<ConversationsTypingListResponse?> conversationsTypingList(String conversationId) async {
+    final response = await _client.get(ApiPaths.imPath('/chat/conversations/${serializePathParameter(conversationId, const PathParameterSpec('conversationId', 'simple', false))}/typing'));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : ConversationsTypingListResponse.fromJson(map);
+    })();
+  }
+
+  /// Signal typing in a conversation
+  Future<ConversationsTypingSignalResponse?> conversationsTypingSignal(String conversationId) async {
+    final response = await _client.post(ApiPaths.imPath('/chat/conversations/${serializePathParameter(conversationId, const PathParameterSpec('conversationId', 'simple', false))}/typing'));
+    return (() {
+      final map = sdkworkResponseAsMap(response);
+      return map == null ? null : ConversationsTypingSignalResponse.fromJson(map);
+    })();
+  }
+
   /// List member directory
   Future<ConversationsMemberDirectoryListResponse?> conversationsMemberDirectoryList(String conversationId, [String? cursor, int? pageSize]) async {
     final query = buildQueryString([
