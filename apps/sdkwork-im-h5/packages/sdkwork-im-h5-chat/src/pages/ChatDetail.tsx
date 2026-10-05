@@ -14,6 +14,7 @@ import type { Chat, Message } from "@sdkwork/im-h5-types";
 
 import { ChatHeader } from "../components/Chat/ChatHeader";
 import { ChatInputArea } from "../components/Chat/ChatInputArea";
+import { signalChatTyping, subscribeChatPeerTyping } from "../services/chatTypingService";
 import { MessageContextMenu } from "../components/Chat/MessageContextMenu";
 import { MessageList } from "../components/Chat/MessageList";
 import { VoiceRecordingOverlay } from "../components/Chat/VoiceRecordingOverlay";
@@ -94,6 +95,26 @@ export function ChatDetail() {
   // responses cannot regress the message window or the pagination cursor.
   const loadSeqRef = useRef(0);
   const [mediaInputKind, setMediaInputKind] = useState<"image" | "video" | "file">("image");
+  const [peerTyping, setPeerTyping] = useState(false);
+  const typingClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Peer typing indicator: conversation.typing scope events, auto-clear 5s.
+  useEffect(() => {
+    const unsubscribe = subscribeChatPeerTyping(chatId, () => {
+      setPeerTyping(true);
+      if (typingClearTimer.current) clearTimeout(typingClearTimer.current);
+      typingClearTimer.current = setTimeout(() => {
+        setPeerTyping(false);
+        typingClearTimer.current = null;
+      }, 5_000);
+    });
+    return () => {
+      unsubscribe();
+      if (typingClearTimer.current) clearTimeout(typingClearTimer.current);
+      typingClearTimer.current = null;
+      setPeerTyping(false);
+    };
+  }, [chatId]);
 
   useEffect(() => {
     chatIdRef.current = chatId;
@@ -105,6 +126,13 @@ export function ChatDetail() {
     editorProps: { attributes: { class: "min-h-8 max-h-28 overflow-y-auto rounded-lg bg-chat-other-bg px-3 py-2 text-[16px] text-text-main focus:outline-none" } },
   });
   const inputValue = editor?.getText() ?? "";
+
+  // Throttled typing signal while the user edits a draft.
+  useEffect(() => {
+    if (inputValue.trim().length > 0) {
+      signalChatTyping(chatId);
+    }
+  }, [chatId, inputValue]);
 
   const load = useCallback(async (cursor?: string) => {
     if (!chatId) return;
@@ -492,6 +520,11 @@ export function ChatDetail() {
           {t("common.retry", "Tap to retry")}
         </button>
       )}
+      {peerTyping ? (
+        <div className="px-4 pb-1 text-[12px] text-text-sub" data-testid="peer-typing">
+          {t("chat.detail.peer_typing", "对方正在输入…")}
+        </div>
+      ) : null}
       <ChatInputArea
         id={chatId}
         currentUser={sessionUser}

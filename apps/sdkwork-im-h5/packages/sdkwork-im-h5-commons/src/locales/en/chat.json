@@ -49,7 +49,8 @@
     "card_group_invite_label": "Invites you to a group",
     "card_group_label": "Group Invitation",
     "card_contact_label": "Contact Card",
-    "star_failed": "Unable to update favorite"
+    "star_failed": "Unable to update favorite",
+    "peer_typing": "Peer is typing…"
   },
   "profile": {
     "title": "Chat Info",

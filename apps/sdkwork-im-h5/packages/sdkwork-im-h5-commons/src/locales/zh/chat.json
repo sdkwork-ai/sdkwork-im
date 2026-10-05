@@ -49,7 +49,8 @@
     "card_group_invite_label": "邀请你加入群聊",
     "card_group_label": "群聊邀请",
     "card_contact_label": "个人名片",
-    "star_failed": "收藏操作失败"
+    "star_failed": "收藏操作失败",
+    "peer_typing": "对方正在输入…"
   },
   "profile": {
     "title": "聊天信息",
