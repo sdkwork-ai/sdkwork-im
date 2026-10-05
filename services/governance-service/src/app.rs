@@ -37,6 +37,45 @@ pub fn build_app() -> Router {
     build_app_with_cluster(Arc::new(RealtimeClusterBridge::default()))
 }
 
+/// Domain control surface (public guardrails included) without the manifest
+/// pipeline wrapper. Integration tests compose it with the scoped-permission
+/// test pipeline from `sdkwork_im_web_bootstrap::test_support`, which emulates
+/// the IAM session scope projection unavailable without an IAM database.
+pub fn build_domain_app() -> Router {
+    build_domain_app_with_cluster_and_provider_registry(
+        Arc::new(RealtimeClusterBridge::default()),
+        Arc::new(RuntimeProviderRegistry::platform_default()),
+    )
+}
+
+/// Domain control surface over a static provider registry; see [`build_domain_app`].
+pub fn build_domain_app_with_cluster_and_provider_registry(
+    realtime_cluster: Arc<RealtimeClusterBridge>,
+    provider_registry: Arc<dyn ProviderRegistry>,
+) -> Router {
+    apply_public_http_guardrails(build_control_surface_with_state(AppState {
+        realtime_cluster,
+        protocol_registry: Arc::new(CcpRegistry::control_plane_v1()),
+        provider_registry,
+        provider_registry_runtime: None,
+        governance_loop: None,
+    }))
+}
+
+/// Domain control surface over a runtime provider registry; see [`build_domain_app`].
+pub fn build_domain_app_with_cluster_and_runtime_provider_registry(
+    realtime_cluster: Arc<RealtimeClusterBridge>,
+    provider_registry: Arc<RuntimeProviderRegistry>,
+) -> Router {
+    apply_public_http_guardrails(build_control_surface_with_state(AppState {
+        realtime_cluster,
+        protocol_registry: Arc::new(CcpRegistry::control_plane_v1()),
+        provider_registry: provider_registry.clone(),
+        provider_registry_runtime: Some(provider_registry),
+        governance_loop: None,
+    }))
+}
+
 pub fn build_public_app() -> Router {
     build_public_app_from_api_router(apply_public_http_guardrails(
         build_control_surface_with_state(default_control_state()),
@@ -155,6 +194,60 @@ pub fn build_control_surface_with_cluster_and_governance_sinks(
             audit_runtime,
         }),
     })
+}
+
+/// Domain control surface over a runtime provider registry with governance
+/// sinks; integration tests compose it with the scoped-permission test
+/// pipeline from `sdkwork_im_web_bootstrap::test_support`.
+pub fn build_domain_app_with_cluster(realtime_cluster: Arc<RealtimeClusterBridge>) -> Router {
+    let provider_registry = Arc::new(RuntimeProviderRegistry::platform_default());
+    apply_public_http_guardrails(build_control_surface_with_state(AppState {
+        realtime_cluster,
+        protocol_registry: Arc::new(CcpRegistry::control_plane_v1()),
+        provider_registry: provider_registry.clone(),
+        provider_registry_runtime: Some(provider_registry),
+        governance_loop: None,
+    }))
+}
+
+/// Domain control surface over a static provider registry with governance
+/// sinks; see [`build_domain_app`].
+pub fn build_domain_app_with_cluster_provider_registry_and_governance_sinks(
+    realtime_cluster: Arc<RealtimeClusterBridge>,
+    provider_registry: Arc<dyn ProviderRegistry>,
+    ops_runtime: Arc<OpsRuntime>,
+    audit_runtime: Arc<AuditRuntime>,
+) -> Router {
+    apply_public_http_guardrails(build_control_surface_with_state(AppState {
+        realtime_cluster,
+        protocol_registry: Arc::new(CcpRegistry::control_plane_v1()),
+        provider_registry,
+        provider_registry_runtime: None,
+        governance_loop: Some(GovernanceLoop {
+            ops_runtime,
+            audit_runtime,
+        }),
+    }))
+}
+
+/// Domain control surface over a runtime provider registry with governance
+/// sinks; see [`build_domain_app`].
+pub fn build_domain_app_with_cluster_runtime_provider_registry_and_governance_sinks(
+    realtime_cluster: Arc<RealtimeClusterBridge>,
+    provider_registry: Arc<RuntimeProviderRegistry>,
+    ops_runtime: Arc<OpsRuntime>,
+    audit_runtime: Arc<AuditRuntime>,
+) -> Router {
+    apply_public_http_guardrails(build_control_surface_with_state(AppState {
+        realtime_cluster,
+        protocol_registry: Arc::new(CcpRegistry::control_plane_v1()),
+        provider_registry: provider_registry.clone(),
+        provider_registry_runtime: Some(provider_registry),
+        governance_loop: Some(GovernanceLoop {
+            ops_runtime,
+            audit_runtime,
+        }),
+    }))
 }
 
 pub fn build_app_with_cluster_provider_registry_and_governance_sinks(

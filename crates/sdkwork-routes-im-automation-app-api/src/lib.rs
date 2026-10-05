@@ -30,6 +30,16 @@ fn build_gateway_router_with_runtime(
     ))
 }
 
+/// Domain router (public guardrails included) without the manifest pipeline
+/// wrapper. Integration tests compose it with the scoped-permission test
+/// pipeline from `sdkwork_im_web_bootstrap::test_support`, which emulates the
+/// IAM session scope projection that is unavailable without an IAM database.
+pub fn build_domain_router_with_runtime(
+    runtime: Arc<automation_service::AutomationRuntime>,
+) -> Router {
+    automation_service::apply_public_http_guardrails(routes::build_api_router_with_runtime(runtime))
+}
+
 pub fn gateway_route_manifest() -> sdkwork_web_core::HttpRouteManifest {
     route_manifest()
 }

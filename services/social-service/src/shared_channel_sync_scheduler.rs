@@ -121,10 +121,12 @@ mod tests {
 
     #[test]
     fn test_scheduler_disabled_by_env() {
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var(SCHEDULER_ENABLED_ENV, "off");
         }
         assert!(SharedChannelSyncStaleReclaimSchedulerConfig::from_env().is_none());
+        #[allow(unsafe_code)]
         unsafe {
             std::env::remove_var(SCHEDULER_ENABLED_ENV);
         }

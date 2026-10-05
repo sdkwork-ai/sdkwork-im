@@ -41,6 +41,8 @@ im-adapters-postgres-journal = { path = "../../adapters/postgres-journal" }
 sdkwork_database_config = { workspace = true }
 
 [dev-dependencies]
+sdkwork_web_axum.workspace = true
+sdkwork_im_web_bootstrap = { workspace = true, features = ["test-support"] }
 http-body-util.workspace = true
 im-adapters-local-memory = { path = "../../adapters/local-memory" }
 tower.workspace = true

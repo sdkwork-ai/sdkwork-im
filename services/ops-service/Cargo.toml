@@ -29,6 +29,8 @@ sdkwork_routes_web_framework_backend_api.workspace = true
 sdkwork_im_web_bootstrap.workspace = true
 
 [dev-dependencies]
+sdkwork_web_axum.workspace = true
+sdkwork_im_web_bootstrap = { workspace = true, features = ["test-support"] }
 http-body-util.workspace = true
 tower.workspace = true
 sdkwork-routes-im-ops-backend-api.workspace = true

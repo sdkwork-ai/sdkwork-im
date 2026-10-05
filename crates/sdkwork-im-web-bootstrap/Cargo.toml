@@ -9,7 +9,14 @@ description = "Sdkwork IM HTTP service web-framework bootstrap for open-api and 
 
 [lints]
 workspace = true
+
+[features]
+# Integration-test pipeline support (`test_support` module). Never enabled by
+# production assemblies; service dev-dependencies opt in explicitly.
+test-support = []
+
 [dependencies]
+async-trait.workspace = true
 axum.workspace = true
 im-app-context = { path = "../im-app-context" }
 sdkwork_im_service_readiness = { workspace = true }

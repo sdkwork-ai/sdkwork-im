@@ -21,6 +21,38 @@ struct StatusExpectation<'a> {
     expected_business_status: &'a str,
 }
 
+fn scoped_control_app_with_provider_registry(
+    realtime_cluster: Arc<session_gateway::RealtimeClusterBridge>,
+    provider_registry: Arc<dyn im_platform_contracts::ProviderRegistry>,
+) -> axum::Router {
+    sdkwork_web_axum::with_web_request_context(
+        governance_service::build_domain_app_with_cluster_and_provider_registry(
+            realtime_cluster,
+            provider_registry,
+        ),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer_with_user_grants(
+            &[("1080", &["tenant"], &["control.read", "control.write"])],
+            governance_service::route_manifest::backend_route_manifest(),
+        ),
+    )
+}
+
+fn scoped_control_app_with_runtime_provider_registry(
+    realtime_cluster: Arc<session_gateway::RealtimeClusterBridge>,
+    provider_registry: Arc<im_platform_contracts::RuntimeProviderRegistry>,
+) -> axum::Router {
+    sdkwork_web_axum::with_web_request_context(
+        governance_service::build_domain_app_with_cluster_and_runtime_provider_registry(
+            realtime_cluster,
+            provider_registry,
+        ),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer_with_user_grants(
+            &[("1080", &["tenant"], &["control.read", "control.write"])],
+            governance_service::route_manifest::backend_route_manifest(),
+        ),
+    )
+}
+
 fn ensure_provider_status_test_env() {
     #[allow(unsafe_code)]
     unsafe {
@@ -131,11 +163,11 @@ async fn assert_status(app: Router, expectation: StatusExpectation<'_>) -> Strin
 #[tokio::test]
 async fn test_provider_control_plane_status_contract_covers_read_write_and_error_routes() {
     ensure_test_environment();
-    let runtime_app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
+    let runtime_app = scoped_control_app_with_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
     );
-    let static_app = governance_service::build_app_with_cluster_and_provider_registry(
+    let static_app = scoped_control_app_with_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(StaticProviderRegistry::platform_default()),
     );
@@ -327,7 +359,7 @@ async fn test_provider_control_plane_status_contract_covers_read_write_and_error
                 method: "GET",
                 uri: "/backend/v3/api/control/provider_registry",
                 tenant_id: Some("100001"),
-                user_id: Some("1080"),
+                user_id: Some("1081"),
                 permission: None,
                 body: None,
                 expected_http: StatusCode::FORBIDDEN,

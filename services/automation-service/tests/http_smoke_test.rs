@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
@@ -22,13 +24,60 @@ fn automation_http_test_app() -> axum::Router {
     sdkwork_routes_im_automation_app_api::build_public_app()
 }
 
+// Credential-embedded scope is dropped on the wire (IAM_SPEC §5.2), so the
+// test pipeline grants server-side what the production IAM session row would.
 fn automation_route_http_test_app() -> axum::Router {
-    automation_http_test_app()
+    init_automation_http_test_env();
+    // User 1 holds the base execution scope; the operator-override override
+    // path is exercised through user 2 (per IAM_SPEC §5.2 scope is a session
+    // attribute, not a per-request credential claim).
+    sdkwork_web_axum::with_web_request_context(
+        sdkwork_routes_im_automation_app_api::build_domain_router_with_runtime(
+            automation_service::default_automation_runtime(),
+        ),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer_with_user_grants(
+            &[
+                ("1", &["tenant"], &["automation.execute", "automation.read"]),
+                (
+                    "2",
+                    &["tenant"],
+                    &[
+                        "automation.execute",
+                        "automation.read",
+                        "automation.operator_override",
+                    ],
+                ),
+            ],
+            sdkwork_routes_im_automation_app_api::route_manifest(),
+        ),
+    )
 }
 
 fn automation_backend_route_http_test_app() -> axum::Router {
     init_automation_http_test_env();
-    sdkwork_routes_im_governance_backend_api::build_public_app()
+    sdkwork_web_axum::with_web_request_context(
+        sdkwork_routes_im_governance_backend_api::build_domain_router_with_governance_sinks(
+            automation_service::default_automation_runtime(),
+            Arc::new(session_gateway::RealtimeClusterBridge::default()),
+            Arc::new(ops_service::OpsRuntime::default()),
+            Arc::new(audit_service::AuditRuntime::default()),
+        ),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer_with_user_grants(
+            &[
+                ("1", &["tenant"], &["control.read", "automation.read"]),
+                (
+                    "2",
+                    &["tenant"],
+                    &[
+                        "control.read",
+                        "automation.read",
+                        "automation.operator_override",
+                    ],
+                ),
+            ],
+            sdkwork_routes_im_governance_backend_api::route_manifest(),
+        ),
+    )
 }
 
 #[tokio::test]
@@ -870,6 +919,71 @@ async fn test_automation_governance_surface_and_operator_override_over_http() {
         serde_json::from_slice(&denied_body).expect("denied body should be valid json");
     assert_eq!(denied_json["code"].as_i64(), Some(40301));
 
+    // Executions are owner-scoped, so the operator-override principal runs the
+    // restricted tool call against its own execution record.
+    let override_execution_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/app/v3/api/automation/executions")
+                .with_dual_token_tenant("100001")
+                .with_dual_token_organization("100001")
+                .with_dual_token_user("2")
+                .with_dual_token_actor_kind("user")
+                .with_dual_token_permission_scope("automation.execute automation.read")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{
+                        "executionId":"ae_http_guardrail_override",
+                        "triggerType":"agent.manual",
+                        "targetKind":"conversation",
+                        "targetRef":"c_demo",
+                        "inputPayload":"{\"prompt\":\"shutdown\"}"
+                    }"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .expect("override execution request should succeed");
+    assert_eq!(override_execution_response.status(), StatusCode::CREATED);
+
+    let override_stream_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/app/v3/api/automation/agent_responses")
+                .with_dual_token_tenant("100001")
+                .with_dual_token_organization("100001")
+                .with_dual_token_user("2")
+                .with_dual_token_actor_kind("user")
+                .with_dual_token_permission_scope("automation.execute automation.read")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{
+                        "executionId":"ae_http_guardrail_override",
+                        "streamId":"st_http_guardrail_override",
+                        "streamType":"agent.response.delta",
+                        "conversationId":"c_demo",
+                        "schemaRef":"schema://agent/response.delta",
+                        "memberId":"cm_agent",
+                        "agent":{
+                            "agent_id":"ag_demo",
+                            "session_id":"s_agent",
+                            "metadata":{
+                                "agentMode":"assistant",
+                                "capabilityProfileId":"stable-agent"
+                            }
+                        }
+                    }"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .expect("override agent response start should return response");
+    assert_eq!(override_stream_response.status(), StatusCode::CREATED);
+
     let override_response = app
         .clone()
         .oneshot(
@@ -878,7 +992,7 @@ async fn test_automation_governance_surface_and_operator_override_over_http() {
                 .uri("/app/v3/api/automation/agent_tool_calls")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
-                .with_dual_token_user("1")
+                .with_dual_token_user("2")
                 .with_dual_token_actor_kind("user")
                 .with_dual_token_permission_scope(
                     "automation.execute automation.read automation.operator_override",
@@ -886,7 +1000,7 @@ async fn test_automation_governance_surface_and_operator_override_over_http() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{
-                        "executionId":"ae_http_guardrail",
+                        "executionId":"ae_http_guardrail_override",
                         "toolCallId":"tc_http_guardrail_allowed",
                         "toolName":"ops.shutdown",
                         "argumentsPayload":"{\"scope\":\"tenant\"}"
@@ -913,7 +1027,7 @@ async fn test_automation_governance_surface_and_operator_override_over_http() {
                 .uri("/backend/v3/api/automation/governance")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
-                .with_dual_token_user("1")
+                .with_dual_token_user("2")
                 .with_dual_token_actor_kind("user")
                 .with_dual_token_permission_scope("automation.read automation.operator_override")
                 .body(Body::empty())

@@ -64,3 +64,5 @@ sdkwork-rpc-server = { workspace = true, features = ["tls"] }
 rcgen = { version = "0.14", features = ["pem"] }
 tempfile = "3"
 rustls = { version = "0.23", features = ["ring"] }
+sdkwork_web_axum.workspace = true
+sdkwork_im_web_bootstrap = { workspace = true, features = ["test-support"] }

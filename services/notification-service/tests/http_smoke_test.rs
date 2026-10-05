@@ -27,7 +27,19 @@ fn notification_http_test_app() -> axum::Router {
 
 fn notification_route_http_test_app() -> axum::Router {
     init_notification_http_test_env();
-    sdkwork_routes_im_notification_app_api::build_public_app()
+    // Credential-embedded scope is dropped on the wire (IAM_SPEC §5.2), so the
+    // test pipeline grants server-side what the production IAM session row
+    // would carry for this notification principal.
+    sdkwork_web_axum::with_web_request_context(
+        sdkwork_routes_im_notification_app_api::build_domain_router_with_runtime(
+            notification_service::default_notification_runtime(),
+        ),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &["notification.read", "notification.write"],
+            sdkwork_routes_im_notification_app_api::route_manifest(),
+        ),
+    )
 }
 
 #[tokio::test]

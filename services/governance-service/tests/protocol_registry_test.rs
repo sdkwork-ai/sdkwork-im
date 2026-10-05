@@ -4,10 +4,21 @@ use http_body_util::BodyExt;
 use im_app_context::DualTokenRequestBuilderExt;
 use tower::ServiceExt;
 
+fn scoped_control_app() -> axum::Router {
+    sdkwork_web_axum::with_web_request_context(
+        governance_service::build_domain_app(),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &["control.read", "control.write"],
+            governance_service::route_manifest::backend_route_manifest(),
+        ),
+    )
+}
+
 #[tokio::test]
 async fn test_control_plane_exposes_protocol_registry_snapshot_to_control_readers() {
     ensure_test_environment();
-    let app = governance_service::build_app();
+    let app = scoped_control_app();
 
     let response = app
         .oneshot(

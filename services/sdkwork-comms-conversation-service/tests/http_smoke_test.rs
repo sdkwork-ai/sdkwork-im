@@ -38,6 +38,26 @@ fn build_service_public_test_app() -> axum::Router {
     conversation_runtime::build_public_app()
 }
 
+fn build_shared_channel_sync_test_app() -> axum::Router {
+    ensure_http_smoke_test_environment();
+    // The shared-channel sync domain gate requires
+    // `conversation.shared_channel.sync`; credential-embedded scope is dropped
+    // on the wire (IAM_SPEC §5.2), so the test pipeline grants server-side what
+    // the production IAM session row would.
+    sdkwork_web_axum::with_web_request_context(
+        conversation_runtime::http::apply_public_http_guardrails(
+            sdkwork_routes_im_chat_open_api::build_api_router(
+                conversation_runtime::http::default_app_state(),
+            ),
+        ),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &["conversation.shared_channel.sync"],
+            sdkwork_routes_im_chat_open_api::route_manifest(),
+        ),
+    )
+}
+
 fn build_default_test_app() -> axum::Router {
     ensure_http_smoke_test_environment();
     sdkwork_routes_im_chat_open_api::build_public_app()
@@ -6108,7 +6128,7 @@ async fn test_shared_history_visibility_allows_external_linked_history_reads_but
 
 #[tokio::test]
 async fn test_sync_shared_channel_linked_member_over_http_materializes_linked_history_reader() {
-    let app = build_default_test_app();
+    let app = build_shared_channel_sync_test_app();
 
     let create_response = app
         .clone()
@@ -6401,7 +6421,7 @@ async fn test_sync_shared_channel_linked_member_rejects_unknown_user_local_actor
 
 #[tokio::test]
 async fn test_shared_history_sync_rejects_oversized_local_actor_kind_over_http() {
-    let app = build_default_test_app();
+    let app = build_shared_channel_sync_test_app();
 
     let create_response = app
         .clone()

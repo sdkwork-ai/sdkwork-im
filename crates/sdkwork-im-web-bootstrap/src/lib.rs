@@ -125,7 +125,7 @@ fn active_organization_id(value: Option<&str>) -> Option<&str> {
     }
 }
 
-fn im_service_security_policy(environment: &WebEnvironment) -> SecurityPolicy {
+pub(crate) fn im_service_security_policy(environment: &WebEnvironment) -> SecurityPolicy {
     let mut security_policy = if matches!(environment, WebEnvironment::Dev | WebEnvironment::Test) {
         SecurityPolicy::default()
     } else {
@@ -268,6 +268,9 @@ pub async fn wrap_im_open_api_service_router_from_env(
     let resolver = shared_iam_web_request_context_resolver_from_env().await;
     wrap_im_open_api_service_router_inner(resolver, route_manifest, router)
 }
+
+#[cfg(feature = "test-support")]
+pub mod test_support;
 
 #[cfg(test)]
 mod tests {

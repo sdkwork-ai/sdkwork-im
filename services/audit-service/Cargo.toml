@@ -37,3 +37,5 @@ r2d2_postgres = "0.18.2"
 http-body-util.workspace = true
 tower.workspace = true
 sdkwork-routes-im-audit-backend-api.workspace = true
+sdkwork_web_axum.workspace = true
+sdkwork_im_web_bootstrap = { workspace = true, features = ["test-support"] }

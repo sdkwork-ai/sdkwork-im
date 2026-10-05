@@ -12,6 +12,39 @@ use tower::ServiceExt;
 
 use common::{control_plane_json_body, control_plane_write_request};
 
+fn scoped_control_app_with_cluster(
+    realtime_cluster: Arc<session_gateway::RealtimeClusterBridge>,
+) -> axum::Router {
+    sdkwork_web_axum::with_web_request_context(
+        governance_service::build_domain_app_with_cluster(realtime_cluster),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &["control.read", "control.write"],
+            governance_service::route_manifest::backend_route_manifest(),
+        ),
+    )
+}
+
+fn scoped_control_app(
+    realtime_cluster: Arc<session_gateway::RealtimeClusterBridge>,
+    ops_runtime: Arc<ops_service::OpsRuntime>,
+    audit_runtime: Arc<audit_service::AuditRuntime>,
+) -> axum::Router {
+    sdkwork_web_axum::with_web_request_context(
+        sdkwork_routes_im_governance_backend_api::build_domain_router_with_governance_sinks(
+            automation_service::default_automation_runtime(),
+            realtime_cluster,
+            ops_runtime,
+            audit_runtime,
+        ),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &["control.read", "control.write"],
+            sdkwork_routes_im_governance_backend_api::route_manifest(),
+        ),
+    )
+}
+
 fn ensure_test_environment() {
     static TEST_ENVIRONMENT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
     TEST_ENVIRONMENT.get_or_init(|| {
@@ -65,7 +98,7 @@ async fn test_control_plane_can_drain_and_migrate_routes() {
     // Compose through the owning governance-backend route crate so the
     // interceptor pipeline receives the real control-plane route manifest; an
     // empty-manifest wrap cannot resolve `/backend/v3/api/control/*` routes.
-    let app = sdkwork_routes_im_governance_backend_api::gateway_mount_with_governance_sinks(
+    let app = scoped_control_app(
         cluster.clone(),
         Arc::new(ops_service::OpsRuntime::from_env()),
         Arc::new(audit_service::AuditRuntime::from_env()),
@@ -136,8 +169,7 @@ async fn test_control_plane_can_drain_and_migrate_routes() {
 
 #[tokio::test]
 async fn test_control_plane_rejects_unknown_node_lifecycle_writes() {
-    let app =
-        governance_service::build_app_with_cluster(Arc::new(RealtimeClusterBridge::default()));
+    let app = scoped_control_app_with_cluster(Arc::new(RealtimeClusterBridge::default()));
 
     let drain_response = app
         .clone()
@@ -200,7 +232,7 @@ async fn test_control_plane_rejects_migrate_when_source_node_is_not_draining() {
 
     // Same manifest-composed control plane as `gateway_mount` (see the other
     // test): the empty-manifest wrap cannot resolve control-plane routes.
-    let app = sdkwork_routes_im_governance_backend_api::gateway_mount_with_governance_sinks(
+    let app = scoped_control_app(
         cluster.clone(),
         Arc::new(ops_service::OpsRuntime::from_env()),
         Arc::new(audit_service::AuditRuntime::from_env()),

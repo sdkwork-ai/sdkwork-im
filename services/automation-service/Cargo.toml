@@ -41,3 +41,8 @@ im-adapters-local-memory = { path = "../../adapters/local-memory" }
 tower.workspace = true
 sdkwork-routes-im-automation-app-api.workspace = true
 sdkwork-routes-im-governance-backend-api.workspace = true
+ops-service = { path = "../ops-service" }
+audit-service = { path = "../audit-service" }
+session-gateway = { path = "../session-gateway" }
+sdkwork_web_axum.workspace = true
+sdkwork_im_web_bootstrap = { workspace = true, features = ["test-support"] }

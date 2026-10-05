@@ -55,6 +55,26 @@ pub fn build_public_app_with_automation_runtime_and_governance_sinks(
     )
 }
 
+/// Domain router (public guardrails included) without the manifest pipeline
+/// wrapper. Integration tests compose it with the scoped-permission test
+/// pipeline from `sdkwork_im_web_bootstrap::test_support`, which emulates the
+/// IAM session scope projection that is unavailable without an IAM database.
+pub fn build_domain_router_with_governance_sinks(
+    automation_runtime: Arc<automation_service::AutomationRuntime>,
+    realtime_cluster: Arc<session_gateway::RealtimeClusterBridge>,
+    ops_runtime: Arc<ops_service::OpsRuntime>,
+    audit_runtime: Arc<audit_service::AuditRuntime>,
+) -> Router {
+    governance_service::apply_public_http_guardrails(
+        routes::build_api_router_with_governance_sinks(
+            automation_runtime,
+            realtime_cluster,
+            ops_runtime,
+            audit_runtime,
+        ),
+    )
+}
+
 fn build_gateway_router_with_governance_sinks(
     automation_runtime: Arc<automation_service::AutomationRuntime>,
     realtime_cluster: Arc<session_gateway::RealtimeClusterBridge>,

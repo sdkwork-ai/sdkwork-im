@@ -5,16 +5,33 @@ use im_app_context::DualTokenRequestBuilderExt;
 use std::sync::Arc;
 use tower::ServiceExt;
 
-fn ops_route_http_test_app() -> axum::Router {
+fn ops_infra_http_test_app() -> axum::Router {
     sdkwork_routes_im_ops_backend_api::build_public_app_with_runtime(Arc::new(
         ops_service::OpsRuntime::default(),
     ))
 }
 
+fn ops_route_http_test_app() -> axum::Router {
+    // Credential-embedded scope is dropped on the wire (IAM_SPEC §5.2): user 1
+    // holds ops.read only (the forbidden case), user 2 also holds ops.write.
+    sdkwork_web_axum::with_web_request_context(
+        sdkwork_routes_im_ops_backend_api::build_domain_router_with_runtime(Arc::new(
+            ops_service::OpsRuntime::default(),
+        )),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer_with_user_grants(
+            &[
+                ("1", &["tenant"], &["ops.read"]),
+                ("2", &["tenant"], &["ops.read", "ops.write"]),
+            ],
+            sdkwork_routes_im_ops_backend_api::route_manifest(),
+        ),
+    )
+}
+
 #[tokio::test]
 async fn test_route_composition_exports_required_infrastructure_endpoints() {
     ensure_test_environment();
-    let app = ops_route_http_test_app();
+    let app = ops_infra_http_test_app();
 
     for path in ["/healthz", "/metrics", "/openapi.json", "/docs"] {
         let response = app
@@ -171,7 +188,7 @@ async fn test_retention_purge_route_requires_ops_write_over_http() {
                 .uri("/backend/v3/api/ops/retention/purge")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
-                .with_dual_token_user("1")
+                .with_dual_token_user("2")
                 .with_dual_token_actor_kind("user")
                 .with_dual_token_permission_scope("ops.write")
                 .body(Body::empty())

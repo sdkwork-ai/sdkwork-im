@@ -329,11 +329,13 @@ mod tests {
             })
             .to_string(),
         );
+        #[allow(unsafe_code)]
         unsafe {
             std::env::set_var(REQUIRE_REALTIME_PUBLISHER_ENV, "1");
         }
         let result =
             ensure_realtime_delivery_configured(false, false, std::slice::from_ref(&commit));
+        #[allow(unsafe_code)]
         unsafe {
             std::env::remove_var(REQUIRE_REALTIME_PUBLISHER_ENV);
         }

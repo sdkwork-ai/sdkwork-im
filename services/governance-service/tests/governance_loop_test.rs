@@ -2,6 +2,70 @@ use im_app_context::DualTokenRequestBuilderExt;
 
 /// Local dual-token test contexts skip the signed orchestration header gate;
 /// disable signature verification explicitly for the control-plane loop test.
+
+fn scoped_control_app_with_provider_registry_and_governance_sinks(
+    realtime_cluster: Arc<session_gateway::RealtimeClusterBridge>,
+    provider_registry: Arc<dyn im_platform_contracts::ProviderRegistry>,
+    ops_runtime: Arc<ops_service::OpsRuntime>,
+    audit_runtime: Arc<AuditRuntime>,
+) -> axum::Router {
+    sdkwork_web_axum::with_web_request_context(
+        governance_service::build_domain_app_with_cluster_provider_registry_and_governance_sinks(
+            realtime_cluster,
+            provider_registry,
+            ops_runtime,
+            audit_runtime,
+        ),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &["control.read", "control.write"],
+            governance_service::route_manifest::backend_route_manifest(),
+        ),
+    )
+}
+
+fn scoped_control_app_with_runtime_provider_registry_and_governance_sinks(
+    realtime_cluster: Arc<session_gateway::RealtimeClusterBridge>,
+    provider_registry: Arc<im_platform_contracts::RuntimeProviderRegistry>,
+    ops_runtime: Arc<ops_service::OpsRuntime>,
+    audit_runtime: Arc<AuditRuntime>,
+) -> axum::Router {
+    sdkwork_web_axum::with_web_request_context(
+        governance_service::build_domain_app_with_cluster_runtime_provider_registry_and_governance_sinks(
+            realtime_cluster,
+            provider_registry,
+            ops_runtime,
+            audit_runtime,
+        ),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &["control.read", "control.write"],
+            governance_service::route_manifest::backend_route_manifest(),
+        ),
+    )
+}
+
+fn scoped_control_app(
+    automation_runtime: Arc<automation_service::AutomationRuntime>,
+    realtime_cluster: Arc<session_gateway::RealtimeClusterBridge>,
+    ops_runtime: Arc<ops_service::OpsRuntime>,
+    audit_runtime: Arc<AuditRuntime>,
+) -> axum::Router {
+    sdkwork_web_axum::with_web_request_context(
+        sdkwork_routes_im_governance_backend_api::build_domain_router_with_governance_sinks(
+            automation_runtime,
+            realtime_cluster,
+            ops_runtime,
+            audit_runtime,
+        ),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &["control.read", "control.write"],
+            sdkwork_routes_im_governance_backend_api::route_manifest(),
+        ),
+    )
+}
+
 fn ensure_loop_test_env() {
     #[allow(unsafe_code)]
     unsafe {
@@ -89,7 +153,7 @@ async fn test_control_plane_governance_writes_feed_ops_and_audit_runtimes() {
     ));
     let audit_runtime = Arc::new(AuditRuntime::default());
 
-    let app = sdkwork_routes_im_governance_backend_api::build_public_app_with_automation_runtime_and_governance_sinks(
+    let app = scoped_control_app(
         Arc::new(automation_service::AutomationRuntime::default()),
         cluster.clone(),
         ops_runtime.clone(),
@@ -206,7 +270,7 @@ async fn test_control_plane_provider_bindings_feed_ops_runtime() {
             ),
     );
 
-    let app = governance_service::build_app_with_cluster_provider_registry_and_governance_sinks(
+    let app = scoped_control_app_with_provider_registry_and_governance_sinks(
         cluster,
         provider_registry,
         ops_runtime.clone(),
@@ -300,13 +364,12 @@ async fn test_control_plane_provider_policy_writes_feed_ops_and_audit_runtimes()
     let audit_runtime = Arc::new(AuditRuntime::default());
     let provider_registry = Arc::new(RuntimeProviderRegistry::platform_default());
 
-    let app =
-        governance_service::build_app_with_cluster_runtime_provider_registry_and_governance_sinks(
-            cluster,
-            provider_registry,
-            ops_runtime.clone(),
-            audit_runtime.clone(),
-        );
+    let app = scoped_control_app_with_runtime_provider_registry_and_governance_sinks(
+        cluster,
+        provider_registry,
+        ops_runtime.clone(),
+        audit_runtime.clone(),
+    );
 
     let deployment_write = app
         .clone()
@@ -411,13 +474,12 @@ async fn test_control_plane_provider_policy_rollback_refreshes_ops_runtime_and_a
     let audit_runtime = Arc::new(AuditRuntime::default());
     let provider_registry = Arc::new(RuntimeProviderRegistry::platform_default());
 
-    let app =
-        governance_service::build_app_with_cluster_runtime_provider_registry_and_governance_sinks(
-            cluster,
-            provider_registry,
-            ops_runtime.clone(),
-            audit_runtime.clone(),
-        );
+    let app = scoped_control_app_with_runtime_provider_registry_and_governance_sinks(
+        cluster,
+        provider_registry,
+        ops_runtime.clone(),
+        audit_runtime.clone(),
+    );
 
     let deployment_write = app
         .clone()
@@ -536,13 +598,12 @@ async fn test_control_plane_repeated_provider_policy_updates_append_distinct_aud
     let audit_runtime = Arc::new(AuditRuntime::default());
     let provider_registry = Arc::new(RuntimeProviderRegistry::platform_default());
 
-    let app =
-        governance_service::build_app_with_cluster_runtime_provider_registry_and_governance_sinks(
-            cluster,
-            provider_registry,
-            ops_runtime.clone(),
-            audit_runtime.clone(),
-        );
+    let app = scoped_control_app_with_runtime_provider_registry_and_governance_sinks(
+        cluster,
+        provider_registry,
+        ops_runtime.clone(),
+        audit_runtime.clone(),
+    );
 
     let first_write = app
         .clone()
@@ -639,13 +700,12 @@ async fn test_control_plane_noop_provider_policy_write_does_not_append_audit() {
     let audit_runtime = Arc::new(AuditRuntime::default());
     let provider_registry = Arc::new(RuntimeProviderRegistry::platform_default());
 
-    let app =
-        governance_service::build_app_with_cluster_runtime_provider_registry_and_governance_sinks(
-            cluster,
-            provider_registry,
-            ops_runtime.clone(),
-            audit_runtime.clone(),
-        );
+    let app = scoped_control_app_with_runtime_provider_registry_and_governance_sinks(
+        cluster,
+        provider_registry,
+        ops_runtime.clone(),
+        audit_runtime.clone(),
+    );
 
     let first_write = app
         .clone()
@@ -734,13 +794,12 @@ async fn test_control_plane_provider_policy_preview_does_not_touch_ops_or_audit(
     let audit_runtime = Arc::new(AuditRuntime::default());
     let provider_registry = Arc::new(RuntimeProviderRegistry::platform_default());
 
-    let app =
-        governance_service::build_app_with_cluster_runtime_provider_registry_and_governance_sinks(
-            cluster,
-            provider_registry,
-            ops_runtime.clone(),
-            audit_runtime.clone(),
-        );
+    let app = scoped_control_app_with_runtime_provider_registry_and_governance_sinks(
+        cluster,
+        provider_registry,
+        ops_runtime.clone(),
+        audit_runtime.clone(),
+    );
 
     let preview_response = app
         .oneshot(
@@ -801,13 +860,12 @@ async fn test_control_plane_stale_provider_policy_confirm_write_does_not_touch_o
     let audit_runtime = Arc::new(AuditRuntime::default());
     let provider_registry = Arc::new(RuntimeProviderRegistry::platform_default());
 
-    let app =
-        governance_service::build_app_with_cluster_runtime_provider_registry_and_governance_sinks(
-            cluster,
-            provider_registry,
-            ops_runtime.clone(),
-            audit_runtime.clone(),
-        );
+    let app = scoped_control_app_with_runtime_provider_registry_and_governance_sinks(
+        cluster,
+        provider_registry,
+        ops_runtime.clone(),
+        audit_runtime.clone(),
+    );
 
     let preview_response = app
         .clone()
@@ -924,7 +982,7 @@ async fn test_control_plane_rejects_empty_tenant_provider_bindings_query_without
             .with_deployment_profile(ProviderDomain::ObjectStorage, "object-storage-volcengine"),
     );
 
-    let app = governance_service::build_app_with_cluster_provider_registry_and_governance_sinks(
+    let app = scoped_control_app_with_provider_registry_and_governance_sinks(
         cluster,
         provider_registry,
         ops_runtime.clone(),
@@ -1002,13 +1060,12 @@ async fn test_control_plane_rejects_empty_tenant_provider_policy_write_without_m
     let audit_runtime = Arc::new(AuditRuntime::default());
     let provider_registry = Arc::new(RuntimeProviderRegistry::platform_default());
 
-    let app =
-        governance_service::build_app_with_cluster_runtime_provider_registry_and_governance_sinks(
-            cluster,
-            provider_registry,
-            ops_runtime.clone(),
-            audit_runtime.clone(),
-        );
+    let app = scoped_control_app_with_runtime_provider_registry_and_governance_sinks(
+        cluster,
+        provider_registry,
+        ops_runtime.clone(),
+        audit_runtime.clone(),
+    );
 
     let response = app
         .oneshot(
@@ -1077,7 +1134,7 @@ async fn test_control_plane_rejects_oversized_tenant_provider_bindings_query_wit
     );
     let tenant_id = "t".repeat(257);
 
-    let app = governance_service::build_app_with_cluster_provider_registry_and_governance_sinks(
+    let app = scoped_control_app_with_provider_registry_and_governance_sinks(
         cluster,
         provider_registry,
         ops_runtime.clone(),
@@ -1158,13 +1215,12 @@ async fn test_control_plane_rejects_oversized_tenant_provider_policy_write_witho
     let provider_registry = Arc::new(RuntimeProviderRegistry::platform_default());
     let tenant_id = "t".repeat(257);
 
-    let app =
-        governance_service::build_app_with_cluster_runtime_provider_registry_and_governance_sinks(
-            cluster,
-            provider_registry,
-            ops_runtime.clone(),
-            audit_runtime.clone(),
-        );
+    let app = scoped_control_app_with_runtime_provider_registry_and_governance_sinks(
+        cluster,
+        provider_registry,
+        ops_runtime.clone(),
+        audit_runtime.clone(),
+    );
 
     let response = app
         .oneshot(

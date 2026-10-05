@@ -6,6 +6,23 @@ use tower::ServiceExt;
 
 mod test_env;
 
+/// Audit domain router behind the canonical pipeline with the IAM session
+/// scope projection emulated (`audit.read`/`audit.write`); credential-embedded
+/// scope is dropped on the wire by IAM_SPEC §5.2, so integration tests must
+/// grant it server-side the way the production IAM session row would.
+fn scoped_audit_app() -> axum::Router {
+    sdkwork_web_axum::with_web_request_context(
+        sdkwork_routes_im_audit_backend_api::build_domain_router_with_runtime(std::sync::Arc::new(
+            audit_service::AuditRuntime::from_env(),
+        )),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &["audit.read", "audit.write"],
+            sdkwork_routes_im_audit_backend_api::route_manifest(),
+        ),
+    )
+}
+
 #[tokio::test]
 async fn test_route_composition_exports_required_infrastructure_endpoints() {
     ensure_test_environment();
@@ -101,7 +118,7 @@ async fn test_public_app_serves_docs_page_for_live_openapi() {
 async fn test_record_list_and_export_audit_over_http() {
     ensure_test_environment();
     let _env = test_env::dev_test_environment();
-    let app = sdkwork_routes_im_audit_backend_api::build_public_app();
+    let app = scoped_audit_app();
 
     let record_response = app
         .clone()
@@ -227,7 +244,7 @@ async fn test_record_list_and_export_audit_over_http() {
 async fn test_record_list_returns_bounded_audit_seq_cursor_window_over_http() {
     ensure_test_environment();
     let _env = test_env::dev_test_environment();
-    let app = sdkwork_routes_im_audit_backend_api::build_public_app();
+    let app = scoped_audit_app();
 
     for (record_id, action) in [
         ("audit_http_window_first", "notification.requested"),
@@ -338,7 +355,7 @@ async fn test_record_list_returns_bounded_audit_seq_cursor_window_over_http() {
 async fn test_duplicate_record_anchor_request_is_idempotent_and_conflicting_retry_is_rejected() {
     ensure_test_environment();
     let _env = test_env::dev_test_environment();
-    let app = sdkwork_routes_im_audit_backend_api::build_public_app();
+    let app = scoped_audit_app();
 
     let first_record = app
         .clone()
@@ -496,7 +513,7 @@ async fn test_duplicate_record_anchor_request_is_idempotent_and_conflicting_retr
 async fn test_duplicate_record_anchor_request_replays_after_session_rotation() {
     ensure_test_environment();
     let _env = test_env::dev_test_environment();
-    let app = sdkwork_routes_im_audit_backend_api::build_public_app();
+    let app = scoped_audit_app();
 
     let first_record = app
         .clone()
@@ -615,7 +632,7 @@ async fn test_duplicate_record_anchor_request_replays_after_session_rotation() {
 async fn test_record_audit_rejects_oversized_payload_over_http() {
     ensure_test_environment();
     let _env = test_env::dev_test_environment();
-    let app = sdkwork_routes_im_audit_backend_api::build_public_app();
+    let app = scoped_audit_app();
     let request_body = serde_json::json!({
         "recordId": "audit_http_oversized_payload",
         "aggregateType": "notification",

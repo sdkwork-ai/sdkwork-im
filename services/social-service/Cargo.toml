@@ -45,3 +45,5 @@ sdkwork_routes_web_framework_backend_api.workspace = true
 sdkwork-routes-im-social-backend-api.workspace = true
 http-body-util.workspace = true
 tower.workspace = true
+sdkwork_web_axum.workspace = true
+sdkwork_im_web_bootstrap = { workspace = true, features = ["test-support"] }

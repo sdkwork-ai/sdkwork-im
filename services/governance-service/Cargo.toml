@@ -37,3 +37,5 @@ ops-service = { path = "../ops-service" }
 session-gateway = { path = "../session-gateway" }
 tower.workspace = true
 sdkwork-routes-im-governance-backend-api.workspace = true
+sdkwork_web_axum.workspace = true
+sdkwork_im_web_bootstrap = { workspace = true, features = ["test-support"] }

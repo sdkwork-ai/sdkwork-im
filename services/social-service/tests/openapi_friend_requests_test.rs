@@ -49,7 +49,17 @@ fn wrapped_control_api_app(state: AppState) -> axum::Router {
     // Compose through the owning social-backend route crate so the
     // interceptor pipeline receives the real backend route manifest; an
     // empty-manifest wrap cannot resolve `/backend/v3/api/control/*` routes.
-    social_backend_routes::build_control_embedded_public_app(state.social_runtime)
+    // Credential-embedded scope is dropped on the wire (IAM_SPEC §5.2), so the
+    // pipeline grants `control.read`/`control.write` server-side the way the
+    // production IAM session row would.
+    sdkwork_web_axum::with_web_request_context(
+        social_backend_routes::build_control_app(state),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &["control.read", "control.write"],
+            social_backend_routes::backend_route_manifest(),
+        ),
+    )
 }
 
 #[tokio::test]

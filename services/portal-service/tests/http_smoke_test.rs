@@ -13,6 +13,10 @@ fn init_portal_http_test_env() {
     #[allow(unsafe_code)]
     INIT_PORTAL_HTTP_TEST_ENV.call_once(|| unsafe {
         std::env::set_var("SDKWORK_IM_ENVIRONMENT", "dev");
+        // Dual-token test builders re-resolve their own headers between field
+        // updates; the local JWT fixtures carry no AppContext signature, and a
+        // strict gate makes every resolve fall back (losing prior updates).
+        std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
     });
 }
 
@@ -21,14 +25,28 @@ fn portal_http_test_app() -> axum::Router {
     portal_service::build_public_app()
 }
 
+fn portal_infra_http_test_app() -> axum::Router {
+    portal_service::build_public_app()
+}
+
 fn portal_route_http_test_app() -> axum::Router {
     init_portal_http_test_env();
-    sdkwork_routes_im_portal_app_api::build_public_app()
+    // Credential-embedded scope is dropped on the wire (IAM_SPEC §5.2): user 1
+    // holds no grant (the forbidden cases), user 2 holds audit.read.
+    sdkwork_web_axum::with_web_request_context(
+        sdkwork_routes_im_portal_app_api::build_domain_router_with_runtime(
+            portal_service::default_portal_runtime(),
+        ),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer_with_user_grants(
+            &[("2", &["tenant"], &["audit.read"])],
+            sdkwork_routes_im_portal_app_api::route_manifest(),
+        ),
+    )
 }
 
 #[tokio::test]
 async fn test_route_composition_exports_required_infrastructure_endpoints() {
-    let app = portal_route_http_test_app();
+    let app = portal_infra_http_test_app();
 
     for path in ["/healthz", "/metrics", "/openapi.json", "/docs"] {
         let response = app
@@ -218,7 +236,7 @@ async fn test_portal_governance_fail_closed_without_audit_records() {
                 .uri("/app/v3/api/portal/governance")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
-                .with_dual_token_user("1")
+                .with_dual_token_user("2")
                 .with_dual_token_actor_kind("user")
                 .with_dual_token_permission_scope("audit.read")
                 .body(Body::empty())
@@ -270,7 +288,7 @@ async fn test_portal_access_requires_audit_read_permission() {
                 .uri("/app/v3/api/portal/access")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
-                .with_dual_token_user("1")
+                .with_dual_token_user("2")
                 .with_dual_token_actor_kind("user")
                 .with_dual_token_permission_scope("audit.read")
                 .body(Body::empty())

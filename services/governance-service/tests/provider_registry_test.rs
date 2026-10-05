@@ -8,10 +8,51 @@ use im_platform_contracts::{ProviderDomain, RuntimeProviderRegistry, StaticProvi
 use session_gateway::RealtimeClusterBridge;
 use tower::ServiceExt;
 
+fn scoped_control_app() -> axum::Router {
+    scoped_control_app_with_provider_registry(
+        Arc::new(session_gateway::RealtimeClusterBridge::default()),
+        Arc::new(im_platform_contracts::RuntimeProviderRegistry::platform_default()),
+    )
+}
+
+fn scoped_control_app_with_provider_registry(
+    realtime_cluster: Arc<session_gateway::RealtimeClusterBridge>,
+    provider_registry: Arc<dyn im_platform_contracts::ProviderRegistry>,
+) -> axum::Router {
+    sdkwork_web_axum::with_web_request_context(
+        governance_service::build_domain_app_with_cluster_and_provider_registry(
+            realtime_cluster,
+            provider_registry,
+        ),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &["control.read", "control.write"],
+            governance_service::route_manifest::backend_route_manifest(),
+        ),
+    )
+}
+
+fn scoped_control_app_with_runtime_provider_registry(
+    realtime_cluster: Arc<session_gateway::RealtimeClusterBridge>,
+    provider_registry: Arc<im_platform_contracts::RuntimeProviderRegistry>,
+) -> axum::Router {
+    sdkwork_web_axum::with_web_request_context(
+        governance_service::build_domain_app_with_cluster_and_runtime_provider_registry(
+            realtime_cluster,
+            provider_registry,
+        ),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &["control.read", "control.write"],
+            governance_service::route_manifest::backend_route_manifest(),
+        ),
+    )
+}
+
 #[tokio::test]
 async fn test_control_plane_exposes_provider_registry_snapshot_to_control_readers() {
     ensure_test_environment();
-    let app = governance_service::build_app();
+    let app = scoped_control_app();
 
     let response = app
         .oneshot(
@@ -103,7 +144,7 @@ async fn test_control_plane_exposes_provider_registry_snapshot_to_control_reader
 #[tokio::test]
 async fn test_control_plane_exposes_deployment_profile_provider_bindings_to_control_readers() {
     ensure_test_environment();
-    let app = governance_service::build_app_with_cluster_and_provider_registry(
+    let app = scoped_control_app_with_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(
             StaticProviderRegistry::platform_default().with_deployment_profile(
@@ -176,7 +217,7 @@ async fn test_control_plane_exposes_deployment_profile_provider_bindings_to_cont
 #[tokio::test]
 async fn test_control_plane_exposes_tenant_override_provider_bindings_to_control_readers() {
     ensure_test_environment();
-    let app = governance_service::build_app_with_cluster_and_provider_registry(
+    let app = scoped_control_app_with_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(
             StaticProviderRegistry::platform_default()
@@ -245,7 +286,7 @@ async fn test_control_plane_exposes_tenant_override_provider_bindings_to_control
 #[tokio::test]
 async fn test_control_plane_allows_control_writers_to_update_provider_policies_and_read_back_effective_bindings()
  {
-    let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
+    let app = scoped_control_app_with_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
     );
@@ -445,7 +486,7 @@ async fn test_control_plane_allows_control_writers_to_update_provider_policies_a
 #[tokio::test]
 async fn test_control_plane_rejects_cross_domain_provider_policy_write() {
     ensure_test_environment();
-    let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
+    let app = scoped_control_app_with_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
     );
@@ -484,7 +525,7 @@ async fn test_control_plane_rejects_cross_domain_provider_policy_write() {
 #[tokio::test]
 async fn test_control_plane_returns_explicit_noop_without_advancing_provider_policy_version() {
     ensure_test_environment();
-    let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
+    let app = scoped_control_app_with_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
     );
@@ -588,7 +629,7 @@ async fn test_control_plane_returns_explicit_noop_without_advancing_provider_pol
 #[tokio::test]
 async fn test_control_plane_exposes_provider_policy_history_and_supports_rollback() {
     ensure_test_environment();
-    let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
+    let app = scoped_control_app_with_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
     );
@@ -777,7 +818,7 @@ async fn test_control_plane_exposes_provider_policy_history_and_supports_rollbac
 #[tokio::test]
 async fn test_control_plane_exposes_provider_policy_diff_between_committed_versions() {
     ensure_test_environment();
-    let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
+    let app = scoped_control_app_with_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
     );
@@ -902,7 +943,7 @@ async fn test_control_plane_exposes_provider_policy_diff_between_committed_versi
 #[tokio::test]
 async fn test_control_plane_exposes_provider_policy_preview_without_mutation() {
     ensure_test_environment();
-    let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
+    let app = scoped_control_app_with_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
     );
@@ -996,7 +1037,7 @@ async fn test_control_plane_exposes_provider_policy_preview_without_mutation() {
 #[tokio::test]
 async fn test_control_plane_rejects_stale_provider_policy_confirm_write_after_preview() {
     ensure_test_environment();
-    let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
+    let app = scoped_control_app_with_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
     );
@@ -1164,7 +1205,7 @@ async fn test_control_plane_rejects_stale_provider_policy_confirm_write_after_pr
 #[tokio::test]
 async fn test_control_plane_returns_unavailable_status_when_provider_policy_runtime_is_disabled() {
     ensure_test_environment();
-    let app = governance_service::build_app_with_cluster_and_provider_registry(
+    let app = scoped_control_app_with_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(StaticProviderRegistry::platform_default()),
     );
@@ -1239,7 +1280,7 @@ async fn test_control_plane_returns_unavailable_status_when_provider_policy_runt
 #[tokio::test]
 async fn test_control_plane_returns_conflict_status_for_unknown_provider_policy_versions() {
     ensure_test_environment();
-    let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
+    let app = scoped_control_app_with_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
     );
@@ -1303,7 +1344,7 @@ async fn test_control_plane_returns_conflict_status_for_unknown_provider_policy_
 #[tokio::test]
 async fn test_control_plane_rejects_provider_policy_diff_with_reversed_version_range() {
     ensure_test_environment();
-    let app = governance_service::build_app_with_cluster_and_runtime_provider_registry(
+    let app = scoped_control_app_with_runtime_provider_registry(
         Arc::new(RealtimeClusterBridge::default()),
         Arc::new(RuntimeProviderRegistry::platform_default()),
     );
