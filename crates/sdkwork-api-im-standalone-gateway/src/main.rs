@@ -292,6 +292,9 @@ fn apply_standalone_process_environment(base_url: &str, bind_address: SocketAddr
             .unwrap_or(true)
         {
             // SAFETY: main calls this before creating the Tokio runtime or any worker thread.
+            // The workspace lints deny `unsafe_code`; this reviewed process-identity
+            // bootstrap site opts back in locally (deny is allow-overrideable).
+            #[allow(unsafe_code)]
             unsafe { std::env::set_var(key, value) };
         }
     }
