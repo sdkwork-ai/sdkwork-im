@@ -1,3 +1,8 @@
+// The workspace denies `unsafe_code`; this integration-test binary opts back in
+// locally because Rust 2024 marks `std::env::set_var`/`remove_var` unsafe. Every
+// environment mutation is serialized through `TEST_ENV_LOCK`.
+#![allow(unsafe_code)]
+
 use axum::http::{HeaderMap, HeaderValue, header};
 use im_app_context::{
     AppContextSignatureConfig, DualTokenRequestBuilderExt, build_dual_token_headers_for_context,
@@ -108,7 +113,8 @@ impl Drop for TestProductionJwtEnvironmentWithoutRequireJti {
     }
 }
 
-fn test_production_jwt_environment_without_require_jti() -> TestProductionJwtEnvironmentWithoutRequireJti {
+fn test_production_jwt_environment_without_require_jti()
+-> TestProductionJwtEnvironmentWithoutRequireJti {
     let guard = lock_test_env();
     configure_production_jwt_signing_env_without_require_jti();
     TestProductionJwtEnvironmentWithoutRequireJti { _guard: guard }
@@ -231,7 +237,7 @@ fn test_build_dual_token_headers_for_context_emits_only_dual_token_credentials()
 }
 
 #[test]
-fn test_dual_token_permission_scope_builder_splits_comma_and_whitespace() {
+fn test_dual_token_permission_scope_is_not_signed_into_credentials() {
     let _env = test_dev_environment();
     let request = axum::http::Request::builder()
         .with_dual_token_context("100001", "1", "user", Some("d_demo"), ["chat.read"])
@@ -241,9 +247,11 @@ fn test_dual_token_permission_scope_builder_splits_comma_and_whitespace() {
 
     let context = resolve_app_context(request.headers()).expect("app context should resolve");
 
-    assert!(context.has_permission("ops.read"));
-    assert!(context.has_permission("audit.write"));
-    assert!(context.has_permission("media.write"));
+    // IAM_SPEC §5.2/§5.6: scope is resolved server-side through the framework
+    // port and MUST NOT be embedded in the credential payload.
+    assert_eq!(context.tenant_id, "100001");
+    assert!(!context.has_permission("ops.read"));
+    assert!(!context.has_permission("audit.write"));
     assert!(!context.has_permission("chat.read"));
 }
 
@@ -262,7 +270,8 @@ fn test_dual_token_builder_accepts_owned_string_values() {
 
     assert_eq!(context.session_id.as_deref(), Some("s_owned"));
     assert_eq!(context.device_id.as_deref(), Some("d_owned"));
-    assert!(context.has_permission("chat.write"));
+    // Scope is not part of the credential payload (IAM_SPEC §5.2).
+    assert!(!context.has_permission("chat.write"));
 }
 
 #[test]
@@ -700,9 +709,11 @@ fn test_resolve_app_context_rejects_require_jti_without_replay_ttl_in_production
     let headers = signed_dual_token_headers("100001", "prod-secret", "bootstrap");
     let error = resolve_app_context(&headers)
         .expect_err("REQUIRE_JTI=true without a replay TTL must fail closed in production");
-    assert!(error
-        .message()
-        .contains("SDKWORK_IM_JWT_REPLAY_CACHE_TTL_SECS > 0"));
+    assert!(
+        error
+            .message()
+            .contains("SDKWORK_IM_JWT_REPLAY_CACHE_TTL_SECS > 0")
+    );
 }
 
 #[test]
@@ -833,5 +844,12 @@ fn is_production_like_im_environment_tracks_header_only_fallback_gate() {
         std::env::set_var("SDKWORK_IM_ENVIRONMENT", "production");
     }
     assert!(im_app_context::is_production_like_im_environment());
+    unsafe {
+        std::env::set_var("SDKWORK_IM_ENVIRONMENT", "demo");
+    }
+    assert!(
+        im_app_context::is_production_like_im_environment(),
+        "demo is publicly reachable and must keep the production posture"
+    );
     ensure_test_dev_environment();
 }

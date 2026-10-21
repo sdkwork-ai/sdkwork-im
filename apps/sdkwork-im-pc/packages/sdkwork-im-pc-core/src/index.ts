@@ -22,6 +22,7 @@ export * from './sdk/commercePcIntegration';
 export * from './sdk/agentsPcIntegration';
 export * from './sdk/appAuthService';
 export * from './sdk/appAuthRuntime';
+export * from './sdk/embedHost';
 export * from './sdk/imSdkClient';
 export * from './sdk/pcRealtimeConnectionManager';
 export * from './sdk/pcWelcome';

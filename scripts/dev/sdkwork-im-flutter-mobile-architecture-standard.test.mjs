@@ -70,15 +70,11 @@ for (const dir of packageDirs) {
 }
 
 const coreSource = listDartFiles(coreRoot).map((file) => readFileSync(file, 'utf8')).join('\n');
-const driveClientSource = readFileSync(
-  path.join(coreRoot, 'lib/src/drive/drive_app_sdk_client.dart'),
-  'utf8',
-);
 assert.match(coreSource, /im_sdk_generated/u);
-assert.match(driveClientSource, /package:http\/http\.dart/u, 'Drive presigned upload may use http for external storage boundary only.');
 assert.equal(
-  coreSource.replace(driveClientSource, '').includes('package:http/http.dart'),
+  coreSource.includes('package:http/http.dart'),
   false,
+  'Flutter core must not own raw HTTP; Drive upload goes through the composed SDK.',
 );
 
 const chatRoot = path.join(appRoot, 'packages', 'sdkwork_im_flutter_mobile_chat');
@@ -88,6 +84,7 @@ assert.match(chatSource, /InboxListResponse/u);
 assert.match(chatSource, /conversationsMessagesList/u);
 assert.match(chatSource, /conversationsMessagesCreate/u);
 assert.match(chatSource, /ChatConversationPage/u);
+assert.match(chatSource, /drive_uploader_composed/u);
 assert.match(chatSource, /startInbox/u);
 assert.match(chatSource, /startConversation/u);
 assert.match(chatSource, /onScope/u);
@@ -95,11 +92,17 @@ assert.match(chatSource, /stopConversation/u);
 assert.match(chatSource, /disposeChatRealtimeHub/u);
 assert.match(chatSource, /_ChatLiveHub/u);
 assert.match(coreSource, /im_sdk_composed/u);
-assert.match(coreSource, /drive_app_sdk_client/u);
-assert.match(
-  readFileSync(path.join(chatRoot, 'lib/src/services/chat_media_upload_service.dart'), 'utf8'),
-  /DriveAppSdkClient\.create/u,
+assert.equal(
+  coreSource.includes('drive_app_sdk_client'),
+  false,
+  'Drive upload must live in the composed uploader boundary, not core.',
 );
+const mediaUploadSource = readFileSync(
+  path.join(chatRoot, 'lib/src/services/chat_media_upload_service.dart'),
+  'utf8',
+);
+assert.match(mediaUploadSource, /drive_uploader_composed/u);
+assert.match(mediaUploadSource, /drive_upload_image_composed/u);
 const sdkClients = read('lib/bootstrap/sdk_clients.dart');
 assert.match(sdkClients, /disposeChatRealtimeHub/u);
 assert.match(sdkClients, /resetSdkClients/u);

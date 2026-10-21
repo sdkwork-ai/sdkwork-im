@@ -13,6 +13,14 @@ pub struct CallingError {
 }
 
 impl CallingError {
+    pub(crate) fn invalid(code: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            status: axum::http::StatusCode::BAD_REQUEST,
+            code,
+            message: message.into(),
+        }
+    }
+
     pub(crate) fn internal(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             status: axum::http::StatusCode::INTERNAL_SERVER_ERROR,

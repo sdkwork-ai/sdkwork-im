@@ -362,11 +362,12 @@ for (const relativePath of [
 ]) {
   const source = read(relativePath);
   assert.match(source, /resolveInitialLanguage/u, `${relativePath} must initialize from persisted chat settings language`);
-  assert.match(source, /SDKWORK_IM_PC_LANGUAGE_CHANGED_EVENT/u, `${relativePath} must subscribe to app language changes`);
-  assert.match(source, /changeLanguage/u, `${relativePath} must update i18next when the app language changes`);
   assert.doesNotMatch(source, /clawchat-settings/u, `${relativePath} must not use retired clawchat settings storage keys`);
   assert.doesNotMatch(source, /sdkwork-chat-pc:language-changed/u, `${relativePath} must not use retired language-changed event names`);
 }
+const sharedI18nBase = read('apps/sdkwork-im-pc/packages/sdkwork-im-pc-chat/src/i18n/base.ts');
+assert.match(sharedI18nBase, /SDKWORK_IM_PC_LANGUAGE_CHANGED_EVENT/u, 'shared i18n base must subscribe to app language changes');
+assert.match(sharedI18nBase, /changeLanguage/u, 'shared i18n base must update i18next when the app language changes');
 
 const packageI18nRoots = [
   'apps/sdkwork-im-pc/packages/sdkwork-im-console-settings/src/i18n/index.ts',

@@ -1181,6 +1181,21 @@ pub struct SocialRuntime {
     user_directory: Option<Arc<dyn crate::user_directory::SocialUserDirectory>>,
 }
 
+/// Result of rebuilding the process-local derived social snapshot.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SocialDerivedSnapshotRepairReport {
+    pub status: &'static str,
+    pub scope: &'static str,
+    pub durable: bool,
+    pub friendships: u64,
+    pub friend_requests: u64,
+    pub user_blocks: u64,
+    pub direct_chats: u64,
+    pub external_connections: u64,
+    pub repaired_at: String,
+}
+
 impl SocialRuntime {
     pub(crate) fn new(
         state_store: SocialStateStore,
@@ -1648,6 +1663,36 @@ impl SocialRuntime {
         self.state_store
             .save(&state)
             .map_err(|error| format!("{context}: {error}"))
+    }
+
+    /// Rebuild the process-local derived indexes from the bounded runtime cache
+    /// and persist the repaired snapshot.
+    ///
+    /// PostgreSQL remains the authority: this repairs only the derived
+    /// in-process snapshot used as a hot cache, so the report states its scope
+    /// and whether the snapshot is durable.
+    pub(crate) fn repair_derived_snapshot(
+        &self,
+    ) -> Result<SocialDerivedSnapshotRepairReport, String> {
+        let mut state = self
+            .state
+            .write()
+            .map_err(|error| format!("social runtime lock poisoned: {error}"))?;
+        state.rebuild_social_indexes();
+        let report = SocialDerivedSnapshotRepairReport {
+            status: "repaired",
+            scope: "process_cache",
+            durable: !matches!(self.state_store, SocialStateStore::Database { .. }),
+            friendships: state.friendships.len() as u64,
+            friend_requests: state.friend_requests.len() as u64,
+            user_blocks: state.user_blocks.len() as u64,
+            direct_chats: state.direct_chats.len() as u64,
+            external_connections: state.external_connections.len() as u64,
+            repaired_at: utc_now_rfc3339_millis(),
+        };
+        drop(state);
+        self.persist_state_snapshot("derived snapshot repair")?;
+        Ok(report)
     }
 
     pub(crate) fn recover_poisoned_social_runtime_lock<T>(
@@ -3200,5 +3245,23 @@ mod postgres_write_authority_tests {
         assert!(!postgres_written);
         assert_eq!(inserted, vec![commit.clone()]);
         assert_eq!(journal.recorded(), vec![commit]);
+    }
+}
+
+#[cfg(test)]
+mod repair_snapshot_tests {
+    use super::SocialRuntime;
+
+    #[test]
+    fn repair_derived_snapshot_rebuilds_indexes_and_reports_scope() {
+        let runtime = SocialRuntime::for_test();
+        let report = runtime
+            .repair_derived_snapshot()
+            .expect("derived snapshot repair should succeed");
+        assert_eq!(report.status, "repaired");
+        assert_eq!(report.scope, "process_cache");
+        assert!(report.durable, "the in-memory test store is durable for itself");
+        assert_eq!(report.friendships, 0);
+        assert_eq!(report.direct_chats, 0);
     }
 }

@@ -171,10 +171,20 @@ SET
         WHEN attempt_count + 1 >= $6 THEN $5 + make_interval(secs => $7)
         ELSE retention_until
     END,
-    updated_at = $5
+    updated_at = $5,
+    last_error = $8
 WHERE tenant_id = $1 AND organization_id = $2 AND outbox_id = $3
     AND publish_status = 'pending' AND available_at = $4
 "#;
+
+const OUTBOX_FAILURE_REASON_MAX_CHARS: usize = 2000;
+
+fn bounded_failure_reason(reason: &str) -> String {
+    reason
+        .chars()
+        .take(OUTBOX_FAILURE_REASON_MAX_CHARS)
+        .collect()
+}
 
 const OUTBOX_MAX_ATTEMPTS_ENV: &str = "SDKWORK_IM_OUTBOX_MAX_ATTEMPTS";
 const OUTBOX_MAX_ATTEMPTS_DEFAULT: i32 = 10;
@@ -238,8 +248,9 @@ select tenant_id, organization_id
 from im_outbox_events
 where publish_status = 'pending' and available_at <= $1
     and aggregate_type = $2
+    and ($4 = '' or (tenant_id, organization_id) > ($4, $5))
 group by tenant_id, organization_id
-order by min(available_at), tenant_id, organization_id
+order by tenant_id, organization_id
 limit $3
 "#;
 
@@ -408,7 +419,13 @@ impl OutboxStore for PostgresOutboxStore {
             let affected_rows = client
                 .execute(
                     MARK_PUBLISHED_DIRECT_SQL,
-                    &[&tenant_id, &organization_id, &outbox_id, &now, &retention_secs],
+                    &[
+                        &tenant_id,
+                        &organization_id,
+                        &outbox_id,
+                        &now,
+                        &retention_secs,
+                    ],
                 )
                 .map_err(|error| postgres_unavailable("mark_published_direct", error))?;
             if affected_rows == 0 {
@@ -421,7 +438,7 @@ impl OutboxStore for PostgresOutboxStore {
         })
     }
 
-    fn mark_failed(&self, claim: &OutboxEventClaim, _reason: &str) -> Result<(), ContractError> {
+    fn mark_failed(&self, claim: &OutboxEventClaim, reason: &str) -> Result<(), ContractError> {
         let pool = self.pool.clone();
         let tenant_id = claim.event.tenant_id.clone();
         let organization_id = claim.event.organization_id.clone();
@@ -429,6 +446,7 @@ impl OutboxStore for PostgresOutboxStore {
         let lease_expires_at =
             postgres_timestamptz(claim.lease_expires_at.as_str(), "lease_expires_at")?;
         let now = postgres_timestamptz(&now_rfc3339(), "now")?;
+        let last_error = bounded_failure_reason(reason);
         let max_attempts = resolve_outbox_max_attempts();
         let retention_secs = resolve_outbox_failed_retention_secs();
         run_postgres_io(move || {
@@ -444,6 +462,7 @@ impl OutboxStore for PostgresOutboxStore {
                         &now,
                         &max_attempts,
                         &retention_secs,
+                        &last_error,
                     ],
                 )
                 .map_err(|error| postgres_unavailable("mark_failed", error))?;
@@ -524,10 +543,22 @@ impl OutboxStore for PostgresOutboxStore {
         let now = postgres_timestamptz(&now_rfc3339(), "now")?;
         let limit = i64::try_from(request.limit())
             .map_err(|_| ContractError::Invalid("outbox scope limit is too large".into()))?;
+        let (after_tenant, after_organization) = request.after().unwrap_or(("", ""));
+        let after_tenant = after_tenant.to_owned();
+        let after_organization = after_organization.to_owned();
         let result: Result<Vec<(String, String)>, ContractError> = run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "list_pending_scopes")?;
             let rows = client
-                .query(LIST_PENDING_SCOPES_SQL, &[&now, &aggregate_type, &limit])
+                .query(
+                    LIST_PENDING_SCOPES_SQL,
+                    &[
+                        &now,
+                        &aggregate_type,
+                        &limit,
+                        &after_tenant,
+                        &after_organization,
+                    ],
+                )
                 .map_err(|error| postgres_unavailable("list_pending_scopes", error))?;
             Ok(rows
                 .iter()
@@ -593,6 +624,19 @@ mod tests {
     }
 
     #[test]
+    fn mark_failed_persists_a_bounded_failure_reason() {
+        let sql = normalized_sql(MARK_FAILED_SQL);
+        assert!(sql.contains("last_error = $8"));
+
+        let short = bounded_failure_reason("redis publish timeout");
+        assert_eq!(short, "redis publish timeout");
+
+        let long = "x".repeat(OUTBOX_FAILURE_REASON_MAX_CHARS + 500);
+        let bounded = bounded_failure_reason(long.as_str());
+        assert_eq!(bounded.chars().count(), OUTBOX_FAILURE_REASON_MAX_CHARS);
+    }
+
+    #[test]
     fn pending_claim_is_atomic_domain_scoped_and_leased() {
         let sql = normalized_sql(CLAIM_PENDING_SQL);
 
@@ -623,9 +667,7 @@ mod tests {
     fn terminal_failure_sets_row_retention() {
         let sql = normalized_sql(MARK_FAILED_SQL);
 
-        assert!(sql.contains(
-            "when attempt_count + 1 >= $6 then $5 + make_interval(secs => $7)"
-        ));
+        assert!(sql.contains("when attempt_count + 1 >= $6 then $5 + make_interval(secs => $7)"));
     }
 
     #[test]

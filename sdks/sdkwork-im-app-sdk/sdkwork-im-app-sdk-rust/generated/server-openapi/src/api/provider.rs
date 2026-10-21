@@ -19,10 +19,4 @@ impl ProviderApi {
         self.client.get(&path, None, None).await
     }
 
-    /// Retrieve principal-profile provider health
-    pub async fn principal_profile_health_retrieve(&self) -> Result<std::collections::HashMap<String, serde_json::Value>, SdkworkError> {
-        let path = app_path(&"/principal/profiles/provider_health".to_string());
-        self.client.get(&path, None, None).await
-    }
-
 }

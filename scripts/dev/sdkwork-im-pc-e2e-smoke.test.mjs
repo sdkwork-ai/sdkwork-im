@@ -16,7 +16,21 @@ import {
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const pcRoot = path.join(repoRoot, 'apps', 'sdkwork-im-pc');
-const distIndex = path.join(pcRoot, 'dist', 'index.html');
+const browserDistEnvironmentAlias = {
+  development: 'dev',
+  test: 'test',
+  staging: 'staging',
+  demo: 'demo',
+  production: 'prod',
+};
+const browserDistProfile = (process.env.SDKWORK_DEPLOYMENT_PROFILE ?? 'standalone').trim() === 'cloud'
+  ? 'cloud'
+  : 'standalone';
+const browserDistEnvironment = browserDistEnvironmentAlias[
+  (process.env.SDKWORK_ENVIRONMENT ?? 'production').trim()
+] ?? 'prod';
+const distRoot = path.join(pcRoot, 'dist', browserDistProfile, browserDistEnvironment);
+const distIndex = path.join(distRoot, 'index.html');
 const serverEntry = path.join(pcRoot, 'dist', 'server.cjs');
 const configuredServerPort = process.env.PLAYWRIGHT_PC_SMOKE_PORT
   ? parseTcpPort(process.env.PLAYWRIGHT_PC_SMOKE_PORT, 'PLAYWRIGHT_PC_SMOKE_PORT')
@@ -27,7 +41,7 @@ const useProcessGroup = process.platform !== 'win32';
 assert.equal(
   fs.existsSync(distIndex),
   true,
-  'apps/sdkwork-im-pc/dist/index.html must exist; run pnpm build in apps/sdkwork-im-pc first',
+  'apps/sdkwork-im-pc/dist/<profile>/<env>/index.html must exist; run pnpm build in apps/sdkwork-im-pc first',
 );
 assert.equal(
   fs.existsSync(serverEntry),

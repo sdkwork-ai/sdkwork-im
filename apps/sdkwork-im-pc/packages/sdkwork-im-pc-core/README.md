@@ -20,7 +20,7 @@ Machine-readable contract: `specs/component.spec.json`. Canonical standards: `..
 | `coursePcIntegration` | IM session → `@sdkwork/course-app-sdk` + `@sdkwork/course-pc-course` host ports |
 | `drivePcIntegration`, `voicePcIntegration`, `knowledgebasePcIntegration`, … | Host port injection into sibling `*-pc-*` packages |
 
-Product UI and domain services for mail, shop, orders, devices, and community **must not** live in this package. See `docs/architecture/tech/INTEGRATION-ADAPTER-REGISTER.md`.
+Product UI and domain services for mail, shop, orders, devices, and community **must not** live in this package. See `docs/architecture/tech/TECH-10-integration-adapter-register.md`.
 
 Legacy re-export paths (e.g. `./sdk/communityAppSdkClient`) remain for compatibility; implementation lives in `*PcIntegration.ts`.
 

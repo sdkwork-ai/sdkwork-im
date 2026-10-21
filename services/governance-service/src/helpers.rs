@@ -318,10 +318,10 @@ fn capability_profile_response(profile: &CapabilityProfile) -> CapabilityProfile
 fn quota_profile_response(profile: &QuotaProfile) -> QuotaProfileResponse {
     QuotaProfileResponse {
         profile_id: profile.profile_id.clone(),
-        max_concurrent_sessions_per_tenant: profile.max_concurrent_sessions_per_tenant,
-        max_subscriptions_per_session: profile.max_subscriptions_per_session,
-        max_inflight_messages: profile.max_inflight_messages,
-        max_payload_bytes: profile.max_payload_bytes,
+        max_concurrent_sessions_per_tenant: u64::from(profile.max_concurrent_sessions_per_tenant),
+        max_subscriptions_per_session: u64::from(profile.max_subscriptions_per_session),
+        max_inflight_messages: u64::from(profile.max_inflight_messages),
+        max_payload_bytes: profile.max_payload_bytes as u64,
     }
 }
 
@@ -329,7 +329,7 @@ fn rollout_policy_response(policy: &RolloutPolicy) -> RolloutPolicyResponse {
     RolloutPolicyResponse {
         policy_id: policy.policy_id.clone(),
         release_channel: release_channel(policy.release_channel.clone()).to_owned(),
-        traffic_percent: policy.traffic_percent,
+        traffic_percent: u64::from(policy.traffic_percent),
         cell_selector: policy.cell_selector.clone(),
         region_selector: policy.region_selector.clone(),
         operator_override: policy.operator_override,

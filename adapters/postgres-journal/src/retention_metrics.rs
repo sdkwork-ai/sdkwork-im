@@ -20,6 +20,22 @@ pub struct RetentionPurgeMetrics {
     rtc_sessions_deleted_total: AtomicU64,
     invitations_deleted_total: AtomicU64,
     audit_records_deleted_total: AtomicU64,
+    realtime_subscriptions_deleted_total: AtomicU64,
+    presence_states_deleted_total: AtomicU64,
+    realtime_disconnect_fences_deleted_total: AtomicU64,
+    notification_tasks_deleted_total: AtomicU64,
+    automation_executions_deleted_total: AtomicU64,
+    conversation_members_deleted_total: AtomicU64,
+    conversation_read_cursors_deleted_total: AtomicU64,
+    registered_client_routes_deleted_total: AtomicU64,
+    client_sync_events_deleted_total: AtomicU64,
+    client_sync_cursors_deleted_total: AtomicU64,
+    stream_frames_deleted_total: AtomicU64,
+    stream_sessions_deleted_total: AtomicU64,
+    conversation_agent_assignments_deleted_total: AtomicU64,
+    conversation_agent_binding_deleted_total: AtomicU64,
+    agent_dispatch_deleted_total: AtomicU64,
+    conversations_deleted_total: AtomicU64,
     last_duration_micros: AtomicU64,
 }
 
@@ -50,6 +66,38 @@ impl RetentionPurgeMetrics {
             .fetch_add(report.invitations_deleted, Ordering::Relaxed);
         self.audit_records_deleted_total
             .fetch_add(report.audit_records_deleted, Ordering::Relaxed);
+        self.realtime_subscriptions_deleted_total
+            .fetch_add(report.realtime_subscriptions_deleted, Ordering::Relaxed);
+        self.presence_states_deleted_total
+            .fetch_add(report.presence_states_deleted, Ordering::Relaxed);
+        self.realtime_disconnect_fences_deleted_total
+            .fetch_add(report.realtime_disconnect_fences_deleted, Ordering::Relaxed);
+        self.notification_tasks_deleted_total
+            .fetch_add(report.notification_tasks_deleted, Ordering::Relaxed);
+        self.automation_executions_deleted_total
+            .fetch_add(report.automation_executions_deleted, Ordering::Relaxed);
+        self.conversation_members_deleted_total
+            .fetch_add(report.conversation_members_deleted, Ordering::Relaxed);
+        self.conversation_read_cursors_deleted_total
+            .fetch_add(report.conversation_read_cursors_deleted, Ordering::Relaxed);
+        self.registered_client_routes_deleted_total
+            .fetch_add(report.registered_client_routes_deleted, Ordering::Relaxed);
+        self.client_sync_events_deleted_total
+            .fetch_add(report.client_sync_events_deleted, Ordering::Relaxed);
+        self.client_sync_cursors_deleted_total
+            .fetch_add(report.client_sync_cursors_deleted, Ordering::Relaxed);
+        self.stream_frames_deleted_total
+            .fetch_add(report.stream_frames_deleted, Ordering::Relaxed);
+        self.stream_sessions_deleted_total
+            .fetch_add(report.stream_sessions_deleted, Ordering::Relaxed);
+        self.conversation_agent_assignments_deleted_total
+            .fetch_add(report.conversation_agent_assignments_deleted, Ordering::Relaxed);
+        self.conversation_agent_binding_deleted_total
+            .fetch_add(report.conversation_agent_binding_deleted, Ordering::Relaxed);
+        self.agent_dispatch_deleted_total
+            .fetch_add(report.agent_dispatch_deleted, Ordering::Relaxed);
+        self.conversations_deleted_total
+            .fetch_add(report.conversations_deleted, Ordering::Relaxed);
         self.last_duration_micros
             .store(duration_micros, Ordering::Relaxed);
     }
@@ -99,6 +147,22 @@ impl RetentionPurgeMetrics {
              im_retention_purge_rows_deleted_total{{{base_labels},store=\"rtc_sessions\"}} {}\n\
              im_retention_purge_rows_deleted_total{{{base_labels},store=\"invitations\"}} {}\n\
              im_retention_purge_rows_deleted_total{{{base_labels},store=\"audit_records\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"realtime_subscriptions\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"presence_states\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"realtime_disconnect_fences\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"notification_tasks\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"automation_executions\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"conversation_members\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"conversation_read_cursors\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"registered_client_routes\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"client_sync_events\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"client_sync_cursors\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"stream_frames\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"stream_sessions\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"conversation_agent_assignments\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"conversation_agent_binding\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"agent_dispatch\"}} {}\n\
+             im_retention_purge_rows_deleted_total{{{base_labels},store=\"conversations\"}} {}\n\
              # HELP im_retention_purge_last_duration_seconds Duration of the most recent retention purge batch in seconds.\n\
              # TYPE im_retention_purge_last_duration_seconds gauge\n\
              im_retention_purge_last_duration_seconds{{{base_labels}}} {last_duration_seconds}\n\
@@ -120,6 +184,33 @@ impl RetentionPurgeMetrics {
             self.rtc_sessions_deleted_total.load(Ordering::Relaxed),
             self.invitations_deleted_total.load(Ordering::Relaxed),
             self.audit_records_deleted_total.load(Ordering::Relaxed),
+            self.realtime_subscriptions_deleted_total
+                .load(Ordering::Relaxed),
+            self.presence_states_deleted_total.load(Ordering::Relaxed),
+            self.realtime_disconnect_fences_deleted_total
+                .load(Ordering::Relaxed),
+            self.notification_tasks_deleted_total
+                .load(Ordering::Relaxed),
+            self.automation_executions_deleted_total
+                .load(Ordering::Relaxed),
+            self.conversation_members_deleted_total
+                .load(Ordering::Relaxed),
+            self.conversation_read_cursors_deleted_total
+                .load(Ordering::Relaxed),
+            self.registered_client_routes_deleted_total
+                .load(Ordering::Relaxed),
+            self.client_sync_events_deleted_total
+                .load(Ordering::Relaxed),
+            self.client_sync_cursors_deleted_total
+                .load(Ordering::Relaxed),
+            self.stream_frames_deleted_total.load(Ordering::Relaxed),
+            self.stream_sessions_deleted_total.load(Ordering::Relaxed),
+            self.conversation_agent_assignments_deleted_total
+                .load(Ordering::Relaxed),
+            self.conversation_agent_binding_deleted_total
+                .load(Ordering::Relaxed),
+            self.agent_dispatch_deleted_total.load(Ordering::Relaxed),
+            self.conversations_deleted_total.load(Ordering::Relaxed),
         )
     }
 }
@@ -150,6 +241,9 @@ mod tests {
                 rtc_sessions_deleted: 4,
                 invitations_deleted: 2,
                 audit_records_deleted: 1,
+                stream_frames_deleted: 5,
+                conversations_deleted: 2,
+                ..Default::default()
             },
             1_500_000,
         );
@@ -158,6 +252,9 @@ mod tests {
         assert!(body.contains("store=\"commit_journal\""));
         assert!(body.contains("store=\"invitations\""));
         assert!(body.contains("store=\"audit_records\""));
+        assert!(body.contains("store=\"stream_frames\""));
+        assert!(body.contains("store=\"stream_frames\"} 5"));
+        assert!(body.contains("store=\"conversations\"} 2"));
         assert!(body.contains("im_retention_purge_last_duration_seconds"));
         assert!(body.contains("im_health_status"));
     }

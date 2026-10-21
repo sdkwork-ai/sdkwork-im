@@ -1,4 +1,10 @@
-# IM系统代码审查与Bug修复报告
+# IM系统代码审查与Bug修复报告（历史快照）
+
+> **历史文档声明（2026-10-21）**：本文记录 2025 年 1 月针对 4 个核心模块的局部审查，
+> 其中“修复完成率 100%”只针对当次列出的 12 个问题，**不代表当前仓库状态**。
+> 当前全量审计、已修复项与未关闭项见
+> `docs/engineering/reviews/REVIEW-20261021-im-full-audit-and-commercial-readiness.md`。
+> 文中引用的部分文件路径已随重构变化，追溯时请以当前代码为准。
 
 **审查日期**: 2025年1月
 **审查范围**: im-domain-core、sdkwork-api-im-standalone-gateway核心模块

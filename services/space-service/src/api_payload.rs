@@ -1,6 +1,8 @@
 //! SdkWorkApiResponse payload helpers (`API_SPEC.md` §14–16).
 
-use sdkwork_utils_rust::{SdkWorkPageData, SdkWorkResourceData, cursor_list_page_data};
+use sdkwork_im_keyset_cursor::{CursorScope, KeysetCursorError, KeysetPosition, keyset_page};
+use sdkwork_routes_web_framework_backend_api::response::ApiProblem;
+use sdkwork_utils_rust::{SdkWorkPageData, SdkWorkResourceData};
 
 pub fn resource_item<T>(item: T) -> SdkWorkResourceData<T> {
     SdkWorkResourceData { item }
@@ -8,31 +10,18 @@ pub fn resource_item<T>(item: T) -> SdkWorkResourceData<T> {
 
 /// Keyset page response builder for SQL stores that fetch `LIMIT page_size + 1`.
 ///
-/// Uses `(sort_value, entity_value)` keyset cursor instead of OFFSET to satisfy
-/// `PAGINATION_SPEC.md` §2.
-///
-/// The `cursor_extractor` closure maps each item to `(sort_value, entity_value)`
-/// used to build the `next_cursor` for the next page.
+/// The `position_of` closure maps the last item to its `(sort_value, entity_id)`
+/// keyset position; the continuation cursor is signed and scope-bound.
 pub fn keyset_list_page<T, F>(
     records: Vec<T>,
     page_size: usize,
-    cursor_extractor: F,
-) -> SdkWorkPageData<T>
+    scope: &CursorScope<'_>,
+    position_of: F,
+) -> Result<SdkWorkPageData<T>, ApiProblem>
 where
-    F: Fn(&T) -> (String, String),
+    F: Fn(&T) -> KeysetPosition,
 {
-    let has_more = records.len() > page_size;
-    let mut items = records;
-    if has_more {
-        items.truncate(page_size);
-    }
-    let next_cursor = if has_more {
-        items.last().map(|item| {
-            let (sort_value, entity_value) = cursor_extractor(item);
-            format!("{sort_value}|{entity_value}")
-        })
-    } else {
-        None
-    };
-    cursor_list_page_data(items, page_size, next_cursor, has_more)
+    keyset_page(records, page_size, scope, position_of).map_err(|error: KeysetCursorError| {
+        ApiProblem::bad_request(error.to_string())
+    })
 }

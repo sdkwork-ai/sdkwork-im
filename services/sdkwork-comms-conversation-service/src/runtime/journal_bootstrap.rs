@@ -5,7 +5,7 @@ use im_adapters_postgres_journal::{
     PostgresMessageStore, PostgresOutboxStore, PostgresRetentionScopeStore,
     PostgresWelcomeStateStore,
 };
-use im_adapters_redis_cache::RedisSeqAllocator;
+use im_adapters_redis_cache::{ConversationSeqHighWatermark, RedisSeqAllocator};
 use im_adapters_social_postgres::user_block_store::PostgresUserBlockStore;
 use im_platform_contracts::{
     AgentIntegrationStore, ConversationAggregateStore, ConversationSeqAllocator, MessageStore,
@@ -200,6 +200,27 @@ pub fn build_conversation_runtime_from_env()
 const IM_REDIS_SEQ_URL_ENV: &str = "SDKWORK_IM_REALTIME_ROUTE_STORE_URL";
 const IM_CLUSTER_BUS_URL_ENV: &str = "SDKWORK_IM_REALTIME_CLUSTER_BUS_URL";
 
+/// Durable floor for Redis sequence batches.
+///
+/// Reads the highest `message_seq` already committed for the conversation so a
+/// flushed or evicted Redis counter resumes above it instead of re-issuing
+/// existing sequence numbers.
+struct MessageStoreSeqHighWatermark {
+    store: Arc<PostgresMessageStore>,
+}
+
+impl ConversationSeqHighWatermark for MessageStoreSeqHighWatermark {
+    fn high_watermark(
+        &self,
+        tenant_id: &str,
+        organization_id: &str,
+        conversation_id: &str,
+    ) -> Result<u64, ContractError> {
+        self.store
+            .read_high_watermark(tenant_id, organization_id, conversation_id)
+    }
+}
+
 fn resolve_conversation_seq_allocator_from_env(
     pool: im_adapters_postgres_journal::PostgresJournalPool,
 ) -> Arc<dyn ConversationSeqAllocator> {
@@ -207,7 +228,12 @@ fn resolve_conversation_seq_allocator_from_env(
         match redis::Client::open(redis_url.as_str()) {
             Ok(client) => {
                 info!("conversation-runtime using redis conversation seq allocator");
-                return Arc::new(RedisSeqAllocator::new(client));
+                let high_watermark = Arc::new(MessageStoreSeqHighWatermark {
+                    store: Arc::new(PostgresMessageStore::from_pool(pool)),
+                });
+                return Arc::new(
+                    RedisSeqAllocator::new(client).with_high_watermark(high_watermark),
+                );
             }
             Err(error) => {
                 tracing::warn!(

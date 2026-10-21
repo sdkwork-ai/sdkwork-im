@@ -418,12 +418,12 @@ async function main(): Promise<void> {
         {
           scopeType: 'conversation',
           scopeId: 'conversation-1',
-          eventTypes: ['message.posted'],
+          eventTypes: ['message.posted', 'conversation.typing'],
         },
         {
           scopeType: 'conversation',
           scopeId: 'conversation-2',
-          eventTypes: ['message.posted'],
+          eventTypes: ['message.posted', 'conversation.typing'],
         },
       ],
     });
@@ -434,12 +434,12 @@ async function main(): Promise<void> {
         {
           scopeType: 'conversation',
           scopeId: 'conversation-1',
-          eventTypes: ['message.posted'],
+          eventTypes: ['message.posted', 'conversation.typing'],
         },
         {
           scopeType: 'conversation',
           scopeId: 'conversation-3',
-          eventTypes: ['message.posted'],
+          eventTypes: ['message.posted', 'conversation.typing'],
         },
       ],
     });
@@ -455,12 +455,12 @@ async function main(): Promise<void> {
         {
           scopeType: 'conversation',
           scopeId: 'conversation-1',
-          eventTypes: ['message.posted'],
+          eventTypes: ['message.posted', 'conversation.typing'],
         },
         {
           scopeType: 'conversation',
           scopeId: 'conversation-3',
-          eventTypes: ['message.posted'],
+          eventTypes: ['message.posted', 'conversation.typing'],
         },
       ],
     });
@@ -482,12 +482,12 @@ async function main(): Promise<void> {
         {
           scopeType: 'conversation',
           scopeId: 'conversation-1',
-          eventTypes: ['message.posted'],
+          eventTypes: ['message.posted', 'conversation.typing'],
         },
         {
           scopeType: 'conversation',
           scopeId: 'conversation-3',
-          eventTypes: ['message.posted'],
+          eventTypes: ['message.posted', 'conversation.typing'],
         },
         {
           scopeType: 'user',
@@ -1594,7 +1594,7 @@ async function main(): Promise<void> {
         {
           scopeType: 'conversation',
           scopeId: 'browser-conversation-early',
-          eventTypes: ['message.posted'],
+          eventTypes: ['message.posted', 'conversation.typing'],
         },
       ],
     });

@@ -211,8 +211,10 @@ export const CapabilityModuleSurface: React.FC<CapabilityModuleSurfaceProps> = (
       return <FavoritesView searchQuery={searchQuery} />;
     default:
       return (
-        <div className="flex-1 flex items-center justify-center bg-[#1e1e1e]">
-          <div className="text-gray-500 text-xl capitalize">{activeTab} Content</div>
+        <div className="flex-1 flex items-center justify-center bg-[#1e1e1e] p-8 text-center">
+          <p className="text-sm text-gray-400">
+            {t("surfaces.capabilityUnavailable", { tab: activeTab })}
+          </p>
         </div>
       );
   }

@@ -575,15 +575,12 @@ paths:
         Lists the current tenant's audit ledger in descending audit-sequence order using an opaque keyset cursor bounded
         by page_size.
       parameters:
-        - name: after_audit_seq
+        - name: cursor
           in: query
           required: false
+          description: Opaque signed cursor from a previous page's pageInfo.nextCursor.
           schema:
             type: string
-            format: int64
-            pattern: ^-?[0-9]+$
-            x-sdkwork-int64-string: true
-            minimum: 0
         - $ref: '#/components/parameters/PageSizeQuery'
       responses:
         '200':
@@ -1185,17 +1182,20 @@ paths:
   /backend/v3/api/control/provider_policies:
     get:
       operationId: providerPolicies.list
-      parameters:
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
+      parameters: []
       responses:
         '200':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProviderPolicyHistorySnapshot'
           description: Successful response.
         '400':
           description: Invalid request.
@@ -1560,16 +1560,19 @@ paths:
           required: false
           schema:
             type: string
-        - $ref: '#/components/parameters/PageSizeQuery'
-        - $ref: '#/components/parameters/CursorQuery'
-        - $ref: '#/components/parameters/PageQuery'
-        - $ref: '#/components/parameters/QQuery'
       responses:
         '200':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SdkWorkListResponse'
+                allOf:
+                  - $ref: '#/components/schemas/SdkWorkApiResponse'
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProviderBindingsSnapshot'
           description: Successful response.
         '400':
           description: Invalid request.
@@ -5407,11 +5410,15 @@ components:
       type: object
       additionalProperties: false
       required:
+        - status
         - interfaceVersion
         - tenantId
         - effectiveBindings
         - precedence
       properties:
+        status:
+          type: string
+          description: Read status for the provider binding surface.
         interfaceVersion:
           type: string
         tenantId:
@@ -5426,6 +5433,10 @@ components:
           type: array
           items:
             type: string
+    ProviderPolicyHistorySnapshot:
+      type: object
+      additionalProperties: true
+      description: Provider policy history including current version and committed policy versions.
     ProviderBindingDriftItem:
       type: object
       additionalProperties: false

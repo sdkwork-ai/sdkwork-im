@@ -53,6 +53,27 @@ function composeContentSecurityPolicy(): string {
   ].join('; ');
 }
 
+const BROWSER_DIST_ENV_ALIASES: Record<string, string> = {
+  development: 'dev',
+  test: 'test',
+  staging: 'staging',
+  demo: 'demo',
+  production: 'prod',
+};
+
+/**
+ * Resolve the canonical browser build output: `dist/<profile>/<envAlias>`.
+ * A bare `dist/` never contains `index.html` because the Vite layout keeps
+ * standalone and cloud builds in separate environment subtrees.
+ */
+function resolveBrowserDistPath(): string {
+  const requestedProfile = (process.env.SDKWORK_DEPLOYMENT_PROFILE ?? 'standalone').trim();
+  const deploymentProfile = requestedProfile === 'cloud' ? 'cloud' : 'standalone';
+  const environment = (process.env.SDKWORK_ENVIRONMENT ?? 'production').trim();
+  const environmentAlias = BROWSER_DIST_ENV_ALIASES[environment] ?? 'prod';
+  return path.join(process.cwd(), 'dist', deploymentProfile, environmentAlias);
+}
+
 /**
  * Security headers middleware applied to every response in production mode.
  * In development, Vite's middleware injects its own HMR scripts and React
@@ -95,7 +116,7 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(applySecurityHeaders);
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = resolveBrowserDistPath();
     app.use(express.static(distPath));
     app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

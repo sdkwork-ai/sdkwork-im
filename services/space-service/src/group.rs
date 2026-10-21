@@ -19,6 +19,8 @@ use crate::group_conversation_binder::{
 };
 use crate::http::AppState;
 use crate::id::next_entity_id;
+use sdkwork_im_keyset_cursor::{CursorScope, KeysetPosition};
+
 use crate::list_query::{ListQuery, resolve_keyset_page};
 use crate::space_access::{
     actor_can_manage_space, actor_can_read_space, load_space, parse_space_id,
@@ -203,7 +205,13 @@ pub async fn list_groups(
         let space_id = parse_space_id(space_id.as_str())?;
         let space = load_space(&state, &auth, space_id)?;
         actor_can_read_space(&state, &auth, &space)?;
-        let paging = resolve_keyset_page(&query)?;
+        let scope = CursorScope {
+            resource: "space.groups",
+            tenant_id: auth.tenant_id.as_str(),
+            organization_id: auth.organization_id.as_str(),
+            principal_id: auth.actor_id.as_str(),
+        };
+        let paging = resolve_keyset_page(&query, &scope)?;
         let cursor_group_id = paging
             .cursor_entity
             .as_deref()
@@ -222,8 +230,12 @@ pub async fn list_groups(
                 Ok(keyset_list_page(
                     items,
                     paging.page_size,
-                    |item: &GroupResponse| (item.created_at.clone(), item.group_id.clone()),
-                ))
+                    &scope,
+                    |item: &GroupResponse| KeysetPosition {
+                        sort_value: item.created_at.clone(),
+                        entity_id: item.group_id.clone(),
+                    },
+                )?)
             }
             Err(error) => {
                 tracing::error!(error = ?error, "failed to list groups for space {space_id}");

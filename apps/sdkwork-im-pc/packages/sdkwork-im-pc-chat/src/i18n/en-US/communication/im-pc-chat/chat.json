@@ -644,5 +644,8 @@
       "memberDemoted": "Admin removed",
       "roleChangeFailed": "Failed to change member role"
     }
+  },
+  "surfaces": {
+    "capabilityUnavailable": "This capability ({{tab}}) is not available in this build."
   }
 }

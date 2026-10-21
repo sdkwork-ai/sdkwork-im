@@ -193,6 +193,12 @@ fn resolve_admin_sandbox_storage_file() -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    // The workspace denies `unsafe_code`; this test-only module opts back in
+    // locally because Rust 2024 marks `std::env::set_var`/`remove_var` unsafe.
+    // `ScopedEnvVar` serializes mutations behind `env_guard` and restores the
+    // previous value on drop, so no production path is affected.
+    #![allow(unsafe_code)]
+
     use super::*;
     use std::sync::{Mutex, OnceLock};
 

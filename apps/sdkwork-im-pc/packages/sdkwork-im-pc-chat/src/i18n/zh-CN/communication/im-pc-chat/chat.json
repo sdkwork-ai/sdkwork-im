@@ -644,5 +644,8 @@
       "memberDemoted": "已取消管理员",
       "roleChangeFailed": "修改成员角色失败"
     }
+  },
+  "surfaces": {
+    "capabilityUnavailable": "当前版本未提供该能力（{{tab}}）。"
   }
 }

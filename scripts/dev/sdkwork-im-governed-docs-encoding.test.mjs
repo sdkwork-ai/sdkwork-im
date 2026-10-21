@@ -43,7 +43,7 @@ const currentMessageHistoryDocs = [
   'docs/operations/DISASTER_RECOVERY.md',
   'docs/sites/api-reference/im/media.md',
   'docs/architecture/tech/TECH-media.md',
-  'docs/architecture/tech/PAGINATION-DEBT-REGISTER.md',
+  'docs/architecture/tech/TECH-13-pagination-debt-register.md',
   'docs/architecture/tech/TECH-changelog.md',
 ];
 
@@ -158,7 +158,7 @@ for (const relativePath of [
 }
 
 const paginationDebtSource = fs.readFileSync(
-  path.join(repoRoot, 'docs/architecture/tech/PAGINATION-DEBT-REGISTER.md'),
+  path.join(repoRoot, 'docs/architecture/tech/TECH-13-pagination-debt-register.md'),
   'utf8',
 );
 for (const forbidden of [

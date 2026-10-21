@@ -23,14 +23,6 @@ namespace Sdkwork.Im.AppApi.Generated.Api
             return await _client.GetAsync<Sdkwork.Im.AppApi.Generated.Models.MediaHealthRetrieveResponse>(ApiPaths.AppPath("/media/provider_health"));
         }
 
-        /// <summary>
-        /// Retrieve principal-profile provider health
-        /// </summary>
-        public async Task<Sdkwork.Im.AppApi.Generated.Models.PrincipalProfileHealthRetrieveResponse?> PrincipalProfileHealthRetrieveAsync()
-        {
-            return await _client.GetAsync<Sdkwork.Im.AppApi.Generated.Models.PrincipalProfileHealthRetrieveResponse>(ApiPaths.AppPath("/principal/profiles/provider_health"));
-        }
-
 
 
     }

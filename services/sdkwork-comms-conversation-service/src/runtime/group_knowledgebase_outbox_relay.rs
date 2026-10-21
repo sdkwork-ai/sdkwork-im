@@ -166,6 +166,9 @@ async fn run_group_knowledgebase_outbox_relay(
     mut reconciliation_cursor: GroupKnowledgebaseReconciliationCursor,
     mut shutdown: watch::Receiver<()>,
 ) {
+    // Rotates through pending scopes so scopes past the first batch boundary
+    // are not starved forever.
+    let mut scope_cursor: Option<(String, String)> = None;
     loop {
         if shutdown.has_changed().unwrap_or(true) {
             break;
@@ -188,7 +191,13 @@ async fn run_group_knowledgebase_outbox_relay(
             );
         }
 
-        for (tenant_id, organization_id) in resolve_scopes(&outbox, &config) {
+        let scopes = resolve_scopes(&outbox, &config, scope_cursor.as_ref());
+        let next_scope_cursor = if scopes.len() >= GROUP_KNOWLEDGEBASE_OUTBOX_RELAY_SCOPE_LIMIT {
+            scopes.last().cloned()
+        } else {
+            None
+        };
+        for (tenant_id, organization_id) in scopes {
             let claims = match outbox.claim_pending(
                 tenant_id.as_str(),
                 organization_id.as_str(),
@@ -212,6 +221,7 @@ async fn run_group_knowledgebase_outbox_relay(
                 relay_claim(&outbox, coordinator.as_ref(), claim).await;
             }
         }
+        scope_cursor = next_scope_cursor;
 
         tokio::select! {
             _ = shutdown.changed() => break,
@@ -260,6 +270,7 @@ async fn reconcile_group_knowledgebase_durable_state(
 fn resolve_scopes(
     outbox: &Arc<dyn OutboxStore>,
     config: &GroupKnowledgebaseOutboxRelayConfig,
+    after: Option<&(String, String)>,
 ) -> Vec<(String, String)> {
     if let Some(scope) = config.scope_override.as_ref() {
         return vec![scope.clone()];
@@ -284,7 +295,12 @@ fn resolve_scopes(
         GROUP_KNOWLEDGEBASE_OUTBOX_AGGREGATE_TYPE,
         GROUP_KNOWLEDGEBASE_OUTBOX_RELAY_SCOPE_LIMIT,
     ) {
-        Ok(request) => request,
+        Ok(request) => match after {
+            Some((tenant_id, organization_id)) => {
+                request.with_after(tenant_id.as_str(), organization_id.as_str())
+            }
+            None => request,
+        },
         Err(error) => {
             warn!(
                 ?error,

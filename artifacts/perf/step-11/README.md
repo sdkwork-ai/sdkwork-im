@@ -1,5 +1,14 @@
 # Step 11 tier artifact roots
 
+> **Evidence validity notice (2026-10-21):** this repository contains **no valid capacity
+> evidence** and no completed pre-release tier sign-off. The `capacity/**` JSON files are
+> templates or locally backfilled samples; the pre-release artifacts were collected from local
+> drills, not from a real pre-release topology. Do not cite either tier as production capacity
+> proof. `capacity-tier-evidence-index.json` keeps `state:
+> "template_only_pending_execution"` and the gate rejects backfilled boundaries with
+> `{ok:false}`. A real pre-release/capacity run on the target topology is still required (P0-6
+> in `docs/engineering/reviews/REVIEW-20261021-im-full-audit-and-commercial-readiness.md`).
+
 - scope: `Pre-Release Tier` and `Capacity Tier`
 - current state:
   - `Pre-Release Tier = evidence_collected_gate_blocked`

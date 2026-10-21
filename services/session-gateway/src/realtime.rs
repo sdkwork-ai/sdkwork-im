@@ -24,8 +24,8 @@ use im_time::utc_now_rfc3339_millis;
 use serde::Deserialize;
 use tokio::sync::watch;
 
-use crate::principal_scope::typed_client_route_scope_key;
 use crate::cluster::RealtimeClusterForwarder;
+use crate::principal_scope::typed_client_route_scope_key;
 use crate::realtime::storage::checkpoint_record_from_sequences;
 
 pub mod postgres_sql;
@@ -57,6 +57,10 @@ const REALTIME_MAX_EVENT_TYPES_TOTAL_BYTES: usize = 16 * 1024;
 const REALTIME_MAX_SUBSCRIPTION_ITEMS: usize = 256;
 const REALTIME_MAX_SUBSCRIPTION_ITEMS_TOTAL_BYTES: usize = 256 * 1024;
 pub(crate) const REALTIME_EVENT_WINDOW_MAX_LIMIT: usize = 1000;
+/// API contract limit for `realtime.events.list` (`page_size` maximum 200).
+/// The retained per-route window stays larger so catch-up is not truncated,
+/// but a single response can never exceed the documented page size.
+pub(crate) const REALTIME_EVENTS_PAGE_SIZE_MAX: usize = 200;
 const REALTIME_CLIENT_ROUTE_WINDOW_MAX_RETAINED_EVENTS: usize = REALTIME_EVENT_WINDOW_MAX_LIMIT;
 const REALTIME_CLIENT_ROUTE_WINDOW_CRITICAL_USAGE_PERMILLE: u64 = 950;
 const REALTIME_MUTATION_LOCK_SHARDS: usize = 256;
@@ -136,7 +140,7 @@ impl RealtimeRuntimeError {
         Self {
             code: "limit_invalid",
             message: format!(
-                "limit must be between 1 and {REALTIME_EVENT_WINDOW_MAX_LIMIT}; actual={limit}"
+                "limit must be between 1 and {REALTIME_EVENTS_PAGE_SIZE_MAX}; actual={limit}"
             ),
         }
     }
@@ -1622,7 +1626,13 @@ impl RealtimeDeliveryRuntime {
         &self,
         query: RealtimeEventWindowQuery<'_>,
     ) -> Result<RealtimeEventWindow, RealtimeRuntimeError> {
-        validate_realtime_event_limit(query.limit)?;
+        // Internal window readers (WebSocket catch-up, tests, diagnostics) may
+        // fetch up to the retained-window capacity. The public HTTP contract is
+        // still capped at REALTIME_EVENTS_PAGE_SIZE_MAX by
+        // `resolve_realtime_event_limit` before this method is called.
+        if query.limit == 0 || query.limit > REALTIME_EVENT_WINDOW_MAX_LIMIT {
+            return Err(RealtimeRuntimeError::limit_invalid(query.limit));
+        }
         self.ensure_client_route_state_internal(
             query.tenant_id,
             query.organization_id,
@@ -3068,13 +3078,9 @@ impl RealtimeDeliveryRuntime {
     fn warn_live_session_maps_over_capacity(&self) {
         // The typed maps do not share one value type, so each is checked
         // individually against the shared cap.
-        let subscription_count = lock_realtime_mutex(
-            &self.subscriptions,
-            "realtime subscription store",
-        )
-        .len();
-        let notifier_count =
-            lock_realtime_mutex(&self.notifiers, "realtime notifier store").len();
+        let subscription_count =
+            lock_realtime_mutex(&self.subscriptions, "realtime subscription store").len();
+        let notifier_count = lock_realtime_mutex(&self.notifiers, "realtime notifier store").len();
         let disconnect_notifier_count = lock_realtime_mutex(
             &self.disconnect_notifiers,
             "realtime disconnect notifier store",
@@ -3369,7 +3375,7 @@ fn encode_realtime_key_segments<const N: usize>(segments: [&str; N]) -> String {
 }
 
 pub(crate) fn validate_realtime_event_limit(limit: usize) -> Result<(), RealtimeRuntimeError> {
-    if limit == 0 || limit > REALTIME_EVENT_WINDOW_MAX_LIMIT {
+    if limit == 0 || limit > REALTIME_EVENTS_PAGE_SIZE_MAX {
         return Err(RealtimeRuntimeError::limit_invalid(limit));
     }
     Ok(())
@@ -4263,5 +4269,19 @@ mod tests {
             }
         }
         index
+    }
+}
+
+#[cfg(test)]
+mod limit_contract_tests {
+    use super::{REALTIME_EVENTS_PAGE_SIZE_MAX, validate_realtime_event_limit};
+
+    #[test]
+    fn realtime_event_limit_enforces_the_contract_page_size_max() {
+        assert_eq!(REALTIME_EVENTS_PAGE_SIZE_MAX, 200);
+        assert!(validate_realtime_event_limit(1).is_ok());
+        assert!(validate_realtime_event_limit(200).is_ok());
+        assert!(validate_realtime_event_limit(201).is_err());
+        assert!(validate_realtime_event_limit(1000).is_err());
     }
 }

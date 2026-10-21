@@ -22,10 +22,11 @@ workerConnections = 1024
 [http]
 sendfile = true
 keepaliveTimeout = 75
-clientMaxBodySize = "1100m"
+clientMaxBodySize = "8m"
 serverTokens = "off"
 gzip = true
 include = ["snippets/adaptive-web.maps.conf"]
+limitReqZone = ["$binary_remote_addr zone=im_api:10m rate=120r/s"]
 
 [http.certificates]
 

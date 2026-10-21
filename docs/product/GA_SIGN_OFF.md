@@ -217,9 +217,15 @@ corresponding phase is declared GA. Phase 1 target GA date is 2026-07-31; Phase 
 
 ## 5. Phase 1 GA Criteria (MVP commercial launch)
 
-Phase 1 is the current GA target. It defines the minimum commercial launch surface for
-Sdkwork IM as a multi-tenant real-time messaging platform. As of 2026-07-03, all required
-Phase 1 items are complete except the three explicitly deferred to later phases.
+Phase 1 is the intended GA target. It defines the minimum commercial launch surface for
+Sdkwork IM as a multi-tenant real-time messaging platform.
+
+> **Status correction (2026-10-21):** this file lists target criteria, not a current
+> completion claim. Current readiness, open P0/P1 findings, and commercial gaps are tracked in
+> `docs/engineering/reviews/REVIEW-20261021-im-full-audit-and-commercial-readiness.md`.
+> Several items previously marked complete (pins/interaction durability, readiness credential
+> validation, retention coverage, pagination signing, deployment security posture) were only
+> completed during the 2026-10 audit remediation.
 
 ### 5.1 Completed Phase 1 Items
 

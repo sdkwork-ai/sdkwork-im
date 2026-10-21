@@ -15,6 +15,7 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Component, Path as StdPath, PathBuf},
     sync::{Arc, OnceLock},
+    time::Duration,
 };
 use tokio::{fs, net::TcpListener, sync::oneshot};
 use url::{Host, Url};
@@ -294,6 +295,32 @@ pub async fn build_product_runtime_router(
         .with_state(state))
 }
 
+const PROXY_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const DEFAULT_PROXY_READ_TIMEOUT_SECS: u64 = 30;
+const MAX_PROXY_READ_TIMEOUT_SECS: u64 = 600;
+
+fn resolve_proxy_read_timeout_secs_from_env() -> u64 {
+    std::env::var("SDKWORK_IM_PROXY_READ_TIMEOUT_SECONDS")
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .filter(|seconds| (1..=MAX_PROXY_READ_TIMEOUT_SECS).contains(seconds))
+        .unwrap_or(DEFAULT_PROXY_READ_TIMEOUT_SECS)
+}
+
+/// Proxy client with bounded connect and idle-read timeouts.
+///
+/// A total request timeout would abort long file/stream downloads, so only the
+/// connect phase and each read are bounded; an upstream that accepts the
+/// connection and then stalls cannot pin a handler forever.
+fn build_runtime_proxy_client() -> Client {
+    let read_timeout = Duration::from_secs(resolve_proxy_read_timeout_secs_from_env());
+    Client::builder()
+        .connect_timeout(PROXY_CONNECT_TIMEOUT)
+        .read_timeout(read_timeout)
+        .build()
+        .unwrap_or_else(|_| Client::new())
+}
+
 fn build_runtime_proxy_state(
     config: StandaloneConfig,
     site_dir: ProductSiteDir,
@@ -313,7 +340,7 @@ fn build_runtime_proxy_state(
     };
 
     RuntimeProxyState {
-        client: Client::new(),
+        client: build_runtime_proxy_client(),
         admin_proxy_target,
         admin_sandbox,
         pc_product_api_upstream: resolve_pc_product_api_upstream(),
@@ -1017,13 +1044,52 @@ async fn build_proxy_response(upstream_response: reqwest::Response) -> Response 
 
 #[cfg(test)]
 mod tests {
+    // The workspace denies `unsafe_code`; this test-only module opts back in
+    // locally because Rust 2024 marks `std::env::set_var`/`remove_var` unsafe.
+    // Test environment mutations are process-global by nature and none of this
+    // reaches a production code path.
+    #![allow(unsafe_code)]
+
     use super::*;
     use axum::body::to_bytes;
     use std::{
         fs,
         path::{Path, PathBuf},
+        sync::Mutex,
         time::{SystemTime, UNIX_EPOCH},
     };
+
+    static PROXY_TIMEOUT_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn proxy_read_timeout_is_bounded_and_validated() {
+        let _guard = PROXY_TIMEOUT_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let key = "SDKWORK_IM_PROXY_READ_TIMEOUT_SECONDS";
+        let previous = std::env::var(key).ok();
+        let mut restore = || match &previous {
+            Some(value) => unsafe { std::env::set_var(key, value) },
+            None => unsafe { std::env::remove_var(key) },
+        };
+
+        unsafe { std::env::remove_var(key) };
+        assert_eq!(
+            resolve_proxy_read_timeout_secs_from_env(),
+            DEFAULT_PROXY_READ_TIMEOUT_SECS
+        );
+        unsafe { std::env::set_var(key, "7") };
+        assert_eq!(resolve_proxy_read_timeout_secs_from_env(), 7);
+        for invalid in ["0", "601", "-1", "not-a-number"] {
+            unsafe { std::env::set_var(key, invalid) };
+            assert_eq!(
+                resolve_proxy_read_timeout_secs_from_env(),
+                DEFAULT_PROXY_READ_TIMEOUT_SECS,
+                "invalid value {invalid:?} must fall back to the default"
+            );
+        }
+        restore();
+    }
 
     struct TestSiteDir {
         path: PathBuf,

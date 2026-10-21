@@ -99,7 +99,7 @@ assert.doesNotMatch(
 );
 assert.match(
   imCallsModuleSource,
-  /listSignals[\s\S]*normalizeAfterSignalSeq[\s\S]*afterSignalSeq/u,
+  /afterSignalSeq:\s*normalizeAfterSignalSeq\(/u,
   'calls-module signal pagination must preserve the server afterSignalSeq cursor option',
 );
 assert.match(
@@ -114,7 +114,7 @@ assert.match(
 );
 assert.match(
   imOpenApiSource,
-  /operationId:\s*calls\.sessions\.signals\.list[\s\S]*name:\s*afterSignalSeq/u,
+  /operationId:\s*calls\.sessions\.signals\.list[\s\S]*name:\s*after_signal_seq/u,
   'IM OpenAPI must declare the service-owned afterSignalSeq query parameter',
 );
 

@@ -1,4 +1,4 @@
-﻿apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: streaming-service
@@ -64,8 +64,8 @@ spec:
             - configMapRef:
                 name: streaming-service-runtime
             - secretRef:
-                name: streaming-service-secrets
-                optional: true
+                name: sdkwork-im-shared-secrets
+                optional: false
           env:
             - name: SDKWORK_IM_ENVIRONMENT
               value: production

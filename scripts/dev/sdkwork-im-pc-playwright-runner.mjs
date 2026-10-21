@@ -173,6 +173,51 @@ export function findAvailablePort({
   });
 }
 
+/**
+ * Allocate two distinct free TCP ports.
+ *
+ * Sequential `findAvailablePort` calls can return the same ephemeral port
+ * because each probe listener is closed before the next allocation; holding
+ * both listeners open until both ports are assigned guarantees distinctness.
+ */
+export async function findAvailablePortPair({
+  createServer = net.createServer,
+  firstHost = '0.0.0.0',
+  secondHost = '127.0.0.1',
+} = {}) {
+  const listen = (server, host) =>
+    new Promise((resolve, reject) => {
+      server.unref?.();
+      server.once('error', () =>
+        reject(new Error(`failed to allocate an available TCP port on ${host}`)));
+      server.listen({ exclusive: true, host, port: 0 }, () => {
+        const address = server.address();
+        if (!address || typeof address === 'string') {
+          reject(new Error(`failed to resolve the allocated TCP port on ${host}`));
+          return;
+        }
+        resolve(address.port);
+      });
+    });
+  const close = (server) =>
+    new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+
+  const first = createServer();
+  const second = createServer();
+  try {
+    const firstPort = await listen(first, firstHost);
+    const secondPort = await listen(second, secondHost);
+    if (firstPort === secondPort) {
+      throw new Error('allocated ports must be distinct');
+    }
+    return [firstPort, secondPort];
+  } finally {
+    await Promise.allSettled([close(first), close(second)]);
+  }
+}
+
 export function probeHttp(url, {
   getImpl = http.get,
   maxResponseBytes = DEFAULT_HTTP_RESPONSE_LIMIT_BYTES,

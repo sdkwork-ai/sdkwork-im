@@ -19,6 +19,8 @@ use serde::{Deserialize, Serialize};
 use crate::api_payload::{keyset_list_page, resource_item};
 use crate::http::AppState;
 use crate::id::next_entity_id;
+use sdkwork_im_keyset_cursor::{CursorScope, KeysetPosition};
+
 use crate::list_query::{ListQuery, resolve_keyset_page};
 use crate::space_access::{
     actor_can_manage_space, ensure_user_not_banned_in_space, load_space,
@@ -283,7 +285,13 @@ pub async fn list_invitations(
         let space_id = parse_space_id(space_id.as_str())?;
         let space = load_space(&state, &auth, space_id)?;
         actor_can_manage_space(&state, &auth, &space)?;
-        let paging = resolve_keyset_page(&query.paging)?;
+        let scope = CursorScope {
+            resource: "space.invites",
+            tenant_id: auth.tenant_id.as_str(),
+            organization_id: auth.organization_id.as_str(),
+            principal_id: auth.actor_id.as_str(),
+        };
+        let paging = resolve_keyset_page(&query.paging, &scope)?;
         let cursor_invitation_id = paging
             .cursor_entity
             .as_deref()
@@ -310,8 +318,12 @@ pub async fn list_invitations(
         Ok(keyset_list_page(
             items,
             paging.page_size,
-            |item: &InvitationResponse| (item.created_at.clone(), item.invitation_id.clone()),
-        ))
+            &scope,
+            |item: &InvitationResponse| KeysetPosition {
+                sort_value: item.created_at.clone(),
+                entity_id: item.invitation_id.clone(),
+            },
+        )?)
     })();
     finish_api_json(&ctx, result)
 }

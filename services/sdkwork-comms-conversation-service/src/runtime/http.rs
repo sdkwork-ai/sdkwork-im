@@ -18,7 +18,6 @@ use im_domain_core::conversation::{
     ConversationMember, ConversationReadCursorView, MembershipRole,
 };
 use im_domain_core::message::{ContentPart, Message, MessageBody, MessageType, Sender};
-use im_domain_core::typing::TypingIndicatorList;
 use sdkwork_im_api_registry::HttpMethod;
 use sdkwork_im_openapi::{
     OpenApiServiceSpec, build_openapi_document, extract_routes_from_function, render_docs_html,
@@ -2969,21 +2968,153 @@ async fn signal_typing(
     resource_response(&ctx, result)
 }
 
+const TYPING_PAGE_SIZE_DEFAULT: u16 = 20;
+const TYPING_PAGE_SIZE_MAX: u16 = 200;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TypingIndicatorListResponse {
+    #[serde(flatten)]
+    page: SdkWorkPageData<im_domain_core::typing::TypingIndicatorListItem>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TypingListCursorWire {
+    user_kind: String,
+    user_id: String,
+    tenant_id: String,
+    organization_id: String,
+    conversation_id: String,
+}
+
+fn encode_typing_list_cursor(
+    tenant_id: &str,
+    organization_id: &str,
+    conversation_id: &str,
+    item: &im_domain_core::typing::TypingIndicatorListItem,
+) -> Result<String, ApiProblem> {
+    let payload = serde_json::json!({
+        "userKind": item.user_kind,
+        "userId": item.user_id,
+        "tenantId": tenant_id,
+        "organizationId": organization_id,
+        "conversationId": conversation_id,
+    });
+    crate::conversation_state::encode_typing_list_cursor(&payload)
+        .map_err(|_| ApiProblem::internal_server_error("failed to encode typing list cursor"))
+}
+
+fn decode_typing_list_cursor(
+    cursor: &str,
+    tenant_id: &str,
+    organization_id: &str,
+    conversation_id: &str,
+) -> Option<(String, String)> {
+    let payload = crate::conversation_state::decode_typing_list_cursor(cursor).ok()?;
+    let wire: TypingListCursorWire = serde_json::from_value(payload).ok()?;
+    if wire.tenant_id != tenant_id
+        || wire.organization_id != organization_id
+        || wire.conversation_id != conversation_id
+    {
+        return None;
+    }
+    Some((wire.user_kind, wire.user_id))
+}
+
 async fn list_typing_indicators(
     Extension(ctx): Extension<WebRequestContext>,
     Extension(auth): Extension<AppContext>,
     State(state): State<AppState>,
     Path(conversation_id): Path<String>,
+    query: Result<Query<SdkWorkCursorListQuery>, QueryRejection>,
 ) -> Response {
     if let Err(error) = ensure_active_http_auth_principal(&state, &auth) {
-        return finish_api_json::<TypingIndicatorList>(&ctx, Err(ApiProblem::from(error)));
+        return finish_api_json::<TypingIndicatorListResponse>(&ctx, Err(ApiProblem::from(error)));
     }
-    let result: ApiResult<TypingIndicatorList> = state
+    let Query(query) = match query {
+        Ok(query) => query,
+        Err(rejection) => return invalid_parameter_response(&ctx, rejection.body_text()),
+    };
+    let page_size = match query
+        .page_size
+        .unwrap_or(i32::from(TYPING_PAGE_SIZE_DEFAULT))
+    {
+        value if value >= 1 && value <= i32::from(TYPING_PAGE_SIZE_MAX) => value as usize,
+        value => {
+            return invalid_parameter_response(
+                &ctx,
+                format!("page_size must be between 1 and {TYPING_PAGE_SIZE_MAX}: {value}"),
+            );
+        }
+    };
+    let organization_id = organization_id_from_auth_context(&auth);
+    let after = match query.cursor.as_deref() {
+        Some(cursor) => match decode_typing_list_cursor(
+            cursor,
+            auth.tenant_id.as_str(),
+            organization_id.as_str(),
+            conversation_id.as_str(),
+        ) {
+            Some(after) => Some(after),
+            None => return invalid_parameter_response(&ctx, "typing list cursor is invalid"),
+        },
+        None => None,
+    };
+    let result = state
         .runtime
-        .list_typing_indicators_from_auth_context(&auth, conversation_id.as_str())
+        .list_typing_indicators_from_auth_context(
+            &auth,
+            conversation_id.as_str(),
+            after
+                .as_ref()
+                .map(|(kind, id)| (kind.as_str(), id.as_str())),
+            page_size,
+        )
         .await
         .map_err(|error| ApiProblem::from(ApiError::from(error)));
-    resource_response(&ctx, result)
+
+    let response = match result {
+        Ok(window) => {
+            let next_cursor = if window.has_more {
+                match window.items.last() {
+                    Some(last) => match encode_typing_list_cursor(
+                        auth.tenant_id.as_str(),
+                        organization_id.as_str(),
+                        conversation_id.as_str(),
+                        last,
+                    ) {
+                        Ok(cursor) => Some(cursor),
+                        Err(problem) => {
+                            return finish_api_json::<TypingIndicatorListResponse>(
+                                &ctx,
+                                Err(problem),
+                            );
+                        }
+                    },
+                    None => None,
+                }
+            } else {
+                None
+            };
+            Ok(TypingIndicatorListResponse {
+                page: SdkWorkPageData {
+                    items: window.items,
+                    page_info: sdkwork_utils_rust::PageInfo {
+                        mode: sdkwork_utils_rust::PageMode::Cursor,
+                        page: None,
+                        page_size: Some(page_size as i32),
+                        total_items: None,
+                        total_pages: None,
+                        next_cursor,
+                        has_more: Some(window.has_more),
+                    },
+                },
+            })
+        }
+        Err(problem) => Err(problem),
+    };
+    finish_api_json(&ctx, response)
 }
 
 async fn get_read_cursor(
@@ -4183,6 +4314,35 @@ mod tests {
         assert!(
             error.contains("postgres principal directory"),
             "error should point at the postgres directory mode, got: {error}"
+        );
+    }
+
+    #[test]
+    fn typing_list_cursor_round_trips_and_rejects_cross_conversation_reuse() {
+        let _guard = rate_limit_env_guard();
+        let _secret = ScopedEnvVar::set(
+            "SDKWORK_IM_CONVERSATION_STATE_CURSOR_HS256_SECRET",
+            "typing-cursor-test-secret-at-least-32-bytes",
+        );
+        let item = im_domain_core::typing::TypingIndicatorListItem {
+            user_id: "2".to_owned(),
+            user_kind: "user".to_owned(),
+        };
+
+        let cursor = encode_typing_list_cursor("100001", "0", "c_typing", &item)
+            .expect("typing cursor should encode");
+        assert_eq!(
+            decode_typing_list_cursor(cursor.as_str(), "100001", "0", "c_typing"),
+            Some(("user".to_owned(), "2".to_owned()))
+        );
+        assert_eq!(
+            decode_typing_list_cursor(cursor.as_str(), "100001", "0", "c_other"),
+            None,
+            "a cursor minted for one conversation must not be reusable in another"
+        );
+        assert_eq!(
+            decode_typing_list_cursor("not-a-cursor", "100001", "0", "c_typing"),
+            None
         );
     }
 }

@@ -1,6 +1,7 @@
 import { readBootstrapAccessTokenFromProcessEnv } from '@sdkwork/iam-credential-entry';
 import type { IamAppContext } from '@sdkwork/iam-contracts';
 import type { AuthTokenManager, AuthTokens, Interceptors, RequestConfig } from '@sdkwork/sdk-common';
+import { readImPcEmbedSession, writeImPcEmbedSession } from './embedHost';
 import {
   clearDesktopSecureSessionRawValue,
   isDesktopSecureSessionStorageEnabled,
@@ -380,6 +381,11 @@ function normalizeSession(value: unknown): SdkworkChatSession | null {
 }
 
 export function readAppSdkSessionTokens(): SdkworkChatSession | null {
+  const embeddedSession = readImPcEmbedSession();
+  if (embeddedSession !== undefined) {
+    return embeddedSession;
+  }
+
   const rawValue = readPersistedSessionRawValue();
   if (!rawValue) {
     return null;
@@ -400,6 +406,11 @@ export function persistAppSdkSessionTokens(session: SdkworkChatSession): Sdkwork
     throw new Error('Sdkwork IM session requires authToken and accessToken.');
   }
 
+  if (readImPcEmbedSession() !== undefined) {
+    applyImPcEmbedSession(normalizedSession);
+    return normalizedSession;
+  }
+
   writePersistedSessionRawValue(JSON.stringify(normalizedSession));
   syncSdkworkChatGlobalTokenManager(normalizedSession);
   dispatchAppSdkSessionChanged(normalizedSession);
@@ -410,7 +421,39 @@ export function applyAppSdkSessionTokens(session: SdkworkChatSession): SdkworkCh
   return persistAppSdkSessionTokens(session);
 }
 
+/**
+ * Install a host-owned session for an embedded runtime.
+ *
+ * The session stays in memory, is mirrored into the runtime token manager, and
+ * notifies the same subscription the persisted path uses, so every IM service
+ * (SDK client, realtime, inbox) reacts exactly as it does after a normal login.
+ * @param session host session, or null when the host signed out.
+ * @returns the normalized installed session, or null when signed out.
+ */
+export function applyImPcEmbedSession(session: SdkworkChatSession | null): SdkworkChatSession | null {
+  const normalizedSession = session === null ? null : normalizeSession(session);
+  if (session !== null && !normalizedSession) {
+    throw new Error('Sdkwork IM session requires authToken and accessToken.');
+  }
+
+  writeImPcEmbedSession(normalizedSession);
+  syncSdkworkChatGlobalTokenManager(normalizedSession);
+  dispatchAppSdkSessionChanged(normalizedSession);
+  return normalizedSession;
+}
+
+/**
+ * Detach the host-owned session so the runtime stops overriding IM storage.
+ * Used when the embedding host unmounts without signing out.
+ */
+export function detachImPcEmbedSession(): void {
+  writeImPcEmbedSession(undefined);
+}
+
 export function clearAppSdkSessionTokens(): void {
+  if (readImPcEmbedSession() !== undefined) {
+    writeImPcEmbedSession(null);
+  }
   removePersistedSessionRawValue();
   syncSdkworkChatGlobalTokenManager(null);
   dispatchAppSdkSessionChanged(null);

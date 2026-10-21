@@ -16,8 +16,15 @@ spec:
   policyTypes:
     - Ingress
   ingress:
+    # Only the edge ingress tier may reach the realtime WebSocket port.
+    # Label the ingress controller namespace before applying, for example:
+    #   kubectl label namespace ingress-nginx sdkwork.im/edge-ingress=true
+    # An empty namespaceSelector would let every Pod in the cluster bypass the
+    # API gateway and connect directly to the realtime plane.
     - from:
-        - namespaceSelector: {}
+        - namespaceSelector:
+            matchLabels:
+              sdkwork.im/edge-ingress: "true"
       ports:
         - protocol: TCP
           port: 28080

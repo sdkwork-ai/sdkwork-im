@@ -60,7 +60,7 @@ const appAuthRuntimeSource = readText('packages', 'sdkwork-im-pc-core', 'src', '
 const membershipAppSdkClientSource = readText('packages', 'sdkwork-im-pc-core', 'src', 'sdk', 'membershipPcIntegration.ts');
 const standaloneDependencySource = readRepoText(
   'crates',
-  'sdkwork-api-im-standalone-gateway',
+  'sdkwork-api-im-assembly',
   'src',
   'embedded_dependency_routes.rs',
 );
@@ -86,8 +86,11 @@ for (const [capability, packageName] of Object.entries(COMMERCE_T1_APP_SDK_PACKA
   );
   assert.match(
     tsconfigSource,
-    new RegExp(`"${escapeRegExp(packageName)}"[\\s\\S]*${pathRegex(facadeEntryFromApp)}`, 'u'),
-    `tsconfig must map ${packageName} to the sibling composed facade`,
+    new RegExp(
+      `"${escapeRegExp(packageName)}"[\\s\\S]*(${pathRegex(facadeEntryFromApp)}|types/siblings/${escapeRegExp(packageName)}/src/index\\.d\\.ts)`,
+      'u',
+    ),
+    `tsconfig must map ${packageName} to the sibling composed facade or its generated declaration`,
   );
   const viteAliasPattern = new RegExp(
     `find:\\s*['"]${packageName.replaceAll('/', '\\/')}['"]`,

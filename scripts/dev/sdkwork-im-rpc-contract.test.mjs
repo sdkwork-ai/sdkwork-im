@@ -78,7 +78,7 @@ const requiredFiles = [
   'sdks/sdkwork-im-rpc-sdk/rpc/sdkwork-im-rpc.manifest.json',
   'sdks/sdkwork-im-rpc-sdk/specs/README.md',
   'sdks/sdkwork-im-rpc-sdk/specs/component.spec.json',
-  'docs/architecture/tech/RPC-AVAILABILITY.md',
+  'docs/architecture/tech/TECH-14-rpc-availability.md',
   'sdks/sdkwork-im-rpc-sdk/sdkwork-im-rpc-sdk-typescript/buf.gen.yaml',
   'sdks/sdkwork-im-rpc-sdk/sdkwork-im-rpc-sdk-typescript/package.json',
   'sdks/sdkwork-im-rpc-sdk/sdkwork-im-rpc-sdk-typescript/rpc-methods.json',
@@ -626,7 +626,7 @@ for (const language of expectedRpcLanguages) {
   );
 }
 
-const rpcAvailability = read('docs/architecture/tech/RPC-AVAILABILITY.md');
+const rpcAvailability = read('docs/architecture/tech/TECH-14-rpc-availability.md');
 assert.match(
   rpcAvailability,
   /sdkwork\.communication\.internal\.v1\.\*/u,

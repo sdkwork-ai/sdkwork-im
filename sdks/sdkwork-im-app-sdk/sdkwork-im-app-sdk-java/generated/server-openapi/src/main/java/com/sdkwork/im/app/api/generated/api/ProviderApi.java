@@ -19,12 +19,6 @@ public class ProviderApi {
         return client.convertValue(raw, new TypeReference<MediaHealthRetrieveResponse>() {});
     }
 
-    /** Retrieve principal-profile provider health */
-    public PrincipalProfileHealthRetrieveResponse principalProfileHealthRetrieve() throws Exception {
-        Object raw = client.get(ApiPaths.appPath("/principal/profiles/provider_health"));
-        return client.convertValue(raw, new TypeReference<PrincipalProfileHealthRetrieveResponse>() {});
-    }
-
 
 
 

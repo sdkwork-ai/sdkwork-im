@@ -14,6 +14,7 @@ import {
   VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL,
 } from './topologyEnvKeys';
 import { readDiscoveredDevGatewayHttpUrl } from './devGatewayDiscoveryCache';
+import { readImPcEmbedEnvironment } from './embedHost';
 
 /**
  * Platform-gateway origin resolved through the shared `resolveBaseUrl`
@@ -262,6 +263,10 @@ export function resolveProductAppApiBaseUrl(): string | undefined {
 }
 
 export function resolveImApiBaseUrl(): string | undefined {
+  const embeddedBaseUrl = readImPcEmbedEnvironment()?.apiBaseUrl;
+  if (embeddedBaseUrl) {
+    return embeddedBaseUrl;
+  }
   return readSdkBaseUrlEnvValue(VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL)
     ?? readSdkBaseUrlEnvValue(VITE_SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL)
     ?? readSdkBaseUrlEnvValue('VITE_SDKWORK_IM_SDK_BASE_URL')
@@ -322,6 +327,14 @@ export function resolveAppbaseBackendApiBaseUrl(): string | undefined {
 }
 
 export function resolveImWebSocketBaseUrl(): string | undefined {
+  const embeddedEnvironment = readImPcEmbedEnvironment();
+  if (embeddedEnvironment?.websocketBaseUrl) {
+    return normalizeWebSocketSdkBaseUrl(embeddedEnvironment.websocketBaseUrl);
+  }
+  const embeddedDerivedBaseUrl = deriveWebSocketBaseUrlFromHttpBaseUrl(embeddedEnvironment?.apiBaseUrl);
+  if (embeddedDerivedBaseUrl) {
+    return embeddedDerivedBaseUrl;
+  }
   const explicitBaseUrl = readSdkBaseUrlEnvValue(VITE_SDKWORK_IM_APPLICATION_PUBLIC_WEBSOCKET_URL);
   if (explicitBaseUrl) {
     return normalizeWebSocketSdkBaseUrl(explicitBaseUrl);

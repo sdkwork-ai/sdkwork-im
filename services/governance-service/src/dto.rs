@@ -27,12 +27,15 @@ pub(crate) struct UpsertProviderBindingPolicyRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ProviderPolicyRollbackRequest {
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub(crate) target_version: u64,
 }
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct ProviderPolicyDiffQuery {
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub(crate) from_version: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub(crate) to_version: u64,
 }
 
@@ -93,10 +96,14 @@ pub(crate) struct CapabilityProfileResponse {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct QuotaProfileResponse {
     pub(crate) profile_id: String,
-    pub(crate) max_concurrent_sessions_per_tenant: u32,
-    pub(crate) max_subscriptions_per_session: u32,
-    pub(crate) max_inflight_messages: u32,
-    pub(crate) max_payload_bytes: usize,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
+    pub(crate) max_concurrent_sessions_per_tenant: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
+    pub(crate) max_subscriptions_per_session: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
+    pub(crate) max_inflight_messages: u64,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
+    pub(crate) max_payload_bytes: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -104,7 +111,8 @@ pub(crate) struct QuotaProfileResponse {
 pub(crate) struct RolloutPolicyResponse {
     pub(crate) policy_id: String,
     pub(crate) release_channel: String,
-    pub(crate) traffic_percent: u8,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
+    pub(crate) traffic_percent: u64,
     pub(crate) cell_selector: String,
     pub(crate) region_selector: String,
     pub(crate) operator_override: bool,
@@ -176,6 +184,7 @@ pub(crate) struct ProviderBindingCommitResponse {
     pub(crate) applied: bool,
     pub(crate) interface_version: String,
     pub(crate) tenant_id: Option<String>,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub(crate) current_version: u64,
     pub(crate) committed_binding: EffectiveProviderBinding,
     pub(crate) diff: ProviderPolicyDiff,
@@ -220,4 +229,47 @@ pub(crate) struct ProviderPolicyDiffResponse {
     pub(crate) status: ProviderPolicyReadStatus,
     #[serde(flatten)]
     pub(crate) diff: ProviderPolicyDiff,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ProviderPolicyRollbackRequest, QuotaProfileResponse, RolloutPolicyResponse};
+
+    #[test]
+    fn provider_versions_accept_int64_strings() {
+        let request: ProviderPolicyRollbackRequest =
+            serde_json::from_str(r#"{"targetVersion":"12"}"#).expect("string target version");
+        assert_eq!(request.target_version, 12);
+    }
+
+    #[test]
+    fn quota_and_rollout_counts_serialize_as_int64_strings() {
+        let quota = QuotaProfileResponse {
+            profile_id: "quota-default".into(),
+            max_concurrent_sessions_per_tenant: 10,
+            max_subscriptions_per_session: 20,
+            max_inflight_messages: 30,
+            max_payload_bytes: 4096,
+        };
+        let value = serde_json::to_value(&quota).expect("serialize quota profile");
+        assert_eq!(
+            value["maxConcurrentSessionsPerTenant"],
+            serde_json::json!("10")
+        );
+        assert_eq!(value["maxSubscriptionsPerSession"], serde_json::json!("20"));
+        assert_eq!(value["maxInflightMessages"], serde_json::json!("30"));
+        assert_eq!(value["maxPayloadBytes"], serde_json::json!("4096"));
+
+        let rollout = RolloutPolicyResponse {
+            policy_id: "rollout-default".into(),
+            release_channel: "stable".into(),
+            traffic_percent: 25,
+            cell_selector: "cell-a".into(),
+            region_selector: "region-a".into(),
+            operator_override: false,
+            tenant_allowlist: Vec::new(),
+        };
+        let value = serde_json::to_value(&rollout).expect("serialize rollout policy");
+        assert_eq!(value["trafficPercent"], serde_json::json!("25"));
+    }
 }

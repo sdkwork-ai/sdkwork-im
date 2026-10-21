@@ -36,7 +36,7 @@ pub use realtime_checkpoint_store::RedisRealtimeCheckpointStore;
 pub use realtime_event_store::RedisRealtimeEventWindowStore;
 pub use route_store::RedisBackedRouteStore;
 pub use rtc_state_store::{RedisRtcStateConfig, RedisRtcStateStore};
-pub use seq_allocator::RedisSeqAllocator;
+pub use seq_allocator::{ConversationSeqHighWatermark, RedisSeqAllocator};
 pub use signal_rate_limit::RedisSignalRateLimiter;
 
 use redis::RedisResult;

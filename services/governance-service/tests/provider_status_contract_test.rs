@@ -297,7 +297,7 @@ async fn test_provider_control_plane_status_contract_covers_read_write_and_error
                 tenant_id: Some("100001"),
                 user_id: Some("1080"),
                 permission: Some("control.write"),
-                body: Some(r#"{"targetVersion":1}"#),
+                body: Some(r#"{"targetVersion":"1"}"#),
                 expected_http: StatusCode::OK,
                 expected_business_status: "rolled_back",
             },

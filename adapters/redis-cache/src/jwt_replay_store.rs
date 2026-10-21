@@ -42,17 +42,25 @@ impl RedisJwtReplayStore {
             })
     }
 
-    fn key(&self, jti: &str) -> String {
-        format!("{}{jti}", self.key_prefix)
+    fn key(&self, tenant_id: &str, jti: &str) -> String {
+        // Hash the raw jti so the key cannot be enumerated or replayed from
+        // Redis, and namespace by tenant so two tenants cannot collide on a
+        // shared opaque jti value.
+        format!(
+            "{}{tenant_id}:{}",
+            self.key_prefix,
+            sdkwork_utils_rust::sha256_hash(jti.as_bytes())
+        )
     }
 
     /// Returns `true` when the `jti` was claimed for the first time within `ttl_secs`.
     pub fn try_claim_jti(
         &self,
+        tenant_id: &str,
         jti: &str,
         ttl_secs: u64,
     ) -> Result<bool, im_platform_contracts::ContractError> {
-        let key = self.key(jti);
+        let key = self.key(tenant_id, jti);
         run_bounded_redis_command(
             &self.client,
             self.timeouts,
@@ -68,5 +76,21 @@ impl RedisJwtReplayStore {
                     .await
             },
         )
+    }
+}
+
+#[cfg(test)]
+mod key_tests {
+    use super::RedisJwtReplayStore;
+
+    #[test]
+    fn replay_key_is_hashed_and_tenant_scoped() {
+        let client = redis::Client::open("redis://127.0.0.1:6379").expect("redis client");
+        let store = RedisJwtReplayStore::new(client, "im:jwt:replay:");
+        let first = store.key("100001", "raw-jti-value");
+        let second = store.key("100002", "raw-jti-value");
+        assert!(first.starts_with("im:jwt:replay:100001:"));
+        assert!(!first.contains("raw-jti-value"));
+        assert_ne!(first, second);
     }
 }

@@ -253,19 +253,24 @@ impl RealtimeClusterBridge {
 
         let mut stale_keys = Vec::new();
         for scope_key in scope_keys {
-            let parts: Vec<&str> = scope_key.split(':').collect();
-            if parts.len() != 5 {
+            let Some(scope) = decode_client_route_scope_key(scope_key.as_str()) else {
                 tracing::warn!(
                     scope_key = %scope_key,
                     "invalid route epoch notifier scope key format, removing"
                 );
                 stale_keys.push(scope_key);
                 continue;
-            }
+            };
 
             let route_exists = self
                 .route_store
-                .lookup(parts[0], parts[1], parts[3], parts[2], parts[4])
+                .lookup(
+                    scope.tenant_id.as_str(),
+                    scope.organization_id.as_str(),
+                    scope.principal_id.as_str(),
+                    scope.principal_kind.as_str(),
+                    scope.device_id.as_str(),
+                )
                 .is_some();
             if !route_exists {
                 stale_keys.push(scope_key);
@@ -311,26 +316,22 @@ impl RealtimeClusterBridge {
 
         let mut stale_keys = Vec::new();
         for scope_key in scope_keys {
-            let parts: Vec<&str> = scope_key.split(':').collect();
-            if parts.len() != 5 {
+            let Some(scope) = decode_client_route_scope_key(scope_key.as_str()) else {
                 tracing::warn!(
                     scope_key = %scope_key,
                     "invalid disconnect fence scope key format, removing"
                 );
                 stale_keys.push(scope_key);
                 continue;
-            }
-
-            let (tenant_id, organization_id, principal_kind, principal_id, device_id) =
-                (parts[0], parts[1], parts[2], parts[3], parts[4]);
+            };
 
             // Check if fence still exists in backing store
             match self.disconnect_fence_store.load_fence(
-                tenant_id,
-                organization_id,
-                principal_kind,
-                principal_id,
-                device_id,
+                scope.tenant_id.as_str(),
+                scope.organization_id.as_str(),
+                scope.principal_kind.as_str(),
+                scope.principal_id.as_str(),
+                scope.device_id.as_str(),
             ) {
                 Ok(Some(_)) => {} // Fence still exists, keep it
                 Ok(None) => stale_keys.push(scope_key), // Fence cleared in store
@@ -1594,6 +1595,43 @@ fn client_route_scope_key(
     )
 }
 
+/// One decoded client-route scope.
+struct ClientRouteScope {
+    tenant_id: String,
+    organization_id: String,
+    principal_kind: String,
+    principal_id: String,
+    device_id: String,
+}
+
+/// Decodes the canonical length-prefixed client-route scope key produced by
+/// [`client_route_scope_key`].
+///
+/// The key is `<len>:<value>` segments joined by `|`, **not** colon-delimited
+/// fields: a tenant such as `100001` is encoded as `6:100001`. Parsing it with
+/// `split(':')` yields six fragments for a five-field scope, so the maintenance
+/// sweeps must use this decoder instead of positional splitting.
+fn decode_client_route_scope_key(scope_key: &str) -> Option<ClientRouteScope> {
+    let components = sdkwork_im_contract_control::realtime_scope_key_components(scope_key)?;
+    let [
+        tenant_id,
+        organization_id,
+        principal_kind,
+        principal_id,
+        device_id,
+    ] = components.as_slice()
+    else {
+        return None;
+    };
+    Some(ClientRouteScope {
+        tenant_id: tenant_id.clone(),
+        organization_id: organization_id.clone(),
+        principal_kind: principal_kind.clone(),
+        principal_id: principal_id.clone(),
+        device_id: device_id.clone(),
+    })
+}
+
 fn cluster_timestamp() -> String {
     utc_now_rfc3339_millis()
 }
@@ -2299,5 +2337,50 @@ mod tests {
             )
             .expect_err("clear failure should not panic");
         assert_eq!(clear_error.code, "disconnect_fence_store_unavailable");
+    }
+
+    #[test]
+    fn test_client_route_scope_key_decodes_with_the_canonical_key_grammar() {
+        let scope_key = client_route_scope_key("100001", "0", "alice", "user", "dev01");
+        let decoded = decode_client_route_scope_key(scope_key.as_str())
+            .expect("canonical client route scope key must decode");
+
+        assert_eq!(decoded.tenant_id, "100001");
+        assert_eq!(decoded.organization_id, "0");
+        assert_eq!(decoded.principal_kind, "user");
+        assert_eq!(decoded.principal_id, "alice");
+        assert_eq!(decoded.device_id, "dev01");
+    }
+
+    #[test]
+    fn test_cleanup_keeps_route_epoch_notifiers_for_live_routes() {
+        let route_store = Arc::new(RouteDirectory::default());
+        route_store.register_node("node_a");
+        route_store
+            .bind(RouteBindingRequest::new(
+                "100001", "alice", "user", "dev01", "node_a",
+            ))
+            .expect("route binding should succeed");
+
+        let cluster = RealtimeClusterBridge::with_disconnect_fence_store_and_route_store(
+            Arc::new(MemoryRealtimeDisconnectFenceStore::default()),
+            route_store,
+        );
+        let scope_key = client_route_scope_key("100001", "0", "alice", "user", "dev01");
+        {
+            let mut notifiers =
+                lock_cluster_mutex(&cluster.route_epoch_notifiers, "route_epoch_notifiers");
+            let (sender, receiver) = watch::channel(7u64);
+            drop(receiver);
+            notifiers.insert(scope_key.clone(), sender);
+        }
+
+        cluster.cleanup_stale_route_epoch_notifiers();
+
+        let notifiers = lock_cluster_mutex(&cluster.route_epoch_notifiers, "route_epoch_notifiers");
+        assert!(
+            notifiers.contains_key(&scope_key),
+            "a notifier whose route is still live must survive the maintenance sweep"
+        );
     }
 }

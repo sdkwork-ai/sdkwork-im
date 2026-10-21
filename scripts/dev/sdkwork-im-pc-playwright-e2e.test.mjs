@@ -12,14 +12,30 @@ import {
   assertPortAvailable,
   createOwnedProcessLifecycle,
   findAvailablePort,
+  findAvailablePortPair,
   parseTcpPort,
   waitForOwnedHttpOk,
 } from './sdkwork-im-pc-playwright-runner.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const pcRoot = path.join(repoRoot, 'apps', 'sdkwork-im-pc');
-const distIndex = path.join(pcRoot, 'dist', 'index.html');
+const browserDistEnvironmentAlias = {
+  development: 'dev',
+  test: 'test',
+  staging: 'staging',
+  demo: 'demo',
+  production: 'prod',
+};
+const browserDistProfile = (process.env.SDKWORK_DEPLOYMENT_PROFILE ?? 'standalone').trim() === 'cloud'
+  ? 'cloud'
+  : 'standalone';
+const browserDistEnvironment = browserDistEnvironmentAlias[
+  (process.env.SDKWORK_ENVIRONMENT ?? 'production').trim()
+] ?? 'prod';
+const distRoot = path.join(pcRoot, 'dist', browserDistProfile, browserDistEnvironment);
+const distIndex = path.join(distRoot, 'index.html');
 const serverEntry = path.join(pcRoot, 'dist', 'server.cjs');
+const embedBundle = path.join(pcRoot, 'dist-embed', 'im-pc-embed.js');
 const pnpmExecutable = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const commandShell = process.platform === 'win32';
 const configuredE2ePort = process.env.PLAYWRIGHT_PC_PORT
@@ -35,12 +51,17 @@ const useProcessGroup = process.platform !== 'win32';
 assert.equal(
   fs.existsSync(distIndex),
   true,
-  'apps/sdkwork-im-pc/dist/index.html must exist; run pnpm build in apps/sdkwork-im-pc first',
+  'apps/sdkwork-im-pc/dist/<profile>/<env>/index.html must exist; run pnpm build in apps/sdkwork-im-pc first',
 );
 assert.equal(
   fs.existsSync(serverEntry),
   true,
   'apps/sdkwork-im-pc/dist/server.cjs must exist; run pnpm build in apps/sdkwork-im-pc first',
+);
+assert.equal(
+  fs.existsSync(embedBundle),
+  true,
+  'apps/sdkwork-im-pc/dist-embed/im-pc-embed.js must exist; run pnpm run build:embed in apps/sdkwork-im-pc first',
 );
 
 function runCommand(command, args, options = {}) {
@@ -64,11 +85,22 @@ function runCommand(command, args, options = {}) {
 
 async function main() {
   await lifecycle.run(async ({ signal }) => {
-    const e2ePort = configuredE2ePort ?? await findAvailablePort({ host: '0.0.0.0' });
-    let componentPort = configuredComponentPort
-      ?? await findAvailablePort({ host: '127.0.0.1' });
-    if (componentPort === e2ePort && configuredComponentPort === null) {
-      componentPort = await findAvailablePort({ host: '127.0.0.1' });
+    let e2ePort = configuredE2ePort;
+    let componentPort = configuredComponentPort;
+    if (e2ePort === null && componentPort === null) {
+      [e2ePort, componentPort] = await findAvailablePortPair();
+    } else {
+      e2ePort ??= await findAvailablePort({ host: '0.0.0.0' });
+      if (componentPort === null) {
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          const candidate = await findAvailablePort({ host: '127.0.0.1' });
+          if (candidate !== e2ePort) {
+            componentPort = candidate;
+            break;
+          }
+        }
+        assert.notEqual(componentPort, null, 'unable to allocate a distinct component port');
+      }
     }
     const e2eBaseUrl = `http://127.0.0.1:${e2ePort}`;
     const componentBaseUrl = `http://127.0.0.1:${componentPort}`;

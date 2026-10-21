@@ -16,7 +16,7 @@ use sdkwork_im_app_api_generated::{SdkworkImAppClient, SdkworkConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = SdkworkImAppClient::new(SdkworkConfig::new("http://127.0.0.1:18079"))?;
+    let client = SdkworkImAppClient::new(SdkworkConfig::new("http://127.0.0.1:18089"))?;
     client.set_auth_token("your-auth-token");
 client.set_access_token("your-access-token");
 
@@ -37,7 +37,7 @@ Access-Token: <accessToken>
 ## Configuration (Non-Auth)
 
 ```rust
-let client = SdkworkImAppClient::new(SdkworkConfig::new("http://127.0.0.1:18079"))?;
+let client = SdkworkImAppClient::new(SdkworkConfig::new("http://127.0.0.1:18089"))?;
 client.set_header("X-Custom-Header", "value");
 ```
 
@@ -113,7 +113,7 @@ println!("{result:?}");
 use sdkwork_im_app_api_generated::{SdkworkImAppClient, SdkworkConfig};
 
 
-let client = SdkworkImAppClient::new(SdkworkConfig::new("http://127.0.0.1:18079"))?;
+let client = SdkworkImAppClient::new(SdkworkConfig::new("http://127.0.0.1:18089"))?;
 
 let outcome: Result<(), _> = async {
     client.portal().access_retrieve().await?;

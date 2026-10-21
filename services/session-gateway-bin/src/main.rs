@@ -57,12 +57,17 @@ async fn run() -> Result<(), String> {
 
     let (server_shutdown_tx, server_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     let mut server_handle = tokio::spawn(async move {
-        axum::serve(listener, app)
-            .with_graceful_shutdown(async {
-                let _ = server_shutdown_rx.await;
-            })
-            .await
-            .map_err(|error| format!("session-gateway server should run: {error}"))
+        // ConnectInfo exposes the real TCP peer to the WebSocket upgrade rate
+        // limiter; without it the limiter would have to trust spoofable headers.
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .with_graceful_shutdown(async {
+            let _ = server_shutdown_rx.await;
+        })
+        .await
+        .map_err(|error| format!("session-gateway server should run: {error}"))
     });
 
     let signal = tokio::select! {

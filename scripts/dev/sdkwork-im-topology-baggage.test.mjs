@@ -37,6 +37,7 @@ const skipPathFragments = [
   '/node_modules/',
   '/generated/',
   '/vendor/',
+  '/types/siblings/',
   'sdkwork-im-topology-baggage.test.mjs',
   'migrate-step11-artifact-profiles.mjs',
   'scripts/perf/materialize-step-11-capacity-evidence.mjs',

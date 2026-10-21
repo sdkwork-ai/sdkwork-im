@@ -14,45 +14,45 @@ public class AutomationApi {
     }
 
     /** Start an agent response stream */
-    public AutomationAgentResponsesCreateResponse201 agentResponsesCreate(StartAgentResponseRequest body) throws Exception {
+    public AgentResponsesCreateResponse201 agentResponsesCreate(StartAgentResponseRequest body) throws Exception {
         Object raw = client.post(ApiPaths.appPath("/automation/agent_responses"), body, null, null, "application/json");
-        return client.convertValue(raw, new TypeReference<AutomationAgentResponsesCreateResponse201>() {});
+        return client.convertValue(raw, new TypeReference<AgentResponsesCreateResponse201>() {});
     }
 
     /** Complete an agent response stream */
-    public AutomationAgentResponsesCompleteResponse agentResponsesComplete(String streamId, CompleteAgentResponseRequest body) throws Exception {
+    public AgentResponsesCompleteResponse agentResponsesComplete(String streamId, CompleteAgentResponseRequest body) throws Exception {
         Object raw = client.post(ApiPaths.appPath("/automation/agent_responses/" + serializePathParameter(streamId, new PathParameterSpec("streamId", "simple", false)) + "/complete"), body, null, null, "application/json");
-        return client.convertValue(raw, new TypeReference<AutomationAgentResponsesCompleteResponse>() {});
+        return client.convertValue(raw, new TypeReference<AgentResponsesCompleteResponse>() {});
     }
 
     /** Append a frame to an agent response stream */
-    public AutomationAgentResponsesFramesCreateResponse201 agentResponsesFramesCreate(String streamId, AppendAgentResponseDeltaRequest body) throws Exception {
+    public AgentResponsesFramesCreateResponse201 agentResponsesFramesCreate(String streamId, AppendAgentResponseDeltaRequest body) throws Exception {
         Object raw = client.post(ApiPaths.appPath("/automation/agent_responses/" + serializePathParameter(streamId, new PathParameterSpec("streamId", "simple", false)) + "/frames"), body, null, null, "application/json");
-        return client.convertValue(raw, new TypeReference<AutomationAgentResponsesFramesCreateResponse201>() {});
+        return client.convertValue(raw, new TypeReference<AgentResponsesFramesCreateResponse201>() {});
     }
 
     /** Request an agent tool call */
-    public AutomationAgentToolCallsCreateResponse201 agentToolCallsCreate(RequestAgentToolCallRequest body) throws Exception {
+    public AgentToolCallsCreateResponse201 agentToolCallsCreate(RequestAgentToolCallRequest body) throws Exception {
         Object raw = client.post(ApiPaths.appPath("/automation/agent_tool_calls"), body, null, null, "application/json");
-        return client.convertValue(raw, new TypeReference<AutomationAgentToolCallsCreateResponse201>() {});
+        return client.convertValue(raw, new TypeReference<AgentToolCallsCreateResponse201>() {});
     }
 
     /** Request an automation execution */
-    public AutomationExecutionsCreateResponse201 executionsCreate(RequestAutomationExecution body) throws Exception {
+    public ExecutionsCreateResponse201 executionsCreate(RequestAutomationExecution body) throws Exception {
         Object raw = client.post(ApiPaths.appPath("/automation/executions"), body, null, null, "application/json");
-        return client.convertValue(raw, new TypeReference<AutomationExecutionsCreateResponse201>() {});
+        return client.convertValue(raw, new TypeReference<ExecutionsCreateResponse201>() {});
     }
 
     /** Get an automation execution */
-    public AutomationExecutionsRetrieveResponse executionsRetrieve(String executionId) throws Exception {
+    public ExecutionsRetrieveResponse executionsRetrieve(String executionId) throws Exception {
         Object raw = client.get(ApiPaths.appPath("/automation/executions/" + serializePathParameter(executionId, new PathParameterSpec("executionId", "simple", false)) + ""));
-        return client.convertValue(raw, new TypeReference<AutomationExecutionsRetrieveResponse>() {});
+        return client.convertValue(raw, new TypeReference<ExecutionsRetrieveResponse>() {});
     }
 
     /** Complete an agent tool call */
-    public AutomationAgentToolCallsCompleteResponse agentToolCallsComplete(String executionId, String toolCallId, CompleteAgentToolCallRequest body) throws Exception {
+    public AgentToolCallsCompleteResponse agentToolCallsComplete(String executionId, String toolCallId, CompleteAgentToolCallRequest body) throws Exception {
         Object raw = client.post(ApiPaths.appPath("/automation/executions/" + serializePathParameter(executionId, new PathParameterSpec("executionId", "simple", false)) + "/agent_tool_calls/" + serializePathParameter(toolCallId, new PathParameterSpec("toolCallId", "simple", false)) + "/complete"), body, null, null, "application/json");
-        return client.convertValue(raw, new TypeReference<AutomationAgentToolCallsCompleteResponse>() {});
+        return client.convertValue(raw, new TypeReference<AgentToolCallsCompleteResponse>() {});
     }
 
     private record PathParameterSpec(String name, String style, boolean explode) {}

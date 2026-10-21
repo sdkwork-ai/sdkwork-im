@@ -38,11 +38,13 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 hmac = "0.12"
 sdkwork_im_service_readiness = { workspace = true }
 sdkwork_im_web_bootstrap.workspace = true
+sdkwork_im_keyset_cursor.workspace = true
 sdkwork_web_core.workspace = true
 sdkwork_routes_web_framework_backend_api.workspace = true
 
 [dev-dependencies]
 sdkwork-routes-im-social-backend-api.workspace = true
+sdkwork-routes-im-social-open-api.workspace = true
 http-body-util.workspace = true
 tower.workspace = true
 sdkwork_web_axum.workspace = true

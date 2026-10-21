@@ -15,6 +15,8 @@ use im_adapters_social_postgres::governance_store::SpaceMemberRecord;
 use im_adapters_social_postgres::organization_store::SpaceRecord;
 
 use crate::api_payload::{keyset_list_page, resource_item};
+use sdkwork_im_keyset_cursor::{CursorScope, KeysetPosition};
+
 use crate::list_query::{ListQuery, resolve_keyset_page};
 
 use crate::http::AppState;
@@ -131,7 +133,13 @@ pub async fn list_spaces(
     Query(query): Query<ListQuery>,
 ) -> Response {
     let result: ApiResult<SdkWorkPageData<SpaceResponse>> = (|| {
-        let paging = resolve_keyset_page(&query)?;
+        let scope = CursorScope {
+            resource: "space.spaces",
+            tenant_id: auth.tenant_id.as_str(),
+            organization_id: auth.organization_id.as_str(),
+            principal_id: auth.actor_id.as_str(),
+        };
+        let paging = resolve_keyset_page(&query, &scope)?;
         let cursor_space_id = paging
             .cursor_entity
             .as_deref()
@@ -153,8 +161,12 @@ pub async fn list_spaces(
         Ok(keyset_list_page(
             records.into_iter().map(SpaceResponse::from).collect(),
             paging.page_size,
-            |item: &SpaceResponse| (item.created_at.clone(), item.space_id.clone()),
-        ))
+            &scope,
+            |item: &SpaceResponse| KeysetPosition {
+                sort_value: item.created_at.clone(),
+                entity_id: item.space_id.clone(),
+            },
+        )?)
     })();
     finish_api_json(&ctx, result)
 }

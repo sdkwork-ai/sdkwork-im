@@ -10,6 +10,7 @@ use im_domain_core::retention::retention_until_from_envelope;
 use im_domain_events::CommitEnvelope;
 
 mod access;
+mod authority_views;
 mod bootstrap;
 mod client_route_sync;
 mod contacts;
@@ -55,6 +56,13 @@ use scope::{
 };
 
 pub use access::{ClientRouteSyncStateView, ConversationStateAccessError};
+pub(crate) use cursor_auth::{
+    decode_signed_conversation_state_cursor as decode_typing_list_cursor,
+    encode_signed_conversation_state_cursor as encode_typing_list_cursor,
+};
+pub use authority_views::{
+    conversation_profile_view_from_record, conversation_summary_view_from_record,
+};
 pub use bootstrap::{
     ConversationStateRuntime, build_conversation_state_runtime_from_env,
     try_init_conversation_state_runtime,
@@ -152,6 +160,29 @@ pub struct ConversationStateService {
     agent_integration_store:
         std::sync::OnceLock<std::sync::Arc<dyn im_platform_contracts::AgentIntegrationStore>>,
     user_profile_resolver: std::sync::OnceLock<std::sync::Arc<dyn UserProfileResolver>>,
+    /// Durable Conversation inbox reader. When configured, the inbox is served
+    /// from normalized PostgreSQL tables instead of process memory.
+    conversation_inbox_authority:
+        std::sync::OnceLock<std::sync::Arc<dyn im_platform_contracts::ConversationInboxAuthority>>,
+    /// Durable per-member Conversation preferences.
+    conversation_member_preferences_store: std::sync::OnceLock<
+        std::sync::Arc<dyn im_platform_contracts::ConversationMemberPreferencesStore>,
+    >,
+    /// Durable Conversation summary reader.
+    conversation_summary_authority: std::sync::OnceLock<
+        std::sync::Arc<dyn im_platform_contracts::ConversationSummaryAuthority>,
+    >,
+    /// Durable Conversation profile store.
+    conversation_profile_store:
+        std::sync::OnceLock<std::sync::Arc<dyn im_platform_contracts::ConversationProfileStore>>,
+    /// Durable Message favorite store.
+    message_favorite_store:
+        std::sync::OnceLock<std::sync::Arc<dyn im_platform_contracts::MessageFavoriteStore>>,
+    /// Durable reaction/pin read authority used when the disposable
+    /// interaction cache is cold (process restart, eviction).
+    message_interaction_read_store: std::sync::OnceLock<
+        std::sync::Arc<dyn im_platform_contracts::MessageInteractionReadStore>,
+    >,
 }
 
 impl ConversationStateService {
@@ -182,6 +213,85 @@ impl ConversationStateService {
         resolver: std::sync::Arc<dyn UserProfileResolver>,
     ) {
         let _ = self.user_profile_resolver.set(resolver);
+    }
+
+    pub fn configure_conversation_inbox_authority(
+        &self,
+        authority: std::sync::Arc<dyn im_platform_contracts::ConversationInboxAuthority>,
+    ) {
+        let _ = self.conversation_inbox_authority.set(authority);
+    }
+
+    pub fn configure_conversation_member_preferences_store(
+        &self,
+        store: std::sync::Arc<dyn im_platform_contracts::ConversationMemberPreferencesStore>,
+    ) {
+        let _ = self.conversation_member_preferences_store.set(store);
+    }
+
+    pub fn configure_conversation_summary_authority(
+        &self,
+        authority: std::sync::Arc<dyn im_platform_contracts::ConversationSummaryAuthority>,
+    ) {
+        let _ = self.conversation_summary_authority.set(authority);
+    }
+
+    pub fn configure_conversation_profile_store(
+        &self,
+        store: std::sync::Arc<dyn im_platform_contracts::ConversationProfileStore>,
+    ) {
+        let _ = self.conversation_profile_store.set(store);
+    }
+
+    pub(crate) fn conversation_summary_authority(
+        &self,
+    ) -> Option<&std::sync::Arc<dyn im_platform_contracts::ConversationSummaryAuthority>> {
+        self.conversation_summary_authority.get()
+    }
+
+    pub(crate) fn conversation_profile_store(
+        &self,
+    ) -> Option<&std::sync::Arc<dyn im_platform_contracts::ConversationProfileStore>> {
+        self.conversation_profile_store.get()
+    }
+
+    pub fn configure_message_favorite_store(
+        &self,
+        store: std::sync::Arc<dyn im_platform_contracts::MessageFavoriteStore>,
+    ) {
+        let _ = self.message_favorite_store.set(store);
+    }
+
+    pub(crate) fn message_favorite_store(
+        &self,
+    ) -> Option<&std::sync::Arc<dyn im_platform_contracts::MessageFavoriteStore>> {
+        self.message_favorite_store.get()
+    }
+
+    pub fn configure_message_interaction_read_store(
+        &self,
+        store: std::sync::Arc<dyn im_platform_contracts::MessageInteractionReadStore>,
+    ) {
+        let _ = self.message_interaction_read_store.set(store);
+    }
+
+    pub(crate) fn message_interaction_read_store(
+        &self,
+    ) -> Option<&std::sync::Arc<dyn im_platform_contracts::MessageInteractionReadStore>> {
+        self.message_interaction_read_store.get()
+    }
+
+    pub(crate) fn conversation_inbox_authority(
+        &self,
+    ) -> Option<&std::sync::Arc<dyn im_platform_contracts::ConversationInboxAuthority>> {
+        self.conversation_inbox_authority.get()
+    }
+
+    pub(crate) fn conversation_member_preferences_store(
+        &self,
+    ) -> Option<&std::sync::Arc<dyn im_platform_contracts::ConversationMemberPreferencesStore>>
+    {
+        self.conversation_member_preferences_store.get()
     }
 
     /// Resolves display attributes for a user principal from the IM user

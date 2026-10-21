@@ -1,9 +1,13 @@
 mod cluster_bus;
 mod conversation_aggregate_store;
+mod conversation_inbox;
 mod conversation_member_access_gate;
+mod conversation_projection;
 mod id_generator;
+mod message_favorite_store;
 mod message_mutation;
 mod message_store;
+mod message_interaction_store;
 mod outbox_store;
 mod principal_directory;
 mod provider;
@@ -24,7 +28,7 @@ pub use sdkwork_im_contract_control::{
     RealtimeEventWindowDiagnosticsSnapshot, RealtimeEventWindowHighRiskRecord,
     RealtimeEventWindowRecord, RealtimeEventWindowStore, RealtimeMatchingSubscriptionQuery,
     RealtimePrincipalScopeDevicePageQuery, RealtimeSubscriptionRecord, RealtimeSubscriptionStore,
-    StalePresenceScopeDiscoveryRequest, SUBSCRIBED_DEVICE_PAGE_LIMIT_MAX,
+    SUBSCRIBED_DEVICE_PAGE_LIMIT_MAX, StalePresenceScopeDiscoveryRequest,
     normalize_realtime_organization_id, realtime_client_route_scope_key,
     realtime_principal_scope_key, realtime_scope_key_parts,
 };
@@ -64,15 +68,32 @@ pub use conversation_aggregate_store::{
     NormalizedConversationPolicyRecord, NormalizedConversationRecord, ReadCursorPage,
     ReadCursorPageCursor, ReadCursorRecord,
 };
+pub use conversation_inbox::{
+    CONVERSATION_INBOX_PAGE_SIZE_DEFAULT, CONVERSATION_INBOX_PAGE_SIZE_MAX,
+    ConversationInboxAuthority, ConversationInboxHandoffRecord, ConversationInboxPage,
+    ConversationInboxPageCursor, ConversationInboxRecord, ConversationMemberPreferencesRecord,
+    ConversationMemberPreferencesStore,
+};
 pub use conversation_member_access_gate::{
     AggregateStoreConversationMemberAccessGate, ConversationMemberAccessGate,
     DenyConversationMemberAccessGate,
+};
+pub use conversation_projection::{
+    ConversationProfileRecord, ConversationProfileStore, ConversationSummaryAuthority,
+    ConversationSummaryRecord,
+};
+pub use message_favorite_store::{
+    MessageFavoritePage, MessageFavoritePageCursor, MessageFavoriteRecord, MessageFavoriteStore,
 };
 pub use id_generator::{IdGenerator, IdGeneratorConfig};
 pub use message_mutation::{StoredMessageMutation, StoredMessageMutationTarget};
 pub use message_store::{
     MessageStore, MessageWindow, StoredMessagePinRecord, StoredMessageReactionRecord,
     StoredMessageRecord,
+};
+pub use message_interaction_store::{
+    MessageInteractionReadStore, StoredMessageInteraction, StoredMessagePin, StoredMessageReaction,
+    StoredPinnedMessage,
 };
 pub use outbox_store::{
     OutboxEventClaim, OutboxEventRecord, OutboxPublishStatus, OutboxScopeDiscoveryRequest,

@@ -1,5 +1,5 @@
 import { createNotaryAccessService } from '@sdkwork/notary-pc-core';
-import { getNotaryAppSdkClient } from '@sdkwork/im-pc-core';
+import { getNotaryAppSdkClient } from '@sdkwork/im-pc-core/sdk/notaryAppSdkClient';
 
 export type { NotaryAccessService, NotaryAccessState } from '@sdkwork/notary-pc-core';
 

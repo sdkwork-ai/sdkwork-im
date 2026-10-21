@@ -38,7 +38,7 @@
 - [x] `cargo test -p sdkwork-im-runtime-link nack`
 - [x] `cargo test -p sdkwork-im-pc --lib` (offline_store)
 - [x] `node scripts/dev/sdkwork-im-three-capabilities-standard.test.mjs`
-- [x] Update `OPTIMIZATION_ROADMAP.md` MVP status lines
+- [x] Update `TECH-11-optimization-roadmap.md` MVP status lines
 
 ## Production alignment (2026-07-06)
 

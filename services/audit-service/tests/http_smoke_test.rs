@@ -283,7 +283,7 @@ async fn test_record_list_returns_bounded_audit_seq_cursor_window_over_http() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/backend/v3/api/audit/records?after_audit_seq=0&page_size=2")
+                .uri("/backend/v3/api/audit/records?page_size=2")
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
                 .with_dual_token_user("1")
@@ -310,12 +310,25 @@ async fn test_record_list_returns_bounded_audit_seq_cursor_window_over_http() {
     assert_eq!(first_window_json["data"]["items"][0]["auditSeq"], "1");
     assert_eq!(first_window_json["data"]["items"][1]["auditSeq"], "2");
     assert_eq!(first_window_json["data"]["pageInfo"]["hasMore"], true);
-    assert_eq!(first_window_json["data"]["pageInfo"]["nextCursor"], "2");
+    let first_cursor = first_window_json["data"]["pageInfo"]["nextCursor"]
+        .as_str()
+        .expect("first page must expose a cursor")
+        .to_owned();
+    assert!(
+        !first_cursor.chars().all(|ch| ch.is_ascii_digit()),
+        "audit cursor must be opaque, not a raw audit_seq"
+    );
+    assert!(
+        first_cursor.contains('.'),
+        "audit cursor must be a signed multi-segment token"
+    );
 
     let second_window_response = app
         .oneshot(
             Request::builder()
-                .uri("/backend/v3/api/audit/records?after_audit_seq=2&page_size=2")
+                .uri(format!(
+                    "/backend/v3/api/audit/records?cursor={first_cursor}&page_size=2"
+                ).as_str())
                 .with_dual_token_tenant("100001")
                 .with_dual_token_organization("100001")
                 .with_dual_token_user("1")
@@ -348,7 +361,10 @@ async fn test_record_list_returns_bounded_audit_seq_cursor_window_over_http() {
         "notification.delivered"
     );
     assert_eq!(second_window_json["data"]["pageInfo"]["hasMore"], false);
-    assert_eq!(second_window_json["data"]["pageInfo"]["nextCursor"], "3");
+    let second_cursor = second_window_json["data"]["pageInfo"]["nextCursor"]
+        .as_str()
+        .expect("second page must expose a cursor");
+    assert!(!second_cursor.chars().all(|ch| ch.is_ascii_digit()));
 }
 
 #[tokio::test]

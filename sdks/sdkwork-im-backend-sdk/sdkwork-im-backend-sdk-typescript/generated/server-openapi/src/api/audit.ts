@@ -40,7 +40,7 @@ export class AuditExportApi {
 }
 
 export interface AuditRecordsListParams {
-  afterAuditSeq?: string;
+  cursor?: string;
   pageSize?: number;
 }
 
@@ -60,7 +60,7 @@ export class AuditRecordsApi {
 /** List audit records */
   async list(params?: AuditRecordsListParams, requestOptions?: ApiRequestOptions): Promise<AuditRecordListResponse> {
     const query = buildQueryString([
-      { name: 'after_audit_seq', value: params?.afterAuditSeq, style: 'form', explode: true, allowReserved: false },
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
     return this.client.request<AuditRecordListResponse>(appendQueryString(backendApiPath(`/audit/records`), query), { ...(requestOptions?.signal !== undefined ? { signal: requestOptions.signal } : {}), ...(requestOptions?.timeout !== undefined ? { timeout: requestOptions.timeout } : {}), method: 'GET' as any, sdkworkUnwrapKind: 'page' });

@@ -778,7 +778,7 @@ public struct FieldError: Codable {
     }
 }
 
-public struct AutomationAgentResponsesCreateResponse201: Codable {
+public struct AgentResponsesCreateResponse201: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?
@@ -791,7 +791,7 @@ public struct AutomationAgentResponsesCreateResponse201: Codable {
     }
 }
 
-public struct AutomationAgentResponsesCompleteResponse: Codable {
+public struct AgentResponsesCompleteResponse: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?
@@ -804,7 +804,7 @@ public struct AutomationAgentResponsesCompleteResponse: Codable {
     }
 }
 
-public struct AutomationAgentResponsesFramesCreateResponse201: Codable {
+public struct AgentResponsesFramesCreateResponse201: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?
@@ -817,7 +817,7 @@ public struct AutomationAgentResponsesFramesCreateResponse201: Codable {
     }
 }
 
-public struct AutomationAgentToolCallsCreateResponse201: Codable {
+public struct AgentToolCallsCreateResponse201: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?
@@ -830,7 +830,7 @@ public struct AutomationAgentToolCallsCreateResponse201: Codable {
     }
 }
 
-public struct AutomationExecutionsCreateResponse201: Codable {
+public struct ExecutionsCreateResponse201: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?
@@ -843,7 +843,7 @@ public struct AutomationExecutionsCreateResponse201: Codable {
     }
 }
 
-public struct AutomationExecutionsRetrieveResponse: Codable {
+public struct ExecutionsRetrieveResponse: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?
@@ -856,7 +856,7 @@ public struct AutomationExecutionsRetrieveResponse: Codable {
     }
 }
 
-public struct AutomationAgentToolCallsCompleteResponse: Codable {
+public struct AgentToolCallsCompleteResponse: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?
@@ -1026,19 +1026,6 @@ public struct WorkspaceRetrieveResponse: Codable {
 }
 
 public struct MediaHealthRetrieveResponse: Codable {
-    public let code: Int?
-    public let data: Any?
-    public let traceId: String?
-
-
-    public init(code: Int? = nil, data: Any? = nil, traceId: String? = nil) {
-        self.code = code
-        self.data = data
-        self.traceId = traceId
-    }
-}
-
-public struct PrincipalProfileHealthRetrieveResponse: Codable {
     public let code: Int?
     public let data: Any?
     public let traceId: String?

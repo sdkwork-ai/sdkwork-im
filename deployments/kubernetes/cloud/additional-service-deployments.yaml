@@ -72,8 +72,8 @@ spec:
             - configMapRef:
                 name: audit-service-runtime
             - secretRef:
-                name: audit-service-secrets
-                optional: true
+                name: sdkwork-im-shared-secrets
+                optional: false
           env:
             - name: SDKWORK_IM_ENVIRONMENT
               value: production
@@ -193,8 +193,8 @@ spec:
             - configMapRef:
                 name: automation-service-runtime
             - secretRef:
-                name: automation-service-secrets
-                optional: true
+                name: sdkwork-im-shared-secrets
+                optional: false
           env:
             - name: SDKWORK_IM_ENVIRONMENT
               value: production
@@ -314,8 +314,8 @@ spec:
             - configMapRef:
                 name: social-service-runtime
             - secretRef:
-                name: social-service-secrets
-                optional: true
+                name: sdkwork-im-shared-secrets
+                optional: false
           env:
             - name: SDKWORK_IM_ENVIRONMENT
               value: production
@@ -435,8 +435,8 @@ spec:
             - configMapRef:
                 name: space-service-runtime
             - secretRef:
-                name: space-service-secrets
-                optional: true
+                name: sdkwork-im-shared-secrets
+                optional: false
           env:
             - name: SDKWORK_IM_ENVIRONMENT
               value: production
@@ -556,8 +556,8 @@ spec:
             - configMapRef:
                 name: ops-service-runtime
             - secretRef:
-                name: ops-service-secrets
-                optional: true
+                name: sdkwork-im-shared-secrets
+                optional: false
           env:
             - name: SDKWORK_IM_ENVIRONMENT
               value: production

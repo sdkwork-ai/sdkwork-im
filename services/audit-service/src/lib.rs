@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 mod chain_scan;
+mod cursor;
 mod export_stream;
 mod retention;
 
@@ -149,7 +150,8 @@ pub struct RecordAuditAnchor {
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct ListAuditRecordsQuery {
-    pub after_audit_seq: Option<u64>,
+    /// Opaque, signed cursor; numeric audit offsets are not accepted.
+    pub cursor: Option<String>,
     #[serde(flatten)]
     pub paging: SdkWorkPageSizeQuery,
 }
@@ -272,7 +274,13 @@ impl TenantAuditRecords {
             .map_or(1, |(seq, _)| seq + 1)
     }
 
-    fn window(&self, after_audit_seq: u64, limit: usize) -> AuditRecordListResponse {
+    fn window(
+        &self,
+        tenant_id: &str,
+        organization_id: &str,
+        after_audit_seq: u64,
+        limit: usize,
+    ) -> AuditRecordListResponse {
         let mut items = Vec::new();
         let mut has_more = false;
         for (_, record_id) in self
@@ -287,7 +295,7 @@ impl TenantAuditRecords {
                 items.push(record);
             }
         }
-        audit_seq_cursor_page(items, limit, has_more)
+        audit_seq_cursor_page(tenant_id, organization_id, items, limit, has_more)
     }
 
     fn window_through(
@@ -328,11 +336,15 @@ impl TenantAuditRecords {
 pub type AuditRecordListResponse = SdkWorkPageData<AuditRecord>;
 
 fn audit_seq_cursor_page(
+    tenant_id: &str,
+    organization_id: &str,
     items: Vec<AuditRecord>,
     page_size: usize,
     has_more: bool,
 ) -> AuditRecordListResponse {
-    let next_cursor = items.last().map(|record| record.audit_seq.to_string());
+    let next_cursor = items.last().map(|record| {
+        crate::cursor::encode_audit_cursor(tenant_id, organization_id, record.audit_seq)
+    });
     SdkWorkPageData {
         items,
         page_info: PageInfo {
@@ -481,7 +493,7 @@ impl AuditRuntime {
         let page = self.list_records_window(
             auth,
             ListAuditRecordsQuery {
-                after_audit_seq: Some(0),
+                cursor: None,
                 paging: SdkWorkPageSizeQuery {
                     page_size: Some(MAX_LIST_PAGE_SIZE),
                 },
@@ -502,7 +514,15 @@ impl AuditRuntime {
         query: ListAuditRecordsQuery,
     ) -> Result<AuditRecordListResponse, AuditError> {
         ensure_audit_read_access(auth)?;
-        let after_audit_seq = query.after_audit_seq.unwrap_or(0);
+        let after_audit_seq = match query.cursor.as_deref().map(str::trim) {
+            None | Some("") => 0,
+            Some(raw) => crate::cursor::decode_audit_cursor(
+                raw,
+                auth.tenant_id.as_str(),
+                auth.organization_id.as_str(),
+            )
+            .map_err(|message| AuditError::invalid_parameter(message))?,
+        };
         // PAGINATION_SPEC §10.1: an out-of-range page_size is a client
         // contract violation and MUST be rejected with 400 instead of being
         // silently clamped to the maximum.
@@ -521,9 +541,22 @@ impl AuditRuntime {
             AuditBackend::InMemory { records } => Ok(Self::read_records(records)
                 .get(&AuditScopeKey::from_auth(auth))
                 .map(|tenant_records: &TenantAuditRecords| {
-                    tenant_records.window(after_audit_seq, limit)
+                    tenant_records.window(
+                        auth.tenant_id.as_str(),
+                        auth.organization_id.as_str(),
+                        after_audit_seq,
+                        limit,
+                    )
                 })
-                .unwrap_or_else(|| audit_seq_cursor_page(Vec::new(), limit, false))),
+                .unwrap_or_else(|| {
+                    audit_seq_cursor_page(
+                        auth.tenant_id.as_str(),
+                        auth.organization_id.as_str(),
+                        Vec::new(),
+                        limit,
+                        false,
+                    )
+                })),
             AuditBackend::Postgres(store) => {
                 store.list_records_window(auth, after_audit_seq, limit)
             }
@@ -1150,7 +1183,13 @@ fn select_audit_records_window(
     if has_more {
         items.truncate(limit);
     }
-    Ok(audit_seq_cursor_page(items, limit, has_more))
+    Ok(audit_seq_cursor_page(
+        auth.tenant_id.as_str(),
+        auth.organization_id.as_str(),
+        items,
+        limit,
+        has_more,
+    ))
 }
 
 fn select_recent_audit_records(

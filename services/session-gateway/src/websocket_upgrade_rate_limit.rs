@@ -1,8 +1,6 @@
 //! Per-IP WebSocket upgrade rate limiting with optional Redis fixed-window backend.
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::{Arc, Mutex};
 
 use axum::http::HeaderMap;
@@ -100,35 +98,52 @@ impl WebsocketUpgradeRateLimiter {
     }
 }
 
-pub fn extract_client_ip_from_headers(headers: &HeaderMap) -> IpAddr {
-    let config = TrustedProxyConfig::from_env();
-    if !config.is_empty() {
-        if let Some(raw) = header_value(headers, "x-forwarded-for") {
-            let chain = raw
-                .split(',')
-                .map(str::trim)
-                .filter(|segment| !segment.is_empty())
-                .collect::<Vec<_>>();
-            for entry in chain.iter().rev() {
-                if let Ok(ip) = entry.parse::<IpAddr>()
-                    && !config.is_trusted(&ip)
-                {
-                    return ip;
-                }
-            }
-            if let Some(entry) = chain.first()
-                && let Ok(ip) = entry.parse::<IpAddr>()
-            {
-                return ip;
+/// Resolve the rate-limit key from the real peer address.
+///
+/// Forwarded headers are honoured only when the TCP peer is a configured
+/// trusted proxy. Without peer information the caller shares a single
+/// fail-closed bucket instead of a spoofable header-derived key.
+pub fn resolve_client_ip(peer: Option<SocketAddr>, headers: &HeaderMap) -> IpAddr {
+    resolve_client_ip_with_config(peer, headers, &TrustedProxyConfig::from_env())
+}
+
+fn resolve_client_ip_with_config(
+    peer: Option<SocketAddr>,
+    headers: &HeaderMap,
+    config: &TrustedProxyConfig,
+) -> IpAddr {
+    let Some(peer_ip) = peer.map(|address| address.ip()) else {
+        // Without a TCP peer we cannot verify a trusted proxy, so forwarded
+        // headers are untrusted by definition. All such requests share one
+        // fail-closed bucket.
+        return IpAddr::V4(Ipv4Addr::UNSPECIFIED);
+    };
+    if config.is_empty() || !config.is_trusted(&peer_ip) {
+        return peer_ip;
+    }
+    forwarded_client_ip(headers, config).unwrap_or(peer_ip)
+}
+
+fn forwarded_client_ip(headers: &HeaderMap, config: &TrustedProxyConfig) -> Option<IpAddr> {
+    if let Some(raw) = header_value(headers, "x-forwarded-for") {
+        let chain = raw
+            .split(',')
+            .map(str::trim)
+            .filter(|segment| !segment.is_empty())
+            .filter_map(|segment| segment.parse::<IpAddr>().ok())
+            .collect::<Vec<_>>();
+        for entry in chain.iter().rev() {
+            if !config.is_trusted(entry) {
+                return Some(*entry);
             }
         }
-        if let Some(raw) = header_value(headers, "x-real-ip")
-            && let Ok(ip) = raw.trim().parse::<IpAddr>()
-        {
-            return ip;
+        if let Some(entry) = chain.first() {
+            return Some(*entry);
         }
     }
-    fallback_ip_from_headers(headers)
+    header_value(headers, "x-real-ip")
+        .and_then(|raw| raw.trim().parse::<IpAddr>().ok())
+        .filter(|ip| !config.is_trusted(ip))
 }
 
 fn header_value(headers: &HeaderMap, name: &str) -> Option<String> {
@@ -138,22 +153,55 @@ fn header_value(headers: &HeaderMap, name: &str) -> Option<String> {
         .and_then(|(_, value)| value.to_str().ok().map(str::to_owned))
 }
 
-fn fallback_ip_from_headers(headers: &HeaderMap) -> IpAddr {
-    let mut hasher = DefaultHasher::new();
-    if let Some(user_agent) = header_value(headers, "user-agent") {
-        user_agent.hash(&mut hasher);
+#[cfg(test)]
+mod client_ip_tests {
+    use std::net::SocketAddr;
+
+    use axum::http::HeaderMap;
+    use sdkwork_utils_rust::trusted_proxy::TrustedProxyConfig;
+
+    use super::resolve_client_ip_with_config;
+
+    fn headers(pairs: &[(&'static str, &'static str)]) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        for (name, value) in pairs {
+            headers.insert(*name, value.parse().expect("header value"));
+        }
+        headers
     }
-    if let Some(language) = header_value(headers, "accept-language") {
-        language.hash(&mut hasher);
+
+    #[test]
+    fn untrusted_peer_ignores_spoofed_forwarded_headers() {
+        let config = TrustedProxyConfig::from_cidrs(["10.0.0.0/8"]);
+        let peer: SocketAddr = "198.51.100.7:43110".parse().expect("peer addr");
+        let forwarded = headers(&[("x-forwarded-for", "203.0.113.9")]);
+        assert_eq!(
+            resolve_client_ip_with_config(Some(peer), &forwarded, &config).to_string(),
+            "198.51.100.7"
+        );
     }
-    let time_bucket = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
-        / 10;
-    time_bucket.hash(&mut hasher);
-    let hash = hasher.finish();
-    let octet3 = ((hash >> 8) & 0xFF) as u8;
-    let octet4 = (hash & 0xFF) as u8;
-    IpAddr::V4(std::net::Ipv4Addr::new(198, 51, octet3, octet4))
+
+    #[test]
+    fn trusted_peer_uses_the_forwarded_client_chain() {
+        let config = TrustedProxyConfig::from_cidrs(["10.0.0.0/8"]);
+        let peer: SocketAddr = "10.0.0.2:443".parse().expect("peer addr");
+        let forwarded = headers(&[("x-forwarded-for", "198.51.100.7, 10.0.0.5")]);
+        assert_eq!(
+            resolve_client_ip_with_config(Some(peer), &forwarded, &config).to_string(),
+            "198.51.100.7"
+        );
+    }
+
+    #[test]
+    fn missing_peer_uses_a_shared_fail_closed_bucket() {
+        let config = TrustedProxyConfig::from_cidrs(["10.0.0.0/8"]);
+        let spoofed = headers(&[
+            ("user-agent", "rotating-ua"),
+            ("x-forwarded-for", "203.0.113.9"),
+        ]);
+        assert_eq!(
+            resolve_client_ip_with_config(None, &spoofed, &config).to_string(),
+            "0.0.0.0"
+        );
+    }
 }

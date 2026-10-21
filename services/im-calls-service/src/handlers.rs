@@ -12,14 +12,19 @@
 use axum::Json;
 use axum::extract::{Extension, Path, Query, State};
 use axum::response::Response;
-use sdkwork_utils_rust::cursor_list_page_data;
+use sdkwork_utils_rust::{SdkWorkPageData, cursor_list_page_data};
 use serde::Deserialize;
 
 use im_app_context::AppContext;
+use sdkwork_im_keyset_cursor::{
+    CursorScope, KeysetPosition, decode_keyset_cursor, encode_keyset_cursor,
+};
 use sdkwork_routes_web_framework_backend_api::response::{
     ApiProblem, ApiResult, created_json, finish_api_json, finish_api_response,
 };
 use sdkwork_web_core::WebRequestContext;
+
+use crate::CallingError;
 
 use crate::dto::{
     CreateRtcSessionRequest, InviteRtcSessionRequest, IssueRtcParticipantCredentialRequest,
@@ -94,20 +99,68 @@ pub(crate) async fn list_call_signals(
     Query(query): Query<ListRtcSignalsQuery>,
     State(state): State<AppState>,
 ) -> Response {
-    let page_size = query.page_size.unwrap_or(20).clamp(1, 200);
-    let after_signal_seq = query
-        .after_signal_seq
-        .or_else(|| query.cursor.as_deref().and_then(|value| value.parse().ok()));
+    let page_size = match query.page_size {
+        Some(value) if (1..=200).contains(&value) => usize::try_from(value).unwrap_or(20),
+        Some(_) => {
+            // PAGINATION_SPEC §10.1: reject out-of-range page_size instead of
+            // silently clamping it, using the canonical 40003 business code.
+            return crate::helpers::invalid_parameter_response(
+                &ctx,
+                "page_size must be between 1 and 200",
+            );
+        }
+        None => 20,
+    };
+    let after_signal_seq = query.after_signal_seq;
     let result = run_blocking_call(state, move |state| {
+        let scope = CursorScope {
+            resource: "calls.signals",
+            tenant_id: auth.tenant_id.as_str(),
+            organization_id: auth.organization_id.as_str(),
+            principal_id: auth.actor_id.as_str(),
+        };
+        // Signed cursors take precedence; `after_signal_seq` stays supported for
+        // the published contract, but the continuation we mint is always signed.
+        let after_signal_seq = match query
+            .cursor
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            Some(cursor) => {
+                let position = decode_keyset_cursor(&scope, cursor).map_err(|error| {
+                    CallingError::invalid("invalid_cursor", error.to_string())
+                })?;
+                Some(position.entity_id.parse::<u64>().map_err(|_| {
+                    CallingError::invalid("invalid_cursor", "signal cursor sequence is invalid")
+                })?)
+            }
+            None => after_signal_seq,
+        };
         let (items, has_more) = state.runtime.list_signals(
             &auth,
             rtc_session_id.as_str(),
             after_signal_seq,
             Some(page_size),
         )?;
-        let next_cursor = has_more
-            .then(|| items.last().map(|event| event.signal_seq.to_string()))
-            .flatten();
+        let next_cursor = if has_more {
+            items
+                .last()
+                .map(|event| {
+                    let signal_seq = event.signal_seq.to_string();
+                    encode_keyset_cursor(
+                        &scope,
+                        &KeysetPosition {
+                            sort_value: signal_seq.clone(),
+                            entity_id: signal_seq,
+                        },
+                    )
+                })
+                .transpose()
+                .map_err(|error| CallingError::internal("cursor_encoding_failed", error.to_string()))?
+        } else {
+            None
+        };
         Ok(cursor_list_page_data(
             items,
             page_size,

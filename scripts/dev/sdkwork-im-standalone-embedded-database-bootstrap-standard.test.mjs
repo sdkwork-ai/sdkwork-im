@@ -12,7 +12,7 @@ function read(relativePath) {
 
 const mainSource = read('crates/sdkwork-api-im-standalone-gateway/src/main.rs');
 const embeddedSource = read(
-  'crates/sdkwork-api-im-standalone-gateway/src/embedded_dependency_routes.rs',
+  'crates/sdkwork-api-im-assembly/src/embedded_dependency_routes.rs',
 );
 const gatewayCargo = read('crates/sdkwork-api-im-standalone-gateway/Cargo.toml');
 const driveInstaller = read(

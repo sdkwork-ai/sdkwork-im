@@ -42,6 +42,36 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./embed-surfaces": {
+      "types": "./src/embed-surfaces.ts",
+      "import": "./src/embed-surfaces.ts",
+      "default": "./src/embed-surfaces.ts"
+    },
+    "./embed-services": {
+      "types": "./src/embed-services.ts",
+      "import": "./src/embed-services.ts",
+      "default": "./src/embed-services.ts"
+    },
+    "./embed-chrome": {
+      "types": "./src/embed-chrome.ts",
+      "import": "./src/embed-chrome.ts",
+      "default": "./src/embed-chrome.ts"
+    },
+    "./conversation-list": {
+      "types": "./src/components/ChatList.tsx",
+      "import": "./src/components/ChatList.tsx",
+      "default": "./src/components/ChatList.tsx"
+    },
+    "./chat-window": {
+      "types": "./src/components/ChatWindow.tsx",
+      "import": "./src/components/ChatWindow.tsx",
+      "default": "./src/components/ChatWindow.tsx"
+    },
+    "./contacts-directory": {
+      "types": "./src/pages/ContactsView.tsx",
+      "import": "./src/pages/ContactsView.tsx",
+      "default": "./src/pages/ContactsView.tsx"
     }
   },
   "files": [

@@ -8,38 +8,38 @@ public class AutomationApi {
     }
 
     /// Start an agent response stream
-    public func agentResponsesCreate(body: StartAgentResponseRequest) async throws -> AutomationAgentResponsesCreateResponse201? {
-        return try await client.post(ApiPaths.appPath("/automation/agent_responses"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: AutomationAgentResponsesCreateResponse201.self)
+    public func agentResponsesCreate(body: StartAgentResponseRequest) async throws -> AgentResponsesCreateResponse201? {
+        return try await client.post(ApiPaths.appPath("/automation/agent_responses"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: AgentResponsesCreateResponse201.self)
     }
 
     /// Complete an agent response stream
-    public func agentResponsesComplete(streamId: String, body: CompleteAgentResponseRequest) async throws -> AutomationAgentResponsesCompleteResponse? {
-        return try await client.post(ApiPaths.appPath("/automation/agent_responses/\(serializePathParameter(streamId, PathParameterSpec(name: "streamId", style: "simple", explode: false)))/complete"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: AutomationAgentResponsesCompleteResponse.self)
+    public func agentResponsesComplete(streamId: String, body: CompleteAgentResponseRequest) async throws -> AgentResponsesCompleteResponse? {
+        return try await client.post(ApiPaths.appPath("/automation/agent_responses/\(serializePathParameter(streamId, PathParameterSpec(name: "streamId", style: "simple", explode: false)))/complete"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: AgentResponsesCompleteResponse.self)
     }
 
     /// Append a frame to an agent response stream
-    public func agentResponsesFramesCreate(streamId: String, body: AppendAgentResponseDeltaRequest) async throws -> AutomationAgentResponsesFramesCreateResponse201? {
-        return try await client.post(ApiPaths.appPath("/automation/agent_responses/\(serializePathParameter(streamId, PathParameterSpec(name: "streamId", style: "simple", explode: false)))/frames"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: AutomationAgentResponsesFramesCreateResponse201.self)
+    public func agentResponsesFramesCreate(streamId: String, body: AppendAgentResponseDeltaRequest) async throws -> AgentResponsesFramesCreateResponse201? {
+        return try await client.post(ApiPaths.appPath("/automation/agent_responses/\(serializePathParameter(streamId, PathParameterSpec(name: "streamId", style: "simple", explode: false)))/frames"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: AgentResponsesFramesCreateResponse201.self)
     }
 
     /// Request an agent tool call
-    public func agentToolCallsCreate(body: RequestAgentToolCallRequest) async throws -> AutomationAgentToolCallsCreateResponse201? {
-        return try await client.post(ApiPaths.appPath("/automation/agent_tool_calls"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: AutomationAgentToolCallsCreateResponse201.self)
+    public func agentToolCallsCreate(body: RequestAgentToolCallRequest) async throws -> AgentToolCallsCreateResponse201? {
+        return try await client.post(ApiPaths.appPath("/automation/agent_tool_calls"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: AgentToolCallsCreateResponse201.self)
     }
 
     /// Request an automation execution
-    public func executionsCreate(body: RequestAutomationExecution) async throws -> AutomationExecutionsCreateResponse201? {
-        return try await client.post(ApiPaths.appPath("/automation/executions"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: AutomationExecutionsCreateResponse201.self)
+    public func executionsCreate(body: RequestAutomationExecution) async throws -> ExecutionsCreateResponse201? {
+        return try await client.post(ApiPaths.appPath("/automation/executions"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: ExecutionsCreateResponse201.self)
     }
 
     /// Get an automation execution
-    public func executionsRetrieve(executionId: String) async throws -> AutomationExecutionsRetrieveResponse? {
-        return try await client.get(ApiPaths.appPath("/automation/executions/\(serializePathParameter(executionId, PathParameterSpec(name: "executionId", style: "simple", explode: false)))"), responseType: AutomationExecutionsRetrieveResponse.self)
+    public func executionsRetrieve(executionId: String) async throws -> ExecutionsRetrieveResponse? {
+        return try await client.get(ApiPaths.appPath("/automation/executions/\(serializePathParameter(executionId, PathParameterSpec(name: "executionId", style: "simple", explode: false)))"), responseType: ExecutionsRetrieveResponse.self)
     }
 
     /// Complete an agent tool call
-    public func agentToolCallsComplete(executionId: String, toolCallId: String, body: CompleteAgentToolCallRequest) async throws -> AutomationAgentToolCallsCompleteResponse? {
-        return try await client.post(ApiPaths.appPath("/automation/executions/\(serializePathParameter(executionId, PathParameterSpec(name: "executionId", style: "simple", explode: false)))/agent_tool_calls/\(serializePathParameter(toolCallId, PathParameterSpec(name: "toolCallId", style: "simple", explode: false)))/complete"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: AutomationAgentToolCallsCompleteResponse.self)
+    public func agentToolCallsComplete(executionId: String, toolCallId: String, body: CompleteAgentToolCallRequest) async throws -> AgentToolCallsCompleteResponse? {
+        return try await client.post(ApiPaths.appPath("/automation/executions/\(serializePathParameter(executionId, PathParameterSpec(name: "executionId", style: "simple", explode: false)))/agent_tool_calls/\(serializePathParameter(toolCallId, PathParameterSpec(name: "toolCallId", style: "simple", explode: false)))/complete"), body: body, params: nil, headers: nil, contentType: "application/json", responseType: AgentToolCallsCompleteResponse.self)
     }
 
     private struct PathParameterSpec {

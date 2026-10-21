@@ -1499,7 +1499,14 @@ fn enforce_jti_replay_protection(payload: &Value) -> Result<(), AppContextError>
 
     if let Some(store) = redis_jti_replay_store() {
         let ttl_secs = ttl.as_secs().max(1);
-        match store.try_claim_jti(jti.as_str(), ttl_secs) {
+        let tenant_id = payload
+            .get("tenant_id")
+            .or_else(|| payload.get("tenantId"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("-");
+        match store.try_claim_jti(tenant_id, jti.as_str(), ttl_secs) {
             Ok(true) => return Ok(()),
             Ok(false) => {
                 return Err(AppContextError::invalid(format!(
@@ -1713,9 +1720,10 @@ fn parse_environment(value: Option<String>) -> WebEnvironment {
     {
         "dev" | "development" => WebEnvironment::Dev,
         "test" | "testing" => WebEnvironment::Test,
-        // Demo is an isolated showcase tier, not production-like: it gets the
-        // relaxed showcase posture instead of production assembly validation.
-        "demo" => WebEnvironment::Test,
+        // Demo is a publicly reachable showcase tier: it must keep the strict
+        // production posture (signature verification, tenant isolation, no
+        // header-only fallback) exactly like staging/prod.
+        "demo" => WebEnvironment::Prod,
         // Staging/prod keep the strict fail-closed production posture.
         "staging" | "prod" | "production" => WebEnvironment::Prod,
         _ => WebEnvironment::Prod,

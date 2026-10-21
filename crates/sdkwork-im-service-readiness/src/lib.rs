@@ -57,6 +57,53 @@ impl ReadinessCheck for DatabasePoolReadinessCheck {
     }
 }
 
+/// Latest IM PostgreSQL migration version this binary was built against.
+///
+/// The readiness probe compares it with `ops_schema_migration_history`; a
+/// binary that requires a newer schema than the database has stays unready
+/// instead of serving traffic against missing columns or constraints.
+const REQUIRED_IM_SCHEMA_VERSION: &str = "0012";
+
+#[derive(Clone)]
+struct ImSchemaReadinessCheck {
+    pool: DatabasePool,
+}
+
+impl ReadinessCheck for ImSchemaReadinessCheck {
+    fn check(&self) -> ReadinessFuture<'_> {
+        let pool = self.pool.clone();
+        Box::pin(async move {
+            match &pool {
+                DatabasePool::Postgres(postgres, _) => {
+                    let applied = sqlx::query_scalar::<_, Option<String>>(
+                        "SELECT MAX(version) FROM ops_schema_migration_history \
+                         WHERE module_id = $1 AND engine = $2",
+                    )
+                    .bind("im")
+                    .bind("postgres")
+                    .fetch_one(postgres)
+                    .await
+                    .map_err(|error| format!("IM schema migration history unavailable: {error}"))?
+                    .unwrap_or_default();
+                    if applied.as_str() < REQUIRED_IM_SCHEMA_VERSION {
+                        return Err(format!(
+                            "IM database schema is at migration {applied:?}; this binary requires {REQUIRED_IM_SCHEMA_VERSION}"
+                        ));
+                    }
+                }
+                #[allow(unreachable_patterns)]
+                _ => {
+                    return Err(format!(
+                        "IM schema readiness rejected unsupported '{}' persistence",
+                        pool.engine()
+                    ));
+                }
+            }
+            Ok(())
+        })
+    }
+}
+
 #[derive(Clone)]
 struct RedisUrlReadinessCheck {
     url: String,
@@ -188,9 +235,99 @@ pub fn im_env_readiness_check() -> Arc<dyn ReadinessCheck> {
     Arc::new(ImEnvReadinessCheck)
 }
 
+/// Minimum HMAC key length accepted for app-context signing secrets (256-bit).
+const MIN_APP_CONTEXT_SECRET_LEN: usize = 32;
+
+const APP_CONTEXT_SIGNATURE_SECRET_ENV: &str = "SDKWORK_IM_APP_CONTEXT_SIGNATURE_SECRET";
+const APP_CONTEXT_SIGNATURE_SECRET_FILE_ENV: &str =
+    "SDKWORK_IM_APP_CONTEXT_SIGNATURE_SECRET_FILE";
+const APP_CONTEXT_JWT_SIGNING_SECRET_ENV: &str = "SDKWORK_IM_APP_CONTEXT_JWT_SIGNING_SECRET";
+const APP_CONTEXT_JWT_SIGNING_SECRET_FILE_ENV: &str =
+    "SDKWORK_IM_APP_CONTEXT_JWT_SIGNING_SECRET_FILE";
+
+fn resolve_secret_from_env_or_file(secret_env: &str, file_env: &str) -> Option<String> {
+    if let Some(secret) = std::env::var(secret_env)
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+    {
+        return Some(secret);
+    }
+    let path = std::env::var(file_env)
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())?;
+    let secret = std::fs::read_to_string(path).ok()?;
+    let secret = secret.trim().to_owned();
+    (!secret.is_empty()).then_some(secret)
+}
+
+fn validate_secret_source(
+    label: &str,
+    secret_env: &str,
+    file_env: &str,
+    reject_dev_fallbacks: &[&str],
+) -> Result<(), String> {
+    let secret = resolve_secret_from_env_or_file(secret_env, file_env).ok_or_else(|| {
+        format!("{label} is not configured: set {secret_env} or {file_env}")
+    })?;
+    if secret.len() < MIN_APP_CONTEXT_SECRET_LEN {
+        return Err(format!(
+            "{label} must be at least {MIN_APP_CONTEXT_SECRET_LEN} characters (256-bit HMAC key)"
+        ));
+    }
+    if reject_dev_fallbacks.iter().any(|value| secret == *value) {
+        return Err(format!(
+            "{label} uses a development fallback value; production requires an independent secret"
+        ));
+    }
+    Ok(())
+}
+
+/// Validates the credential material this process signs/verifies IM traffic with.
+///
+/// Development, test, and local profiles keep their documented fallbacks; any
+/// production-like profile fails closed when a secret is missing, too short, or
+/// still a known development placeholder. Running this during readiness turns a
+/// late authentication outage into a startup-time signal.
+fn validate_im_credential_material_from_env() -> Result<(), String> {
+    if !im_app_context::is_production_like_im_environment() {
+        return Ok(());
+    }
+    validate_secret_source(
+        "IM app-context signature secret",
+        APP_CONTEXT_SIGNATURE_SECRET_ENV,
+        APP_CONTEXT_SIGNATURE_SECRET_FILE_ENV,
+        &[],
+    )?;
+    validate_secret_source(
+        "IM app-context JWT signing secret",
+        APP_CONTEXT_JWT_SIGNING_SECRET_ENV,
+        APP_CONTEXT_JWT_SIGNING_SECRET_FILE_ENV,
+        &["sdkwork-im-dev-jwt-secret-not-for-production-use"],
+    )
+}
+
+/// Build the credential-material readiness probe.
+pub fn im_credential_material_readiness_check() -> Arc<dyn ReadinessCheck> {
+    Arc::new(ImCredentialMaterialReadinessCheck)
+}
+
+#[derive(Clone, Default)]
+struct ImCredentialMaterialReadinessCheck;
+
+impl ReadinessCheck for ImCredentialMaterialReadinessCheck {
+    fn check(&self) -> ReadinessFuture<'_> {
+        Box::pin(async { validate_im_credential_material_from_env() })
+    }
+}
+
 /// Synchronous dependency probe for cloud service processes that expose `/readyz`
 /// without async startup wiring.
 pub fn evaluate_im_runtime_dependency_health_from_env() -> bool {
+    if validate_im_credential_material_from_env().is_err() {
+        return false;
+    }
     let environment = resolve_web_environment_from_process_env();
 
     if let Some(redis_url) = resolve_im_redis_url_from_env() {
@@ -354,7 +491,10 @@ pub async fn resolve_im_service_readiness_check() -> Arc<dyn ReadinessCheck> {
     }
 
     match sdkwork_im_database_pool::create_im_database_pool_from_env().await {
-        Ok(pool) => checks.push(Arc::new(DatabasePoolReadinessCheck { pool })),
+        Ok(pool) => {
+            checks.push(Arc::new(DatabasePoolReadinessCheck { pool: pool.clone() }));
+            checks.push(Arc::new(ImSchemaReadinessCheck { pool }));
+        }
         Err(_) => {
             checks.push(Arc::new(UnavailableDependencyReadinessCheck::new(
                 "im database",
@@ -546,5 +686,163 @@ mod composition_tests {
             .await
             .expect_err("an empty required readiness set must not report ready");
         assert!(error.contains("process readiness checks"));
+    }
+}
+
+#[cfg(test)]
+mod schema_version_tests {
+    use super::REQUIRED_IM_SCHEMA_VERSION;
+
+    #[test]
+    fn required_schema_version_tracks_the_latest_migration() {
+        let migrations_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("database")
+            .join("migrations")
+            .join("postgres");
+        let mut versions = std::fs::read_dir(&migrations_dir)
+            .expect("migrations directory must exist")
+            .filter_map(Result::ok)
+            .filter_map(|entry| entry.file_name().into_string().ok())
+            .filter(|name| name.ends_with(".up.sql"))
+            .map(|name| name[..4].to_owned())
+            .collect::<Vec<_>>();
+        versions.sort();
+        assert_eq!(
+            versions.last().map(String::as_str),
+            Some(REQUIRED_IM_SCHEMA_VERSION),
+            "bump REQUIRED_IM_SCHEMA_VERSION with the latest migration"
+        );
+    }
+}
+
+#[cfg(test)]
+mod credential_material_tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    const SECRET_ENVS: &[&str] = &[
+        APP_CONTEXT_SIGNATURE_SECRET_ENV,
+        APP_CONTEXT_SIGNATURE_SECRET_FILE_ENV,
+        APP_CONTEXT_JWT_SIGNING_SECRET_ENV,
+        APP_CONTEXT_JWT_SIGNING_SECRET_FILE_ENV,
+        "SDKWORK_IM_ENVIRONMENT",
+        "SDKWORK_ENV",
+        "SDKWORK_ENVIRONMENT",
+        "SDKWORK_DEPLOYMENT_MODE",
+        "SDKWORK_IM_DEPLOYMENT_MODE",
+    ];
+
+    struct EnvironmentScope {
+        previous: Vec<(&'static str, Option<String>)>,
+        _guard: std::sync::MutexGuard<'static, ()>,
+    }
+
+    impl EnvironmentScope {
+        fn new(values: &[(&'static str, &str)]) -> Self {
+            let guard = ENV_LOCK.lock().expect("credential env lock");
+            let previous = SECRET_ENVS
+                .iter()
+                .map(|name| (*name, std::env::var(name).ok()))
+                .collect();
+            #[allow(unsafe_code)]
+            // SAFETY: ENV_LOCK serializes every mutation in this module and the
+            // guard restores the previous values before releasing the lock.
+            unsafe {
+                for name in SECRET_ENVS {
+                    std::env::remove_var(name);
+                }
+                for (name, value) in values {
+                    std::env::set_var(name, value);
+                }
+            }
+            Self {
+                previous,
+                _guard: guard,
+            }
+        }
+    }
+
+    impl Drop for EnvironmentScope {
+        fn drop(&mut self) {
+            #[allow(unsafe_code)]
+            // SAFETY: the mutex guard is still held; only this module mutates
+            // these variables and the previous values are restored.
+            unsafe {
+                for (name, value) in &self.previous {
+                    match value {
+                        Some(value) => std::env::set_var(name, value),
+                        None => std::env::remove_var(name),
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn development_profile_keeps_documented_fallbacks() {
+        let _scope = EnvironmentScope::new(&[("SDKWORK_IM_ENVIRONMENT", "dev")]);
+        assert!(validate_im_credential_material_from_env().is_ok());
+    }
+
+    #[test]
+    fn production_profile_requires_both_secrets() {
+        let _scope = EnvironmentScope::new(&[("SDKWORK_IM_ENVIRONMENT", "production")]);
+        assert!(validate_im_credential_material_from_env().is_err());
+    }
+
+    #[test]
+    fn demo_profile_requires_secrets_like_production() {
+        // Demo is publicly reachable and must not use the dev/test fallbacks.
+        let _scope = EnvironmentScope::new(&[("SDKWORK_IM_ENVIRONMENT", "demo")]);
+        assert!(validate_im_credential_material_from_env().is_err());
+    }
+
+    #[test]
+    fn production_profile_rejects_short_secrets() {
+        let _scope = EnvironmentScope::new(&[
+            ("SDKWORK_IM_ENVIRONMENT", "production"),
+            (APP_CONTEXT_SIGNATURE_SECRET_ENV, "too-short"),
+            (
+                APP_CONTEXT_JWT_SIGNING_SECRET_ENV,
+                "0123456789abcdef0123456789abcdef",
+            ),
+        ]);
+        assert!(validate_im_credential_material_from_env().is_err());
+    }
+
+    #[test]
+    fn production_profile_rejects_development_jwt_fallback() {
+        let _scope = EnvironmentScope::new(&[
+            ("SDKWORK_IM_ENVIRONMENT", "production"),
+            (
+                APP_CONTEXT_SIGNATURE_SECRET_ENV,
+                "0123456789abcdef0123456789abcdef",
+            ),
+            (
+                APP_CONTEXT_JWT_SIGNING_SECRET_ENV,
+                "sdkwork-im-dev-jwt-secret-not-for-production-use",
+            ),
+        ]);
+        assert!(validate_im_credential_material_from_env().is_err());
+    }
+
+    #[test]
+    fn production_profile_accepts_strong_secrets() {
+        let _scope = EnvironmentScope::new(&[
+            ("SDKWORK_IM_ENVIRONMENT", "production"),
+            (
+                APP_CONTEXT_SIGNATURE_SECRET_ENV,
+                "0123456789abcdef0123456789abcdef",
+            ),
+            (
+                APP_CONTEXT_JWT_SIGNING_SECRET_ENV,
+                "fedcba9876543210fedcba9876543210",
+            ),
+        ]);
+        assert!(validate_im_credential_material_from_env().is_ok());
     }
 }

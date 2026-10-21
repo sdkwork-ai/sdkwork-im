@@ -6,7 +6,7 @@ use sdkwork_utils_rust::SdkWorkPageData;
 
 use super::list_page;
 
-use crate::conversation_state::event_apply::latest_summary_activity_at;
+use crate::conversation_state::event_apply::{ConversationStateError, latest_summary_activity_at};
 use crate::conversation_state::member_store::ConversationStateMemberRuntimeStore;
 use crate::conversation_state::{ConversationStateService, lock_conversation_state_mutex};
 
@@ -21,6 +21,138 @@ struct InboxMemberContext {
 fn non_empty_owned(value: &str) -> Option<String> {
     let value = value.trim();
     (!value.is_empty()).then(|| value.to_owned())
+}
+
+/// Maps one durable inbox row to the public Conversation inbox view.
+///
+/// Display precedence matches the in-memory projection: Conversation
+/// title/profile first for group-like Conversations, peer display first for
+/// direct Conversations.
+fn inbox_entry_from_authority_record(
+    record: im_platform_contracts::ConversationInboxRecord,
+) -> ConversationInboxEntry {
+    use im_domain_core::conversation::{
+        ConversationActorView, ConversationAgentHandoffView, member_id,
+    };
+
+    let peer = record
+        .peer_principal_id
+        .as_ref()
+        .map(|peer_id| ConversationInboxPeerView {
+            principal_kind: record
+                .peer_principal_kind
+                .clone()
+                .unwrap_or_else(|| "user".to_owned()),
+            principal_id: peer_id.clone(),
+            user_id: None,
+            chat_id: None,
+            display_name: record.peer_display_name.clone(),
+            avatar_url: record.peer_avatar_url.clone(),
+            relationship_state: None,
+        });
+    let is_group = record.conversation_type.eq_ignore_ascii_case("group");
+    let display_name = if is_group {
+        non_empty_owned(record.conversation_title.as_deref().unwrap_or_default())
+    } else {
+        peer.as_ref().and_then(|peer| peer.display_name.clone())
+    };
+    let display_source = display_name.as_ref().map(|_| {
+        if is_group {
+            "conversation_catalog".to_owned()
+        } else {
+            "member_conversation_state".to_owned()
+        }
+    });
+    let avatar_url = record
+        .conversation_avatar_url
+        .clone()
+        .or_else(|| peer.as_ref().and_then(|peer| peer.avatar_url.clone()));
+    let agent_handoff = record
+        .handoff
+        .as_ref()
+        .map(agent_handoff_view_from_authority_record);
+
+    ConversationInboxEntry {
+        member_id: member_id(
+            record.conversation_id.as_str(),
+            record.principal_kind.as_str(),
+            record.principal_id.as_str(),
+        ),
+        tenant_id: record.tenant_id,
+        principal_id: record.principal_id,
+        conversation_id: record.conversation_id,
+        conversation_type: record.conversation_type,
+        message_count: record.message_count,
+        last_message_id: record.last_message_id,
+        last_message_seq: record.last_message_seq,
+        last_sender_id: record.last_sender_id,
+        last_sender_kind: record.last_sender_kind,
+        last_summary: record.last_summary,
+        unread_count: record.unread_count,
+        last_activity_at: record.last_activity_at,
+        display_name,
+        avatar_url,
+        display_source,
+        peer,
+        preferences: Some(ConversationInboxPreferencesView {
+            is_pinned: record.preferences.is_pinned,
+            is_muted: record.preferences.is_muted,
+            is_marked_unread: record.preferences.is_marked_unread,
+            is_hidden: record.preferences.is_hidden,
+        }),
+        agent_handoff,
+    }
+}
+
+/// Maps a durable handoff row to the public handoff view.
+pub(super) fn agent_handoff_view_from_authority_record(
+    handoff: &im_platform_contracts::ConversationInboxHandoffRecord,
+) -> im_domain_core::conversation::ConversationAgentHandoffView {
+    use im_domain_core::conversation::{ConversationActorView, ConversationAgentHandoffView};
+
+    ConversationAgentHandoffView {
+        status: handoff.status.clone(),
+        source: ConversationActorView {
+            id: handoff.source_principal_id.clone(),
+            kind: handoff.source_principal_kind.clone(),
+        },
+        target: ConversationActorView {
+            id: handoff.target_principal_id.clone(),
+            kind: handoff.target_principal_kind.clone(),
+        },
+        handoff_session_id: handoff.handoff_session_id.clone(),
+        handoff_reason: handoff.handoff_reason.clone(),
+        accepted_at: handoff.accepted_at.clone(),
+        accepted_by: handoff
+            .accepted_by_principal_id
+            .as_ref()
+            .map(|id| ConversationActorView {
+                id: id.clone(),
+                kind: handoff
+                    .accepted_by_principal_kind
+                    .clone()
+                    .unwrap_or_default(),
+            }),
+        resolved_at: handoff.resolved_at.clone(),
+        resolved_by: handoff
+            .resolved_by_principal_id
+            .as_ref()
+            .map(|id| ConversationActorView {
+                id: id.clone(),
+                kind: handoff
+                    .resolved_by_principal_kind
+                    .clone()
+                    .unwrap_or_default(),
+            }),
+        closed_at: handoff.closed_at.clone(),
+        closed_by: handoff
+            .closed_by_principal_id
+            .as_ref()
+            .map(|id| ConversationActorView {
+                id: id.clone(),
+                kind: handoff.closed_by_principal_kind.clone().unwrap_or_default(),
+            }),
+    }
 }
 
 pub(crate) struct InboxWindowQuery<'a> {
@@ -201,6 +333,68 @@ impl ConversationStateService {
             );
         }
         Ok(list_page::cursor_page(window, limit, next_cursor, has_more))
+    }
+
+    /// Serves one bounded inbox page from the durable normalized authority.
+    ///
+    /// The caller validates the page size and decodes the signed opaque cursor
+    /// before reaching this method; the authority owns ordering, keyset paging,
+    /// unread computation, and tenant/principal scoping.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn inbox_window_from_authority<F>(
+        &self,
+        authority: &dyn im_platform_contracts::ConversationInboxAuthority,
+        query: InboxWindowQuery<'_>,
+        cursor: Option<&im_platform_contracts::ConversationInboxPageCursor>,
+        conversation_type: Option<&str>,
+        search_query: Option<&str>,
+        mut filter: F,
+    ) -> Result<SdkWorkPageData<ConversationInboxEntry>, ConversationStateError>
+    where
+        F: FnMut(&ConversationInboxEntry) -> bool,
+    {
+        let limit = query.limit.max(1);
+        let page = authority
+            .list_inbox_page(
+                query.tenant_id,
+                query.organization_id,
+                query.principal_kind,
+                query.principal_id,
+                cursor,
+                limit,
+                conversation_type,
+                search_query,
+            )
+            .map_err(ConversationStateError::StoreFailure)?;
+        let mut items = Vec::with_capacity(page.items.len());
+        for record in page.items {
+            let entry = inbox_entry_from_authority_record(record);
+            if filter(&entry) {
+                items.push(entry);
+            }
+        }
+        let next_cursor = if page.has_more {
+            page.next_cursor
+                .as_ref()
+                .map(|next| {
+                    let payload = serde_json::json!({
+                        "activityAt": next.activity_at,
+                        "scope": next.conversation_id,
+                    });
+                    crate::conversation_state::cursor_auth::encode_conversation_state_list_cursor(
+                        &payload,
+                    )
+                })
+                .transpose()?
+        } else {
+            None
+        };
+        Ok(list_page::cursor_page(
+            items,
+            limit,
+            next_cursor,
+            page.has_more,
+        ))
     }
 
     fn build_inbox_entry_for_scope(
@@ -955,5 +1149,202 @@ mod deadlock_regression_tests {
             .recv_timeout(Duration::from_secs(1))
             .expect("inbox auth-context read must not remain blocked on conversation_state locks");
         assert_eq!(result.expect("inbox auth-context read should succeed"), 1);
+    }
+}
+
+#[cfg(test)]
+mod authority_tests {
+    use std::sync::Mutex;
+
+    use im_platform_contracts::{
+        ConversationInboxAuthority, ConversationInboxPage, ConversationInboxPageCursor,
+        ConversationInboxRecord, ConversationMemberPreferencesRecord,
+    };
+    use sdkwork_im_contract_core::ContractError;
+
+    use super::{InboxWindowQuery, decode_inbox_keyset_cursor};
+    use crate::conversation_state::ConversationStateService;
+
+    const TEST_CURSOR_SECRET_ENV: &str = "SDKWORK_IM_CONVERSATION_STATE_CURSOR_HS256_SECRET";
+
+    struct CursorSecretGuard {
+        _lock: std::sync::MutexGuard<'static, ()>,
+        previous: Option<String>,
+    }
+
+    impl CursorSecretGuard {
+        fn set() -> Self {
+            let lock = crate::conversation_state::lock_conversation_state_test_environment();
+            let previous = std::env::var(TEST_CURSOR_SECRET_ENV).ok();
+            // The workspace denies `unsafe_code`; this test-only bootstrap site
+            // opts back in locally for process-global cursor configuration.
+            #[allow(unsafe_code)]
+            unsafe {
+                std::env::set_var(
+                    TEST_CURSOR_SECRET_ENV,
+                    "inbox-authority-test-cursor-secret-at-least-32-bytes",
+                );
+            }
+            Self {
+                _lock: lock,
+                previous,
+            }
+        }
+    }
+
+    impl Drop for CursorSecretGuard {
+        fn drop(&mut self) {
+            #[allow(unsafe_code)]
+            unsafe {
+                match &self.previous {
+                    Some(value) => std::env::set_var(TEST_CURSOR_SECRET_ENV, value),
+                    None => std::env::remove_var(TEST_CURSOR_SECRET_ENV),
+                }
+            }
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeAuthority {
+        page: Mutex<Option<ConversationInboxPage>>,
+        calls: Mutex<Vec<(Option<String>, Option<String>)>>,
+    }
+
+    impl ConversationInboxAuthority for FakeAuthority {
+        fn list_inbox_page(
+            &self,
+            _tenant_id: &str,
+            _organization_id: &str,
+            _principal_kind: &str,
+            _principal_id: &str,
+            _cursor: Option<&ConversationInboxPageCursor>,
+            _limit: usize,
+            conversation_type: Option<&str>,
+            search: Option<&str>,
+        ) -> Result<ConversationInboxPage, ContractError> {
+            self.calls.lock().expect("calls lock").push((
+                conversation_type.map(str::to_owned),
+                search.map(str::to_owned),
+            ));
+            Ok(self
+                .page
+                .lock()
+                .expect("page lock")
+                .take()
+                .unwrap_or(ConversationInboxPage {
+                    items: Vec::new(),
+                    next_cursor: None,
+                    has_more: false,
+                }))
+        }
+    }
+
+    fn preferences(conversation_id: &str) -> ConversationMemberPreferencesRecord {
+        ConversationMemberPreferencesRecord {
+            tenant_id: "100001".into(),
+            organization_id: "0".into(),
+            conversation_id: conversation_id.into(),
+            principal_kind: "user".into(),
+            principal_id: "1".into(),
+            is_pinned: true,
+            is_muted: false,
+            is_marked_unread: false,
+            is_hidden: false,
+            updated_at: "2026-10-20T00:00:00.000Z".into(),
+        }
+    }
+
+    fn record(
+        conversation_id: &str,
+        conversation_type: &str,
+        title: Option<&str>,
+        peer: Option<(&str, &str)>,
+    ) -> ConversationInboxRecord {
+        ConversationInboxRecord {
+            tenant_id: "100001".into(),
+            organization_id: "0".into(),
+            principal_kind: "user".into(),
+            principal_id: "1".into(),
+            member_id: "42".into(),
+            conversation_id: conversation_id.into(),
+            conversation_type: conversation_type.into(),
+            conversation_title: title.map(str::to_owned),
+            conversation_avatar_url: None,
+            peer_principal_kind: peer.map(|(_, kind)| kind.to_owned()),
+            peer_principal_id: peer.map(|(id, _)| id.to_owned()),
+            peer_display_name: peer.map(|_| "Peer Name".to_owned()),
+            peer_avatar_url: None,
+            message_count: 12,
+            last_message_id: Some("9001".into()),
+            last_message_seq: 12,
+            last_sender_kind: Some("user".into()),
+            last_sender_id: Some("2".into()),
+            last_summary: Some("hello".into()),
+            unread_count: 3,
+            last_activity_at: "2026-10-20T10:00:00.000Z".into(),
+            preferences: preferences(conversation_id),
+            handoff: None,
+        }
+    }
+
+    #[test]
+    fn inbox_authority_page_maps_durable_rows_and_keyset_cursor() {
+        let _cursor_secret = CursorSecretGuard::set();
+        let authority = FakeAuthority::default();
+        *authority.page.lock().expect("page lock") = Some(ConversationInboxPage {
+            items: vec![
+                record("c_group", "group", Some("Team"), None),
+                record("c_direct", "direct", None, Some(("2", "user"))),
+            ],
+            next_cursor: Some(ConversationInboxPageCursor {
+                activity_at: "2026-10-20T10:00:00.000Z".into(),
+                conversation_id: "c_direct".into(),
+            }),
+            has_more: true,
+        });
+        let service = ConversationStateService::default();
+
+        let window = service
+            .inbox_window_from_authority(
+                &authority,
+                InboxWindowQuery {
+                    tenant_id: "100001",
+                    organization_id: "0",
+                    principal_id: "1",
+                    principal_kind: "user",
+                    limit: 2,
+                    cursor: crate::conversation_state::model::InboxListCursor::Start,
+                },
+                None,
+                Some("group"),
+                Some("hello"),
+                |_| true,
+            )
+            .expect("authority inbox page");
+
+        assert_eq!(window.items.len(), 2);
+        assert_eq!(window.page_info.has_more, Some(true));
+        let group = &window.items[0];
+        assert_eq!(group.display_name.as_deref(), Some("Team"));
+        assert_eq!(
+            group.display_source.as_deref(),
+            Some("conversation_catalog")
+        );
+        assert_eq!(group.unread_count, 3);
+        assert!(group.preferences.as_ref().expect("preferences").is_pinned);
+        let direct = &window.items[1];
+        assert_eq!(direct.display_name.as_deref(), Some("Peer Name"));
+        let cursor = window.page_info.next_cursor.expect("next cursor");
+        assert_eq!(
+            decode_inbox_keyset_cursor(cursor.as_str()),
+            Some(crate::conversation_state::model::InboxListCursor::Keyset {
+                activity_at: "2026-10-20T10:00:00.000Z".into(),
+                scope: "c_direct".into(),
+            })
+        );
+        assert_eq!(
+            authority.calls.lock().expect("calls lock").as_slice(),
+            &[(Some("group".to_owned()), Some("hello".to_owned()))]
+        );
     }
 }

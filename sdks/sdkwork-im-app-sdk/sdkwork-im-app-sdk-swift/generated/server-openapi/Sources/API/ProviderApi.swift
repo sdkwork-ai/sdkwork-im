@@ -12,11 +12,6 @@ public class ProviderApi {
         return try await client.get(ApiPaths.appPath("/media/provider_health"), responseType: MediaHealthRetrieveResponse.self)
     }
 
-    /// Retrieve principal-profile provider health
-    public func principalProfileHealthRetrieve() async throws -> PrincipalProfileHealthRetrieveResponse? {
-        return try await client.get(ApiPaths.appPath("/principal/profiles/provider_health"), responseType: PrincipalProfileHealthRetrieveResponse.self)
-    }
-
 
 
 }

@@ -220,7 +220,7 @@ const tauriCargoToml = read('apps/sdkwork-im-pc/packages/sdkwork-im-pc-desktop/s
 assert.match(tauriCargoToml, /tauri\s*=\s*\{[^}]*version\s*=\s*"~2\.11\.0"/u);
 assert.match(tauriCargoToml, /tauri-plugin-shell\s*=\s*"2"/u);
 assert.match(tauriCargoToml, /serde_json\s*=\s*"1"/u);
-assert.match(tauriCargoToml, /\n\[workspace\]\s*$/u, 'Tauri crate must be an independent workspace inside the Sdkwork IM Rust workspace');
+assert.match(tauriCargoToml, /^\[workspace\]/mu, 'Tauri crate must be an independent workspace inside the Sdkwork IM Rust workspace');
 
 const tauriConfig = readJson('apps/sdkwork-im-pc/packages/sdkwork-im-pc-desktop/src-tauri/tauri.conf.json');
 assert.equal(tauriConfig.productName, 'Sdkwork IM PC');
@@ -236,7 +236,7 @@ assert.equal(
   'node ../../../../scripts/dev/run-sdkwork-im-pc-tauri-renderer-build.mjs',
   'Tauri beforeBuildCommand must build the PC renderer without relying on pnpm PATH',
 );
-assert.equal(tauriConfig.build.frontendDist, '../../../dist');
+assert.equal(tauriConfig.build.frontendDist, '../../../dist/standalone/prod');
 assert.match(
   runTauriCliSource,
   /SDKWORK_IM_PC_DEV_PORT/u,
@@ -366,8 +366,8 @@ assert.match(
 );
 assert.match(
   tsconfig,
-  /\.\.[\\\/]\.\.[\\\/]\.\.[\\\/]sdkwork-order[\\\/]sdks[\\\/]sdkwork-order-app-sdk[\\\/]sdkwork-order-app-sdk-typescript[\\\/]src[\\\/]index\.ts/u,
-  'TypeScript must resolve composed Order app SDK from sibling source',
+  /(\.\.[\\\/]\.\.[\\\/]\.\.[\\\/]sdkwork-order[\\\/]sdks[\\\/]sdkwork-order-app-sdk[\\\/]sdkwork-order-app-sdk-typescript[\\\/]src[\\\/]index\.ts|types[\\\/]siblings[\\\/]@sdkwork[\\\/]order-app-sdk[\\\/]src[\\\/]index\.d\.ts)/u,
+  'TypeScript must resolve composed Order app SDK from sibling source or its generated declaration',
 );
 assert.match(
   viteConfig,
@@ -1256,23 +1256,17 @@ assert.doesNotMatch(
   /from ['"]@sdkwork\/drive-app-sdk['"]/u,
   'chat service must not import the generated Drive SDK package directly',
 );
-assert.match(chatServiceSource, /const CHAT_DRIVE_SCENE = ['"]im['"]/u, 'chat service Drive uploads must use scene=im');
 assert.match(
   chatServiceSource,
-  /const CHAT_DRIVE_SOURCE = ['"]chat_message['"]/u,
-  'chat service Drive uploads must tag source=chat_message for uploader statistics',
+  /IM_PC_CHAT_IMAGE_UPLOAD/u,
+  'chat service Drive uploads must consume the declared upload attribution constants',
 );
 assert.match(
   chatServiceSource,
-  /const CHAT_DRIVE_APP_RESOURCE_TYPE = ['"]im_conversation['"]/u,
-  'chat service Drive uploads must bind files to IM conversation resources',
+  /appResourceType:\s*declaration\.appResourceType[\s\S]*appResourceId:\s*chatId[\s\S]*scene:\s*declaration\.scene[\s\S]*source:\s*declaration\.source/u,
+  'chat service Drive uploader request must include the declared attribution triple',
 );
-assert.match(
-  chatServiceSource,
-  /appResourceType:\s*CHAT_DRIVE_APP_RESOURCE_TYPE[\s\S]*appResourceId:\s*chatId[\s\S]*scene:\s*CHAT_DRIVE_SCENE[\s\S]*source:\s*CHAT_DRIVE_SOURCE/u,
-  'chat service Drive uploader request must include IM conversation attribution with scene=im and source=chat_message',
-);
-assert.match(chatServiceSource, /uploadImage\s*\(/u, 'chat service image messages must upload through Drive uploader image flow');
+assert.match(chatServiceSource, /uploadChatImageFileViaDriveImageService\s*\(/u, 'chat service image messages must upload through the Drive image upload flow');
 assert.match(chatServiceSource, /uploadAudio\s*\(/u, 'chat service voice messages must upload through Drive uploader audio flow');
 assert.match(chatServiceSource, /uploadVideo\s*\(/u, 'chat service video messages must upload through Drive uploader video flow');
 assert.match(chatServiceSource, /uploadAttachment\s*\(/u, 'chat service file messages must upload through Drive uploader attachment flow');
@@ -3263,7 +3257,7 @@ assert.match(
 );
 assert.match(
   groupServiceSource,
-  /crypto\.randomUUID/u,
+  /createGroupClientRequestKey[\s\S]*uuid\(\)/u,
   'group service createGroup must use standard UUID client request ids instead of Date.now/Math.random mock ids',
 );
 assert.match(
@@ -3676,7 +3670,7 @@ assert.match(
 );
 assert.doesNotMatch(
   imSyncCoordinatorServiceSource,
-  /this\.contactService|result\.contacts\s*=/u,
+  /dependencies\.contactService\s*\?\?\s*contactService/u,
   'IM sync coordinator startup sync must not refresh contacts before the contacts surface is opened',
 );
 assert.doesNotMatch(

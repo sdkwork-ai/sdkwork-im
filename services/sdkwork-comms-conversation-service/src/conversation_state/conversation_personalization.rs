@@ -1,3 +1,4 @@
+use im_platform_contracts::{ContractError, ConversationMemberPreferencesRecord};
 use im_time::utc_now_rfc3339_millis;
 
 use super::model::{
@@ -168,6 +169,9 @@ impl ConversationStateService {
         Ok(profile)
     }
 
+    /// Process-local preference view used by in-memory entry building and
+    /// tests. Durability-aware callers use
+    /// [`Self::conversation_preferences_from_authority`].
     pub fn conversation_preferences(
         &self,
         tenant_id: &str,
@@ -199,6 +203,66 @@ impl ConversationStateService {
         })
     }
 
+    /// Durable preference read with an in-memory hot cache.
+    ///
+    /// A cache miss loads the member's row from the authoritative store; a
+    /// missing row yields the all-default preference view. Store failures are
+    /// surfaced instead of silently resetting a member's preferences.
+    pub fn conversation_preferences_from_authority(
+        &self,
+        tenant_id: &str,
+        organization_id: &str,
+        conversation_id: &str,
+        principal_kind: &str,
+        principal_id: &str,
+    ) -> Result<ConversationPreferencesView, ContractError> {
+        let key = conversation_preferences_key(
+            tenant_id,
+            organization_id,
+            conversation_id,
+            principal_kind,
+            principal_id,
+        );
+        if let Some(view) = lock_conversation_state_mutex(
+            &self.conversation_preferences,
+            "conversation preferences store",
+        )
+        .get(key.as_str())
+        .cloned()
+        {
+            return Ok(view);
+        }
+        let Some(store) = self.conversation_member_preferences_store() else {
+            return Ok(default_conversation_preferences(
+                tenant_id,
+                conversation_id,
+                principal_kind,
+                principal_id,
+            ));
+        };
+        let view = match store.load_preferences(
+            tenant_id,
+            organization_id,
+            conversation_id,
+            principal_kind,
+            principal_id,
+        )? {
+            Some(record) => preferences_view_from_record(record),
+            None => default_conversation_preferences(
+                tenant_id,
+                conversation_id,
+                principal_kind,
+                principal_id,
+            ),
+        };
+        lock_conversation_state_mutex(
+            &self.conversation_preferences,
+            "conversation preferences store",
+        )
+        .insert(key, view.clone());
+        Ok(view)
+    }
+
     pub fn update_conversation_preferences(
         &self,
         tenant_id: &str,
@@ -207,7 +271,7 @@ impl ConversationStateService {
         principal_kind: &str,
         principal_id: &str,
         update: UpdateConversationPreferencesRequest,
-    ) -> ConversationPreferencesView {
+    ) -> Result<ConversationPreferencesView, ContractError> {
         let key = conversation_preferences_key(
             tenant_id,
             organization_id,
@@ -215,18 +279,20 @@ impl ConversationStateService {
             principal_kind,
             principal_id,
         );
-        let mut preferences = lock_conversation_state_mutex(
-            &self.conversation_preferences,
-            "conversation preferences store",
-        );
-        let mut view = preferences.get(key.as_str()).cloned().unwrap_or_else(|| {
-            default_conversation_preferences(
-                tenant_id,
-                conversation_id,
-                principal_kind,
-                principal_id,
-            )
-        });
+        let mut view = {
+            let preferences = lock_conversation_state_mutex(
+                &self.conversation_preferences,
+                "conversation preferences store",
+            );
+            preferences.get(key.as_str()).cloned().unwrap_or_else(|| {
+                default_conversation_preferences(
+                    tenant_id,
+                    conversation_id,
+                    principal_kind,
+                    principal_id,
+                )
+            })
+        };
 
         if let Some(is_pinned) = update.is_pinned {
             view.is_pinned = is_pinned;
@@ -242,8 +308,64 @@ impl ConversationStateService {
         }
         view.updated_at = utc_now_rfc3339_millis();
 
-        preferences.insert(key, view.clone());
-        view
+        // Persist before publishing the cache entry: a failed durable write
+        // must not leave the process claiming a preference it never stored.
+        if let Some(store) = self.conversation_member_preferences_store() {
+            store.save_preferences(ConversationMemberPreferencesRecord {
+                tenant_id: tenant_id.to_owned(),
+                organization_id: organization_id.to_owned(),
+                conversation_id: conversation_id.to_owned(),
+                principal_kind: principal_kind.to_owned(),
+                principal_id: principal_id.to_owned(),
+                is_pinned: view.is_pinned,
+                is_muted: view.is_muted,
+                is_marked_unread: view.is_marked_unread,
+                is_hidden: view.is_hidden,
+                updated_at: view.updated_at.clone(),
+            })?;
+        }
+        lock_conversation_state_mutex(
+            &self.conversation_preferences,
+            "conversation preferences store",
+        )
+        .insert(key, view.clone());
+        Ok(view)
+    }
+
+    /// Authoritative active-membership check for member-scoped endpoints.
+    pub fn conversation_member_is_active_in_authority(
+        &self,
+        tenant_id: &str,
+        organization_id: &str,
+        conversation_id: &str,
+        principal_kind: &str,
+        principal_id: &str,
+    ) -> Option<Result<bool, ContractError>> {
+        self.conversation_member_preferences_store().map(|store| {
+            store.is_active_member(
+                tenant_id,
+                organization_id,
+                conversation_id,
+                principal_kind,
+                principal_id,
+            )
+        })
+    }
+}
+
+fn preferences_view_from_record(
+    record: ConversationMemberPreferencesRecord,
+) -> ConversationPreferencesView {
+    ConversationPreferencesView {
+        tenant_id: record.tenant_id,
+        conversation_id: record.conversation_id,
+        principal_kind: record.principal_kind,
+        principal_id: record.principal_id,
+        is_pinned: record.is_pinned,
+        is_muted: record.is_muted,
+        is_marked_unread: record.is_marked_unread,
+        is_hidden: record.is_hidden,
+        updated_at: record.updated_at,
     }
 }
 
@@ -273,20 +395,166 @@ mod tests {
             service.conversation_profile("100001", "default", "c_agent_e7f6182d320811b42f4484f9");
         assert_eq!(loaded.display_name, "SdkWork Assistant");
 
-        let preferences = service.update_conversation_preferences(
-            "100001",
-            "default",
-            "c_agent_e7f6182d320811b42f4484f9",
-            "user",
-            "1",
-            UpdateConversationPreferencesRequest {
-                is_pinned: Some(true),
-                is_muted: None,
-                is_marked_unread: None,
-                is_hidden: Some(false),
-            },
-        );
+        let preferences = service
+            .update_conversation_preferences(
+                "100001",
+                "default",
+                "c_agent_e7f6182d320811b42f4484f9",
+                "user",
+                "1",
+                UpdateConversationPreferencesRequest {
+                    is_pinned: Some(true),
+                    is_muted: None,
+                    is_marked_unread: None,
+                    is_hidden: Some(false),
+                },
+            )
+            .expect("in-memory preference update");
         assert!(preferences.is_pinned);
         assert!(!preferences.is_hidden);
+    }
+}
+
+#[cfg(test)]
+mod durability_tests {
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+
+    use im_platform_contracts::{
+        ContractError, ConversationMemberPreferencesRecord, ConversationMemberPreferencesStore,
+    };
+
+    use super::{ConversationStateService, UpdateConversationPreferencesRequest};
+
+    fn row_key(conversation_id: &str, principal_id: &str) -> String {
+        format!("{conversation_id}:user:{principal_id}")
+    }
+
+    #[derive(Default)]
+    struct FakePreferencesStore {
+        rows: Mutex<HashMap<String, ConversationMemberPreferencesRecord>>,
+        fail_save: Mutex<bool>,
+    }
+
+    impl ConversationMemberPreferencesStore for FakePreferencesStore {
+        fn load_preferences(
+            &self,
+            _tenant_id: &str,
+            _organization_id: &str,
+            conversation_id: &str,
+            _principal_kind: &str,
+            principal_id: &str,
+        ) -> Result<Option<ConversationMemberPreferencesRecord>, ContractError> {
+            Ok(self
+                .rows
+                .lock()
+                .expect("rows lock")
+                .get(row_key(conversation_id, principal_id).as_str())
+                .cloned())
+        }
+
+        fn save_preferences(
+            &self,
+            record: ConversationMemberPreferencesRecord,
+        ) -> Result<(), ContractError> {
+            if *self.fail_save.lock().expect("fail lock") {
+                return Err(ContractError::Unavailable("preferences store down".into()));
+            }
+            self.rows.lock().expect("rows lock").insert(
+                row_key(
+                    record.conversation_id.as_str(),
+                    record.principal_id.as_str(),
+                ),
+                record,
+            );
+            Ok(())
+        }
+
+        fn is_active_member(
+            &self,
+            _tenant_id: &str,
+            _organization_id: &str,
+            _conversation_id: &str,
+            _principal_kind: &str,
+            _principal_id: &str,
+        ) -> Result<bool, ContractError> {
+            Ok(true)
+        }
+
+        fn active_member_role(
+            &self,
+            _tenant_id: &str,
+            _organization_id: &str,
+            _conversation_id: &str,
+            _principal_kind: &str,
+            _principal_id: &str,
+        ) -> Result<Option<String>, ContractError> {
+            Ok(Some("owner".to_owned()))
+        }
+    }
+
+    #[test]
+    fn preferences_survive_a_new_service_instance_after_restart() {
+        let store = Arc::new(FakePreferencesStore::default());
+        let service = ConversationStateService::default();
+        service.configure_conversation_member_preferences_store(store.clone());
+
+        let updated = service
+            .update_conversation_preferences(
+                "100001",
+                "0",
+                "c_pref_restart",
+                "user",
+                "1",
+                UpdateConversationPreferencesRequest {
+                    is_pinned: Some(true),
+                    is_muted: Some(true),
+                    is_marked_unread: None,
+                    is_hidden: None,
+                },
+            )
+            .expect("durable preference update");
+        assert!(updated.is_pinned && updated.is_muted);
+
+        // A fresh process (empty cache) must read the durable row.
+        let restarted = ConversationStateService::default();
+        restarted.configure_conversation_member_preferences_store(store);
+        let loaded = restarted
+            .conversation_preferences_from_authority("100001", "0", "c_pref_restart", "user", "1")
+            .expect("durable preference read");
+        assert!(loaded.is_pinned);
+        assert!(loaded.is_muted);
+        assert!(!loaded.is_marked_unread);
+        assert_eq!(loaded.tenant_id, "100001");
+    }
+
+    #[test]
+    fn durable_preference_write_failure_does_not_publish_a_cache_entry() {
+        let store = Arc::new(FakePreferencesStore::default());
+        *store.fail_save.lock().expect("fail lock") = true;
+        let service = ConversationStateService::default();
+        service.configure_conversation_member_preferences_store(store);
+
+        let error = service
+            .update_conversation_preferences(
+                "100001",
+                "0",
+                "c_pref_fail",
+                "user",
+                "1",
+                UpdateConversationPreferencesRequest {
+                    is_pinned: Some(true),
+                    is_muted: None,
+                    is_marked_unread: None,
+                    is_hidden: None,
+                },
+            )
+            .expect_err("durable save failure must surface");
+        assert!(matches!(error, ContractError::Unavailable(_)));
+        let cached = service.conversation_preferences("100001", "0", "c_pref_fail", "user", "1");
+        assert!(
+            !cached.is_pinned,
+            "failed write must not be cached as applied"
+        );
     }
 }

@@ -346,7 +346,7 @@ assert.match(
 );
 assert.match(
   flutterOfflineQueueText,
-  /runPendingTextSendFlushForTenant/u,
+  /runPendingTextSendFlushForConversation/u,
   'Flutter offline send queue must serialize flush with in-flight guard',
 );
 assert.match(

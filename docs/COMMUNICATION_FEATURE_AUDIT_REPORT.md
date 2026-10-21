@@ -68,7 +68,7 @@
 | ID | 问题 | 修复 |
 |---|---|---|
 | DDL-001 | PostgreSQL DDL 重复表定义（Migration 001 覆盖 010） | 移除旧 Migration 001，保留 010 organization_id 版本 |
-| DDL-002 | SQLite DDL 使用 PostgreSQL 专有语法（JSONB/TIMESTAMPTZ/DO $$/pg_constraint） | 生成 SQLite 兼容 DDL（TEXT + json_valid CHECK） |
+| DDL-002 | SQLite DDL 使用 PostgreSQL 专有语法（JSONB/TIMESTAMPTZ/DO $$/pg_constraint） | 已废弃该结论：当前 IM 服务端为 **PostgreSQL-only**，仓库不再维护 SQLite 服务端 DDL；SQLite 仅用于 PC 桌面离线缓存（见 `apps/sdkwork-im-pc/packages/sdkwork-im-pc-desktop/src-tauri/src/offline_store.rs`） |
 | PAG-039 | social-service block 列表使用 OFFSET 分页 | 改为 keyset `(created_at DESC, block_id DESC)` |
 | PAG-040 | social-service direct_chat 列表使用 OFFSET 分页 | 改为 keyset `(updated_at DESC, direct_chat_id DESC)` |
 | SEC-001 | 游标签名密钥硬编码回退 | 添加 `_FILE` 变体支持，移除硬编码密钥，fail-closed |
@@ -84,12 +84,12 @@
 | 消息 | `message_seq` + `commit_seq`；Outbox at-least-once |
 | 连接 | Pre-auth WS 预算；认证后正式槽；帧/升级 RPM 限流 |
 | Social / Space | PG materialize-before-append；多 commit 单 PG 事务 |
-| Projection | HS256 keyset 分页；timeline 热缓存 cap；embedded apply 生产 fail-closed |
+| Conversation state | 规范化表为权威；pins/reactions/favorites/inbox 支持 PostgreSQL 冷回退；timeline 热缓存有界；embedded apply 生产 fail-closed |
 | Portal API | `portal-service` + `im-portal-snapshots` 从 ops 健康面与 audit 记录聚合 |
 | PC 客户端 | 游标分页；SQLite 离线缓存 + claim/lease 待发队列 |
 | H5 客户端 | 游标分页；IndexedDB 离线待发队列 + claim/lease |
 | Flutter | Inbox 游标多页同步 + `shared_preferences` 离线待发（claim/lease） |
-| 数据库 | IM 核心 **PostgreSQL-only**；SQLite 为契约 parity + 桌面/网关缓存 |
+| 数据库 | IM 核心 **PostgreSQL-only**；SQLite 仅为 PC 桌面离线缓存，不是服务端契约或权威 |
 | Realtime | 生产 fail-closed（PG pool + membership gate）；canonical mutex 锁序 |
 
 ---
@@ -120,7 +120,7 @@
 
 ## RPC 与客户端路径
 
-详见 [`RPC-AVAILABILITY.md`](architecture/tech/RPC-AVAILABILITY.md)。
+详见 [`TECH-14-rpc-availability.md`](architecture/tech/TECH-14-rpc-availability.md)。
 
 - **生产客户端**：HTTP app-sdk + WebSocket（session-gateway）
 - **gRPC Phase 1**：`PresenceService`、`RealtimeService`、conversation unary（3 个 rpc-bin）
@@ -132,7 +132,7 @@
 
 | 项 | 说明 |
 |---|---|
-| E2EE | 仅 TLS；见 `OPTIMIZATION_ROADMAP.md` Phase 2 |
+| E2EE | 仅 TLS；见 `TECH-11-optimization-roadmap.md` Phase 2 |
 | FEC 自适应弱网 | Phase 2；ARQ `events.nack` 已交付 |
 | Conversation RPC server-stream | 实时流在 session-gateway WS |
 | Telegram 级 200K 群 | 当前 10K cap |

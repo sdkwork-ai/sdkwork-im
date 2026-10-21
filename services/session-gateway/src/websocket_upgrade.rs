@@ -1,5 +1,7 @@
+use std::net::SocketAddr;
 use std::sync::Arc;
 
+use axum::extract::ConnectInfo;
 use axum::extract::WebSocketUpgrade;
 use axum::extract::ws::WebSocket;
 use axum::extract::{Extension, Query, State};
@@ -83,9 +85,13 @@ pub(crate) async fn realtime_websocket(
     auth: Option<Extension<AppContext>>,
     Query(query): Query<RealtimeWebsocketQuery>,
     headers: HeaderMap,
+    connect_info: Option<Extension<ConnectInfo<SocketAddr>>>,
     State(state): State<AppState>,
 ) -> Result<Response, ApiError> {
-    let client_ip = crate::websocket_upgrade_rate_limit::extract_client_ip_from_headers(&headers);
+    let client_ip = crate::websocket_upgrade_rate_limit::resolve_client_ip(
+        connect_info.map(|Extension(ConnectInfo(address))| address),
+        &headers,
+    );
     state
         .websocket_upgrade_rate_limiter
         .check_upgrade(client_ip)?;

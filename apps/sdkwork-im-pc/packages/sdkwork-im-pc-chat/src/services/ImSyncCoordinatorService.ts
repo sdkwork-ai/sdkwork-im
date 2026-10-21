@@ -1,5 +1,5 @@
 import { chatService, type ChatOfflineSyncResult, type ChatService } from './ChatService';
-import { contactService, type ContactService, type ContactSyncResult } from './ContactService';
+import type { ContactService, ContactSyncResult } from './ContactService';
 
 export interface ImStartupSyncOptions {}
 
@@ -42,7 +42,7 @@ class SdkworkImSyncCoordinatorService implements ImSyncCoordinatorService {
 
   constructor(dependencies: ImSyncCoordinatorServiceDependencies = {}) {
     this.chatService = dependencies.chatService ?? chatService;
-    this.contactService = dependencies.contactService ?? contactService;
+    this.contactService = dependencies.contactService;
   }
 
   async syncStartup(_options: ImStartupSyncOptions = {}): Promise<ImStartupSyncResult> {

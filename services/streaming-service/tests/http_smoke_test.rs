@@ -24,7 +24,16 @@ fn streaming_http_test_app() -> axum::Router {
 
 fn streaming_route_http_test_app() -> axum::Router {
     init_streaming_http_test_env();
-    sdkwork_routes_im_stream_app_api::build_public_app()
+    // Exercise the app router through the canonical pipeline with the fixture
+    // permission projection, without requiring the deployment IAM database.
+    sdkwork_web_axum::with_web_request_context(
+        sdkwork_routes_im_stream_app_api::build_domain_router(),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &[],
+            sdkwork_routes_im_stream_app_api::route_manifest(),
+        ),
+    )
 }
 
 #[tokio::test]

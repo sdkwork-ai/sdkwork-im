@@ -1,7 +1,10 @@
 use std::sync::{Arc, OnceLock};
 
 use im_adapters_postgres_journal::{
-    PostgresAgentIntegrationStore, PostgresJournalPool, PostgresOutboxStore, PostgresSearchProvider,
+    PostgresAgentIntegrationStore, PostgresConversationInboxAuthority,
+    PostgresConversationMemberPreferencesStore, PostgresConversationProjectionStore,
+    PostgresJournalPool, PostgresMessageFavoriteStore,
+    PostgresMessageInteractionReadStore, PostgresOutboxStore, PostgresSearchProvider,
 };
 use im_adapters_social_postgres::user_profile_store::PostgresUserProfileStore;
 use im_platform_contracts::{AgentIntegrationStore, OutboxStore};
@@ -61,6 +64,24 @@ pub fn build_conversation_state_runtime_from_env() -> ConversationStateRuntime {
     service.configure_conversation_event_outbox(Arc::new(PostgresOutboxStore::from_pool(
         pool.clone(),
     )) as Arc<dyn OutboxStore>);
+    service.configure_conversation_inbox_authority(Arc::new(
+        PostgresConversationInboxAuthority::from_pool(pool.clone()),
+    ));
+    service.configure_conversation_member_preferences_store(Arc::new(
+        PostgresConversationMemberPreferencesStore::from_pool(pool.clone()),
+    ));
+    service.configure_conversation_summary_authority(Arc::new(
+        PostgresConversationProjectionStore::from_pool(pool.clone()),
+    ));
+    service.configure_conversation_profile_store(Arc::new(
+        PostgresConversationProjectionStore::from_pool(pool.clone()),
+    ));
+    service.configure_message_favorite_store(Arc::new(PostgresMessageFavoriteStore::from_pool(
+        pool.clone(),
+    )));
+    service.configure_message_interaction_read_store(Arc::new(
+        PostgresMessageInteractionReadStore::from_pool(pool.clone()),
+    ));
     service.configure_agent_integration_store(Arc::new(
         PostgresAgentIntegrationStore::from_pool_with_runtime_ids(pool.clone()),
     ) as Arc<dyn AgentIntegrationStore>);

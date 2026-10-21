@@ -8,7 +8,6 @@ use std::thread::sleep;
 use std::time::Duration;
 use tower::ServiceExt;
 
-use sdkwork_im_web_bootstrap::wrap_im_service_router_with_manifest;
 use sdkwork_routes_im_stream_app_api::route_manifest;
 use streaming_service::state::{AppState, StreamingRuntime};
 
@@ -26,15 +25,27 @@ fn init_stream_lifecycle_test_env() {
 
 fn stream_test_app() -> axum::Router {
     init_stream_lifecycle_test_env();
-    sdkwork_routes_im_stream_app_api::build_public_app()
+    sdkwork_web_axum::with_web_request_context(
+        sdkwork_routes_im_stream_app_api::build_domain_router(),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &[],
+            route_manifest(),
+        ),
+    )
 }
 
 fn stream_test_app_with_runtime(runtime: Arc<StreamingRuntime>) -> axum::Router {
-    wrap_im_service_router_with_manifest(
+    init_stream_lifecycle_test_env();
+    sdkwork_web_axum::with_web_request_context(
         streaming_service::apply_public_http_guardrails(
             streaming_service::build_domain_api_router(AppState::new(runtime)),
         ),
-        route_manifest(),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &[],
+            route_manifest(),
+        ),
     )
 }
 

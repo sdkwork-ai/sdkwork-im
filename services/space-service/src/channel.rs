@@ -16,6 +16,8 @@ use crate::api_payload::{keyset_list_page, resource_item};
 use crate::channel_conversation_binder::CreateSpaceChannelConversationInput;
 use crate::http::AppState;
 use crate::id::next_entity_id;
+use sdkwork_im_keyset_cursor::{CursorScope, KeysetPosition};
+
 use crate::list_query::{ListQuery, resolve_keyset_page};
 use crate::space_access::{
     actor_can_manage_space, actor_can_read_space, enforce_channel_permission,
@@ -137,7 +139,13 @@ pub async fn list_channels(
         let space_id = parse_space_id(space_id.as_str())?;
         let space = load_space(&state, &auth, space_id)?;
         actor_can_read_space(&state, &auth, &space)?;
-        let paging = resolve_keyset_page(&query)?;
+        let scope = CursorScope {
+            resource: "space.channels",
+            tenant_id: auth.tenant_id.as_str(),
+            organization_id: auth.organization_id.as_str(),
+            principal_id: auth.actor_id.as_str(),
+        };
+        let paging = resolve_keyset_page(&query, &scope)?;
         let cursor_channel_id = paging
             .cursor_entity
             .as_deref()
@@ -162,8 +170,12 @@ pub async fn list_channels(
         Ok(keyset_list_page(
             items,
             paging.page_size,
-            |item: &ChannelResponse| (item.created_at.clone(), item.channel_id.clone()),
-        ))
+            &scope,
+            |item: &ChannelResponse| KeysetPosition {
+                sort_value: item.created_at.clone(),
+                entity_id: item.channel_id.clone(),
+            },
+        )?)
     })();
     finish_api_json(&ctx, result)
 }

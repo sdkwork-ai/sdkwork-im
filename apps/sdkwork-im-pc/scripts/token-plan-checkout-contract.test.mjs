@@ -55,7 +55,7 @@ const standaloneGatewayCargoSource = fs.readFileSync(
   'utf8',
 );
 const standaloneDependencyRoutesSource = fs.readFileSync(
-  path.join(repoRoot, 'crates', 'sdkwork-api-im-standalone-gateway', 'src', 'embedded_dependency_routes.rs'),
+  path.join(repoRoot, 'crates', 'sdkwork-api-im-assembly', 'src', 'embedded_dependency_routes.rs'),
   'utf8',
 );
 const subscriptionCatalogPageSource = fs.readFileSync(

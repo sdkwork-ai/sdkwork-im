@@ -22,13 +22,3 @@ func (a *ProviderApi) MediaHealthRetrieve() (sdktypes.MediaHealthRetrieveRespons
     }
     return decodeResult[sdktypes.MediaHealthRetrieveResponse](raw)
 }
-
-// Retrieve principal-profile provider health
-func (a *ProviderApi) PrincipalProfileHealthRetrieve() (sdktypes.PrincipalProfileHealthRetrieveResponse, error) {
-    raw, err := a.client.Get(AppApiPath("/principal/profiles/provider_health"), nil, nil)
-    if err != nil {
-        var zero sdktypes.PrincipalProfileHealthRetrieveResponse
-        return zero, err
-    }
-    return decodeResult[sdktypes.PrincipalProfileHealthRetrieveResponse](raw)
-}

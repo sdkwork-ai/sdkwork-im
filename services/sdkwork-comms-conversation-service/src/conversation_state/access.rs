@@ -103,6 +103,36 @@ impl ConversationStateAccessError {
     }
 }
 
+fn map_authority_store_error(
+    error: im_platform_contracts::ContractError,
+) -> ConversationStateAccessError {
+    ConversationStateAccessError::from(super::event_apply::ConversationStateError::StoreFailure(
+        error,
+    ))
+}
+
+fn conversation_membership_denied(principal_id: &str) -> ConversationStateAccessError {
+    ConversationStateAccessError::forbidden(
+        "conversation_permission_denied",
+        format!("principal is not active conversation member: {principal_id}"),
+    )
+}
+
+fn conversation_not_found(conversation_id: &str) -> ConversationStateAccessError {
+    ConversationStateAccessError {
+        status: StatusCode::NOT_FOUND,
+        code: "conversation_not_found",
+        message: format!("conversation not found: {conversation_id}"),
+    }
+}
+
+fn conversation_profile_mutation_denied() -> ConversationStateAccessError {
+    ConversationStateAccessError::forbidden(
+        "conversation_profile_mutation_denied",
+        "only owner or admin can update group conversation profile",
+    )
+}
+
 impl From<super::event_apply::ConversationStateError> for ConversationStateAccessError {
     fn from(value: super::event_apply::ConversationStateError) -> Self {
         match value {
@@ -221,10 +251,22 @@ impl ConversationStateService {
         auth: &AppContext,
         conversation_id: &str,
     ) -> Result<ConversationProfileView, ConversationStateAccessError> {
+        let organization_id = Self::auth_organization_id(auth);
+        if self.conversation_profile_store().is_some() {
+            self.ensure_active_member_from_authority(auth, conversation_id)?;
+            return self
+                .conversation_profile_from_authority(
+                    auth.tenant_id.as_str(),
+                    organization_id.as_str(),
+                    conversation_id,
+                )
+                .map_err(map_authority_store_error)?
+                .ok_or_else(|| conversation_not_found(conversation_id));
+        }
         self.ensure_active_member_from_auth_context(auth, conversation_id)?;
         Ok(self.conversation_profile(
             auth.tenant_id.as_str(),
-            Self::auth_organization_id(auth).as_str(),
+            organization_id.as_str(),
             conversation_id,
         ))
     }
@@ -235,16 +277,82 @@ impl ConversationStateService {
         conversation_id: &str,
         update: UpdateConversationProfileRequest,
     ) -> Result<ConversationProfileView, ConversationStateAccessError> {
+        let organization_id = Self::auth_organization_id(auth);
+        if self.conversation_profile_store().is_some() {
+            self.ensure_conversation_profile_mutation_allowed_from_authority(
+                auth,
+                conversation_id,
+            )?;
+            return self
+                .update_conversation_profile_in_authority(
+                    auth.tenant_id.as_str(),
+                    organization_id.as_str(),
+                    conversation_id,
+                    auth.actor_kind.as_str(),
+                    auth.actor_id.as_str(),
+                    update,
+                )
+                .map_err(map_authority_store_error)?
+                .ok_or_else(|| conversation_not_found(conversation_id));
+        }
         self.ensure_conversation_profile_mutation_allowed(auth, conversation_id)?;
         self.update_conversation_profile_checked(
             auth.tenant_id.as_str(),
-            Self::auth_organization_id(auth).as_str(),
+            organization_id.as_str(),
             conversation_id,
             auth.actor_kind.as_str(),
             auth.actor_id.as_str(),
             update,
         )
         .map_err(ConversationStateAccessError::from)
+    }
+
+    /// Authoritative active-member check for durable projection endpoints.
+    fn ensure_active_member_from_authority(
+        &self,
+        auth: &AppContext,
+        conversation_id: &str,
+    ) -> Result<(), ConversationStateAccessError> {
+        let organization_id = Self::auth_organization_id(auth);
+        let Some(result) = self.conversation_member_is_active_in_authority(
+            auth.tenant_id.as_str(),
+            organization_id.as_str(),
+            conversation_id,
+            auth.actor_kind.as_str(),
+            auth.actor_id.as_str(),
+        ) else {
+            return self.ensure_active_member_from_auth_context(auth, conversation_id);
+        };
+        if result.map_err(map_authority_store_error)? {
+            Ok(())
+        } else {
+            Err(conversation_membership_denied(auth.actor_id.as_str()))
+        }
+    }
+
+    fn ensure_conversation_profile_mutation_allowed_from_authority(
+        &self,
+        auth: &AppContext,
+        conversation_id: &str,
+    ) -> Result<(), ConversationStateAccessError> {
+        let organization_id = Self::auth_organization_id(auth);
+        let Some(result) = self.conversation_member_role_from_authority(
+            auth.tenant_id.as_str(),
+            organization_id.as_str(),
+            conversation_id,
+            auth.actor_kind.as_str(),
+            auth.actor_id.as_str(),
+        ) else {
+            return self.ensure_conversation_profile_mutation_allowed(auth, conversation_id);
+        };
+        let Some(role) = result.map_err(map_authority_store_error)? else {
+            return Err(conversation_membership_denied(auth.actor_id.as_str()));
+        };
+        if role.eq_ignore_ascii_case("owner") || role.eq_ignore_ascii_case("admin") {
+            Ok(())
+        } else {
+            Err(conversation_profile_mutation_denied())
+        }
     }
 
     fn ensure_conversation_profile_mutation_allowed(
@@ -295,10 +403,31 @@ impl ConversationStateService {
         auth: &AppContext,
         conversation_id: &str,
     ) -> Result<ConversationPreferencesView, ConversationStateAccessError> {
+        let organization_id = Self::auth_organization_id(auth);
+        if let Some(result) = self.conversation_member_is_active_in_authority(
+            auth.tenant_id.as_str(),
+            organization_id.as_str(),
+            conversation_id,
+            auth.actor_kind.as_str(),
+            auth.actor_id.as_str(),
+        ) {
+            if !result.map_err(map_authority_store_error)? {
+                return Err(conversation_membership_denied(auth.actor_id.as_str()));
+            }
+            return self
+                .conversation_preferences_from_authority(
+                    auth.tenant_id.as_str(),
+                    organization_id.as_str(),
+                    conversation_id,
+                    auth.actor_kind.as_str(),
+                    auth.actor_id.as_str(),
+                )
+                .map_err(map_authority_store_error);
+        }
         self.ensure_active_member_from_auth_context(auth, conversation_id)?;
         Ok(self.conversation_preferences(
             auth.tenant_id.as_str(),
-            Self::auth_organization_id(auth).as_str(),
+            organization_id.as_str(),
             conversation_id,
             auth.actor_kind.as_str(),
             auth.actor_id.as_str(),
@@ -311,15 +440,29 @@ impl ConversationStateService {
         conversation_id: &str,
         update: UpdateConversationPreferencesRequest,
     ) -> Result<ConversationPreferencesView, ConversationStateAccessError> {
-        self.ensure_active_member_from_auth_context(auth, conversation_id)?;
-        Ok(self.update_conversation_preferences(
+        let organization_id = Self::auth_organization_id(auth);
+        if let Some(result) = self.conversation_member_is_active_in_authority(
             auth.tenant_id.as_str(),
-            Self::auth_organization_id(auth).as_str(),
+            organization_id.as_str(),
+            conversation_id,
+            auth.actor_kind.as_str(),
+            auth.actor_id.as_str(),
+        ) {
+            if !result.map_err(map_authority_store_error)? {
+                return Err(conversation_membership_denied(auth.actor_id.as_str()));
+            }
+        } else {
+            self.ensure_active_member_from_auth_context(auth, conversation_id)?;
+        }
+        self.update_conversation_preferences(
+            auth.tenant_id.as_str(),
+            organization_id.as_str(),
             conversation_id,
             auth.actor_kind.as_str(),
             auth.actor_id.as_str(),
             update,
-        ))
+        )
+        .map_err(map_authority_store_error)
     }
 
     pub fn ensure_history_reader_from_auth_context(
@@ -635,41 +778,62 @@ impl ConversationStateService {
                 search_query_char_count,
             ));
         }
-        self.inbox_window_for_principal_kind_filtered(
-            InboxWindowQuery {
-                tenant_id: auth.tenant_id.as_str(),
-                organization_id: organization_id.as_str(),
-                principal_id: auth.actor_id.as_str(),
-                principal_kind: auth.actor_kind.as_str(),
-                limit,
-                cursor: list_cursor,
-            },
-            |entry| {
-                !self.is_archived_direct_chat_conversation(
-                    auth.tenant_id.as_str(),
-                    organization_id.as_str(),
-                    entry.conversation_id.as_str(),
-                ) && requested_conversation_type
-                    .as_ref()
-                    .is_none_or(|conversation_type| {
-                        entry
-                            .conversation_type
-                            .eq_ignore_ascii_case(conversation_type.as_str())
-                    })
-                    && requested_search_query.as_ref().is_none_or(|query| {
-                        entry.conversation_id.to_lowercase().contains(query)
-                            || entry.display_name.as_ref().is_some_and(|display_name| {
+        let mut filter = |entry: &ConversationInboxEntry| {
+            !self.is_archived_direct_chat_conversation(
+                auth.tenant_id.as_str(),
+                organization_id.as_str(),
+                entry.conversation_id.as_str(),
+            ) && requested_conversation_type
+                .as_ref()
+                .is_none_or(|conversation_type| {
+                    entry
+                        .conversation_type
+                        .eq_ignore_ascii_case(conversation_type.as_str())
+                })
+                && requested_search_query.as_ref().is_none_or(|query| {
+                    entry.conversation_id.to_lowercase().contains(query)
+                        || entry
+                            .display_name
+                            .as_ref()
+                            .is_some_and(|display_name| display_name.to_lowercase().contains(query))
+                        || entry.peer.as_ref().is_some_and(|peer| {
+                            peer.display_name.as_ref().is_some_and(|display_name| {
                                 display_name.to_lowercase().contains(query)
                             })
-                            || entry.peer.as_ref().is_some_and(|peer| {
-                                peer.display_name.as_ref().is_some_and(|display_name| {
-                                    display_name.to_lowercase().contains(query)
-                                })
-                            })
+                        })
+                })
+        };
+        let query = InboxWindowQuery {
+            tenant_id: auth.tenant_id.as_str(),
+            organization_id: organization_id.as_str(),
+            principal_id: auth.actor_id.as_str(),
+            principal_kind: auth.actor_kind.as_str(),
+            limit,
+            cursor: list_cursor.clone(),
+        };
+        if let Some(authority) = self.conversation_inbox_authority() {
+            let authority_cursor = match &list_cursor {
+                super::model::InboxListCursor::Start => None,
+                super::model::InboxListCursor::Keyset { activity_at, scope } => {
+                    Some(im_platform_contracts::ConversationInboxPageCursor {
+                        activity_at: activity_at.clone(),
+                        conversation_id: scope.clone(),
                     })
-            },
-        )
-        .map_err(ConversationStateAccessError::from)
+                }
+            };
+            return self
+                .inbox_window_from_authority(
+                    authority.as_ref(),
+                    query,
+                    authority_cursor.as_ref(),
+                    requested_conversation_type.as_deref(),
+                    requested_search_query.as_deref(),
+                    &mut filter,
+                )
+                .map_err(ConversationStateAccessError::from);
+        }
+        self.inbox_window_for_principal_kind_filtered(query, &mut filter)
+            .map_err(ConversationStateAccessError::from)
     }
 
     pub fn contacts_from_auth_context(
@@ -757,10 +921,21 @@ impl ConversationStateService {
         auth: &AppContext,
         conversation_id: &str,
     ) -> Result<Option<ConversationSummaryView>, ConversationStateAccessError> {
+        let organization_id = Self::auth_organization_id(auth);
+        if self.conversation_summary_authority().is_some() {
+            self.ensure_active_member_from_authority(auth, conversation_id)?;
+            return self
+                .conversation_summary_from_authority(
+                    auth.tenant_id.as_str(),
+                    organization_id.as_str(),
+                    conversation_id,
+                )
+                .map_err(map_authority_store_error);
+        }
         self.ensure_active_member_from_auth_context(auth, conversation_id)?;
         Ok(self.conversation_summary(
             auth.tenant_id.as_str(),
-            Self::auth_organization_id(auth).as_str(),
+            organization_id.as_str(),
             conversation_id,
         ))
     }
@@ -893,7 +1068,7 @@ impl ConversationStateService {
         let limit = validate_list_limit(limit)?;
         let list_cursor = parse_favorite_messages_list_cursor(cursor)?;
         let organization_id = Self::auth_organization_id(auth);
-        self.message_favorites_window_for_principal(MessageFavoritesWindowQuery {
+        let window_query = MessageFavoritesWindowQuery {
             tenant_id: auth.tenant_id.as_str(),
             organization_id: organization_id.as_str(),
             principal_kind: auth.actor_kind.as_str(),
@@ -902,8 +1077,14 @@ impl ConversationStateService {
             cursor: list_cursor,
             favorite_type,
             search_query: query,
-        })
-        .map_err(ConversationStateAccessError::from)
+        };
+        if let Some(store) = self.message_favorite_store() {
+            return self
+                .message_favorites_window_from_authority(store.as_ref(), window_query)
+                .map_err(ConversationStateAccessError::from);
+        }
+        self.message_favorites_window_for_principal(window_query)
+            .map_err(ConversationStateAccessError::from)
     }
 
     pub fn create_message_favorite_from_auth_context(
@@ -914,10 +1095,30 @@ impl ConversationStateService {
     ) -> Result<MessageFavoriteView, ConversationStateAccessError> {
         validate_message_id(message_id)?;
         validate_conversation_id(request.conversation_id.as_str())?;
+        let organization_id = Self::auth_organization_id(auth);
+        if let Some(store) = self.message_favorite_store() {
+            self.ensure_active_member_from_authority(auth, request.conversation_id.as_str())?;
+            return self
+                .create_message_favorite_in_authority(
+                    store.as_ref(),
+                    auth.tenant_id.as_str(),
+                    organization_id.as_str(),
+                    auth.actor_kind.as_str(),
+                    auth.actor_id.as_str(),
+                    message_id,
+                    request,
+                )
+                .map_err(map_authority_store_error)?
+                .ok_or_else(|| ConversationStateAccessError {
+                    status: StatusCode::NOT_FOUND,
+                    code: "message_not_found",
+                    message: format!("message not found: {message_id}"),
+                });
+        }
         self.ensure_active_member_from_auth_context(auth, request.conversation_id.as_str())?;
         Ok(self.create_message_favorite(
             auth.tenant_id.as_str(),
-            Self::auth_organization_id(auth).as_str(),
+            organization_id.as_str(),
             auth.actor_kind.as_str(),
             auth.actor_id.as_str(),
             message_id,
@@ -936,13 +1137,26 @@ impl ConversationStateService {
                 "favorite id must not be empty",
             ));
         }
-        let deleted = self.delete_message_favorite(
-            auth.tenant_id.as_str(),
-            Self::auth_organization_id(auth).as_str(),
-            auth.actor_kind.as_str(),
-            auth.actor_id.as_str(),
-            favorite_id,
-        );
+        let organization_id = Self::auth_organization_id(auth);
+        let deleted = if let Some(store) = self.message_favorite_store() {
+            self.delete_message_favorite_in_authority(
+                store.as_ref(),
+                auth.tenant_id.as_str(),
+                organization_id.as_str(),
+                auth.actor_kind.as_str(),
+                auth.actor_id.as_str(),
+                favorite_id,
+            )
+            .map_err(map_authority_store_error)?
+        } else {
+            self.delete_message_favorite(
+                auth.tenant_id.as_str(),
+                organization_id.as_str(),
+                auth.actor_kind.as_str(),
+                auth.actor_id.as_str(),
+                favorite_id,
+            )
+        };
         if !deleted {
             return Err(ConversationStateAccessError {
                 status: StatusCode::NOT_FOUND,

@@ -95,6 +95,14 @@ export function buildCommercialReadinessChecks({
       env: pnpmRuntimeEnv,
     },
     {
+      id: 'pc-embed-build',
+      label: 'Sdkwork IM PC embed bundle build',
+      cwd: path.join(repoRoot, 'apps', 'sdkwork-im-pc'),
+      command: pnpmExecutable,
+      args: ['run', 'build:embed'],
+      env: pnpmRuntimeEnv,
+    },
+    {
       id: 'h5-lint',
       label: 'Sdkwork IM H5 typecheck',
       cwd: path.join(repoRoot, 'apps', 'sdkwork-im-h5'),

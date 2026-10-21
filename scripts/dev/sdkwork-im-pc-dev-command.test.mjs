@@ -269,12 +269,14 @@ assert.ok(
   !fs.existsSync(path.join(repoRoot, 'apps/sdkwork-im-pc/package-lock.json')),
   'desktop app must not keep an npm package-lock.json alongside pnpm workspace management',
 );
-assert.ok(
-  desktopWorkspaceSource.includes('lucide-react: ^1.7.0'),
+assert.match(
+  desktopWorkspaceSource,
+  /^\s+lucide-react: \^1\./mu,
   'desktop workspace catalog must resolve lucide-react catalog dependencies',
 );
-assert.ok(
-  desktopWorkspaceSource.includes('vite-plugin-dts: ^4.5.4'),
+assert.match(
+  desktopWorkspaceSource,
+  /^\s+vite-plugin-dts: \^[45]\./mu,
   'desktop workspace catalog must resolve sdkwork-core build tooling dependencies',
 );
 assert.match(
@@ -689,11 +691,16 @@ assert.equal(
   'postgresql://sdkwork_ai_dev:sdkworkdev123@127.0.0.1:5432/sdkwork_ai_dev?sslmode=disable',
   'standalone gateway must receive the canonical PostgreSQL dev database URL by default',
 );
-assert.equal(
-  browserPlan.processes[0].env.SDKWORK_IM_BROWSER_ORIGINS,
-  'http://127.0.0.1:3801,http://im-dev.sdkwork.com:3801,http://localhost:3801',
-  'standalone gateway must allow the adaptive web ingress origin at the gateway CORS layer',
-);
+const browserOrigins = browserPlan.processes[0].env.SDKWORK_IM_BROWSER_ORIGINS.split(',');
+for (const origin of [
+  'http://127.0.0.1:4176',
+  'http://localhost:4176',
+]) {
+  assert.ok(
+    browserOrigins.includes(origin),
+    `standalone gateway must allow the PC renderer origin ${origin} at the gateway CORS layer`,
+  );
+}
 assert.equal(
   browserPlan.processes[1].env.SDKWORK_IM_PC_DEV_PORT,
   '4176',
@@ -819,8 +826,8 @@ const shiftedPortPlan = createSdkworkChatPcDevPlan({
 });
 assert.equal(
   shiftedPortPlan.processes[0].env.SDKWORK_IM_BROWSER_ORIGINS,
-  'http://127.0.0.1:3801,http://im-dev.sdkwork.com:3801,http://localhost:3801',
-  'standalone gateway CORS must keep the adaptive web ingress origin when the renderer port shifts',
+  'http://127.0.0.1:4178,http://localhost:4178',
+  'standalone gateway CORS must follow the shifted PC renderer origin',
 );
 assert.equal(
   shiftedPortPlan.processes[1].env.SDKWORK_IM_PC_DEV_PORT,

@@ -349,7 +349,24 @@ impl RetentionCleanupReportExt for RetentionCleanupReport {
         self.inbox_events_deleted += other.inbox_events_deleted;
         self.realtime_device_events_deleted += other.realtime_device_events_deleted;
         self.rtc_sessions_deleted += other.rtc_sessions_deleted;
+        self.invitations_deleted += other.invitations_deleted;
         self.audit_records_deleted += other.audit_records_deleted;
+        self.realtime_subscriptions_deleted += other.realtime_subscriptions_deleted;
+        self.presence_states_deleted += other.presence_states_deleted;
+        self.realtime_disconnect_fences_deleted += other.realtime_disconnect_fences_deleted;
+        self.notification_tasks_deleted += other.notification_tasks_deleted;
+        self.automation_executions_deleted += other.automation_executions_deleted;
+        self.conversation_members_deleted += other.conversation_members_deleted;
+        self.conversation_read_cursors_deleted += other.conversation_read_cursors_deleted;
+        self.registered_client_routes_deleted += other.registered_client_routes_deleted;
+        self.client_sync_events_deleted += other.client_sync_events_deleted;
+        self.client_sync_cursors_deleted += other.client_sync_cursors_deleted;
+        self.stream_frames_deleted += other.stream_frames_deleted;
+        self.stream_sessions_deleted += other.stream_sessions_deleted;
+        self.conversation_agent_assignments_deleted += other.conversation_agent_assignments_deleted;
+        self.conversation_agent_binding_deleted += other.conversation_agent_binding_deleted;
+        self.agent_dispatch_deleted += other.agent_dispatch_deleted;
+        self.conversations_deleted += other.conversations_deleted;
     }
 
     fn is_empty(&self) -> bool {
@@ -384,10 +401,15 @@ mod tests {
         };
         let right = RetentionCleanupReport {
             conversation_messages_deleted: 2,
+            invitations_deleted: 1,
+            stream_frames_deleted: 3,
+            conversations_deleted: 4,
             ..RetentionCleanupReport::default()
         };
         left.merge(&right);
-        assert_eq!(left.total_deleted(), 3);
+        assert_eq!(left.total_deleted(), 11);
+        assert_eq!(left.stream_frames_deleted, 3);
+        assert_eq!(left.invitations_deleted, 1);
         assert!(!left.is_empty());
         assert!(RetentionCleanupReport::default().is_empty());
     }

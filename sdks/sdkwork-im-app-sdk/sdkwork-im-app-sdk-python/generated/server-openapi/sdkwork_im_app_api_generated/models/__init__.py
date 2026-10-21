@@ -40,13 +40,13 @@ from .start_agent_response_request import StartAgentResponseRequest
 from .sdk_work_api_response import SdkWorkApiResponse
 from .page_info import PageInfo
 from .field_error import FieldError
-from .automation_agent_responses_create_response201 import AutomationAgentResponsesCreateResponse201
-from .automation_agent_responses_complete_response import AutomationAgentResponsesCompleteResponse
-from .automation_agent_responses_frames_create_response201 import AutomationAgentResponsesFramesCreateResponse201
-from .automation_agent_tool_calls_create_response201 import AutomationAgentToolCallsCreateResponse201
-from .automation_executions_create_response201 import AutomationExecutionsCreateResponse201
-from .automation_executions_retrieve_response import AutomationExecutionsRetrieveResponse
-from .automation_agent_tool_calls_complete_response import AutomationAgentToolCallsCompleteResponse
+from .agent_responses_create_response201 import AgentResponsesCreateResponse201
+from .agent_responses_complete_response import AgentResponsesCompleteResponse
+from .agent_responses_frames_create_response201 import AgentResponsesFramesCreateResponse201
+from .agent_tool_calls_create_response201 import AgentToolCallsCreateResponse201
+from .executions_create_response201 import ExecutionsCreateResponse201
+from .executions_retrieve_response import ExecutionsRetrieveResponse
+from .agent_tool_calls_complete_response import AgentToolCallsCompleteResponse
 from .notifications_list_response import NotificationsListResponse
 from .notifications_requests_create_response201 import NotificationsRequestsCreateResponse201
 from .notifications_retrieve_response import NotificationsRetrieveResponse
@@ -60,11 +60,10 @@ from .media_retrieve_response import MediaRetrieveResponse
 from .realtime_retrieve_response import RealtimeRetrieveResponse
 from .workspace_retrieve_response import WorkspaceRetrieveResponse
 from .media_health_retrieve_response import MediaHealthRetrieveResponse
-from .principal_profile_health_retrieve_response import PrincipalProfileHealthRetrieveResponse
 from .conversations_knowledgebase_retrieve_response import ConversationsKnowledgebaseRetrieveResponse
 from .conversations_knowledgebase_create_response import ConversationsKnowledgebaseCreateResponse
 from .conversations_knowledgebase_create_response201 import ConversationsKnowledgebaseCreateResponse201
 from .conversations_knowledgebase_launch_response import ConversationsKnowledgebaseLaunchResponse
 from .conversations_archive_response import ConversationsArchiveResponse
 
-__all__ = ['CreateGroupKnowledgebaseRequest', 'LaunchGroupKnowledgebaseRequest', 'ArchiveGroupConversationRequest', 'GroupKnowledgebaseLinkView', 'GroupKnowledgebaseLaunchResponse', 'ArchiveGroupConversationResponse', 'PortalSnapshotMeta', 'PortalDataAvailability', 'PortalModuleSnapshot', 'PortalOperationalMetrics', 'PortalDashboardSnapshot', 'PortalConversationOperationalMetrics', 'PortalConversationSnapshot', 'PortalAuditRecordView', 'PortalAccessSnapshot', 'PortalGovernanceRiskSample', 'PortalGovernanceSnapshot', 'PortalRealtimeMetrics', 'PortalRealtimeSnapshot', 'PortalWorkspaceView', 'Sender', 'StreamSession', 'StreamFrame', 'ProblemDetail', 'AgentSubject', 'AgentToolCall', 'AppendAgentResponseDeltaRequest', 'AutomationExecution', 'AutomationExecutionRequestResponse', 'CompleteAgentResponseRequest', 'CompleteAgentToolCallRequest', 'NotificationTask', 'NotificationRequestResponse', 'RequestAgentToolCallRequest', 'RequestAutomationExecution', 'RequestNotification', 'StartAgentResponseRequest', 'SdkWorkApiResponse', 'PageInfo', 'FieldError', 'AutomationAgentResponsesCreateResponse201', 'AutomationAgentResponsesCompleteResponse', 'AutomationAgentResponsesFramesCreateResponse201', 'AutomationAgentToolCallsCreateResponse201', 'AutomationExecutionsCreateResponse201', 'AutomationExecutionsRetrieveResponse', 'AutomationAgentToolCallsCompleteResponse', 'NotificationsListResponse', 'NotificationsRequestsCreateResponse201', 'NotificationsRetrieveResponse', 'AccessRetrieveResponse', 'AutomationRetrieveResponse', 'ConversationSnapshotRetrieveResponse', 'DashboardRetrieveResponse', 'GovernanceRetrieveResponse', 'HomeRetrieveResponse', 'MediaRetrieveResponse', 'RealtimeRetrieveResponse', 'WorkspaceRetrieveResponse', 'MediaHealthRetrieveResponse', 'PrincipalProfileHealthRetrieveResponse', 'ConversationsKnowledgebaseRetrieveResponse', 'ConversationsKnowledgebaseCreateResponse', 'ConversationsKnowledgebaseCreateResponse201', 'ConversationsKnowledgebaseLaunchResponse', 'ConversationsArchiveResponse']
+__all__ = ['CreateGroupKnowledgebaseRequest', 'LaunchGroupKnowledgebaseRequest', 'ArchiveGroupConversationRequest', 'GroupKnowledgebaseLinkView', 'GroupKnowledgebaseLaunchResponse', 'ArchiveGroupConversationResponse', 'PortalSnapshotMeta', 'PortalDataAvailability', 'PortalModuleSnapshot', 'PortalOperationalMetrics', 'PortalDashboardSnapshot', 'PortalConversationOperationalMetrics', 'PortalConversationSnapshot', 'PortalAuditRecordView', 'PortalAccessSnapshot', 'PortalGovernanceRiskSample', 'PortalGovernanceSnapshot', 'PortalRealtimeMetrics', 'PortalRealtimeSnapshot', 'PortalWorkspaceView', 'Sender', 'StreamSession', 'StreamFrame', 'ProblemDetail', 'AgentSubject', 'AgentToolCall', 'AppendAgentResponseDeltaRequest', 'AutomationExecution', 'AutomationExecutionRequestResponse', 'CompleteAgentResponseRequest', 'CompleteAgentToolCallRequest', 'NotificationTask', 'NotificationRequestResponse', 'RequestAgentToolCallRequest', 'RequestAutomationExecution', 'RequestNotification', 'StartAgentResponseRequest', 'SdkWorkApiResponse', 'PageInfo', 'FieldError', 'AgentResponsesCreateResponse201', 'AgentResponsesCompleteResponse', 'AgentResponsesFramesCreateResponse201', 'AgentToolCallsCreateResponse201', 'ExecutionsCreateResponse201', 'ExecutionsRetrieveResponse', 'AgentToolCallsCompleteResponse', 'NotificationsListResponse', 'NotificationsRequestsCreateResponse201', 'NotificationsRetrieveResponse', 'AccessRetrieveResponse', 'AutomationRetrieveResponse', 'ConversationSnapshotRetrieveResponse', 'DashboardRetrieveResponse', 'GovernanceRetrieveResponse', 'HomeRetrieveResponse', 'MediaRetrieveResponse', 'RealtimeRetrieveResponse', 'WorkspaceRetrieveResponse', 'MediaHealthRetrieveResponse', 'ConversationsKnowledgebaseRetrieveResponse', 'ConversationsKnowledgebaseCreateResponse', 'ConversationsKnowledgebaseCreateResponse201', 'ConversationsKnowledgebaseLaunchResponse', 'ConversationsArchiveResponse']

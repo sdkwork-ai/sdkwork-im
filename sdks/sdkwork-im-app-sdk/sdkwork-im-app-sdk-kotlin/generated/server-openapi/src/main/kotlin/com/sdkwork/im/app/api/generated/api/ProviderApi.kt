@@ -14,12 +14,6 @@ class ProviderApi(private val client: HttpClient) {
         return client.convertValue(raw, object : TypeReference<MediaHealthRetrieveResponse>() {})
     }
 
-    /** Retrieve principal-profile provider health */
-    suspend fun principalProfileHealthRetrieve(): PrincipalProfileHealthRetrieveResponse? {
-        val raw = client.get(ApiPaths.appPath("/principal/profiles/provider_health"))
-        return client.convertValue(raw, object : TypeReference<PrincipalProfileHealthRetrieveResponse>() {})
-    }
-
 
 
 }

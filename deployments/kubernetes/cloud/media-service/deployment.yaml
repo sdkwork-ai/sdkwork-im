@@ -1,4 +1,4 @@
-﻿apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: media-service
@@ -64,8 +64,8 @@ spec:
             - configMapRef:
                 name: media-service-runtime
             - secretRef:
-                name: media-service-secrets
-                optional: true
+                name: sdkwork-im-shared-secrets
+                optional: false
           env:
             - name: SDKWORK_IM_ENVIRONMENT
               value: production

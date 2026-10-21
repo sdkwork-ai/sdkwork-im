@@ -671,6 +671,45 @@
       "write_owner": "comms-conversation-service",
       "migration": "database/ddl/baseline/postgres/0001_im_baseline.sql",
       "notes": "Durable source IM message to Agents turn to visible IM reply dispatch lifecycle."
+    },
+    {
+      "table_name": "im_conversation_member_preferences",
+      "owner": "im-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active",
+      "module_prefix": "im",
+      "bounded_context": "instant_messaging",
+      "table_profile": "member_preference",
+      "system_of_record": true,
+      "write_owner": "comms-conversation-service",
+      "migration": "database/migrations/postgres/0006_im_conversation_member_preferences.up.sql",
+      "notes": "Per-member Conversation pin/mute/mark-unread/hide preferences; member-scoped and cascaded with membership."
+    },
+    {
+      "table_name": "im_conversation_profiles",
+      "owner": "im-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active",
+      "module_prefix": "im",
+      "bounded_context": "instant_messaging",
+      "table_profile": "entity_extension",
+      "system_of_record": true,
+      "write_owner": "comms-conversation-service",
+      "migration": "database/migrations/postgres/0007_im_conversation_profiles.up.sql",
+      "notes": "Durable Conversation profile (display name/avatar/notice) with group/channel display fallback."
+    },
+    {
+      "table_name": "im_message_favorites",
+      "owner": "im-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active",
+      "module_prefix": "im",
+      "bounded_context": "instant_messaging",
+      "table_profile": "user_preference",
+      "system_of_record": true,
+      "write_owner": "comms-conversation-service",
+      "migration": "database/migrations/postgres/0008_im_message_favorites.up.sql",
+      "notes": "Principal Message favorites; deterministic favorite id, survives recall, no message foreign key."
     }
   ]
 }

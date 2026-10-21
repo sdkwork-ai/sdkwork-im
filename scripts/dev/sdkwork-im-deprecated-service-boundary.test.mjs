@@ -26,7 +26,7 @@ const gatewayConfig = [
   readText('crates', 'sdkwork-api-im-standalone-gateway', 'src', 'main.rs'),
   readText(
     'crates',
-    'sdkwork-api-im-standalone-gateway',
+    'sdkwork-api-im-assembly',
     'src',
     'embedded_dependency_routes.rs',
   ),

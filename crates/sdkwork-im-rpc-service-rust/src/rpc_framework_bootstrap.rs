@@ -71,6 +71,11 @@ fn static_endpoint_configured() -> bool {
 
 #[cfg(test)]
 mod tests {
+    // The workspace denies `unsafe_code`; this test-only module opts back in
+    // locally because Rust 2024 marks `std::env::set_var`/`remove_var` unsafe.
+    // Every test serializes mutations through `RPC_RESOLVER_ENV_LOCK`.
+    #![allow(unsafe_code)]
+
     use super::*;
     use crate::rpc_client_bootstrap::RPC_RESOLVER_ENV_LOCK;
 

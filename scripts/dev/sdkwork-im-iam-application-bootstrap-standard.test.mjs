@@ -213,8 +213,13 @@ assert.match(
 
 assert.match(
   standaloneGatewayMain,
-  /sdkwork_iam_database_host::bootstrap_iam_database_from_env\(\)/u,
-  'Standalone gateway must bootstrap IAM schema before tenant application bootstrap.',
+  /sdkwork_api_iam_assembly::bootstrap_iam_app_for_application\(\)/u,
+  'Standalone gateway must bootstrap the IAM application assembly (schema before provisioning).',
+);
+assert.ok(
+  standaloneGatewayMain.indexOf('bootstrap_iam_app_for_application')
+    < standaloneGatewayMain.indexOf('ensure_im_tenant_application_runtime_from_env'),
+  'IAM schema foundation must be installed before IM tenant application provisioning.',
 );
 
 assert.match(

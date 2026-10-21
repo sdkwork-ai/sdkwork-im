@@ -1,4 +1,4 @@
-﻿apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: conversation-service
@@ -64,7 +64,7 @@ spec:
             - configMapRef:
                 name: conversation-service-runtime
             - secretRef:
-                name: conversation-service-secrets
+                name: sdkwork-im-shared-secrets
                 optional: false
           env:
             - name: SDKWORK_IM_ENVIRONMENT
@@ -105,15 +105,15 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-            - name: conversation-service-secrets
+            - name: sdkwork-im-shared-secrets
               mountPath: /var/run/secrets/sdkwork/conversation-service
               readOnly: true
       volumes:
         - name: tmp
           emptyDir: {}
-        - name: conversation-service-secrets
+        - name: sdkwork-im-shared-secrets
           secret:
-            secretName: conversation-service-secrets
+            secretName: sdkwork-im-shared-secrets
             optional: false
             defaultMode: 0440
 ---

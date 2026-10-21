@@ -89,6 +89,15 @@ impl ConversationStateService {
         };
 
         let Some(scope_items) = scope_items else {
+            // The disposable cache has no scope entry (restart/eviction).
+            // Hydrate this page from the durable reaction/pin rows instead of
+            // rendering timeline entries without pins or reaction counts.
+            self.enrich_timeline_entries_from_durable(
+                tenant_id,
+                organization_id,
+                conversation_id,
+                entries,
+            );
             return;
         };
 
@@ -114,6 +123,53 @@ impl ConversationStateService {
         }
     }
 
+    fn enrich_timeline_entries_from_durable(
+        &self,
+        tenant_id: &str,
+        organization_id: &str,
+        conversation_id: &str,
+        entries: &mut [crate::conversation_state::model::TimelineViewEntry],
+    ) {
+        let Some(store) = self.message_interaction_read_store() else {
+            return;
+        };
+        let message_ids = entries
+            .iter()
+            .map(|entry| entry.message_id.clone())
+            .collect::<Vec<_>>();
+        let Ok(rows) = store.read_interactions(
+            tenant_id,
+            organization_id,
+            conversation_id,
+            &message_ids,
+        ) else {
+            return;
+        };
+        let by_id = rows
+            .into_iter()
+            .map(|row| (row.message_id.clone(), row))
+            .collect::<HashMap<_, _>>();
+        for entry in entries.iter_mut() {
+            let Some(row) = by_id.get(entry.message_id.as_str()) else {
+                continue;
+            };
+            let mut counts: BTreeMap<String, u64> = BTreeMap::new();
+            for reaction in &row.reactions {
+                *counts.entry(reaction.reaction_key.clone()).or_insert(0) += 1;
+            }
+            entry.reaction_counts = counts
+                .into_iter()
+                .map(
+                    |(reaction_key, count)| crate::conversation_state::MessageReactionCountView {
+                        reaction_key,
+                        count,
+                    },
+                )
+                .collect();
+            entry.pin = row.pin.clone().map(durable_pin_to_view);
+        }
+    }
+
     pub fn message_interaction_summary(
         &self,
         tenant_id: &str,
@@ -122,28 +178,60 @@ impl ConversationStateService {
         message_id: &str,
     ) -> Option<MessageInteractionSummaryView> {
         let scope = scope_key(tenant_id, organization_id, conversation_id);
-        let view = if let Some(view) = super::lock_conversation_state_mutex(
+        let cached = super::lock_conversation_state_mutex(
             &self.message_interactions,
             "message interaction store",
         )
         .get(scope.as_str())
         .and_then(|scope_items| scope_items.get(message_id))
-        .map(stored_interaction_to_view)
-        {
-            view
-        } else {
-            let message_seq =
-                self.timeline_message_seq(tenant_id, organization_id, conversation_id, message_id)?;
-            MessageInteractionSummaryView {
-                tenant_id: tenant_id.into(),
-                conversation_id: conversation_id.into(),
-                message_id: message_id.into(),
-                message_seq,
-                total_reaction_count: 0,
-                reaction_counts: Vec::new(),
-                pin: None,
-                read_receipt: MessageReadReceiptSummaryView::default(),
-                delivery_receipt: Default::default(),
+        .map(stored_interaction_to_view);
+        let view = match cached {
+            Some(view) => view,
+            None => {
+                // The interaction cache is disposable. After a restart (or
+                // eviction) read the durable reaction/pin rows instead of
+                // reporting an empty summary.
+                let durable = self
+                    .message_interaction_read_store()
+                    .and_then(|store| {
+                        store
+                            .read_interactions(
+                                tenant_id,
+                                organization_id,
+                                conversation_id,
+                                &[message_id.to_owned()],
+                            )
+                            .ok()
+                    })
+                    .and_then(|rows| rows.into_iter().next())
+                    .map(|row| {
+                        durable_interaction_to_view(
+                            tenant_id,
+                            conversation_id,
+                            row,
+                        )
+                    });
+                durable.unwrap_or_else(|| {
+                    let message_seq = self
+                        .timeline_message_seq(
+                            tenant_id,
+                            organization_id,
+                            conversation_id,
+                            message_id,
+                        )
+                        .unwrap_or(0);
+                    MessageInteractionSummaryView {
+                        tenant_id: tenant_id.into(),
+                        conversation_id: conversation_id.into(),
+                        message_id: message_id.into(),
+                        message_seq,
+                        total_reaction_count: 0,
+                        reaction_counts: Vec::new(),
+                        pin: None,
+                        read_receipt: MessageReadReceiptSummaryView::default(),
+                        delivery_receipt: Default::default(),
+                    }
+                })
             }
         };
         Some(self.enrich_interaction_summary_with_receipts(
@@ -269,6 +357,10 @@ impl ConversationStateService {
     ) -> sdkwork_utils_rust::SdkWorkPageData<MessageInteractionSummaryView> {
         use sdkwork_utils_rust::cursor_window_page_info;
         let scope = scope_key(tenant_id, organization_id, conversation_id);
+        let is_start = matches!(
+            cursor,
+            crate::conversation_state::model::PinnedMessagesListCursor::Start
+        );
         let list_cursor = match cursor {
             crate::conversation_state::model::PinnedMessagesListCursor::Start => None,
             other => Some(other),
@@ -286,12 +378,37 @@ impl ConversationStateService {
         drop(index);
         drop(store);
 
-        let (items, has_more) = pinned_messages_window_slice_from_index(
+        let (mut items, mut has_more) = pinned_messages_window_slice_from_index(
             &index_keys,
             &scope_items,
             list_cursor,
             page_size,
         );
+        if items.is_empty() && is_start {
+            // Cold disposable cache (restart/eviction): serve the durable pin
+            // rows so pinned messages are not reported as an empty list.
+            if let Some(store) = self.message_interaction_read_store() {
+                if let Ok(rows) = store.list_pinned_messages(
+                    tenant_id,
+                    organization_id,
+                    conversation_id,
+                    page_size.saturating_add(1),
+                ) {
+                    has_more = rows.len() > page_size;
+                    items = rows
+                        .into_iter()
+                        .take(page_size)
+                        .map(|row| {
+                            durable_pinned_message_to_view(
+                                tenant_id,
+                                conversation_id,
+                                row,
+                            )
+                        })
+                        .collect();
+                }
+            }
+        }
         let next_cursor = if has_more {
             items.last().and_then(|item| {
                 let pin = item.pin.as_ref()?;
@@ -791,6 +908,63 @@ pub(super) fn pinned_messages_window_slice_from_index(
     (window, has_more)
 }
 
+fn durable_interaction_to_view(
+    tenant_id: &str,
+    conversation_id: &str,
+    stored: im_platform_contracts::StoredMessageInteraction,
+) -> MessageInteractionSummaryView {
+    let mut counts: BTreeMap<String, u64> = BTreeMap::new();
+    for reaction in &stored.reactions {
+        *counts.entry(reaction.reaction_key.clone()).or_insert(0) += 1;
+    }
+    let reaction_counts = counts
+        .into_iter()
+        .map(|(reaction_key, count)| MessageReactionCountView {
+            reaction_key,
+            count,
+        })
+        .collect::<Vec<_>>();
+    MessageInteractionSummaryView {
+        tenant_id: tenant_id.to_owned(),
+        conversation_id: conversation_id.to_owned(),
+        message_id: stored.message_id,
+        message_seq: stored.message_seq,
+        total_reaction_count: reaction_counts.iter().map(|item| item.count).sum(),
+        reaction_counts,
+        pin: stored.pin.map(durable_pin_to_view),
+        read_receipt: MessageReadReceiptSummaryView::default(),
+        delivery_receipt: Default::default(),
+    }
+}
+
+fn durable_pinned_message_to_view(
+    tenant_id: &str,
+    conversation_id: &str,
+    stored: im_platform_contracts::StoredPinnedMessage,
+) -> MessageInteractionSummaryView {
+    MessageInteractionSummaryView {
+        tenant_id: tenant_id.to_owned(),
+        conversation_id: conversation_id.to_owned(),
+        message_id: stored.message_id,
+        message_seq: stored.message_seq,
+        total_reaction_count: 0,
+        reaction_counts: Vec::new(),
+        pin: Some(durable_pin_to_view(stored.pin)),
+        read_receipt: MessageReadReceiptSummaryView::default(),
+        delivery_receipt: Default::default(),
+    }
+}
+
+fn durable_pin_to_view(pin: im_platform_contracts::StoredMessagePin) -> MessagePinView {
+    MessagePinView {
+        pinned_by: InteractionActorView {
+            id: pin.pinned_by_principal_id,
+            kind: pin.pinned_by_principal_kind,
+        },
+        pinned_at: pin.pinned_at,
+    }
+}
+
 fn stored_interaction_to_view(
     stored: &StoredMessageInteractionSummary,
 ) -> MessageInteractionSummaryView {
@@ -815,5 +989,116 @@ fn stored_interaction_to_view(
         }),
         read_receipt: MessageReadReceiptSummaryView::default(),
         delivery_receipt: Default::default(),
+    }
+}
+
+#[cfg(test)]
+mod durable_fallback_tests {
+    use std::sync::Arc;
+
+    use im_platform_contracts::{
+        ContractError, MessageInteractionReadStore, StoredMessageInteraction, StoredMessagePin,
+        StoredMessageReaction, StoredPinnedMessage,
+    };
+
+    use super::*;
+
+    struct FixedReadStore {
+        interaction: StoredMessageInteraction,
+        pinned: StoredPinnedMessage,
+    }
+
+    impl MessageInteractionReadStore for FixedReadStore {
+        fn read_interactions(
+            &self,
+            _tenant_id: &str,
+            _organization_id: &str,
+            _conversation_id: &str,
+            message_ids: &[String],
+        ) -> Result<Vec<StoredMessageInteraction>, ContractError> {
+            Ok(message_ids
+                .iter()
+                .filter(|id| id.as_str() == self.interaction.message_id)
+                .map(|_| self.interaction.clone())
+                .collect())
+        }
+
+        fn list_pinned_messages(
+            &self,
+            _tenant_id: &str,
+            _organization_id: &str,
+            _conversation_id: &str,
+            _limit: usize,
+        ) -> Result<Vec<StoredPinnedMessage>, ContractError> {
+            Ok(vec![self.pinned.clone()])
+        }
+    }
+
+    fn service_with_durable_rows() -> ConversationStateService {
+        let service = ConversationStateService::default();
+        service.configure_message_interaction_read_store(Arc::new(FixedReadStore {
+            interaction: StoredMessageInteraction {
+                message_id: "11".into(),
+                message_seq: 7,
+                reactions: vec![
+                    StoredMessageReaction {
+                        actor_principal_kind: "user".into(),
+                        actor_principal_id: "1".into(),
+                        reaction_key: "like".into(),
+                        reacted_at: "2026-10-21T00:00:00Z".into(),
+                    },
+                    StoredMessageReaction {
+                        actor_principal_kind: "user".into(),
+                        actor_principal_id: "2".into(),
+                        reaction_key: "like".into(),
+                        reacted_at: "2026-10-21T00:01:00Z".into(),
+                    },
+                ],
+                pin: Some(StoredMessagePin {
+                    pinned_by_principal_kind: "user".into(),
+                    pinned_by_principal_id: "1".into(),
+                    pinned_at: "2026-10-21T00:02:00Z".into(),
+                }),
+            },
+            pinned: StoredPinnedMessage {
+                message_id: "11".into(),
+                message_seq: 7,
+                pin: StoredMessagePin {
+                    pinned_by_principal_kind: "user".into(),
+                    pinned_by_principal_id: "1".into(),
+                    pinned_at: "2026-10-21T00:02:00Z".into(),
+                },
+            },
+        }));
+        service
+    }
+
+    #[test]
+    fn cold_cache_summary_reads_durable_reactions_and_pin() {
+        let service = service_with_durable_rows();
+        let summary = service
+            .message_interaction_summary("100001", "0", "c1", "11")
+            .expect("summary");
+        assert_eq!(summary.message_seq, 7);
+        assert_eq!(summary.total_reaction_count, 2);
+        assert_eq!(summary.reaction_counts.len(), 1);
+        assert_eq!(summary.reaction_counts[0].reaction_key, "like");
+        assert_eq!(summary.pin.expect("pin").pinned_by.id, "1");
+    }
+
+    #[test]
+    fn cold_cache_pinned_window_reads_durable_pins() {
+        let service = service_with_durable_rows();
+        let page = service.pinned_messages_window(
+            "100001",
+            "0",
+            "c1",
+            10,
+            crate::conversation_state::model::PinnedMessagesListCursor::Start,
+        );
+        assert_eq!(page.items.len(), 1);
+        assert_eq!(page.items[0].tenant_id, "100001");
+        assert_eq!(page.items[0].conversation_id, "c1");
+        assert_eq!(page.page_info.has_more, Some(false));
     }
 }

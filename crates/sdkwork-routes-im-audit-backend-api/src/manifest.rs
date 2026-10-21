@@ -44,5 +44,18 @@ pub const ROUTES: &[HttpRoute] = &[
 ];
 
 pub fn route_manifest() -> HttpRouteManifest {
-    HttpRouteManifest::new(ROUTES)
+    // Defense in depth: route-level permission is enforced by the framework
+    // interceptor in addition to handler-level access checks.
+    let routes = ROUTES
+        .iter()
+        .map(|route| {
+            let permission = if route.method == HttpMethod::Get {
+                "audit.read"
+            } else {
+                "audit.write"
+            };
+            route.with_required_permission(permission)
+        })
+        .collect::<Vec<_>>();
+    HttpRouteManifest::new(&routes)
 }

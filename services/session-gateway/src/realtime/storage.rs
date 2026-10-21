@@ -4,7 +4,7 @@ use im_platform_contracts::{
 use im_time::rfc3339_le;
 use sdkwork_im_contract_control::{
     RealtimeCheckpointRecord, RealtimeCheckpointStore, RealtimeMatchingSubscriptionQuery,
-    RealtimeSubscriptionRecord, RealtimeSubscriptionStore, RealtimePrincipalScopeDevicePageQuery,
+    RealtimePrincipalScopeDevicePageQuery, RealtimeSubscriptionRecord, RealtimeSubscriptionStore,
 };
 use sdkwork_im_contract_core::ContractError;
 use std::collections::HashMap;
@@ -147,8 +147,11 @@ impl RealtimeSubscriptionStore for RuntimeMemorySubscriptionStore {
                     && record.organization_id == query.organization_id
                     && record.principal_kind == query.principal_kind
                     && record.principal_id == query.principal_id
-                    && record
-                        .matches_scope_event(query.scope_type, query.scope_id, query.event_type)
+                    && record.matches_scope_event(
+                        query.scope_type,
+                        query.scope_id,
+                        query.event_type,
+                    )
             })
             .map(|record| record.device_id.clone())
             .filter(|device_id| {

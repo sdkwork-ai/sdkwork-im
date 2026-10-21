@@ -149,6 +149,8 @@ No phase is complete merely because source code, a generated SDK, or a deferred 
 - [Database inventory](../../database-design.md)
 - `specs/IM_DOMAIN_AND_PERSISTENCE_SPEC.md`
 - `specs/IM_AGENTS_DEPENDENCY_AND_DATABASE_SPEC.md`
+- [PRD-01 baseline audit](./PRD-01-baseline-audit.md)
+- [PRD-01 product design requirements scope](./PRD-01-productdesignrequirementsscope.md)
 
 ## 9. Open Questions
 

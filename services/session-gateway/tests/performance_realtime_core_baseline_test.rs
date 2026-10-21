@@ -287,15 +287,12 @@ fn test_step11_im_realtime_core_quant_gate_emits_thresholded_metrics() {
                 principal_kind: PRINCIPAL_KIND,
                 device_id,
                 after_seq: 0,
-                limit: 1_000,
+                limit: 200,
             }),
         );
-        assert_eq!(window.items.len(), 1_000);
+        assert_eq!(window.items.len(), 200);
         assert_eq!(window.items[0].realtime_seq, 51);
-        assert_eq!(
-            window.items[999].realtime_seq,
-            baseline.realtime_core.message_count as u64
-        );
+        assert_eq!(window.items[199].realtime_seq, 250);
     }
 
     let mut ack_latencies_ms = Vec::with_capacity(baseline.realtime_core.ack_checkpoint_count);
@@ -336,7 +333,7 @@ fn test_step11_im_realtime_core_quant_gate_emits_thresholded_metrics() {
             principal_kind: PRINCIPAL_KIND,
             device_id: "d_primary",
             after_seq: 0,
-            limit: 1_000,
+            limit: 200,
         },
     ));
     let restore_duration_ms = restore_started.elapsed().as_secs_f64() * 1000.0;
@@ -374,7 +371,7 @@ fn test_step11_im_realtime_core_quant_gate_emits_thresholded_metrics() {
             principal_kind: PRINCIPAL_KIND,
             device_id: "d_mobile",
             after_seq: 0,
-            limit: 1_000,
+            limit: 200,
         },
     ));
     assert_eq!(mobile_after_failed_ack.acked_through_seq, 700);

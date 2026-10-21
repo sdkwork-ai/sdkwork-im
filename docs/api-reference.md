@@ -14,17 +14,17 @@ the contract authority; SDK-family OpenAPI under `sdks/` is a deterministic mate
 
 | Surface | Prefix | Operations | Authored authority | SDK authority | SDK family |
 | --- | --- | ---: | --- | --- | --- |
-| Open API | `/im/v3/api` | 132 | `apis/open-api/im/sdkwork-im-im.openapi.yaml` | `sdks/sdkwork-im-sdk/openapi/sdkwork-im-im.openapi.yaml` | `sdkwork-im-sdk` |
+| Open API | `/im/v3/api` | 134 | `apis/open-api/im/sdkwork-im-im.openapi.yaml` | `sdks/sdkwork-im-sdk/openapi/sdkwork-im-im.openapi.yaml` | `sdkwork-im-sdk` |
 | App API | `/app/v3/api` | 24 | `apis/app-api/communication/sdkwork-im-app-api.openapi.yaml` | `sdks/sdkwork-im-app-sdk/openapi/sdkwork-im-app-api.openapi.yaml` | `sdkwork-im-app-sdk` |
 | Backend API | `/backend/v3/api` | 58 | `apis/backend-api/communication/sdkwork-im-backend-api.openapi.yaml` | `sdks/sdkwork-im-backend-sdk/openapi/sdkwork-im-backend-api.openapi.yaml` | `sdkwork-im-backend-sdk` |
-| **Total** | - | **211** | - | - | - |
+| **Total** | - | **216** | - | - | - |
 
 ## Operation Inventory
 
 Each row is extracted from the authored OpenAPI `paths` object. Method, path, and `operationId`
 are public contract identifiers and must change at the OpenAPI source before this file is regenerated.
 
-### Open API (132)
+### Open API (134)
 
 | Method | Path | operationId |
 | --- | --- | --- |
@@ -67,6 +67,8 @@ are public contract identifiers and must change at the OpenAPI source before thi
 | `GET` | `/im/v3/api/chat/conversations/{conversationId}/read_cursor` | `conversations.readCursor.retrieve` |
 | `PATCH` | `/im/v3/api/chat/conversations/{conversationId}/read_cursor` | `conversations.readCursor.update` |
 | `POST` | `/im/v3/api/chat/conversations/{conversationId}/system_channel/publish` | `conversations.systemChannel.publish` |
+| `GET` | `/im/v3/api/chat/conversations/{conversationId}/typing` | `conversations.typing.list` |
+| `POST` | `/im/v3/api/chat/conversations/{conversationId}/typing/signal` | `conversations.typing.signal` |
 | `POST` | `/im/v3/api/chat/conversations/agent_dialogs` | `conversations.agentDialogs.create` |
 | `POST` | `/im/v3/api/chat/conversations/agent_handoffs` | `conversations.agentHandoffs.create` |
 | `POST` | `/im/v3/api/chat/conversations/direct_chats/bindings` | `conversations.directChats.bindings.create` |
@@ -195,8 +197,8 @@ are public contract identifiers and must change at the OpenAPI source before thi
 | Method | Path | operationId |
 | --- | --- | --- |
 | `GET` | `/backend/v3/api/audit/export` | `audit.export.retrieve` |
-| `POST` | `/backend/v3/api/audit/records` | `audit.records.create` |
 | `GET` | `/backend/v3/api/audit/records` | `audit.records.list` |
+| `POST` | `/backend/v3/api/audit/records` | `audit.records.create` |
 | `GET` | `/backend/v3/api/audit/verify` | `verify.retrieve` |
 | `GET` | `/backend/v3/api/automation/governance` | `governance.retrieve` |
 | `POST` | `/backend/v3/api/control/nodes/{nodeId}/activate` | `nodes.activate` |

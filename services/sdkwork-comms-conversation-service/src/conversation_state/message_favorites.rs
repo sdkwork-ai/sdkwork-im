@@ -1,6 +1,9 @@
 use std::cmp::Ordering;
 use std::ops::Bound::{Excluded, Unbounded};
 
+use im_platform_contracts::{
+    ContractError, MessageFavoritePageCursor, MessageFavoriteRecord, MessageFavoriteStore,
+};
 use im_time::utc_now_rfc3339_millis;
 use sdkwork_utils_rust::SdkWorkPageData;
 
@@ -62,7 +65,7 @@ pub(super) fn message_favorites_scope_key(
     )
 }
 
-fn favorite_id_for_message(principal_id: &str, message_id: &str) -> String {
+pub(super) fn favorite_id_for_message(principal_id: &str, message_id: &str) -> String {
     format!("fav_{principal_id}_{message_id}")
 }
 
@@ -258,6 +261,138 @@ impl ConversationStateService {
     }
 }
 
+impl ConversationStateService {
+    /// Durable favorites page from `im_message_favorites`.
+    pub(crate) fn message_favorites_window_from_authority(
+        &self,
+        store: &dyn MessageFavoriteStore,
+        query: MessageFavoritesWindowQuery<'_>,
+    ) -> Result<
+        SdkWorkPageData<super::MessageFavoriteView>,
+        crate::conversation_state::event_apply::ConversationStateError,
+    > {
+        let limit = query.limit.max(1);
+        let cursor = match &query.cursor {
+            FavoriteMessagesListCursor::Start => None,
+            FavoriteMessagesListCursor::Keyset {
+                favorited_at,
+                favorite_id,
+            } => Some(MessageFavoritePageCursor {
+                favorited_at: favorited_at.clone(),
+                favorite_id: favorite_id.clone(),
+            }),
+        };
+        let page = store
+            .list_favorites(
+                query.tenant_id,
+                query.organization_id,
+                query.principal_kind,
+                query.principal_id,
+                cursor.as_ref(),
+                limit,
+                query.favorite_type,
+                query.search_query,
+            )
+            .map_err(
+                crate::conversation_state::event_apply::ConversationStateError::StoreFailure,
+            )?;
+        let items = page
+            .items
+            .into_iter()
+            .map(message_favorite_view_from_record)
+            .collect::<Vec<_>>();
+        let next_cursor = if page.has_more {
+            page.next_cursor
+                .as_ref()
+                .map(|next| {
+                    let payload = serde_json::json!({
+                        "favoritedAt": next.favorited_at,
+                        "favoriteId": next.favorite_id,
+                    });
+                    crate::conversation_state::cursor_auth::encode_conversation_state_list_cursor(
+                        &payload,
+                    )
+                })
+                .transpose()?
+        } else {
+            None
+        };
+        Ok(super::list_page::cursor_page(
+            items,
+            limit,
+            next_cursor,
+            page.has_more,
+        ))
+    }
+
+    /// Durable favorite create/refresh. `None` means the Message is not in the
+    /// Conversation, so no authoritative `message_seq` exists.
+    pub(crate) fn create_message_favorite_in_authority(
+        &self,
+        store: &dyn MessageFavoriteStore,
+        tenant_id: &str,
+        organization_id: &str,
+        principal_kind: &str,
+        principal_id: &str,
+        message_id: &str,
+        request: FavoriteMessageRequest,
+    ) -> Result<Option<MessageFavoriteView>, ContractError> {
+        let record = MessageFavoriteRecord {
+            tenant_id: tenant_id.to_owned(),
+            organization_id: organization_id.to_owned(),
+            principal_kind: principal_kind.to_owned(),
+            principal_id: principal_id.to_owned(),
+            favorite_id: favorite_id_for_message(principal_id, message_id),
+            favorite_type: request.favorite_type,
+            conversation_id: request.conversation_id,
+            message_id: message_id.to_owned(),
+            message_seq: 0,
+            title: request.title,
+            content_preview: request.content_preview,
+            source_display_name: request.source_display_name,
+            favorited_at: utc_now_rfc3339_millis(),
+        };
+        Ok(store
+            .create_favorite(record)?
+            .map(message_favorite_view_from_record))
+    }
+
+    pub(crate) fn delete_message_favorite_in_authority(
+        &self,
+        store: &dyn MessageFavoriteStore,
+        tenant_id: &str,
+        organization_id: &str,
+        principal_kind: &str,
+        principal_id: &str,
+        favorite_id: &str,
+    ) -> Result<bool, ContractError> {
+        store.delete_favorite(
+            tenant_id,
+            organization_id,
+            principal_kind,
+            principal_id,
+            favorite_id,
+        )
+    }
+}
+
+fn message_favorite_view_from_record(record: MessageFavoriteRecord) -> MessageFavoriteView {
+    MessageFavoriteView {
+        tenant_id: record.tenant_id,
+        principal_kind: record.principal_kind,
+        principal_id: record.principal_id,
+        favorite_id: record.favorite_id,
+        favorite_type: record.favorite_type,
+        conversation_id: record.conversation_id,
+        message_id: record.message_id,
+        message_seq: record.message_seq,
+        title: record.title,
+        content_preview: record.content_preview,
+        source_display_name: record.source_display_name,
+        favorited_at: record.favorited_at,
+    }
+}
+
 fn favorite_matches_query(favorite: &MessageFavoriteView, query: &str) -> bool {
     let needle = query.trim().to_ascii_lowercase();
     if needle.is_empty() {
@@ -450,5 +585,202 @@ mod tests {
                 .iter()
                 .all(|favorite| favorite.favorite_type == "message")
         );
+    }
+}
+
+#[cfg(test)]
+mod authority_tests {
+    use std::sync::Mutex;
+
+    use im_platform_contracts::{
+        ContractError, MessageFavoritePage, MessageFavoritePageCursor, MessageFavoriteRecord,
+        MessageFavoriteStore,
+    };
+
+    use super::{
+        ConversationStateService, FavoriteMessageRequest, FavoriteMessagesListCursor,
+        MessageFavoritesWindowQuery,
+    };
+
+    const TEST_CURSOR_SECRET_ENV: &str = "SDKWORK_IM_CONVERSATION_STATE_CURSOR_HS256_SECRET";
+
+    struct CursorSecretGuard {
+        _lock: std::sync::MutexGuard<'static, ()>,
+        previous: Option<String>,
+    }
+
+    impl CursorSecretGuard {
+        fn set() -> Self {
+            let lock = crate::conversation_state::lock_conversation_state_test_environment();
+            let previous = std::env::var(TEST_CURSOR_SECRET_ENV).ok();
+            #[allow(unsafe_code)]
+            unsafe {
+                std::env::set_var(
+                    TEST_CURSOR_SECRET_ENV,
+                    "favorites-authority-test-secret-at-least-32-bytes",
+                );
+            }
+            Self {
+                _lock: lock,
+                previous,
+            }
+        }
+    }
+
+    impl Drop for CursorSecretGuard {
+        fn drop(&mut self) {
+            #[allow(unsafe_code)]
+            unsafe {
+                match &self.previous {
+                    Some(value) => std::env::set_var(TEST_CURSOR_SECRET_ENV, value),
+                    None => std::env::remove_var(TEST_CURSOR_SECRET_ENV),
+                }
+            }
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeFavoriteStore {
+        page: Mutex<Option<MessageFavoritePage>>,
+        deleted: Mutex<bool>,
+        create_seq: Mutex<Option<u64>>,
+    }
+
+    impl MessageFavoriteStore for FakeFavoriteStore {
+        fn list_favorites(
+            &self,
+            _tenant_id: &str,
+            _organization_id: &str,
+            _principal_kind: &str,
+            _principal_id: &str,
+            _cursor: Option<&MessageFavoritePageCursor>,
+            _limit: usize,
+            _favorite_type: Option<&str>,
+            _search: Option<&str>,
+        ) -> Result<MessageFavoritePage, ContractError> {
+            Ok(self
+                .page
+                .lock()
+                .expect("page lock")
+                .take()
+                .unwrap_or(MessageFavoritePage {
+                    items: Vec::new(),
+                    next_cursor: None,
+                    has_more: false,
+                }))
+        }
+
+        fn create_favorite(
+            &self,
+            mut record: MessageFavoriteRecord,
+        ) -> Result<Option<MessageFavoriteRecord>, ContractError> {
+            let Some(seq) = *self.create_seq.lock().expect("seq lock") else {
+                return Ok(None);
+            };
+            record.message_seq = seq;
+            Ok(Some(record))
+        }
+
+        fn delete_favorite(
+            &self,
+            _tenant_id: &str,
+            _organization_id: &str,
+            _principal_kind: &str,
+            _principal_id: &str,
+            _favorite_id: &str,
+        ) -> Result<bool, ContractError> {
+            Ok(*self.deleted.lock().expect("deleted lock"))
+        }
+    }
+
+    fn record(favorite_id: &str, favorited_at: &str) -> MessageFavoriteRecord {
+        MessageFavoriteRecord {
+            tenant_id: "100001".into(),
+            organization_id: "0".into(),
+            principal_kind: "user".into(),
+            principal_id: "1".into(),
+            favorite_id: favorite_id.into(),
+            favorite_type: "message".into(),
+            conversation_id: "c_fav".into(),
+            message_id: "9001".into(),
+            message_seq: 3,
+            title: "title".into(),
+            content_preview: "preview".into(),
+            source_display_name: "Alice".into(),
+            favorited_at: favorited_at.into(),
+        }
+    }
+
+    #[test]
+    fn favorites_page_maps_durable_rows_and_emits_cursor() {
+        let _cursor_secret = CursorSecretGuard::set();
+        let store = FakeFavoriteStore::default();
+        *store.page.lock().expect("page lock") = Some(MessageFavoritePage {
+            items: vec![
+                record("fav_1", "2026-10-20T02:00:00.000Z"),
+                record("fav_2", "2026-10-20T01:00:00.000Z"),
+            ],
+            next_cursor: Some(MessageFavoritePageCursor {
+                favorited_at: "2026-10-20T01:00:00.000Z".into(),
+                favorite_id: "fav_2".into(),
+            }),
+            has_more: true,
+        });
+        let service = ConversationStateService::default();
+
+        let window = service
+            .message_favorites_window_from_authority(
+                &store,
+                MessageFavoritesWindowQuery {
+                    tenant_id: "100001",
+                    organization_id: "0",
+                    principal_kind: "user",
+                    principal_id: "1",
+                    limit: 2,
+                    cursor: FavoriteMessagesListCursor::Start,
+                    favorite_type: None,
+                    search_query: None,
+                },
+            )
+            .expect("durable favorites page");
+        assert_eq!(window.items.len(), 2);
+        assert_eq!(window.items[0].favorite_id, "fav_1");
+        assert_eq!(window.items[0].message_seq, 3);
+        assert_eq!(window.page_info.has_more, Some(true));
+        assert!(window.page_info.next_cursor.is_some());
+    }
+
+    #[test]
+    fn create_and_delete_favorite_use_the_durable_store() {
+        let store = FakeFavoriteStore::default();
+        *store.create_seq.lock().expect("seq lock") = Some(7);
+        *store.deleted.lock().expect("deleted lock") = true;
+        let service = ConversationStateService::default();
+
+        let created = service
+            .create_message_favorite_in_authority(
+                &store,
+                "100001",
+                "0",
+                "user",
+                "1",
+                "9001",
+                FavoriteMessageRequest {
+                    conversation_id: "c_fav".into(),
+                    favorite_type: "message".into(),
+                    title: "title".into(),
+                    content_preview: "preview".into(),
+                    source_display_name: "Alice".into(),
+                },
+            )
+            .expect("durable favorite create")
+            .expect("favorite view");
+        assert_eq!(created.favorite_id, "fav_1_9001");
+        assert_eq!(created.message_seq, 7);
+
+        let deleted = service
+            .delete_message_favorite_in_authority(&store, "100001", "0", "user", "1", "fav_1_9001")
+            .expect("durable favorite delete");
+        assert!(deleted);
     }
 }

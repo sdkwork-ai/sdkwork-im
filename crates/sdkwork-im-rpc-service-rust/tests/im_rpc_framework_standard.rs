@@ -1,3 +1,8 @@
+// The workspace denies `unsafe_code`; this integration-test binary opts back in
+// locally because Rust 2024 marks `std::env::set_var`/`remove_var` unsafe. Every
+// mutation is serialized through the module-level environment lock.
+#![allow(unsafe_code)]
+
 #[test]
 fn im_rpc_sdk_manifest_declares_discovery_and_resilience() {
     let manifest_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))

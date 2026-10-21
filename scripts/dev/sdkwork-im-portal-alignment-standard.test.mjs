@@ -129,11 +129,21 @@ assert.match(
 const activeCloudDevelopmentProfileText = cloudDevelopmentProfileText
   .split(/\r?\n/u)
   .filter((line) => !line.trimStart().startsWith('#'))
+  .filter((line) => !/^SDKWORK_LOCAL_/u.test(line.trim()))
+  .filter((line) => !/^SDKWORK_CORS_ALLOWED_ORIGINS=/u.test(line.trim()))
   .join('\n');
 assert.doesNotMatch(
   activeCloudDevelopmentProfileText,
   /(?:localhost|127\.0\.0\.1)/u,
-  'cloud development source config must remain client-only and remote-bound',
+  'cloud development source config must remain client-only and remote-bound outside the documented local debug override',
+);
+assert.doesNotMatch(
+  cloudDevelopmentProfileText
+    .split(/\r?\n/u)
+    .filter((line) => /^VITE_/u.test(line.trim()))
+    .join('\n'),
+  /(?:localhost|127\.0\.0\.1)/u,
+  'cloud development VITE build values must not contain loopback URLs',
 );
 assert.match(
   productRuntimeText,

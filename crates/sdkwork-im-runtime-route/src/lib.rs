@@ -89,7 +89,8 @@ pub struct RouteNodeLifecycle {
     pub node_id: String,
     pub drain_status: String,
     pub rebalance_state: String,
-    pub owned_route_count: usize,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
+    pub owned_route_count: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -97,7 +98,8 @@ pub struct RouteNodeLifecycle {
 pub struct RouteMigrationResult {
     pub source_node_id: String,
     pub target_node_id: String,
-    pub migrated_route_count: usize,
+    #[serde(with = "sdkwork_utils_rust::serde_uint64")]
+    pub migrated_route_count: u64,
     pub source_drain_status: String,
     pub source_rebalance_state: String,
     pub target_drain_status: String,
@@ -400,7 +402,7 @@ impl RouteDirectory {
         Ok(RouteMigrationResult {
             source_node_id: source_node_id.into(),
             target_node_id: target_node_id.into(),
-            migrated_route_count: migrated,
+            migrated_route_count: migrated as u64,
             source_drain_status: source_status.drain_status,
             source_rebalance_state: source_status.rebalance_state,
             target_drain_status: target_status.drain_status,
@@ -586,7 +588,7 @@ impl RouteDirectory {
             node_id: node_id.into(),
             drain_status: state.drain_status,
             rebalance_state: state.rebalance_state,
-            owned_route_count: self.owned_route_count(node_id),
+            owned_route_count: self.owned_route_count(node_id) as u64,
         })
     }
 
@@ -707,6 +709,30 @@ pub use route_store::{RouteStore, memory_route_store};
 mod tests {
     use super::*;
     use std::panic::{self, AssertUnwindSafe};
+
+    #[test]
+    fn route_counts_serialize_as_int64_strings() {
+        let lifecycle = RouteNodeLifecycle {
+            node_id: "n1".into(),
+            drain_status: "active".into(),
+            rebalance_state: "stable".into(),
+            owned_route_count: 12,
+        };
+        let value = serde_json::to_value(&lifecycle).expect("serialize lifecycle");
+        assert_eq!(value["ownedRouteCount"], serde_json::json!("12"));
+
+        let migration = RouteMigrationResult {
+            source_node_id: "n1".into(),
+            target_node_id: "n2".into(),
+            migrated_route_count: 3,
+            source_drain_status: "drained".into(),
+            source_rebalance_state: "stable".into(),
+            target_drain_status: "active".into(),
+            target_rebalance_state: "stable".into(),
+        };
+        let value = serde_json::to_value(&migration).expect("serialize migration");
+        assert_eq!(value["migratedRouteCount"], serde_json::json!("3"));
+    }
 
     fn poison_mutex<T>(mutex: &Mutex<T>) {
         let _ = panic::catch_unwind(AssertUnwindSafe(|| {

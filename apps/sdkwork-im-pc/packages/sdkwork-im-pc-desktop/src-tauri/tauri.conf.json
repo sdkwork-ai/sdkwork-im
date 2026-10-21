@@ -6,11 +6,16 @@
   "build": {
     "beforeDevCommand": "node ../../../../scripts/dev/run-sdkwork-im-pc-tauri-renderer-dev.mjs",
     "beforeBuildCommand": "node ../../../../scripts/dev/run-sdkwork-im-pc-tauri-renderer-build.mjs",
-    "frontendDist": "../../../dist",
+    "frontendDist": "../../../dist/standalone/prod",
     "devUrl": "http://127.0.0.1:4176"
   },
   "app": {
     "withGlobalTauri": true,
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob: https: http://127.0.0.1:* http://localhost:*; media-src 'self' asset: http://asset.localhost data: blob: https: http://127.0.0.1:* http://localhost:*; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https: wss: http://127.0.0.1:* http://localhost:*; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'",
+      "devCsp": null,
+      "freezePrototype": true
+    },
     "windows": [
       {
         "label": "main",
@@ -26,7 +31,7 @@
   },
   "plugins": {
     "shell": {
-      "open": "((mailto:\\w+)|(tel:\\w+)|(https?://\\w+).+|(file://.+)|([A-Za-z]:\\\\.+)|(\\\\\\\\.+))"
+      "open": "^(mailto:[^\\s]+|tel:[^\\s]+|https?://[^\\s]+)$"
     }
   },
   "bundle": {

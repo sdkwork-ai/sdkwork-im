@@ -425,11 +425,18 @@ async fn pull_client_route_window(
         ))
         .await
         .expect("pull frame should send");
-    let window = envelope_payload_json(decode_ccp_envelope(next_message(&mut device.socket).await));
-    assert_eq!(window["type"], "event.window");
-    assert_server_trace_contract(&window, "event.window");
-    assert_eq!(window["reason"], "pull");
-    (window, started.elapsed().as_secs_f64() * 1000.0)
+    loop {
+        let window =
+            envelope_payload_json(decode_ccp_envelope(next_message(&mut device.socket).await));
+        assert_eq!(window["type"], "event.window");
+        assert_server_trace_contract(&window, "event.window");
+        if window["reason"] == "pull" {
+            return (window, started.elapsed().as_secs_f64() * 1000.0);
+        }
+        // Buffered runtime-owned pushes can arrive before the pull response;
+        // discard them and keep waiting for the pull window.
+        assert_eq!(window["reason"], "push");
+    }
 }
 
 fn publish_message(
@@ -709,19 +716,24 @@ async fn test_step11_websocket_e2e_quant_gate_emits_thresholded_metrics() {
     append_window_realtime_seqs(&catchup_window, &mut restored_seqs);
 
     let (backlog_tail_window, backlog_pull_ms) =
-        pull_client_route_window(&mut reconnected, 0, 1_000).await;
+        pull_client_route_window(&mut reconnected, 0, 200).await;
     let backlog_restore_ms = backlog_restore_started.elapsed().as_secs_f64() * 1000.0;
     append_window_realtime_seqs(&backlog_tail_window, &mut restored_seqs);
+    let mut next_after_seq = backlog_tail_window["window"]["nextAfterSeq"]
+        .as_u64()
+        .unwrap_or(0);
     while restored_seqs.last().copied().unwrap_or_default()
         < baseline.websocket_e2e.backlog_message_count as u64
     {
-        let buffered_window = envelope_payload_json(decode_ccp_envelope(
-            next_message(&mut reconnected.socket).await,
-        ));
-        assert_eq!(buffered_window["type"], "event.window");
-        assert_server_trace_contract(&buffered_window, "event.window");
-        assert_eq!(buffered_window["reason"], "push");
+        let (buffered_window, _) =
+            pull_client_route_window(&mut reconnected, next_after_seq, 200).await;
         append_window_realtime_seqs(&buffered_window, &mut restored_seqs);
+        next_after_seq = buffered_window["window"]["nextAfterSeq"]
+            .as_u64()
+            .unwrap_or(next_after_seq);
+        if next_after_seq == 0 {
+            break;
+        }
     }
     assert_eq!(restored_seqs.len(), 1_000);
     assert_eq!(restored_seqs.first().copied(), Some(51));

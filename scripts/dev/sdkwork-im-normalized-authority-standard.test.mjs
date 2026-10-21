@@ -47,31 +47,86 @@ const canonicalDocs = [
 ];
 
 const ignoredDirectoryNames = new Set([
+  '.dart_tool',
   '.git',
+  '.gradle',
+  '.next',
+  '.svelte-kit',
+  '.turbo',
+  '.vite',
+  'DerivedData',
+  'Pods',
+  'coverage',
   'dist',
+  'dist-embed',
   'node_modules',
+  'obj',
+  'playwright-report',
   'target',
+  'test-results',
+  'test_cache',
+  'unit_test_assets',
 ]);
+
+// Binary and build artifacts are never authored contract sources. Scanning
+// them as UTF-8 was fatal: a single 71 MB Flutter `.dill` cache exhausted a
+// 4 GB Node heap and the gate never completed.
+const unscannableFileExtensions = new Set([
+  '.7z', '.a', '.bin', '.bmp', '.class', '.db', '.dill', '.dll', '.dylib',
+  '.eot', '.gif', '.gz', '.ico', '.jar', '.jpeg', '.jpg', '.lockb', '.mp3',
+  '.mp4', '.otf', '.pdf', '.png', '.so', '.sqlite', '.sqlite3', '.tar',
+  '.tgz', '.ttf', '.wasm', '.webp', '.woff', '.woff2', '.zip',
+]);
+const maxScannableFileBytes = 4 * 1024 * 1024;
+
+function isScannableFile(absolutePath, stat) {
+  if (stat.size > maxScannableFileBytes) {
+    return false;
+  }
+  return !unscannableFileExtensions.has(path.extname(absolutePath).toLowerCase());
+}
 
 function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, ...relativePath.split('/')), 'utf8');
 }
 
-function collectFiles(relativePath, files = []) {
+function isIgnoredDirectoryName(name) {
+  // `node_modules.__stale__donor_2`-style leftovers and junctioned dependency
+  // trees must be skipped by name, before stat/realpath: on Windows a
+  // directory junction reports isDirectory()=false on its Dirent.
+  return ignoredDirectoryNames.has(name) || name.startsWith('node_modules');
+}
+
+const visitedDirectories = new Set();
+
+function collectFiles(relativePath, files = [], depth = 0) {
   const absolutePath = path.join(repoRoot, ...relativePath.split('/'));
   if (!fs.existsSync(absolutePath)) {
     return files;
   }
-  const stat = fs.statSync(absolutePath);
-  if (stat.isFile()) {
-    files.push(relativePath.replaceAll('\\', '/'));
+  if (depth > 32 || isIgnoredDirectoryName(path.basename(absolutePath))) {
     return files;
   }
+  const stat = fs.statSync(absolutePath);
+  if (stat.isFile()) {
+    if (isScannableFile(absolutePath, stat)) {
+      files.push(relativePath.replaceAll('\\', '/'));
+    }
+    return files;
+  }
+  // Flutter and pnpm workspaces use symlinked/junctioned directories. Walking
+  // them without real-path deduplication can revisit the same tree forever on
+  // Windows, so each physical directory is visited once.
+  const realPath = fs.realpathSync.native(absolutePath);
+  if (visitedDirectories.has(realPath)) {
+    return files;
+  }
+  visitedDirectories.add(realPath);
   for (const entry of fs.readdirSync(absolutePath, { withFileTypes: true })) {
-    if (entry.isDirectory() && ignoredDirectoryNames.has(entry.name)) {
+    if (isIgnoredDirectoryName(entry.name)) {
       continue;
     }
-    collectFiles(path.join(relativePath, entry.name), files);
+    collectFiles(path.join(relativePath, entry.name), files, depth + 1);
   }
   return files;
 }

@@ -2,7 +2,6 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use im_app_context::{build_dual_token_headers_for_context, local_service_app_context};
-use sdkwork_im_web_bootstrap::wrap_im_service_router;
 use sdkwork_routes_im_social_backend_api as social_backend_routes;
 use social_service::friendship::AppState;
 use social_service::{SocialRuntime, build_open_api_router};
@@ -17,7 +16,8 @@ fn ensure_test_environment() {
         // env-bootstrap site opts back in locally (deny is allow-overrideable).
         #[allow(unsafe_code)]
         unsafe {
-            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test")
+            std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
+            std::env::set_var("SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE", "false");
         }
     });
 }
@@ -42,7 +42,14 @@ fn backend_control_auth_headers() -> axum::http::HeaderMap {
 }
 
 fn wrapped_open_api_app(state: AppState) -> axum::Router {
-    wrap_im_service_router(build_open_api_router(state))
+    sdkwork_web_axum::with_web_request_context(
+        build_open_api_router(state),
+        sdkwork_im_web_bootstrap::test_support::im_service_test_framework_layer(
+            &["tenant"],
+            &["*"],
+            sdkwork_routes_im_social_open_api::open_route_manifest(),
+        ),
+    )
 }
 
 fn wrapped_control_api_app(state: AppState) -> axum::Router {

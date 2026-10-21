@@ -155,6 +155,7 @@ CREATE TABLE IF NOT EXISTS im_outbox_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     retention_until TIMESTAMPTZ,
+    last_error TEXT,
     CONSTRAINT pk_im_outbox_events PRIMARY KEY (tenant_id, organization_id, outbox_id),
     CONSTRAINT uk_im_outbox_events_event UNIQUE (tenant_id, organization_id, event_id),
     CONSTRAINT chk_im_outbox_events_publish_status CHECK (publish_status IN ('pending', 'published', 'failed'))
@@ -1175,10 +1176,21 @@ CREATE TABLE IF NOT EXISTS im_friend_requests (
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT pk_im_friend_requests PRIMARY KEY (tenant_id, organization_id, request_id),
-    CONSTRAINT uk_im_friend_requests_pair UNIQUE (tenant_id, organization_id, requester_user_id, target_user_id, status),
     CONSTRAINT chk_im_friend_requests_status CHECK (status IN ('pending', 'accepted', 'declined', 'canceled', 'expired')),
     CONSTRAINT chk_im_friend_requests_not_self CHECK (requester_user_id != target_user_id)
 );
+
+-- Only one pending request may exist per unordered pair. The previous
+-- (requester, target, status) unique constraint rejected a second request after
+-- a decline/cancel/expiry, turning a legitimate retry into HTTP 503.
+CREATE UNIQUE INDEX IF NOT EXISTS uk_im_friend_requests_pending_pair
+    ON im_friend_requests (
+        tenant_id,
+        organization_id,
+        LEAST(requester_user_id, target_user_id),
+        GREATEST(requester_user_id, target_user_id)
+    )
+    WHERE status = 'pending';
 
 CREATE INDEX IF NOT EXISTS idx_im_friend_requests_requester
     ON im_friend_requests (tenant_id, organization_id, requester_user_id, status, created_at DESC);
@@ -1867,12 +1879,15 @@ CREATE TABLE IF NOT EXISTS im_conversation_knowledge_space_link (
         )
     ),
     CONSTRAINT chk_im_conversation_knowledge_space_link_organization_id CHECK (
-        organization_id ~ '^[1-9][0-9]*$'
-        AND (
-            char_length(organization_id) < 19
-            OR (
-                char_length(organization_id) = 19
-                AND organization_id <= '9223372036854775807'
+        organization_id = '0'
+        OR (
+            organization_id ~ '^[1-9][0-9]*$'
+            AND (
+                char_length(organization_id) < 19
+                OR (
+                    char_length(organization_id) = 19
+                    AND organization_id <= '9223372036854775807'
+                )
             )
         )
     ),
@@ -1979,12 +1994,15 @@ CREATE TABLE IF NOT EXISTS im_group_knowledge_launch_tickets (
         )
     ),
     CONSTRAINT chk_im_group_knowledge_launch_tickets_organization_id CHECK (
-        organization_id ~ '^[1-9][0-9]*$'
-        AND (
-            char_length(organization_id) < 19
-            OR (
-                char_length(organization_id) = 19
-                AND organization_id <= '9223372036854775807'
+        organization_id = '0'
+        OR (
+            organization_id ~ '^[1-9][0-9]*$'
+            AND (
+                char_length(organization_id) < 19
+                OR (
+                    char_length(organization_id) = 19
+                    AND organization_id <= '9223372036854775807'
+                )
             )
         )
     ),

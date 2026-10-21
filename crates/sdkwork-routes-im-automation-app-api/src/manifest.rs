@@ -11,25 +11,25 @@ pub const ROUTES: &[HttpRoute] = &[
         HttpMethod::Post,
         paths::EXECUTIONS,
         "automation",
-        "automation.executions.create",
+        "executions.create",
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,
         paths::EXECUTION,
         "automation",
-        "automation.executions.retrieve",
+        "executions.retrieve",
     ),
     HttpRoute::dual_token(
         HttpMethod::Post,
         paths::AGENT_RESPONSES,
         "automation",
-        "automation.agentResponses.create",
+        "agentResponses.create",
     ),
     HttpRoute::dual_token(
         HttpMethod::Post,
         paths::AGENT_RESPONSE_FRAMES,
         "automation",
-        "automation.agentResponses.frames.create",
+        "agentResponses.frames.create",
     ),
     HttpRoute::dual_token(
         HttpMethod::Post,
@@ -41,7 +41,7 @@ pub const ROUTES: &[HttpRoute] = &[
         HttpMethod::Post,
         paths::AGENT_TOOL_CALLS,
         "automation",
-        "automation.agentToolCalls.create",
+        "agentToolCalls.create",
     ),
     HttpRoute::dual_token(
         HttpMethod::Post,

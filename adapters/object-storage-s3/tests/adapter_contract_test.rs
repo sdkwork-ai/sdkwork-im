@@ -11,7 +11,15 @@ use sdkwork_im_contract_core::ContractError;
 /// Force the SDKWork environment to a non-production value so the S3 adapter's
 /// P0-13 fail-closed gate allows the unsigned dev/test fallback path. Env vars
 /// are process-global in Rust 2024, so `set_var` is wrapped in `unsafe`.
+///
+/// The workspace lints deny `unsafe_code`; this reviewed test-only
+/// process-identity bootstrap site opts back in locally (deny is
+/// allow-overrideable), matching the other environment-bootstrap sites in the
+/// workspace.
+#[allow(unsafe_code)]
 fn ensure_dev_environment() {
+    // SAFETY: this is a single-threaded integration test binary; the assignment
+    // runs before any test thread reads `SDKWORK_IM_ENVIRONMENT`.
     unsafe {
         std::env::set_var("SDKWORK_IM_ENVIRONMENT", "test");
     }

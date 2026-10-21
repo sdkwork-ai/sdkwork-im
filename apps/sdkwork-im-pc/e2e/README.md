@@ -9,6 +9,7 @@ Commercial readiness runs four Playwright specs against the production build:
 | `production-shell.spec.ts` | `#root`, document title, no 5xx on static assets |
 | `authenticated-shell.spec.ts` | Seeded IAM session keeps users off `/auth/login` |
 | `authenticated-chat.spec.ts` | Inbox hydration, message timeline, outbound text send |
+| `embed-surfaces.spec.ts` | The built embed bundle mounts the conversation list, a conversation (outbound send plus an inbound realtime message over the CCP WebSocket), and the contacts directory in a real browser; the harness page and the bundle need no server assets |
 
 Fixtures live under `e2e/fixtures/`:
 

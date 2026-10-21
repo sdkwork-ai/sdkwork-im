@@ -1,4 +1,4 @@
-﻿apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: session-gateway
@@ -66,13 +66,17 @@ spec:
             - configMapRef:
                 name: session-gateway-runtime
             - secretRef:
-                name: session-gateway-secrets
-                optional: true
+                name: sdkwork-im-shared-secrets
+                optional: false
           env:
             - name: SDKWORK_IM_ENVIRONMENT
               value: production
             - name: SDKWORK_IM_DEPLOYMENT_PROFILE
               value: cloud
+            - name: SDKWORK_IM_REALTIME_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: OTEL_SERVICE_NAME
               value: sdkwork-im-session-gateway
             - name: TMPDIR

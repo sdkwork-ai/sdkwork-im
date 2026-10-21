@@ -47,6 +47,12 @@ const RECONNECT_MAX_DELAY_MS = 30000;
 const RECONNECT_JITTER_RATIO = 0.2;
 const CIRCUIT_BREAKER_FAILURE_THRESHOLD = 5;
 const CIRCUIT_BREAKER_COOLDOWN_MS = 60_000;
+/**
+ * Mode switches unmount one IM surface and mount another within a frame or two.
+ * Keeping the socket for a short grace period avoids a close/open cycle (and a
+ * fresh auth handshake) when the next surface asks for the same subscriptions.
+ */
+const IDLE_TEARDOWN_GRACE_MS = 1_500;
 /** Server presence heartbeat cadence while the live connection is open. */
 const PRESENCE_HEARTBEAT_INTERVAL_MS = 60_000;
 
@@ -58,6 +64,8 @@ let connectionStatus: PcLiveConnectionStatus = 'idle';
 let connectionGeneration = 0;
 let reconnectAttempt = 0;
 let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+let idleTeardownTimer: ReturnType<typeof setTimeout> | undefined;
+let idleTeardownReason = 'no live subscriptions';
 let presenceHeartbeatTimer: ReturnType<typeof setInterval> | undefined;
 let consecutiveFailures = 0;
 let circuitOpenUntil = 0;
@@ -356,6 +364,35 @@ function syncWireSubscriptionsWhenReady(connection: ImLiveConnection): void {
   syncWireSubscriptions(connection);
 }
 
+function clearIdleTeardownTimer(): void {
+  if (idleTeardownTimer) {
+    clearTimeout(idleTeardownTimer);
+    idleTeardownTimer = undefined;
+  }
+}
+
+/**
+ * Defer the idle teardown so an immediate remount (mode switch, surface swap)
+ * reuses the open connection; the timer re-checks demand before closing.
+ * @param reason teardown reason recorded for diagnostics.
+ */
+function scheduleIdleTeardown(reason = 'no live subscriptions'): void {
+  if (hasSubscriptionDemand()) {
+    clearIdleTeardownTimer();
+    return;
+  }
+  idleTeardownReason = reason;
+  if (idleTeardownTimer) {
+    return;
+  }
+  idleTeardownTimer = setTimeout(() => {
+    idleTeardownTimer = undefined;
+    if (!hasSubscriptionDemand()) {
+      teardownIfIdle(idleTeardownReason);
+    }
+  }, IDLE_TEARDOWN_GRACE_MS);
+}
+
 function teardownIfIdle(reason = 'no live subscriptions'): void {
   if (hasSubscriptionDemand()) {
     return;
@@ -638,6 +675,7 @@ export function getPcLiveConnectionIfReady(): ImLiveConnection | null {
 }
 
 export async function ensurePcLiveConnection(): Promise<ImLiveConnection> {
+  clearIdleTeardownTimer();
   installBrowserRecoveryHooks();
   if (!hasSubscriptionDemand()) {
     throw new Error('PC live connection requires at least one subscription');
@@ -742,6 +780,7 @@ function invalidatePcLiveConnection(reason: string): void {
 }
 
 export function disposePcLiveConnection(reason = 'session ended'): void {
+  clearIdleTeardownTimer();
   invalidatePcLiveConnection(reason);
   conversationRegistrations.clear();
   scopeRegistrations.clear();
@@ -771,7 +810,7 @@ export function acquirePcLiveConnectionLease(
     if (sharedConnection) {
       syncWireSubscriptionsWhenReady(sharedConnection);
     }
-    teardownIfIdle('connection lease released');
+    scheduleIdleTeardown('connection lease released');
   };
 }
 
@@ -822,7 +861,7 @@ export function subscribePcConversationMessages(
     if (sharedConnection) {
       syncWireSubscriptionsWhenReady(sharedConnection);
     }
-    teardownIfIdle('conversation subscription closed');
+    scheduleIdleTeardown('conversation subscription closed');
   };
 }
 
@@ -871,7 +910,7 @@ export function subscribePcRealtimeScope(
     if (sharedConnection) {
       syncWireSubscriptionsWhenReady(sharedConnection);
     }
-    teardownIfIdle('scope subscription closed');
+    scheduleIdleTeardown('scope subscription closed');
   };
 }
 

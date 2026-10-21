@@ -59,6 +59,49 @@ pub fn realtime_scope_key_parts(parts: &[&str]) -> String {
         .join("|")
 }
 
+/// Decodes a scope key produced by [`realtime_scope_key_parts`].
+///
+/// The wire form is `<byte_len>:<value>` segments joined by `|`. Each segment
+/// is consumed by its declared byte length, so a value may itself contain `:`
+/// or `|` without corrupting the frame. Returns `None` when the key is
+/// malformed (non-numeric length, truncated value, missing separator, or a
+/// length that does not land on a UTF-8 boundary); callers must treat `None`
+/// as an invalid key rather than as a stale entry.
+#[must_use]
+pub fn realtime_scope_key_components(key: &str) -> Option<Vec<String>> {
+    const MAX_COMPONENTS: usize = 32;
+
+    let bytes = key.as_bytes();
+    let mut components = Vec::new();
+    let mut cursor = 0usize;
+    while cursor < bytes.len() {
+        if components.len() == MAX_COMPONENTS {
+            return None;
+        }
+        let length_start = cursor;
+        while cursor < bytes.len() && bytes[cursor].is_ascii_digit() {
+            cursor += 1;
+        }
+        if cursor == length_start || bytes.get(cursor) != Some(&b':') {
+            return None;
+        }
+        let length = key.get(length_start..cursor)?.parse::<usize>().ok()?;
+        cursor += 1;
+        let value_end = cursor.checked_add(length)?;
+        let value = key.get(cursor..value_end)?;
+        components.push(value.to_owned());
+        cursor = value_end;
+        if cursor == bytes.len() {
+            break;
+        }
+        if bytes.get(cursor) != Some(&b'|') {
+            return None;
+        }
+        cursor += 1;
+    }
+    (!components.is_empty()).then_some(components)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RealtimeCheckpointRecord {
     pub tenant_id: String,
@@ -648,6 +691,53 @@ pub struct ExpireOnlinePresenceStateCommand<'a> {
 mod tests {
     use super::*;
     use im_domain_core::realtime::RealtimeEvent;
+
+    #[test]
+    fn test_realtime_scope_key_components_round_trip() {
+        let key = realtime_client_route_scope_key("100001", "0", "user", "alice", "dev01");
+        assert_eq!(
+            realtime_scope_key_components(key.as_str()),
+            Some(vec![
+                "100001".to_owned(),
+                "0".to_owned(),
+                "user".to_owned(),
+                "alice".to_owned(),
+                "dev01".to_owned(),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_realtime_scope_key_components_handles_separators_inside_values() {
+        let key = realtime_scope_key_parts(&["tenant:a", "org|b", "user", "alice", "dev:01"]);
+        assert_eq!(
+            realtime_scope_key_components(key.as_str()),
+            Some(vec![
+                "tenant:a".to_owned(),
+                "org|b".to_owned(),
+                "user".to_owned(),
+                "alice".to_owned(),
+                "dev:01".to_owned(),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_realtime_scope_key_components_rejects_malformed_keys() {
+        for malformed in [
+            "",
+            "100001:user:1:d",
+            "6:100001|x:default",
+            "99:short",
+            "6:100001|6:abc",
+        ] {
+            assert_eq!(
+                realtime_scope_key_components(malformed),
+                None,
+                "malformed scope key must not decode: {malformed}"
+            );
+        }
+    }
 
     #[test]
     fn test_disconnect_fence_record_merge_keeps_latest_disconnect() {

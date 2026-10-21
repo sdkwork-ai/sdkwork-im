@@ -980,6 +980,19 @@ fn persist_message_mutation_txn(
     let target = mutation.target();
     let message_id = target_message_id(target)?;
     let message_seq = postgres_bigint_input(target.message_seq, "message sequence")?;
+    // Mutations append to the same journal partition as message posts, so they
+    // need the same partition-level advisory lock and DB-derived ordering
+    // sequence. Without this, a concurrent edit/recall and post in one
+    // conversation both allocate the same commit offset and the PK collision
+    // surfaces as HTTP 409 instead of being serialized.
+    let mut envelope = envelope.clone();
+    crate::lock_journal_partitions(
+        &mut txn,
+        prefix,
+        std::slice::from_ref(&envelope),
+        "message mutation journal lock",
+    )?;
+    crate::allocate_next_ordering_sequences(&mut txn, prefix, std::slice::from_mut(&mut envelope))?;
     let target_row = txn
         .query_opt(
             LOCK_MESSAGE_MUTATION_TARGET_SQL,
@@ -1002,10 +1015,10 @@ fn persist_message_mutation_txn(
         return Ok(None);
     }
 
-    let outcome = append_journal_in_transaction(&mut txn, prefix, envelope)?;
+    let outcome = append_journal_in_transaction(&mut txn, prefix, &envelope)?;
     if matches!(outcome, JournalAppendOutcome::Inserted(_, _)) {
         apply_message_mutation_in_transaction(&mut txn, mutation, message_id, message_seq)?;
-        update_conversation_after_message_mutation_in_transaction(&mut txn, target, envelope)?;
+        update_conversation_after_message_mutation_in_transaction(&mut txn, target, &envelope)?;
     }
     ensure_conversation_outbox_in_transaction(&mut txn, outbox)?;
     let position = outcome.into_commit_position()?;
@@ -2215,7 +2228,12 @@ fn append_journal_in_transaction(
                 let row = txn
                     .query_one(
                         LOAD_EVENT_BY_POSITION_SQL,
-                        &[&partition_key, &commit_offset],
+                        &[
+                            &partition_key,
+                            &commit_offset,
+                            &envelope.tenant_id,
+                            &organization_id,
+                        ],
                     )
                     .map_err(|error| {
                         postgres_unavailable_db("message post journal position lookup", error)

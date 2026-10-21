@@ -5,7 +5,7 @@
 本报告记录 sdkwork-im 技术债务清理与性能优化工作。**2026-07 对齐周期**已完成：Social realtime fanout、RTC outbox relay（多租户 scope 发现）、Space conversation binder、Typing indicators、群组成员 API（`im_group_members` + conversation 同步）等 P1 闭环项。
 
 **关键成果（历史 + 本轮 2026-07-05 安全/一致性对齐）：**
-- ✅ PC 集成适配层：mail / shop / orders / devices / community / course 消费者路径已迁 sibling PC 包；IM 仅保留 session bridge（详见 [`INTEGRATION-ADAPTER-REGISTER.md`](./INTEGRATION-ADAPTER-REGISTER.md)）
+- ✅ PC 集成适配层：mail / shop / orders / devices / community / course 消费者路径已迁 sibling PC 包；IM 仅保留 session bridge（详见 [`TECH-10-integration-adapter-register.md`](./TECH-10-integration-adapter-register.md)）
 - ✅ P0 社交 org 隔离：accept/decline/cancel/remove 校验 commit `organizationId` 与 auth 一致
 - ✅ P0 社交 realtime：好友 accept/decline/cancel 双方通知；outcome payload 携带 requester/target
 - ✅ P0 社交限流：production-like 环境无 Postgres supplemental store 时 fail-closed
@@ -27,7 +27,7 @@
 - ✅ P1 测试：projection `build_integration_test_app` 注入 auth；ProblemDetail type/title 对齐 sdkwork-v3
 - ✅ P1 核心闭环：Social/RTC/Space/Conversation 嵌入式接线与 outbox relay
 - ✅ Space governance surface：`space_member`、`invitation`、`ban`、`channel_access_rule` 已接入 Postgres store 与权限校验（2026-07）
-- ✅ P2 列表分页：HTTP query wire 使用规范 `page_size`；`pageSize` 仅保留在 SDK 语言层/model 字段。`SdkWorkApiResponse` 列表 envelope、IM/backend OpenAPI 与 SDK 已对齐（详见 `PAGINATION-DEBT-REGISTER.md`）。
+- ✅ P2 列表分页：HTTP query wire 使用规范 `page_size`；`pageSize` 仅保留在 SDK 语言层/model 字段。`SdkWorkApiResponse` 列表 envelope、IM/backend OpenAPI 与 SDK 已对齐（详见 `TECH-13-pagination-debt-register.md`）。
 - ✅ P1 消息写路径：`PostgresDurableMessagePostWriter` 单事务写入 journal + `im_conversation_messages` + 可选 outbox；`clientMsgId` 预查幂等
 - ✅ P1 实时投递：split-deploy 通过 `conversation_outbox_relay` 投递 `message.posted`；显式 `SDKWORK_IM_REQUIRE_REALTIME_PUBLISHER=1` 时 fail-closed
 - ✅ P2 大 roster fanout：`RealtimeDeliveryRuntime` 对 durable/ephemeral scope fanout 做 recipient 去重、共享 payload（Arc）、分块投递（`SDKWORK_IM_REALTIME_FANOUT_RECIPIENT_BATCH_SIZE`，默认 256）；conversation/RTC/social outbox relay 与 embedded social fanout 统一走 batch 路径
@@ -380,7 +380,7 @@ SDKWORK_DATABASE_CONNECT_TIMEOUT_SECONDS=10
 #### 列表分页规范对齐（2026-07-05）
 - **状态**: 已完成
 - **范围**: IM open-api、backend audit list、conversation/social/space/projection 运行时路径；PC/H5 消费层使用 SDK 语言层 `pageSize` 选项但 HTTP query wire 必须序列化为 `page_size`；`sdkwork-utils-rust` 不再保留 flattened query-string `pageSize` 兼容分支。
-- **权威**: `sdkwork-specs/PAGINATION_SPEC.md`、`docs/architecture/tech/PAGINATION-DEBT-REGISTER.md`
+- **权威**: `sdkwork-specs/PAGINATION_SPEC.md`、`docs/architecture/tech/TECH-13-pagination-debt-register.md`
 
 #### 内存事件窗口累积
 - **状态**: 已在cluster cleanup中处理
@@ -399,7 +399,7 @@ SDKWORK_DATABASE_CONNECT_TIMEOUT_SECONDS=10
 3. **HTTP 连接池配置** — 外部服务调用连接复用
 4. **热路径异步化** — 同步 Mutex 替换评估
 
-权威产品级 gap：`docs/architecture/tech/OPTIMIZATION_ROADMAP.md`。
+权威产品级 gap：`docs/architecture/tech/TECH-11-optimization-roadmap.md`。
 
 ---
 
@@ -592,7 +592,7 @@ curl http://localhost:8080/readyz
 5. `crates/im-app-context/src/lib.rs` - 生产环境 JWT dev secret fail-closed 与 AppContext 中间件
 
 ### 文档文件
-- [NEW] `docs/architecture/tech/TECH-PERFORMANCE-FIXES.md` - 本文档
+- [NEW] `docs/architecture/tech/TECH-performance-fixes.md` - 本文档
 
 ---
 

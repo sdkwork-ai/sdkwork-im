@@ -32,6 +32,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 sdkwork_im_service_readiness = { workspace = true }
 sdkwork_im_web_bootstrap.workspace = true
+sdkwork_im_keyset_cursor.workspace = true
 sdkwork-communication-rtc-service.workspace = true
 # RTC provider integration. IM owns call signaling; media session creation
 # and participant credential issuance delegate to the RTC provider plugin

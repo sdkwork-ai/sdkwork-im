@@ -18,6 +18,8 @@ use im_adapters_social_postgres::{
 use crate::api_payload::{keyset_list_page, resource_item};
 use crate::postgres::access::{ensure_block_owner, social_principal_user_id};
 use crate::postgres::http::PostgresAppState;
+use sdkwork_im_keyset_cursor::{CursorScope, KeysetPosition};
+
 use crate::postgres::list_query::{ListQuery, resolve_keyset_page};
 
 #[derive(Debug, Deserialize)]
@@ -70,24 +72,32 @@ pub async fn list_blocks(
 ) -> Response {
     let result: ApiResult<SdkWorkPageData<BlockResponse>> =
         crate::postgres::http::run_blocking_postgres_call(state, move |state| {
-            let paging = resolve_keyset_page(&query)?;
+            let principal_id = social_principal_user_id(&auth);
+            let scope = CursorScope {
+                resource: "social.user_blocks",
+                tenant_id: auth.tenant_id.as_str(),
+                organization_id: auth.organization_id.as_str(),
+                principal_id,
+            };
+            let paging = resolve_keyset_page(&query, &scope)?;
             let records = state
                 .user_block_store
                 .list_by_blocker(
                     auth.tenant_id.as_str(),
                     auth.organization_id.as_str(),
-                    social_principal_user_id(&auth),
+                    principal_id,
                     paging.cursor_created_at.as_deref(),
                     paging.cursor_block_id,
                     paging.fetch_limit(),
                 )
                 .map_err(|_| ApiProblem::internal_server_error("failed to list block records"))?;
             let items: Vec<BlockResponse> = records.into_iter().map(BlockResponse::from).collect();
-            Ok(keyset_list_page(
-                items,
-                paging.page_size,
-                |item: &BlockResponse| (item.created_at.clone(), item.sort_id),
-            ))
+            keyset_list_page(items, paging.page_size, &scope, |item: &BlockResponse| {
+                KeysetPosition {
+                    sort_value: item.created_at.clone(),
+                    entity_id: item.sort_id.to_string(),
+                }
+            })
         })
         .await;
     finish_api_json(&ctx, result)

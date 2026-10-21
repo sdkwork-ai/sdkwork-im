@@ -64,7 +64,7 @@ const releaseSources = readRepoJson('config', 'shared-sdk-release-sources.json')
 const sharedSdkGitSource = readRepoText('scripts', 'dev', 'prepare-shared-sdk-git-sources.mjs');
 const releaseBuildSource = readRepoText('scripts', 'release', 'run-sdkwork-im-pc-release-build.mjs');
 const devRunnerSource = readRepoText('scripts', 'lib', 'im-pc-dev.mjs');
-const standaloneDependencies = readRepoText('crates', 'sdkwork-api-im-standalone-gateway', 'src', 'embedded_dependency_routes.rs');
+const standaloneDependencies = readRepoText('crates', 'sdkwork-api-im-assembly', 'src', 'embedded_dependency_routes.rs');
 const workflow = readRepoJson('sdkwork.workflow.json');
 const componentSpec = readRepoJson('specs', 'component.spec.json');
 const moduleRegistrySource = readText('packages', 'sdkwork-im-pc-shell', 'src', 'moduleRegistry.ts');
@@ -254,7 +254,7 @@ assert.equal(
 
 const embeddedRoutesSource = readRepoText(
   'crates',
-  'sdkwork-api-im-standalone-gateway',
+  'sdkwork-api-im-assembly',
   'src',
   'embedded_dependency_routes.rs',
 );

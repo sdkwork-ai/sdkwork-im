@@ -96,8 +96,34 @@ assert.equal(
   unique(registeredTables).length,
   'database table registry must not contain duplicate table names',
 );
-assert.equal(registeredTables.length, 55, 'canonical IM table registry must contain 55 tables');
-assert.equal(baselineRegisteredTables.length, 55, 'PostgreSQL baseline must own 55 tables');
+// Derive the expected table set from the lifecycle SQL instead of pinning a
+// count: the baseline is immutable, while new tables arrive through versioned
+// up migrations. A hardcoded count turns every additive migration into an
+// unrelated test edit and hides real registry drift.
+const baselineSqlFiles = fs
+  .readdirSync(path.join(repoRoot, 'database', 'ddl', 'baseline', 'postgres'))
+  .filter((name) => name.endsWith('.sql'))
+  .map((name) => read(`database/ddl/baseline/postgres/${name}`));
+const migrationSqlFiles = fs
+  .readdirSync(path.join(repoRoot, 'database', 'migrations', 'postgres'))
+  .filter((name) => name.endsWith('.up.sql'))
+  .map((name) => read(`database/migrations/postgres/${name}`));
+const createdTables = unique(
+  [...baselineSqlFiles, ...migrationSqlFiles].flatMap((sql) =>
+    [...sql.matchAll(/\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(im_[a-z0-9_]+)\s*\(/giu)].map(
+      (match) => match[1].toLowerCase(),
+    ),
+  ),
+);
+assert.deepEqual(
+  [...registeredTables].sort(),
+  [...createdTables].sort(),
+  'canonical IM table registry must equal the baseline-plus-migrations table set',
+);
+assert.ok(
+  baselineRegisteredTables.length > 0,
+  'PostgreSQL baseline must own at least one registered table',
+);
 
 for (const entry of tableRegistry.tables) {
   assert.equal(entry.module_prefix, 'im', `${entry.table_name} must register module_prefix=im`);
@@ -163,7 +189,11 @@ const migrationTables = extractAll(
   schema,
 );
 assert.ok(migrationTables.length > 0, 'core IM schema must define database tables');
-assert.equal(migrationTables.length, 55, 'baseline plus PostgreSQL migrations must define 55 IM tables');
+assert.equal(
+  unique(migrationTables).length,
+  createdTables.length,
+  'baseline plus PostgreSQL migrations must define exactly the registered table set',
+);
 for (const table of migrationTables) {
   assert.match(
     table,

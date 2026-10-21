@@ -130,7 +130,7 @@ async fn test_control_plane_can_drain_and_migrate_routes() {
     assert_eq!(drain_json["data"]["nodeId"], "node_a");
     assert_eq!(drain_json["data"]["drainStatus"], "draining");
     assert_eq!(drain_json["data"]["rebalanceState"], "moving_routes");
-    assert_eq!(drain_json["data"]["ownedRouteCount"], 1);
+    assert_eq!(drain_json["data"]["ownedRouteCount"], serde_json::json!("1"));
 
     let migrate_response = app
         .oneshot(
@@ -157,7 +157,7 @@ async fn test_control_plane_can_drain_and_migrate_routes() {
         serde_json::from_slice(&migrate_body).expect("migrate body should be valid json");
     assert_eq!(migrate_json["data"]["sourceNodeId"], "node_a");
     assert_eq!(migrate_json["data"]["targetNodeId"], "node_b");
-    assert_eq!(migrate_json["data"]["migratedRouteCount"], 1);
+    assert_eq!(migrate_json["data"]["migratedRouteCount"], serde_json::json!("1"));
     assert_eq!(migrate_json["data"]["sourceDrainStatus"], "drained");
     assert_eq!(migrate_json["data"]["targetDrainStatus"], "active");
 

@@ -16,6 +16,6 @@ depend on console capability packages directly.
 
 Do not add new domain console features here when a sibling product repo owns the domain. Do not add
 feature-package dependencies to this core package. See
-`docs/architecture/tech/INTEGRATION-ADAPTER-REGISTER.md`.
+`docs/architecture/tech/TECH-10-integration-adapter-register.md`.
 
 Machine-readable contract: `specs/component.spec.json`.

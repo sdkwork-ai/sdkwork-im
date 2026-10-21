@@ -324,7 +324,7 @@ async fn test_control_plane_allows_control_writers_to_update_provider_policies_a
         deployment_json["data"]["item"]["tenantId"],
         serde_json::Value::Null
     );
-    assert_eq!(deployment_json["data"]["item"]["currentVersion"], 2);
+    assert_eq!(deployment_json["data"]["item"]["currentVersion"], serde_json::json!("2"));
     assert_eq!(
         deployment_json["data"]["item"]["committedBinding"]["domain"],
         "object-storage"
@@ -410,7 +410,7 @@ async fn test_control_plane_allows_control_writers_to_update_provider_policies_a
         serde_json::from_slice(&tenant_body).expect("tenant body should be valid json");
     assert_eq!(tenant_json["data"]["item"]["status"], "applied");
     assert_eq!(tenant_json["data"]["item"]["tenantId"], "t_provider_combo");
-    assert_eq!(tenant_json["data"]["item"]["currentVersion"], 3);
+    assert_eq!(tenant_json["data"]["item"]["currentVersion"], serde_json::json!("3"));
     assert_eq!(
         tenant_json["data"]["item"]["committedBinding"]["domain"],
         "rtc"
@@ -581,7 +581,7 @@ async fn test_control_plane_returns_explicit_noop_without_advancing_provider_pol
         serde_json::from_slice(&noop_body).expect("noop body should be valid json");
     assert_eq!(noop_json["data"]["item"]["status"], "noop");
     assert_eq!(noop_json["data"]["item"]["applied"], false);
-    assert_eq!(noop_json["data"]["item"]["currentVersion"], 2);
+    assert_eq!(noop_json["data"]["item"]["currentVersion"], serde_json::json!("2"));
     assert_eq!(
         noop_json["data"]["item"]["committedBinding"]["selectedPluginId"],
         "object-storage-volcengine"
@@ -725,7 +725,7 @@ async fn test_control_plane_exposes_provider_policy_history_and_supports_rollbac
                 .with_dual_token_actor_kind("user")
                 .with_dual_token_permission_scope("control.write")
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"targetVersion":1}"#))
+                .body(Body::from(r#"{"targetVersion":"1"}"#))
                 .unwrap(),
         )
         .await
@@ -1238,7 +1238,7 @@ async fn test_control_plane_returns_unavailable_status_when_provider_policy_runt
         (
             "POST",
             "/backend/v3/api/control/provider_policies/rollback",
-            Some(r#"{"targetVersion":1}"#),
+            Some(r#"{"targetVersion":"1"}"#),
             50301,
         ),
     ] {
@@ -1296,7 +1296,7 @@ async fn test_control_plane_returns_conflict_status_for_unknown_provider_policy_
             "POST",
             "/backend/v3/api/control/provider_policies/rollback",
             "control.write",
-            Some(r#"{"targetVersion":9}"#),
+            Some(r#"{"targetVersion":"9"}"#),
         ),
     ] {
         let mut request = Request::builder()

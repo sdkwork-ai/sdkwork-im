@@ -53,10 +53,13 @@ async fn test_control_plane_exposes_protocol_governance_snapshot_to_control_read
     );
     assert_eq!(
         json["data"]["quotaProfile"]["maxConcurrentSessionsPerTenant"],
-        20_000
+        serde_json::json!("20000")
     );
     assert_eq!(json["data"]["rolloutPolicy"]["releaseChannel"], "stable");
-    assert_eq!(json["data"]["rolloutPolicy"]["trafficPercent"], 100);
+    assert_eq!(
+        json["data"]["rolloutPolicy"]["trafficPercent"],
+        serde_json::json!("100")
+    );
     assert_eq!(json["data"]["killSwitch"]["active"], true);
     assert_eq!(json["data"]["effectiveSnapshot"]["killSwitchActive"], true);
 

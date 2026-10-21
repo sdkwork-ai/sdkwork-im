@@ -27,12 +27,12 @@ and other sibling databases are external dependencies and are intentionally excl
 - Module: `im`
 - Contract version: `2.1.0`
 - Lifecycle strategy: `baseline-plus-migrations`
-- Registered IM tables: 55
+- Registered IM tables: 58
 - Runtime engines: `postgres`
 
 ## Table Inventory
 
-### instant_messaging (33)
+### instant_messaging (36)
 
 | Table | Profile | Write owner | Authority role | Migration / DDL source |
 | --- | --- | --- | --- | --- |
@@ -47,14 +47,17 @@ and other sibling databases are external dependencies and are intentionally excl
 | `im_conversation_business_bindings` | `relation_entity` | `comms-conversation-service` | system of record | `database/ddl/baseline/postgres/0001_im_baseline.sql` |
 | `im_conversation_handoffs` | `tenant_entity` | `comms-conversation-service` | system of record | `database/ddl/baseline/postgres/0001_im_baseline.sql` |
 | `im_conversation_knowledge_space_link` | `relation_entity` | `comms-conversation-service` | owned relation / operational state | `database/ddl/baseline/postgres/0001_im_baseline.sql` |
+| `im_conversation_member_preferences` | `member_preference` | `comms-conversation-service` | system of record | `database/migrations/postgres/0006_im_conversation_member_preferences.up.sql` |
 | `im_conversation_members` | `conversation_member_authority` | `comms-conversation-service` | system of record | `database/ddl/baseline/postgres/0001_im_baseline.sql` |
 | `im_conversation_messages` | `tenant_entity` | `comms-conversation-service` | system of record | `database/ddl/baseline/postgres/0001_im_baseline.sql` |
 | `im_conversation_policies` | `tenant_entity` | `comms-conversation-service` | system of record | `database/ddl/baseline/postgres/0001_im_baseline.sql` |
+| `im_conversation_profiles` | `entity_extension` | `comms-conversation-service` | system of record | `database/migrations/postgres/0007_im_conversation_profiles.up.sql` |
 | `im_conversation_read_cursors` | `read_cursor_authority` | `comms-conversation-service` | system of record | `database/ddl/baseline/postgres/0001_im_baseline.sql` |
 | `im_conversation_seq_counters` | `sequence_allocator` | `comms-conversation-service` | system of record | `database/ddl/baseline/postgres/0001_im_baseline.sql` |
 | `im_conversations` | `conversation_authority` | `comms-conversation-service` | system of record | `database/ddl/baseline/postgres/0001_im_baseline.sql` |
 | `im_group_knowledge_launch_tickets` | `operational_state` | `comms-conversation-service` | system of record | `database/ddl/baseline/postgres/0001_im_baseline.sql` |
 | `im_inbox_events` | `inbox_event` | `session-gateway` | system of record | `database/ddl/baseline/postgres/0001_im_baseline.sql` |
+| `im_message_favorites` | `user_preference` | `comms-conversation-service` | system of record | `database/migrations/postgres/0008_im_message_favorites.up.sql` |
 | `im_message_media_refs` | `relation_entity` | `comms-conversation-service` | system of record | `database/ddl/baseline/postgres/0001_im_baseline.sql` |
 | `im_notification_tasks` | `notification_task` | `notification-service` | system of record | `database/ddl/baseline/postgres/0001_im_baseline.sql` |
 | `im_outbox_events` | `outbox_event` | `comms-conversation-service` | system of record | `database/ddl/baseline/postgres/0001_im_baseline.sql` |

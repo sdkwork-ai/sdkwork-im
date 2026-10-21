@@ -176,16 +176,6 @@ export const generatedOpenApiSchemas = {
       }
     ]
   },
-  "AppendStreamFrameRequest": {
-    "fields": [
-      {
-        "name": "payload",
-        "type": "string",
-        "description": "Defined by the authored OpenAPI contract.",
-        "required": true
-      }
-    ]
-  },
   "ApplySharedChannelPolicyRequest": {
     "fields": [
       {
@@ -233,6 +223,40 @@ export const generatedOpenApiSchemas = {
       {
         "name": "policyVersion",
         "type": "string (int64)",
+        "description": "Defined by the authored OpenAPI contract.",
+        "required": true
+      }
+    ]
+  },
+  "AuditChainVerification": {
+    "fields": [
+      {
+        "name": "tenantId",
+        "type": "string",
+        "description": "Defined by the authored OpenAPI contract.",
+        "required": true
+      },
+      {
+        "name": "verifiedAt",
+        "type": "string (date-time)",
+        "description": "Defined by the authored OpenAPI contract.",
+        "required": true
+      },
+      {
+        "name": "total",
+        "type": "string (int64)",
+        "description": "Defined by the authored OpenAPI contract.",
+        "required": true
+      },
+      {
+        "name": "chainHeadHash",
+        "type": "string",
+        "description": "Defined by the authored OpenAPI contract.",
+        "required": true
+      },
+      {
+        "name": "chainValid",
+        "type": "boolean",
         "description": "Defined by the authored OpenAPI contract.",
         "required": true
       }
@@ -502,7 +526,7 @@ export const generatedOpenApiSchemas = {
       },
       {
         "name": "lastMessageSeq",
-        "type": "integer (int32)",
+        "type": "string (int64)",
         "description": "Defined by the authored OpenAPI contract.",
         "required": true
       },
@@ -636,7 +660,7 @@ export const generatedOpenApiSchemas = {
               },
               {
                 "name": "messageSeq",
-                "type": "integer (int32)",
+                "type": "string (int64)",
                 "description": "Defined by the authored OpenAPI contract.",
                 "required": true
               },
@@ -710,7 +734,7 @@ export const generatedOpenApiSchemas = {
           },
           {
             "name": "highWatermark",
-            "type": "integer (int32)",
+            "type": "string (int64)",
             "description": "Defined by the authored OpenAPI contract.",
             "required": true
           }
@@ -746,7 +770,7 @@ export const generatedOpenApiSchemas = {
       },
       {
         "name": "lastMessageSeq",
-        "type": "integer (int32)",
+        "type": "string (int64)",
         "description": "Defined by the authored OpenAPI contract.",
         "required": true
       },
@@ -1146,7 +1170,7 @@ export const generatedOpenApiSchemas = {
       },
       {
         "name": "messageSeq",
-        "type": "integer (int32)",
+        "type": "string (int64)",
         "description": "Defined by the authored OpenAPI contract.",
         "required": true
       },
@@ -1262,22 +1286,6 @@ export const generatedOpenApiSchemas = {
       }
     ]
   },
-  "OpenStreamRequest": {
-    "fields": [
-      {
-        "name": "streamType",
-        "type": "string",
-        "description": "Defined by the authored OpenAPI contract.",
-        "required": true
-      },
-      {
-        "name": "conversationId",
-        "type": "string",
-        "description": "Defined by the authored OpenAPI contract.",
-        "required": false
-      }
-    ]
-  },
   "PageInfo": {
     "fields": [
       {
@@ -1300,7 +1308,7 @@ export const generatedOpenApiSchemas = {
       },
       {
         "name": "totalItems",
-        "type": "string",
+        "type": "string (int64)",
         "description": "Defined by the authored OpenAPI contract.",
         "required": false
       },
@@ -1426,7 +1434,7 @@ export const generatedOpenApiSchemas = {
       },
       {
         "name": "messageSeq",
-        "type": "integer (int32)",
+        "type": "string (int64)",
         "description": "Defined by the authored OpenAPI contract.",
         "required": true
       },
@@ -2224,7 +2232,7 @@ export const generatedOpenApiSchemas = {
       },
       {
         "name": "signalSeq",
-        "type": "integer (int64)",
+        "type": "string (int64)",
         "description": "Defined by the authored OpenAPI contract.",
         "required": true
       },
@@ -2592,7 +2600,7 @@ export const generatedOpenApiSchemas = {
     "fields": [
       {
         "name": "readSeq",
-        "type": "integer (int32)",
+        "type": "string (int64)",
         "description": "Defined by the authored OpenAPI contract.",
         "required": true
       }

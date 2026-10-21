@@ -132,14 +132,14 @@ fn test_commercial_realtime_core_survives_multi_client_route_pressure_trim_resto
                 principal_kind: PRINCIPAL_KIND,
                 device_id,
                 after_seq: 0,
-                limit: 1_000,
+                limit: 200,
             }),
         );
-        assert_eq!(window.items.len(), 1_000);
+        assert_eq!(window.items.len(), 200);
         assert_eq!(window.items[0].realtime_seq, 51);
-        assert_eq!(window.items[999].realtime_seq, 1_050);
+        assert_eq!(window.items[199].realtime_seq, 250);
         assert_eq!(window.trimmed_through_seq, 50);
-        assert!(!window.has_more);
+        assert!(window.has_more);
     }
 
     let unmatched_window = expect_ok(runtime.list_events_for_principal_kind(
@@ -184,12 +184,12 @@ fn test_commercial_realtime_core_survives_multi_client_route_pressure_trim_resto
             principal_kind: PRINCIPAL_KIND,
             device_id: "d_primary",
             after_seq: 0,
-            limit: 1_000,
+            limit: 200,
         },
     ));
-    assert_eq!(restored_primary.items.len(), 250);
+    assert_eq!(restored_primary.items.len(), 200);
     assert_eq!(restored_primary.items[0].realtime_seq, 801);
-    assert_eq!(restored_primary.items[249].realtime_seq, 1_050);
+    assert_eq!(restored_primary.items[199].realtime_seq, 1_000);
     assert_eq!(restored_primary.acked_through_seq, 800);
     assert_eq!(restored_primary.trimmed_through_seq, 800);
 
@@ -201,12 +201,12 @@ fn test_commercial_realtime_core_survives_multi_client_route_pressure_trim_resto
             principal_kind: PRINCIPAL_KIND,
             device_id: "d_mobile",
             after_seq: 0,
-            limit: 1_000,
+            limit: 200,
         },
     ));
-    assert_eq!(restored_mobile.items.len(), 1_000);
+    assert_eq!(restored_mobile.items.len(), 200);
     assert_eq!(restored_mobile.items[0].realtime_seq, 51);
-    assert_eq!(restored_mobile.items[999].realtime_seq, 1_050);
+    assert_eq!(restored_mobile.items[199].realtime_seq, 250);
 
     let diagnostics = expect_ok(rebuilt_runtime.realtime_inbox_diagnostics());
     assert_eq!(diagnostics.status, "critical");
@@ -256,15 +256,16 @@ fn test_commercial_realtime_core_survives_multi_client_route_pressure_trim_resto
             principal_kind: PRINCIPAL_KIND,
             device_id: "d_mobile",
             after_seq: 0,
-            limit: 1_000,
+            limit: 200,
         },
     ));
     assert_eq!(
         mobile_after_failed_ack.items.len(),
-        1_000,
+        200,
         "checkpoint failure must roll durable window trim back"
     );
     assert_eq!(mobile_after_failed_ack.items[0].realtime_seq, 51);
+    assert_eq!(mobile_after_failed_ack.items[199].realtime_seq, 250);
     assert_eq!(mobile_after_failed_ack.acked_through_seq, 0);
     assert_eq!(mobile_after_failed_ack.trimmed_through_seq, 50);
 }

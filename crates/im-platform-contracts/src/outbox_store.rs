@@ -45,6 +45,7 @@ pub struct OutboxScopeDiscoveryRequest<'a> {
     context: &'a PrivilegedOperationContext,
     aggregate_type: &'a str,
     limit: usize,
+    after: Option<(&'a str, &'a str)>,
 }
 
 impl<'a> OutboxScopeDiscoveryRequest<'a> {
@@ -67,7 +68,26 @@ impl<'a> OutboxScopeDiscoveryRequest<'a> {
             context,
             aggregate_type,
             limit,
+            after: None,
         })
+    }
+
+    /// Continues discovery after the last scope returned by a previous batch.
+    ///
+    /// The relay rotates through every pending scope instead of re-reading the
+    /// same first `limit` scopes forever (which permanently starves scopes past
+    /// the batch boundary).
+    pub fn with_after(mut self, tenant_id: &'a str, organization_id: &'a str) -> Self {
+        if tenant_id.trim().is_empty() || organization_id.trim().is_empty() {
+            self.after = None;
+            return self;
+        }
+        self.after = Some((tenant_id, organization_id));
+        self
+    }
+
+    pub const fn after(&self) -> Option<(&'a str, &'a str)> {
+        self.after
     }
 
     pub const fn context(&self) -> &PrivilegedOperationContext {
@@ -203,4 +223,51 @@ pub trait OutboxStore: Send + Sync {
         &self,
         request: OutboxScopeDiscoveryRequest<'_>,
     ) -> Result<Vec<(String, String)>, ContractError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{OUTBOX_SCOPE_DISCOVERY_LIMIT_MAX, OutboxScopeDiscoveryRequest};
+    use crate::{PrivilegedOperationActorKind, PrivilegedOperationContext};
+
+    fn context() -> PrivilegedOperationContext {
+        PrivilegedOperationContext::try_new(
+            PrivilegedOperationActorKind::ServiceWorker,
+            "outbox-relay-test",
+            "trace-outbox-relay-test",
+        )
+        .expect("privileged context")
+    }
+
+    #[test]
+    fn scope_discovery_rotates_after_the_last_returned_scope() {
+        let context = context();
+        let fresh = OutboxScopeDiscoveryRequest::try_new(&context, "group", 32)
+            .expect("fresh request");
+        assert_eq!(fresh.after(), None);
+
+        let rotated = fresh.with_after("tenant-1", "org-1");
+        assert_eq!(rotated.after(), Some(("tenant-1", "org-1")));
+
+        let cleared = rotated.with_after("", "org-1");
+        assert_eq!(cleared.after(), None);
+    }
+
+    #[test]
+    fn scope_discovery_limit_is_bounded() {
+        let context = context();
+        assert!(
+            OutboxScopeDiscoveryRequest::try_new(&context, "group", 0).is_err(),
+            "zero limit must be rejected"
+        );
+        assert!(
+            OutboxScopeDiscoveryRequest::try_new(
+                &context,
+                "group",
+                OUTBOX_SCOPE_DISCOVERY_LIMIT_MAX + 1
+            )
+            .is_err(),
+            "limit above the maximum must be rejected"
+        );
+    }
 }

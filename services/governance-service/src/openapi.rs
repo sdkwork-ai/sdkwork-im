@@ -16,16 +16,19 @@ fn openapi_nullable_string_schema() -> JsonValue {
 
 fn openapi_integer_schema() -> JsonValue {
     serde_json::json!({
-        "type": "integer",
-        "format": "int64"
+        "type": "string",
+        "format": "int64",
+        "pattern": "^[0-9]+$",
+        "x-sdkwork-int64-string": true
     })
 }
 
 fn openapi_nullable_integer_schema() -> JsonValue {
     serde_json::json!({
-        "type": "integer",
+        "type": ["string", "null"],
         "format": "int64",
-        "nullable": true
+        "pattern": "^[0-9]+$",
+        "x-sdkwork-int64-string": true
     })
 }
 

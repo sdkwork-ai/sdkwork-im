@@ -1,0 +1,19 @@
+[package]
+name = "sdkwork-im-keyset-cursor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Signed, scope-bound keyset pagination cursors for IM list endpoints"
+
+[lib]
+name = "sdkwork_im_keyset_cursor"
+
+[dependencies]
+im-app-context.workspace = true
+sdkwork_utils_rust.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

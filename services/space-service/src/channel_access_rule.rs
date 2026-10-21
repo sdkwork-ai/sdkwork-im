@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use crate::api_payload::{keyset_list_page, resource_item};
 use crate::http::AppState;
 use crate::id::next_entity_id;
+use sdkwork_im_keyset_cursor::{CursorScope, KeysetPosition};
+
 use crate::list_query::{ListQuery, resolve_keyset_page};
 use crate::space_access::{
     actor_can_manage_space, actor_can_read_space, load_channel_in_space, load_space,
@@ -142,7 +144,13 @@ pub async fn list_access_rules(
         let space = load_space(&state, &auth, space_id)?;
         actor_can_read_space(&state, &auth, &space)?;
         load_channel_in_space(&state, &auth, space_id, channel_id)?;
-        let paging = resolve_keyset_page(&query)?;
+        let scope = CursorScope {
+            resource: "space.channel_access_rules",
+            tenant_id: auth.tenant_id.as_str(),
+            organization_id: auth.organization_id.as_str(),
+            principal_id: auth.actor_id.as_str(),
+        };
+        let paging = resolve_keyset_page(&query, &scope)?;
         let cursor_rule_id = paging
             .cursor_entity
             .as_deref()
@@ -167,8 +175,12 @@ pub async fn list_access_rules(
         Ok(keyset_list_page(
             items,
             paging.page_size,
-            |item: &AccessRuleResponse| (item.created_at.clone(), item.rule_id.clone()),
-        ))
+            &scope,
+            |item: &AccessRuleResponse| KeysetPosition {
+                sort_value: item.created_at.clone(),
+                entity_id: item.rule_id.clone(),
+            },
+        )?)
     })();
     finish_api_json(&ctx, result)
 }

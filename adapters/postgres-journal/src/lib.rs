@@ -3,9 +3,13 @@
 mod agent_integration_store;
 mod aggregate_store;
 mod automation_execution_store;
+mod conversation_projection_store;
+mod inbox_store;
 mod journal_queries;
 mod journal_repository;
+mod message_favorite_store;
 mod message_post_persistence;
+mod message_interaction_authority;
 mod message_store;
 mod notification_task_store;
 mod outbox_store;
@@ -23,14 +27,21 @@ mod welcome_state_store;
 pub use agent_integration_store::PostgresAgentIntegrationStore;
 pub use aggregate_store::PostgresAggregateStore;
 pub use automation_execution_store::PostgresAutomationExecutionStore;
+pub use conversation_projection_store::PostgresConversationProjectionStore;
 pub use im_platform_contracts::CommitJournalReplayCursor as JournalReplayCursor;
+pub use inbox_store::{
+    PostgresConversationInboxAuthority, PostgresConversationMemberPreferencesStore,
+    default_conversation_member_preferences,
+};
 pub use journal_repository::{
     CommitJournalReplayState, JournalReplayStateRequest, PostgresCommitJournal,
 };
+pub use message_favorite_store::PostgresMessageFavoriteStore;
 pub use message_post_persistence::{
     PostgresDurableConversationEventWriter, PostgresDurableMessageMutationWriter,
     PostgresDurableMessagePostWriter,
 };
+pub use message_interaction_authority::PostgresMessageInteractionReadStore;
 pub use message_store::PostgresMessageStore;
 pub use notification_task_store::PostgresNotificationTaskStore;
 pub use outbox_store::{

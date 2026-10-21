@@ -8,7 +8,7 @@
 //! `seq:{length-prefixed tenant/org/conversation scope}` -> atomic counter (i64)
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use sdkwork_im_contract_core::ContractError;
 
@@ -20,6 +20,41 @@ const DEFAULT_BATCH_SIZE: u32 = 1000;
 /// are evicted in LRU order so a long-running node serving many conversations
 /// cannot grow the cache without bound.
 const MAX_CACHED_BATCHES: usize = 4096;
+
+/// Seeds the Redis counter from durable message state after a cache loss.
+///
+/// Redis is only a batching accelerator: when the counter key is missing (flush,
+/// failover, eviction) the allocator must resume above the highest sequence
+/// already committed to PostgreSQL, otherwise it would re-issue `message_seq`
+/// values that already exist and violate the per-conversation uniqueness
+/// constraint.
+pub trait ConversationSeqHighWatermark: Send + Sync {
+    fn high_watermark(
+        &self,
+        tenant_id: &str,
+        organization_id: &str,
+        conversation_id: &str,
+    ) -> Result<u64, ContractError>;
+}
+
+/// Atomically seeds a missing counter from the durable floor and reserves one
+/// batch. `ARGV[1]` is the floor (`-1` asks the script to report whether a seed
+/// is required without mutating the key); `ARGV[2]` is the batch size.
+const SEED_AND_RESERVE_SCRIPT: &str = r#"
+local floor = tonumber(ARGV[1])
+local batch = tonumber(ARGV[2])
+local raw = redis.call('GET', KEYS[1])
+if (not raw) and floor < 0 then
+    return -1
+end
+local current = tonumber(raw or '0')
+if current < floor then
+    current = floor
+end
+local upper = current + batch
+redis.call('SET', KEYS[1], upper)
+return upper
+"#;
 
 fn seq_key(tenant_id: &str, org_id: &str, conversation_id: &str) -> String {
     format!(
@@ -92,6 +127,7 @@ pub struct RedisSeqAllocator {
     timeouts: RedisBlockingTimeouts,
     /// Local batch cache: key -> batch with LRU eviction.
     batches: Mutex<BatchCache>,
+    high_watermark: Option<Arc<dyn ConversationSeqHighWatermark>>,
 }
 
 impl RedisSeqAllocator {
@@ -101,12 +137,42 @@ impl RedisSeqAllocator {
             batch_size: DEFAULT_BATCH_SIZE,
             timeouts: RedisBlockingTimeouts::from_env(),
             batches: Mutex::new(BatchCache::default()),
+            high_watermark: None,
         }
     }
 
     pub fn with_batch_size(mut self, batch_size: u32) -> Self {
         self.batch_size = batch_size.max(1);
         self
+    }
+
+    /// Wires the durable high-watermark source used to seed Redis after a flush.
+    pub fn with_high_watermark(
+        mut self,
+        high_watermark: Arc<dyn ConversationSeqHighWatermark>,
+    ) -> Self {
+        self.high_watermark = Some(high_watermark);
+        self
+    }
+
+    fn reserve_batch_upper(&self, key: &str, floor: i64) -> Result<i64, ContractError> {
+        let redis_key = key.to_owned();
+        let batch = i64::from(self.batch_size);
+        run_bounded_redis_command(
+            &self.client,
+            self.timeouts,
+            "seq_allocator_seed_and_reserve",
+            move |mut connection| async move {
+                redis::cmd("EVAL")
+                    .arg(SEED_AND_RESERVE_SCRIPT)
+                    .arg(1)
+                    .arg(redis_key)
+                    .arg(floor)
+                    .arg(batch)
+                    .query_async(&mut connection)
+                    .await
+            },
+        )
     }
 }
 
@@ -132,24 +198,26 @@ impl im_platform_contracts::ConversationSeqAllocator for RedisSeqAllocator {
             }
         }
 
-        // Slow path: fetch a new batch from Redis. No lock is held during the
-        // blocking INCRBY call. Redis INCRBY is atomic, so concurrent fetches
-        // for the same key receive disjoint sequence ranges; at worst one
-        // extra batch is fetched, which is harmless.
-        let batch_size_u64 = self.batch_size as u64;
-        let redis_key = key.clone();
-        let new_upper: i64 = run_bounded_redis_command(
-            &self.client,
-            self.timeouts,
-            "seq_allocator_incrby",
-            move |mut connection| async move {
-                redis::cmd("INCRBY")
-                    .arg(redis_key)
-                    .arg(batch_size_u64)
-                    .query_async(&mut connection)
-                    .await
-            },
-        )?;
+        // Slow path: atomically reserve a batch. The script first reports
+        // whether the counter needs seeding; only then do we read the durable
+        // floor from PostgreSQL so the hot path never pays a database round trip.
+        let batch_size_u64 = u64::from(self.batch_size);
+        let mut new_upper = self.reserve_batch_upper(&key, -1)?;
+        if new_upper < 0 {
+            let floor = match &self.high_watermark {
+                Some(provider) => {
+                    provider.high_watermark(tenant_id, organization_id, conversation_id)?
+                }
+                None => 0,
+            };
+            let floor = i64::try_from(floor).unwrap_or(i64::MAX);
+            new_upper = self.reserve_batch_upper(&key, floor)?;
+        }
+        if new_upper < 0 {
+            return Err(ContractError::Unavailable(
+                "seq_allocator could not seed the Redis sequence counter".into(),
+            ));
+        }
         let new_upper = new_upper as u64;
         let first_seq = new_upper.saturating_sub(batch_size_u64).saturating_add(1);
 
@@ -193,6 +261,35 @@ mod tests {
         const _: () = assert!(DEFAULT_BATCH_SIZE >= 100);
         const _: () = assert!(DEFAULT_BATCH_SIZE <= 10000);
         assert_eq!(DEFAULT_BATCH_SIZE, 1000);
+    }
+
+    #[test]
+    fn seed_script_requires_a_durable_floor_for_missing_counters() {
+        // The guard prevents silently restarting at 0 after a Redis flush; a
+        // missing counter must be seeded from the PostgreSQL high watermark.
+        assert!(SEED_AND_RESERVE_SCRIPT.contains("if (not raw) and floor < 0"));
+        assert!(SEED_AND_RESERVE_SCRIPT.contains("current = floor"));
+        assert!(SEED_AND_RESERVE_SCRIPT.contains("redis.call('SET'"));
+    }
+
+    struct FixedHighWatermark(u64);
+
+    impl ConversationSeqHighWatermark for FixedHighWatermark {
+        fn high_watermark(
+            &self,
+            _tenant_id: &str,
+            _organization_id: &str,
+            _conversation_id: &str,
+        ) -> Result<u64, ContractError> {
+            Ok(self.0)
+        }
+    }
+
+    #[test]
+    fn allocator_accepts_a_durable_high_watermark_provider() {
+        let client = redis::Client::open("redis://127.0.0.1/").expect("redis client");
+        let _allocator = RedisSeqAllocator::new(client)
+            .with_high_watermark(Arc::new(FixedHighWatermark(4096)));
     }
 
     #[test]

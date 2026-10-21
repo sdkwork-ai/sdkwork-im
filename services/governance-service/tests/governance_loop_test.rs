@@ -210,7 +210,10 @@ async fn test_control_plane_governance_writes_feed_ops_and_audit_runtimes() {
         .to_bytes();
     let migrate_json: serde_json::Value =
         serde_json::from_slice(&migrate_body).expect("migrate body should be valid json");
-    assert_eq!(migrate_json["data"]["migratedRouteCount"], 1);
+    assert_eq!(
+        migrate_json["data"]["migratedRouteCount"],
+        serde_json::json!("1")
+    );
 
     let migrated_cluster = ops_runtime.cluster_view();
     assert_eq!(migrated_cluster.nodes[0].drain_status, "drained");
@@ -534,7 +537,7 @@ async fn test_control_plane_provider_policy_rollback_refreshes_ops_runtime_and_a
                 .with_dual_token_actor_kind("admin")
                 .with_dual_token_permission_scope("control.write")
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"targetVersion":1}"#))
+                .body(Body::from(r#"{"targetVersion":"1"}"#))
                 .unwrap(),
         )
         .await

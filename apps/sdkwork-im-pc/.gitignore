@@ -2,6 +2,7 @@ node_modules/
 .vite/
 build/
 dist/
+dist-embed/
 coverage/
 .DS_Store
 *.log

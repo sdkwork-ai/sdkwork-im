@@ -31,6 +31,7 @@ test('commercial readiness checks cover the verified frontend and backend gate c
       'pc-install',
       'pc-lint',
       'pc-build',
+      'pc-embed-build',
       'h5-lint',
       'h5-build',
       'h5-architecture-standard',

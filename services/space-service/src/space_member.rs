@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::api_payload::{keyset_list_page, resource_item};
 use crate::http::AppState;
+use sdkwork_im_keyset_cursor::{CursorScope, KeysetPosition};
+
 use crate::list_query::{ListQuery, resolve_keyset_page};
 use crate::space_access::{
     actor_can_manage_space, actor_can_read_space, ensure_user_not_banned_in_space, load_space,
@@ -111,7 +113,13 @@ pub async fn list_space_members(
         let space_id = parse_space_id(space_id.as_str())?;
         let space = load_space(&state, &auth, space_id)?;
         actor_can_read_space(&state, &auth, &space)?;
-        let paging = resolve_keyset_page(&query)?;
+        let scope = CursorScope {
+            resource: "space.members",
+            tenant_id: auth.tenant_id.as_str(),
+            organization_id: auth.organization_id.as_str(),
+            principal_id: auth.actor_id.as_str(),
+        };
+        let paging = resolve_keyset_page(&query, &scope)?;
 
         let records = state
             .space_member_store
@@ -132,8 +140,12 @@ pub async fn list_space_members(
         Ok(keyset_list_page(
             items,
             paging.page_size,
-            |item: &MemberResponse| (item.joined_at.clone(), item.user_id.clone()),
-        ))
+            &scope,
+            |item: &MemberResponse| KeysetPosition {
+                sort_value: item.joined_at.clone(),
+                entity_id: item.user_id.clone(),
+            },
+        )?)
     })();
     finish_api_json(&ctx, result)
 }

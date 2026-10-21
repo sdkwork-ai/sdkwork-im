@@ -83,7 +83,7 @@ assert.doesNotMatch(
 const spaceServiceCargo = readText('services', 'space-service', 'Cargo.toml');
 assert.match(
   spaceServiceCargo,
-  /sdkwork-im-runtime-id\s*=\s*\{\s*path\s*=\s*"\.\.\/\.\.\/crates\/sdkwork-im-runtime-id"/u,
+  /(?:sdkwork-im-runtime-id\s*=\s*\{\s*path\s*=\s*"\.\.\/\.\.\/crates\/sdkwork-im-runtime-id"|sdkwork_im_runtime_id\.workspace\s*=\s*true)/u,
   'space-service must depend on sdkwork-im-runtime-id for Snowflake entity ids.',
 );
 
@@ -125,7 +125,7 @@ for (const handlerPath of ['space.rs', 'group.rs', 'channel.rs']) {
 const socialServiceCargo = readText('services', 'social-service', 'Cargo.toml');
 assert.match(
   socialServiceCargo,
-  /sdkwork-im-runtime-id\s*=\s*\{\s*path\s*=\s*"\.\.\/\.\.\/crates\/sdkwork-im-runtime-id"/u,
+  /(?:sdkwork-im-runtime-id\s*=\s*\{\s*path\s*=\s*"\.\.\/\.\.\/crates\/sdkwork-im-runtime-id"|sdkwork_im_runtime_id\.workspace\s*=\s*true)/u,
   'social-service must depend on sdkwork-im-runtime-id for Postgres-backed entity ids.',
 );
 

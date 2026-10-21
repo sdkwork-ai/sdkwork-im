@@ -1,7 +1,12 @@
 use std::sync::OnceLock;
 
+use axum::Json;
+use axum::http::{HeaderName, HeaderValue, StatusCode, header};
+use axum::response::{IntoResponse, Response};
 use im_app_context::AppContext;
 use im_domain_core::rtc::SignalSender;
+use sdkwork_utils_rust::{SDKWORK_TRACE_ID_HEADER, SdkWorkProblemDetail, SdkWorkResultCode};
+use sdkwork_web_core::WebRequestContext;
 
 use crate::dto::{
     CreateRtcSessionRequest, InviteRtcSessionRequest, PostRtcSignalRequest, UpdateRtcSessionRequest,
@@ -9,8 +14,7 @@ use crate::dto::{
 use crate::error::CallingError;
 
 const CALL_MAX_RTC_SESSION_ID_BYTES: usize = 256;
-const CALL_MAX_CONVERSATION_ID_BYTES: usize = 256;
-const CALL_MAX_RTC_MODE_BYTES: usize = 64;
+const CALL_MAX_CONVERSATION_ID_BYTES: usize = 256;const CALL_MAX_RTC_MODE_BYTES: usize = 64;
 const CALL_MAX_SIGNALING_STREAM_ID_BYTES: usize = 256;
 const CALL_MAX_SIGNAL_TYPE_BYTES: usize = 128;
 const CALL_MAX_SCHEMA_REF_BYTES: usize = 256;
@@ -277,4 +281,31 @@ pub(crate) fn call_session_matches_create_request(
         && session.initiator_kind == auth.actor_kind
         && session.rtc_mode == request.rtc_mode
         && session.conversation_id.as_deref() == request.conversation_id.as_deref()
+}
+
+/// Emit the spec `40003 INVALID_PARAMETER` problem response for query
+/// validation failures (PAGINATION_SPEC requires the business code, not a
+/// generic 400 body).
+pub(crate) fn invalid_parameter_response(
+    ctx: &WebRequestContext,
+    detail: impl Into<String>,
+) -> Response {
+    let trace_id = ctx.resolved_trace_id();
+    let problem = SdkWorkProblemDetail::platform(
+        SdkWorkResultCode::InvalidParameter,
+        detail,
+        trace_id.clone(),
+    );
+    let status = StatusCode::from_u16(problem.status).unwrap_or(StatusCode::BAD_REQUEST);
+    let mut response = (status, Json(problem)).into_response();
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/problem+json"),
+    );
+    if let Ok(value) = HeaderValue::from_str(trace_id.as_str())
+        && let Ok(header_name) = HeaderName::from_bytes(SDKWORK_TRACE_ID_HEADER.as_bytes())
+    {
+        response.headers_mut().insert(header_name, value);
+    }
+    response
 }

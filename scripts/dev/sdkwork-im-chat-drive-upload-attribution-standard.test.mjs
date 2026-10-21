@@ -6,69 +6,73 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const read = (relative) => fs.readFileSync(path.join(repoRoot, relative), 'utf8');
+
+// Authority: DRIVE_SPEC.md §18 Application Upload Declaration Contract. The
+// declaration file is the single source of truth; every surface must consume
+// its declared constants instead of re-declaring literal attribution values.
+const declarationPath = 'apps/sdkwork-im-pc/specs/upload.declaration.json';
+const declaration = JSON.parse(read(declarationPath));
+assert.equal(declaration.schemaVersion, 1);
+assert.equal(declaration.appId, 'sdkwork-im-pc');
+assert.ok(Array.isArray(declaration.declarations) && declaration.declarations.length >= 4);
+for (const entry of declaration.declarations) {
+  assert.match(
+    entry.appResourceType,
+    /^[a-z0-9]+(?:\.[a-z0-9_]+)+$/u,
+    'appResourceType must be a dotted <domain>.<resource> business type',
+  );
+  assert.equal(entry.scene, 'chat-message-media');
+  assert.equal(entry.source, 'sdkwork-im-pc');
+  assert.notEqual(entry.scene, 'im', 'scene=im is reserved by Drive');
+  assert.equal(entry.appResourceIdKind, 'entity');
+  assert.equal(entry.retention, 'long_term');
+}
 
 const surfaces = [
   {
     id: 'pc',
     path: 'apps/sdkwork-im-pc/packages/sdkwork-im-pc-chat/src/services/ChatService.ts',
     patterns: [
-      /const CHAT_DRIVE_APP_RESOURCE_TYPE = ['"]im_conversation['"]/u,
-      /const CHAT_DRIVE_SCENE = ['"]im['"]/u,
-      /const CHAT_DRIVE_SOURCE = ['"]chat_message['"]/u,
+      /IM_PC_CHAT_IMAGE_UPLOAD/u,
+      /declaration\.appResourceType/u,
+      /declaration\.scene/u,
+      /declaration\.source/u,
     ],
   },
   {
     id: 'h5',
     path: 'apps/sdkwork-im-h5/packages/sdkwork-im-h5-chat/src/services/chatMediaUploadService.ts',
     patterns: [
-      /const CHAT_DRIVE_APP_RESOURCE_TYPE = "im_conversation"/u,
-      /const CHAT_DRIVE_SCENE = "im"/u,
-      /const CHAT_DRIVE_SOURCE = "chat_message"/u,
+      /declared\.appResourceType/u,
+      /declared\.scene/u,
+      /declared\.source/u,
     ],
   },
   {
     id: 'flutter',
     path: 'apps/sdkwork-im-flutter-mobile/packages/sdkwork_im_flutter_mobile_chat/lib/src/services/chat_media_upload_service.dart',
     patterns: [
-      /_chatDriveAppResourceType = 'im_conversation'/u,
-      /_chatDriveScene = 'im'/u,
-      /_chatDriveSource = 'chat_message'/u,
+      /ImFlutterChatImageUpload\.appResourceType/u,
+      /ImFlutterChatImageUpload\.scene/u,
+      /ImFlutterChatImageUpload\.source/u,
     ],
   },
 ];
 
-const integrationSpec = fs.readFileSync(
-  path.join(repoRoot, 'specs', 'im-app-api-sdk-integration.spec.md'),
-  'utf8',
-);
-
-assert.match(
-  integrationSpec,
-  /\|\s*`appResourceType`\s*\|\s*`im_conversation`\s*\|/u,
-  'im-app-api-sdk-integration.spec.md must remain the canonical Drive upload attribution authority.',
-);
-
-assert.match(
-  integrationSpec,
-  /\|\s*`scene`\s*\|\s*`im`\s*\|/u,
-  'im-app-api-sdk-integration.spec.md must declare scene=im for chat Drive uploads.',
-);
-
-assert.match(
-  integrationSpec,
-  /\|\s*`source`\s*\|\s*`chat_message`\s*\|/u,
-  'im-app-api-sdk-integration.spec.md must declare source=chat_message for chat Drive uploads.',
-);
-
 for (const surface of surfaces) {
-  const source = fs.readFileSync(path.join(repoRoot, surface.path), 'utf8');
+  const source = read(surface.path);
   for (const pattern of surface.patterns) {
     assert.match(
       source,
       pattern,
-      `${surface.id} chat media upload must follow canonical Drive attribution from im-app-api-sdk-integration.spec.md.`,
+      `${surface.id} chat media upload must consume the declared Drive attribution constants.`,
     );
   }
 }
+
+const h5Declaration = read('apps/sdkwork-im-h5/packages/sdkwork-im-h5-core/src/sdk/uploadDeclaration.ts');
+assert.match(h5Declaration, /im\.conversation_message_media/u);
+assert.match(h5Declaration, /chat-message-media/u);
 
 process.stdout.write('sdkwork-im chat drive upload attribution standard passed\n');

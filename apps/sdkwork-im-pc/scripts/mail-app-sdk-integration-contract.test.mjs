@@ -26,7 +26,7 @@ function readRepoJson(...segments) {
 const packageJson = readJson('package.json');
 const releaseSources = readRepoJson('config', 'shared-sdk-release-sources.json');
 const workflow = readRepoJson('sdkwork.workflow.json');
-const standaloneDependencies = readRepoText('crates', 'sdkwork-api-im-standalone-gateway', 'src', 'embedded_dependency_routes.rs');
+const standaloneDependencies = readRepoText('crates', 'sdkwork-api-im-assembly', 'src', 'embedded_dependency_routes.rs');
 const sharedSdkGitSource = readRepoText('scripts', 'dev', 'prepare-shared-sdk-git-sources.mjs');
 const releaseBuildSource = readRepoText('scripts', 'release', 'run-sdkwork-im-pc-release-build.mjs');
 const devRunnerSource = readRepoText('scripts', 'lib', 'im-pc-dev.mjs');

@@ -11,61 +11,61 @@ pub const ROUTES: &[HttpRoute] = &[
         HttpMethod::Get,
         paths::AUTOMATION_GOVERNANCE,
         "automation",
-        "automation.governance.retrieve",
+        "governance.retrieve",
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,
         paths::PROTOCOL_REGISTRY,
         "governance",
-        "governance.protocolRegistry.retrieve",
+        "protocolRegistry.retrieve",
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,
         paths::PROTOCOL_GOVERNANCE,
         "governance",
-        "governance.protocolGovernance.retrieve",
+        "protocolGovernance.retrieve",
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,
         paths::PROVIDER_REGISTRY,
         "governance",
-        "governance.providerRegistry.retrieve",
+        "providerRegistry.retrieve",
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,
         paths::PROVIDER_BINDINGS,
         "governance",
-        "governance.providerBindings.list",
+        "control.providerBindings.list",
     ),
     HttpRoute::dual_token(
         HttpMethod::Post,
         paths::PROVIDER_BINDINGS,
         "governance",
-        "governance.providerBindings.upsert",
+        "control.providerBindings.create",
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,
         paths::PROVIDER_POLICIES,
         "governance",
-        "governance.providerPolicies.list",
+        "providerPolicies.list",
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,
         paths::PROVIDER_POLICIES_DIFF,
         "governance",
-        "governance.providerPolicies.diff.retrieve",
+        "providerPolicies.diff.list",
     ),
     HttpRoute::dual_token(
         HttpMethod::Post,
         paths::PROVIDER_POLICIES_PREVIEW,
         "governance",
-        "governance.providerPolicies.preview.create",
+        "providerPolicies.preview",
     ),
     HttpRoute::dual_token(
         HttpMethod::Post,
         paths::PROVIDER_POLICIES_ROLLBACK,
         "governance",
-        "governance.providerPolicies.rollback.create",
+        "providerPolicies.rollback",
     ),
     HttpRoute::dual_token(
         HttpMethod::Post,
@@ -88,5 +88,18 @@ pub const ROUTES: &[HttpRoute] = &[
 ];
 
 pub fn route_manifest() -> HttpRouteManifest {
-    HttpRouteManifest::new(ROUTES)
+    // Defense in depth: route-level permission is enforced by the framework
+    // interceptor in addition to handler-level access checks.
+    let routes = ROUTES
+        .iter()
+        .map(|route| {
+            let permission = if route.method == HttpMethod::Get {
+                "control.read"
+            } else {
+                "control.write"
+            };
+            route.with_required_permission(permission)
+        })
+        .collect::<Vec<_>>();
+    HttpRouteManifest::new(&routes)
 }

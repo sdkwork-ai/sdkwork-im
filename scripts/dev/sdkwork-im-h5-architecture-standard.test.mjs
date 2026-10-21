@@ -83,10 +83,14 @@ for (const required of [
   'packages/sdkwork-im-h5-shell/src/modules/chatModule.tsx',
   'packages/sdkwork-im-h5-shell/src/modules/contactsModule.tsx',
   'packages/sdkwork-im-h5-shell/src/modules/notaryModule.tsx',
-  'config/browser/runtime-env.development.example.json',
-  'config/browser/runtime-env.test.example.json',
-  'config/browser/runtime-env.staging.example.json',
-  'config/browser/runtime-env.production.example.json',
+  'config/browser/runtime-env.standalone.development.json',
+  'config/browser/runtime-env.standalone.test.json',
+  'config/browser/runtime-env.standalone.staging.json',
+  'config/browser/runtime-env.standalone.production.json',
+  'config/browser/runtime-env.cloud.development.json',
+  'config/browser/runtime-env.cloud.test.json',
+  'config/browser/runtime-env.cloud.staging.json',
+  'config/browser/runtime-env.cloud.production.json',
   'config/host/capacitor.development.example.json',
   'config/host/capacitor.staging.example.json',
   'config/host/capacitor.production.example.json',
@@ -218,9 +222,8 @@ const deferredCapabilityPages = [
   '../../../sdkwork-shop/apps/sdkwork-shop-common/packages/sdkwork-shop-mobile-react-shopping/src/pages/CheckoutPage.tsx',
   '../../../sdkwork-shop/apps/sdkwork-shop-common/packages/sdkwork-shop-mobile-react-shopping/src/pages/CategoryPage.tsx',
   '../../../sdkwork-shop/apps/sdkwork-shop-common/packages/sdkwork-shop-mobile-react-shopping/src/pages/CashierPage.tsx',
-  '../../../sdkwork-order/apps/sdkwork-order-common/packages/sdkwork-order-mobile-react-orders/src/pages/VoucherCodePage.tsx',
-  '../../../sdkwork-order/apps/sdkwork-order-common/packages/sdkwork-order-mobile-react-orders/src/pages/OrderDetail.tsx',
-  '../../../sdkwork-order/apps/sdkwork-order-common/packages/sdkwork-order-mobile-react-orders/src/pages/OrderCenter.tsx',
+  // Order pages migrated to a real OrderService-backed implementation in the
+  // owning sdkwork-order repository; they are no longer fail-closed placeholders.
 ].map(read);
 
 assert.equal(appSource.includes('SPDX-License-Identifier'), false, 'AI Studio @license block must be removed from src/App.tsx');
@@ -324,7 +327,11 @@ assert.doesNotMatch(
 );
 for (const [name, errorName, source] of deferredCapabilityServices) {
   assert.doesNotMatch(source, /fetch\s*\(|localStorage|sessionStorage/u, `${name} must not own transport or browser business state`);
-  assert.doesNotMatch(source, /Math\.random|Date\.now|setInterval|setTimeout|\/mock\//u, `${name} must not fabricate work or results`);
+  // Timers alone are not evidence of fabricated work: deferred capabilities may
+  // use a bounded retry delay (for example KnowledgeBase resolve retry) while
+  // still failing closed with a typed unavailable error. Ban randomness, fake
+  // clock-derived results, and mock paths instead.
+  assert.doesNotMatch(source, /Math\.random|Date\.now|\/mock\//u, `${name} must not fabricate work or results`);
   assert.match(source, new RegExp(errorName, 'u'), `${name} must fail closed with a typed error`);
 }
 for (const source of [

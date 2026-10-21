@@ -11,71 +11,71 @@ class AutomationApi {
   AutomationApi(this._client);
 
   /// Start an agent response stream
-  Future<AutomationAgentResponsesCreateResponse201?> agentResponsesCreate(StartAgentResponseRequest body) async {
+  Future<AgentResponsesCreateResponse201?> agentResponsesCreate(StartAgentResponseRequest body) async {
     final payload = body.toJson();
     final response = await _client.post(ApiPaths.appPath('/automation/agent_responses'), body: payload, contentType: 'application/json');
     return (() {
       final map = sdkworkResponseAsMap(response);
-      return map == null ? null : AutomationAgentResponsesCreateResponse201.fromJson(map);
+      return map == null ? null : AgentResponsesCreateResponse201.fromJson(map);
     })();
   }
 
   /// Complete an agent response stream
-  Future<AutomationAgentResponsesCompleteResponse?> agentResponsesComplete(String streamId, CompleteAgentResponseRequest body) async {
+  Future<AgentResponsesCompleteResponse?> agentResponsesComplete(String streamId, CompleteAgentResponseRequest body) async {
     final payload = body.toJson();
     final response = await _client.post(ApiPaths.appPath('/automation/agent_responses/${serializePathParameter(streamId, const PathParameterSpec('streamId', 'simple', false))}/complete'), body: payload, contentType: 'application/json');
     return (() {
       final map = sdkworkResponseAsMap(response);
-      return map == null ? null : AutomationAgentResponsesCompleteResponse.fromJson(map);
+      return map == null ? null : AgentResponsesCompleteResponse.fromJson(map);
     })();
   }
 
   /// Append a frame to an agent response stream
-  Future<AutomationAgentResponsesFramesCreateResponse201?> agentResponsesFramesCreate(String streamId, AppendAgentResponseDeltaRequest body) async {
+  Future<AgentResponsesFramesCreateResponse201?> agentResponsesFramesCreate(String streamId, AppendAgentResponseDeltaRequest body) async {
     final payload = body.toJson();
     final response = await _client.post(ApiPaths.appPath('/automation/agent_responses/${serializePathParameter(streamId, const PathParameterSpec('streamId', 'simple', false))}/frames'), body: payload, contentType: 'application/json');
     return (() {
       final map = sdkworkResponseAsMap(response);
-      return map == null ? null : AutomationAgentResponsesFramesCreateResponse201.fromJson(map);
+      return map == null ? null : AgentResponsesFramesCreateResponse201.fromJson(map);
     })();
   }
 
   /// Request an agent tool call
-  Future<AutomationAgentToolCallsCreateResponse201?> agentToolCallsCreate(RequestAgentToolCallRequest body) async {
+  Future<AgentToolCallsCreateResponse201?> agentToolCallsCreate(RequestAgentToolCallRequest body) async {
     final payload = body.toJson();
     final response = await _client.post(ApiPaths.appPath('/automation/agent_tool_calls'), body: payload, contentType: 'application/json');
     return (() {
       final map = sdkworkResponseAsMap(response);
-      return map == null ? null : AutomationAgentToolCallsCreateResponse201.fromJson(map);
+      return map == null ? null : AgentToolCallsCreateResponse201.fromJson(map);
     })();
   }
 
   /// Request an automation execution
-  Future<AutomationExecutionsCreateResponse201?> executionsCreate(RequestAutomationExecution body) async {
+  Future<ExecutionsCreateResponse201?> executionsCreate(RequestAutomationExecution body) async {
     final payload = body.toJson();
     final response = await _client.post(ApiPaths.appPath('/automation/executions'), body: payload, contentType: 'application/json');
     return (() {
       final map = sdkworkResponseAsMap(response);
-      return map == null ? null : AutomationExecutionsCreateResponse201.fromJson(map);
+      return map == null ? null : ExecutionsCreateResponse201.fromJson(map);
     })();
   }
 
   /// Get an automation execution
-  Future<AutomationExecutionsRetrieveResponse?> executionsRetrieve(String executionId) async {
+  Future<ExecutionsRetrieveResponse?> executionsRetrieve(String executionId) async {
     final response = await _client.get(ApiPaths.appPath('/automation/executions/${serializePathParameter(executionId, const PathParameterSpec('executionId', 'simple', false))}'));
     return (() {
       final map = sdkworkResponseAsMap(response);
-      return map == null ? null : AutomationExecutionsRetrieveResponse.fromJson(map);
+      return map == null ? null : ExecutionsRetrieveResponse.fromJson(map);
     })();
   }
 
   /// Complete an agent tool call
-  Future<AutomationAgentToolCallsCompleteResponse?> agentToolCallsComplete(String executionId, String toolCallId, CompleteAgentToolCallRequest body) async {
+  Future<AgentToolCallsCompleteResponse?> agentToolCallsComplete(String executionId, String toolCallId, CompleteAgentToolCallRequest body) async {
     final payload = body.toJson();
     final response = await _client.post(ApiPaths.appPath('/automation/executions/${serializePathParameter(executionId, const PathParameterSpec('executionId', 'simple', false))}/agent_tool_calls/${serializePathParameter(toolCallId, const PathParameterSpec('toolCallId', 'simple', false))}/complete'), body: payload, contentType: 'application/json');
     return (() {
       final map = sdkworkResponseAsMap(response);
-      return map == null ? null : AutomationAgentToolCallsCompleteResponse.fromJson(map);
+      return map == null ? null : AgentToolCallsCompleteResponse.fromJson(map);
     })();
   }
 }

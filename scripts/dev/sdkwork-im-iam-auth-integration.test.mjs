@@ -14,7 +14,7 @@ const interceptors = read('../sdkwork-web-framework/crates/sdkwork-web-core/src/
 const iamAdapterLib = read('../sdkwork-iam/crates/sdkwork-iam-web-adapter/src/lib.rs');
 const iamDatabaseEnv = read('../sdkwork-iam/crates/sdkwork-iam-web-adapter/src/iam_database_env.rs');
 const imWebBootstrap = read('crates/sdkwork-im-web-bootstrap/src/lib.rs');
-const embeddedDependencyRoutes = read('crates/sdkwork-api-im-standalone-gateway/src/embedded_dependency_routes.rs');
+const embeddedDependencyRoutes = read('crates/sdkwork-api-im-assembly/src/embedded_dependency_routes.rs');
 const realtimeBootstrap = read('crates/sdkwork-routes-im-realtime-open-api/src/web_bootstrap.rs');
 
 assert.match(
@@ -102,8 +102,8 @@ assert.match(
 );
 assert.match(
   read('crates/sdkwork-api-im-standalone-gateway/src/main.rs'),
-  /embedded_dependency_routes::bootstrap_embedded_dependency_routes/,
-  'standalone gateway must embed sibling dependency route crates in-process',
+  /bootstrap_embedded_dependency_routes\s*\(/,
+  'standalone gateway must embed sibling dependency route crates in-process through the assembly crate',
 );
 assert.match(
   read('crates/sdkwork-api-im-standalone-gateway/src/main.rs'),
@@ -111,32 +111,32 @@ assert.match(
   'standalone gateway must declare host-mounted IAM before embedding knowledgebase sibling assemblies',
 );
 assert.match(
-  read('crates/sdkwork-api-im-standalone-gateway/src/embedded_dependency_routes.rs'),
+  read('crates/sdkwork-api-im-assembly/src/embedded_dependency_routes.rs'),
   /sdkwork_api_drive_assembly::assemble_app_api_contribution/,
   'standalone dependency bootstrap must mount drive through its canonical API assembly',
 );
 assert.match(
-  read('crates/sdkwork-api-im-standalone-gateway/src/embedded_dependency_routes.rs'),
+  read('crates/sdkwork-api-im-assembly/src/embedded_dependency_routes.rs'),
   /sdkwork_api_knowledgebase_assembly::assemble_app_api_contribution_from_environment/,
   'standalone dependency bootstrap must mount knowledgebase through its canonical API assembly',
 );
 assert.match(
-  read('crates/sdkwork-api-im-standalone-gateway/src/embedded_dependency_routes.rs'),
+  read('crates/sdkwork-api-im-assembly/src/embedded_dependency_routes.rs'),
   /sdkwork_api_order_assembly::assemble_app_api_contribution[\s\S]*sdkwork_api_catalog_assembly::assemble_api_router_from_env[\s\S]*sdkwork_api_shop_assembly::assemble_app_api_contribution_from_env/,
   'standalone dependency bootstrap must mount commerce capabilities through canonical API assemblies',
 );
 assert.match(
-  read('crates/sdkwork-api-im-standalone-gateway/src/embedded_dependency_routes.rs'),
+  read('crates/sdkwork-api-im-assembly/src/embedded_dependency_routes.rs'),
   /sdkwork_api_mail_assembly::assemble_api_router/,
   'standalone dependency bootstrap must mount mail through its canonical API assembly',
 );
 assert.match(
-  read('crates/sdkwork-api-im-standalone-gateway/src/embedded_dependency_routes.rs'),
+  read('crates/sdkwork-api-im-assembly/src/embedded_dependency_routes.rs'),
   /sdkwork_api_agents_assembly::assemble_app_runtime_contribution/,
   'standalone dependency bootstrap must mount agents through its canonical API assembly',
 );
 assert.match(
-  read('crates/sdkwork-api-im-standalone-gateway/src/embedded_dependency_routes.rs'),
+  read('crates/sdkwork-api-im-assembly/src/embedded_dependency_routes.rs'),
   /sdkwork_api_notary_assembly::assemble_app_api_contribution/,
   'standalone dependency bootstrap must mount notary through its canonical API assembly',
 );

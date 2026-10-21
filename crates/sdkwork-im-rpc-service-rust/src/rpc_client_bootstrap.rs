@@ -192,6 +192,12 @@ fn static_endpoint_from_env() -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    // The workspace denies `unsafe_code`; this test-only module opts back in
+    // locally because Rust 2024 marks `std::env::set_var`/`remove_var` unsafe.
+    // Every test serializes mutations through `RPC_RESOLVER_ENV_LOCK` and
+    // restores the resolver variables before returning.
+    #![allow(unsafe_code)]
+
     use super::*;
 
     #[test]

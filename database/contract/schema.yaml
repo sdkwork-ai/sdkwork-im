@@ -174,3 +174,12 @@ tables:
   - name: im_agent_dispatch
     lifecycle_status: active
     owner: im-platform
+  - name: im_conversation_member_preferences
+    lifecycle_status: active
+    owner: im-platform
+  - name: im_conversation_profiles
+    lifecycle_status: active
+    owner: im-platform
+  - name: im_message_favorites
+    lifecycle_status: active
+    owner: im-platform

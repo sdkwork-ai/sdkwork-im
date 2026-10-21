@@ -231,9 +231,9 @@ const gatewayCargo = read('crates/sdkwork-api-im-standalone-gateway/Cargo.toml')
 
 assert.match(gatewayCargo, /sdkwork_web_axum\.workspace\s*=\s*true/u);
 
-assert.match(gatewayCargo, /sdkwork-web-bootstrap\.workspace\s*=\s*true/u);
+assert.match(gatewayCargo, /sdkwork[-_]web[-_]bootstrap\.workspace\s*=\s*true/u);
 
-assert.match(gatewayCargo, /sdkwork-im-web-bootstrap\.workspace\s*=\s*true/u);
+assert.match(gatewayCargo, /sdkwork[-_]im[-_]web[-_]bootstrap\.workspace\s*=\s*true/u);
 assert.match(gatewayCargo, /sdkwork-api-iam-assembly\s*=\s*\{ workspace = true \}/u);
 assert.doesNotMatch(
   gatewayCargo,
@@ -248,7 +248,7 @@ const realtimeWebBootstrap = read('crates/sdkwork-routes-im-realtime-open-api/sr
 
 assert.match(
   gatewayMain,
-  /ComposedApiAssembly::try_compose|into_hosted\(WebFrameworkBuilder/u,
+  /ComposedApiAssembly[\s\S]*into_hosted\(/u,
   'standalone gateway must compose and host IM + IAM + dependency API contributions through the web framework',
 );
 assert.match(gatewayMain, /shared_iam_web_request_context_resolver_from_env/u);

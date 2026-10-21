@@ -37,7 +37,7 @@ const topologySpec = readJson('specs/topology.spec.json');
 const standaloneGatewayMainSource = read('crates/sdkwork-api-im-standalone-gateway/src/main.rs');
 const applicationAssemblySource = read('crates/sdkwork-api-im-assembly/src/bootstrap.rs');
 const standaloneDependencySource = read(
-  'crates/sdkwork-api-im-standalone-gateway/src/embedded_dependency_routes.rs',
+  'crates/sdkwork-api-im-assembly/src/embedded_dependency_routes.rs',
 );
 
 for (const environment of ['development', 'test', 'staging', 'production']) {

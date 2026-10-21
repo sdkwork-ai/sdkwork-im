@@ -8,9 +8,13 @@ pub use paths::PREFIX;
 
 use axum::Router;
 
+pub fn build_domain_router() -> Router {
+    routes::build_api_router()
+}
+
 pub fn build_public_app() -> Router {
     web_bootstrap::wrap_router(streaming_service::apply_public_http_guardrails(
-        routes::build_api_router(),
+        build_domain_router(),
     ))
 }
 
