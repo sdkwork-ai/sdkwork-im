@@ -152,3 +152,8 @@ __pycache__/
 # set-asides. Untracked local state; a human may delete them after review.
 node_modules.__stale__donor*
 node_modules.__pre_repair_link*
+
+# Agent scratch / one-off helper scripts (dot-prefixed tmp files). Added by
+# repo-commit sweep; `*.tmp` does not match `.tmp-*.cjs` helper scripts.
+.tmp-*
+.tmp_*
