@@ -968,6 +968,19 @@
     "initializedAt": "2026-05-07T00:00:00Z",
     "deploymentConfig": "etc/sdkwork.deployment.config.json",
     "topologySpec": "specs/topology.spec.json",
-    "workflowManifest": "sdkwork.workflow.json"
+    "workflowManifest": "sdkwork.workflow.json",
+    "publishing": {
+      "appIdByTarget": {
+        "cloud.development": "e26c656e-1564-4e6a-b266-49fda99b3e7e"
+      },
+      "birdcoder": {
+        "appId": "e26c656e-1564-4e6a-b266-49fda99b3e7e",
+        "appName": "Sdkwork IM",
+        "appSlug": "sdkwork-im",
+        "appKey": "chat",
+        "sourceDirectory": "D:\\sdkwork-space\\sdkwork-im",
+        "updatedAt": "2026-10-23T06:37:35.311Z"
+      }
+    }
   }
 }
