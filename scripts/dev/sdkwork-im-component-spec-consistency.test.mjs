@@ -213,34 +213,34 @@ for (const command of verificationCommands) {
 // --- 5. Application and workflow security declarations align ---------------
 
 const appManifest = readJson('agent.app.config.json');
-const workflowManifest = readJson('sdkwork.workflow.json');
+const workflowManifest = readJson('agent.workflow.json');
 const appSecurity = appManifest.security ?? {};
 const workflowSecurity = workflowManifest.security ?? {};
 if (appSecurity.sbomRequired === true) {
   assert.equal(
     workflowSecurity.sbomRequired,
     true,
-    'sdkwork.workflow.json security.sbomRequired must be true when agent.app.config.json requires SBOM',
+    'agent.workflow.json security.sbomRequired must be true when agent.app.config.json requires SBOM',
   );
 }
 if (appSecurity.signatureRequired === true) {
   assert.equal(
     workflowSecurity.signingRequired,
     true,
-    'sdkwork.workflow.json security.signingRequired must be true when agent.app.config.json requires signatures',
+    'agent.workflow.json security.signingRequired must be true when agent.app.config.json requires signatures',
   );
 }
 const lifecycle = workflowManifest.lifecycle ?? {};
 if (workflowSecurity.sbomRequired === true) {
   assert.ok(
     Array.isArray(lifecycle.sbom) && lifecycle.sbom.length > 0,
-    'sdkwork.workflow.json lifecycle.sbom must declare at least one step when security.sbomRequired is true',
+    'agent.workflow.json lifecycle.sbom must declare at least one step when security.sbomRequired is true',
   );
 }
 if (workflowSecurity.signingRequired === true) {
   assert.ok(
     Array.isArray(lifecycle.sign) && lifecycle.sign.length > 0,
-    'sdkwork.workflow.json lifecycle.sign must declare at least one step when security.signingRequired is true',
+    'agent.workflow.json lifecycle.sign must declare at least one step when security.signingRequired is true',
   );
 }
 

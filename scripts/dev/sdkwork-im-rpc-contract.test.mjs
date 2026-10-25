@@ -821,12 +821,12 @@ for (const requiredText of [
   assert.match(serviceBindingSource, new RegExp(escapeRegex(requiredText), 'u'), `Rust RPC service binding scaffold must include ${requiredText}.`);
 }
 
-const workflow = readJson('sdkwork.workflow.json');
+const workflow = readJson('agent.workflow.json');
 const workflowDependencyIds = new Set((workflow.dependencies || []).map((dependency) => dependency.id));
 assert.equal(
   workflowDependencyIds.has('sdkwork-discovery'),
   false,
-  'sdkwork.workflow.json must not checkout sdkwork-discovery until ADR-20260619 Phase 2 product integration',
+  'agent.workflow.json must not checkout sdkwork-discovery until ADR-20260619 Phase 2 product integration',
 );
 assert.match(
   read('Cargo.toml'),

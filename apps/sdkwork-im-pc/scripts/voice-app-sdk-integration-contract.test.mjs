@@ -53,7 +53,7 @@ const tsconfigApp = readJson('tsconfig.app.json');
 const pnpmWorkspaceSource = readRepoText('pnpm-workspace.yaml');
 const viteConfigSource = readText('vite.config.ts');
 const releaseSources = readRepoJson('config', 'shared-sdk-release-sources.json');
-const workflow = readRepoJson('sdkwork.workflow.json');
+const workflow = readRepoJson('agent.workflow.json');
 const appAuthRuntimeSource = readText(
   'packages',
   'sdkwork-im-pc-core',
@@ -149,7 +149,7 @@ assert.match(
 assert.equal(
   releaseSources.sources?.['sdkwork-voice']?.ref,
   workflow.dependencies?.find((dependency) => dependency.id === 'sdkwork-voice')?.ref,
-  'Shared SDK release config must use the same pinned sdkwork-voice ref as sdkwork.workflow.json.',
+  'Shared SDK release config must use the same pinned sdkwork-voice ref as agent.workflow.json.',
 );
 
 assert.match(

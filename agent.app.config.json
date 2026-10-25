@@ -968,7 +968,7 @@
     "initializedAt": "2026-05-07T00:00:00Z",
     "deploymentConfig": "etc/sdkwork.deployment.config.json",
     "topologySpec": "specs/topology.spec.json",
-    "workflowManifest": "sdkwork.workflow.json",
+    "workflowManifest": "agent.workflow.json",
     "publishing": {
       "appIdByTarget": {
         "cloud.development": "e26c656e-1564-4e6a-b266-49fda99b3e7e"

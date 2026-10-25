@@ -6,7 +6,7 @@ Owner: SDKWork IM maintainers
 
 ## Authority
 
-The repository-root `sdkwork.workflow.json` is the only release workflow authority. The root
+The repository-root `agent.workflow.json` is the only release workflow authority. The root
 `agent.app.config.json` is the package inventory and commercial readiness declaration. PC, H5,
 and Flutter child manifests describe their application surfaces; they do not own competing release
 workflows.
@@ -52,7 +52,7 @@ invented.
 These commands are read-only or produce local build evidence. They do not publish or deploy:
 
 ```bash
-node ../sdkwork-github-workflow/scripts/sdkwork-workflow.mjs validate --config sdkwork.workflow.json
+node ../sdkwork-github-workflow/scripts/agent-workflow.mjs validate --config agent.workflow.json
 pnpm deploy:validate:standalone
 pnpm deploy:validate:cloud
 node --test scripts/release/workflow-release-target.test.mjs

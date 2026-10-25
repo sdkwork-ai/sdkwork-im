@@ -139,7 +139,7 @@
 
 **Files:**
 - Modify: `deployments/kubernetes/cloud/**`
-- Modify: `sdkwork.workflow.json`, package/release scripts, manifests, and lockfile only through canonical tools
+- Modify: `agent.workflow.json`, package/release scripts, manifests, and lockfile only through canonical tools
 - Modify: root and PC `agent.app.config.json` plus package versions
 - Modify: capacity profiles, dashboards, alerts, runbooks, and release evidence templates
 

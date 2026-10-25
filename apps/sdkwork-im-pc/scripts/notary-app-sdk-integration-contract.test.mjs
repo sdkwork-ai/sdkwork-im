@@ -55,7 +55,7 @@ const releaseSources = readRepoJson('config', 'shared-sdk-release-sources.json')
 const sharedSdkGitSource = readRepoText('scripts', 'dev', 'prepare-shared-sdk-git-sources.mjs');
 const devRunnerSource = readRepoText('scripts', 'lib', 'im-pc-dev.mjs');
 const standaloneDependencies = readRepoText('crates', 'sdkwork-api-im-assembly', 'src', 'embedded_dependency_routes.rs');
-const workflow = readRepoJson('sdkwork.workflow.json');
+const workflow = readRepoJson('agent.workflow.json');
 const packageWorkflowSource = readRepoText('.github', 'workflows', 'package.yml');
 const appAuthRuntimeSource = readText(
   'packages',
@@ -172,7 +172,7 @@ assert.ok(
 assert.equal(
   releaseSources.sources?.['sdkwork-notary']?.ref,
   workflow.dependencies?.find((dependency) => dependency.id === 'sdkwork-notary')?.ref,
-  'Shared SDK release config must use the same pinned sdkwork-notary ref as sdkwork.workflow.json.',
+  'Shared SDK release config must use the same pinned sdkwork-notary ref as agent.workflow.json.',
 );
 
 assert.match(
@@ -184,7 +184,7 @@ assert.match(
 assert.equal(
   releaseSources.sources?.['sdkwork-drive']?.ref,
   workflow.dependencies?.find((dependency) => dependency.id === 'sdkwork-drive')?.ref,
-  'Shared SDK release config must use the same pinned sdkwork-drive ref as sdkwork.workflow.json.',
+  'Shared SDK release config must use the same pinned sdkwork-drive ref as agent.workflow.json.',
 );
 
 assert.match(
@@ -241,7 +241,7 @@ assert.ok(
       && dependency.refInput === 'SDKWORK_NOTARY_REF'
       && dependency.tokenSecret === 'SDKWORK_RELEASE_TOKEN'
   )),
-  'sdkwork.workflow.json must declare sdkwork-notary as a release dependency.',
+  'agent.workflow.json must declare sdkwork-notary as a release dependency.',
 );
 
 assert.ok(
@@ -251,7 +251,7 @@ assert.ok(
       && dependency.refInput === 'SDKWORK_DRIVE_REF'
       && dependency.tokenSecret === 'SDKWORK_RELEASE_TOKEN'
   )),
-  'sdkwork.workflow.json must declare sdkwork-drive as the notary file capability release dependency.',
+  'agent.workflow.json must declare sdkwork-drive as the notary file capability release dependency.',
 );
 
 assert.match(

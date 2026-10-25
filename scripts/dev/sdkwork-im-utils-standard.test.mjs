@@ -17,11 +17,11 @@ assert.match(
   'Cargo.toml must declare sdkwork_utils_rust workspace dependency for sdkwork-utils integration',
 );
 
-const workflow = JSON.parse(read('sdkwork.workflow.json'));
+const workflow = JSON.parse(read('agent.workflow.json'));
 const dependencyIds = new Set((workflow.dependencies || []).map((dependency) => dependency.id));
 assert(
   dependencyIds.has('sdkwork-utils'),
-  'sdkwork.workflow.json must declare sdkwork-utils sibling checkout',
+  'agent.workflow.json must declare sdkwork-utils sibling checkout',
 );
 
 const pnpmWorkspace = read('pnpm-workspace.yaml');

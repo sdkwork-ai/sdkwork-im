@@ -68,7 +68,7 @@ Gate: `cargo test -p sdkwork-im-rpc-service-rust`, `pnpm test:rpc-contract`.
 
 After Phase 1 RPC hosts run in the cloud profile:
 
-1. Add `sdkwork-discovery` sibling checkout to `sdkwork.workflow.json` (same pattern as `sdkwork-web-framework`).
+1. Add `sdkwork-discovery` sibling checkout to `agent.workflow.json` (same pattern as `sdkwork-web-framework`).
 2. Add workspace dependency on `sdkwork-discovery-rpc-sdk` (or generated Rust client crate) for registration client only.
 3. On RPC host bootstrap:
    - Register instance with namespace `communication`, service name = canonical `service_id` (e.g. `comms-conversation-service`).

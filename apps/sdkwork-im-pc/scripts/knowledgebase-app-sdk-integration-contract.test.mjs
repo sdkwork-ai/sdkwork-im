@@ -57,7 +57,7 @@ const sharedSdkGitSource = readRepoText('scripts', 'dev', 'prepare-shared-sdk-gi
 const releaseBuildSource = readRepoText('scripts', 'release', 'run-sdkwork-im-pc-release-build.mjs');
 const devRunnerSource = readRepoText('scripts', 'lib', 'im-pc-dev.mjs');
 const standaloneDependencies = readRepoText('crates', 'sdkwork-api-im-assembly', 'src', 'embedded_dependency_routes.rs');
-const workflow = readRepoJson('sdkwork.workflow.json');
+const workflow = readRepoJson('agent.workflow.json');
 const componentSpec = readRepoJson('specs', 'component.spec.json');
 const moduleRegistrySource = readText('packages', 'sdkwork-im-pc-shell', 'src', 'moduleRegistry.ts');
 const appAuthRuntimeSource = readText(
@@ -152,7 +152,7 @@ assert.ok(
 assert.equal(
   releaseSources.sources?.['sdkwork-knowledgebase']?.ref,
   workflow.dependencies?.find((dependency) => dependency.id === 'sdkwork-knowledgebase')?.ref,
-  'Shared SDK release config must use the same pinned sdkwork-knowledgebase ref as sdkwork.workflow.json.',
+  'Shared SDK release config must use the same pinned sdkwork-knowledgebase ref as agent.workflow.json.',
 );
 
 assert.match(
@@ -192,7 +192,7 @@ assert.ok(
       && dependency.refInput === 'SDKWORK_KNOWLEDGEBASE_REF'
       && dependency.tokenSecret === 'SDKWORK_RELEASE_TOKEN'
   )),
-  'sdkwork.workflow.json must declare sdkwork-knowledgebase as a release dependency.',
+  'agent.workflow.json must declare sdkwork-knowledgebase as a release dependency.',
 );
 
 const dependencySurface = componentSpec.contracts?.dependencyApiSurfaces?.find(

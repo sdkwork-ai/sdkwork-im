@@ -11,7 +11,7 @@ const rootsToScan = [
   'sdks',
   'package.json',
   'Cargo.toml',
-  'sdkwork.workflow.json',
+  'agent.workflow.json',
 ];
 
 const textExtensions = new Set([

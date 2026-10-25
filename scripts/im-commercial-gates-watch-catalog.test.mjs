@@ -26,7 +26,7 @@ test('im commercial gates workflow watch catalog publishes the exact governed wa
       'Cargo.lock',
       'config/shared-sdk-release-sources.json',
       'package.json',
-      'sdkwork.workflow.json',
+      'agent.workflow.json',
       'README.md',
       'apps/sdkwork-im-pc/**',
       'crates/**',

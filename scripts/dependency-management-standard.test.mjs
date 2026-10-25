@@ -195,11 +195,11 @@ function assertNativeDependencyFile(relativePath) {
 }
 
 function assertDependencyDeclaration() {
-  const workflow = readJson('sdkwork.workflow.json');
-  assert(Array.isArray(workflow.dependencies), 'sdkwork.workflow.json must declare dependencies[]');
+  const workflow = readJson('agent.workflow.json');
+  assert(Array.isArray(workflow.dependencies), 'agent.workflow.json must declare dependencies[]');
   const dependencyIds = new Set((workflow.dependencies || []).map((dependency) => dependency.id));
   for (const expectedId of expectedDependencyIds) {
-    assert(dependencyIds.has(expectedId), `sdkwork.workflow.json must declare ${expectedId}`);
+    assert(dependencyIds.has(expectedId), `agent.workflow.json must declare ${expectedId}`);
   }
   for (const dependency of workflow.dependencies || []) {
     assert(typeof dependency.id === 'string' && expectedDependencyIds.includes(dependency.id), `unexpected dependency id ${dependency.id}`);
@@ -221,7 +221,7 @@ function assertNoLocalMaterializer() {
 
 function assertCiMaterializer() {
   const materializer = readText('scripts/prepare-ci-dependencies.mjs');
-  assert(materializer.includes('sdkwork.workflow.json'), 'prepare-ci-dependencies must read sdkwork.workflow.json');
+  assert(materializer.includes('agent.workflow.json'), 'prepare-ci-dependencies must read agent.workflow.json');
   assert(materializer.includes("path.resolve(repoRoot, '..')"), 'prepare-ci-dependencies must use the workspace sibling repository root');
   assert(!materializer.includes(retiredDependencyRoot), 'prepare-ci-dependencies must not use the retired SDKWork dependency root');
   assert(materializer.includes('dependencies'), 'prepare-ci-dependencies must process dependency entries');
@@ -244,22 +244,22 @@ function assertWorkflowRefs() {
 }
 
 function assertReleaseLifecycleDependencyGate() {
-  const workflow = readJson('sdkwork.workflow.json');
+  const workflow = readJson('agent.workflow.json');
   const buildLifecycleSource = (workflow.lifecycle?.build || [])
     .map((step) => step.run || '')
     .join('\n');
   assert(
     /pnpm\s+(?:run\s+)?check:dependency-management/u.test(buildLifecycleSource),
-    'sdkwork.workflow.json build lifecycle must run pnpm check:dependency-management before release packaging so sdkwork-notary and sdkwork-drive app SDK dependency refs are verified in package jobs',
+    'agent.workflow.json build lifecycle must run pnpm check:dependency-management before release packaging so sdkwork-notary and sdkwork-drive app SDK dependency refs are verified in package jobs',
   );
 }
 
 function assertDiscoveryIntegrationDeferred() {
-  const workflow = readJson('sdkwork.workflow.json');
+  const workflow = readJson('agent.workflow.json');
   const dependencyIds = new Set((workflow.dependencies || []).map((dependency) => dependency.id));
   assert(
     !dependencyIds.has('sdkwork-discovery'),
-    'sdkwork.workflow.json must not declare sdkwork-discovery until ADR-20260619 Phase 1 RPC hosts ship',
+    'agent.workflow.json must not declare sdkwork-discovery until ADR-20260619 Phase 1 RPC hosts ship',
   );
 
   const rootCargo = readText('Cargo.toml');

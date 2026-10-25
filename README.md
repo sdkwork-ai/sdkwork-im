@@ -317,7 +317,7 @@ Maintenance: `pnpm migrate:topology-v2-baggage` re-applies archive vocabulary mi
 | Packaged server | `bin/install-server.*`, `bin/start-server.*`, `bin/verify-server.*` | Production single-port install + service hosting |
 | Standalone control plane | `cargo run -p governance-service --offline` | Governance API development |
 
-**Packaging targets** (18 total in [`sdkwork.workflow.json`](./sdkwork.workflow.json)):
+**Packaging targets** (18 total in [`agent.workflow.json`](./agent.workflow.json)):
 
 - Server: `linux-x64/arm64`, `macos-x64/arm64`, `windows-x64/arm64` (tar.gz / zip)
 - Desktop: same 6 OS+arch combos (zip)

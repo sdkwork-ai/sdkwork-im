@@ -161,7 +161,7 @@ function createWorkflowEvidence({ env, paths, root, sourceCommit }) {
     const args = [
       cli,
       'evidence:create',
-      '--config', 'sdkwork.workflow.json',
+      '--config', 'agent.workflow.json',
       '--target-id', requireText(env.SDKWORK_PACKAGE_TARGET_ID, 'SDKWORK_PACKAGE_TARGET_ID'),
       '--deployment-profile', requireText(env.SDKWORK_DEPLOYMENT_PROFILE, 'SDKWORK_DEPLOYMENT_PROFILE'),
       '--version', requireText(env.SDKWORK_PACKAGE_VERSION, 'SDKWORK_PACKAGE_VERSION'),

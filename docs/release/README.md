@@ -66,7 +66,7 @@ commercial sign-off.
 The SDKWork IM release package matrix is authoritative only when these four
 surfaces match exactly:
 
-- `sdkwork.workflow.json` target ids;
+- `agent.workflow.json` target ids;
 - `scripts/release/plan-sdkwork-im-install-packages.mjs --json --check` output;
 - `agent.app.config.json` `artifacts.installConfig.packages[].id`;
 - current release note `packageIds`.

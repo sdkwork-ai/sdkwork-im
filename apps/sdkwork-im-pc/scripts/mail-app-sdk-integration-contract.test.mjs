@@ -25,7 +25,7 @@ function readRepoJson(...segments) {
 
 const packageJson = readJson('package.json');
 const releaseSources = readRepoJson('config', 'shared-sdk-release-sources.json');
-const workflow = readRepoJson('sdkwork.workflow.json');
+const workflow = readRepoJson('agent.workflow.json');
 const standaloneDependencies = readRepoText('crates', 'sdkwork-api-im-assembly', 'src', 'embedded_dependency_routes.rs');
 const sharedSdkGitSource = readRepoText('scripts', 'dev', 'prepare-shared-sdk-git-sources.mjs');
 const releaseBuildSource = readRepoText('scripts', 'release', 'run-sdkwork-im-pc-release-build.mjs');
@@ -65,7 +65,7 @@ assert.ok(
 assert.equal(
   releaseSources.sources?.['sdkwork-mail']?.ref,
   workflow.dependencies?.find((dependency) => dependency.id === 'sdkwork-mail')?.ref,
-  'Shared SDK release config must use the same pinned sdkwork-mail ref as sdkwork.workflow.json.',
+  'Shared SDK release config must use the same pinned sdkwork-mail ref as agent.workflow.json.',
 );
 
 assert.match(
@@ -105,7 +105,7 @@ assert.ok(
       && dependency.refInput === 'SDKWORK_MAIL_REF'
       && dependency.tokenSecret === 'SDKWORK_RELEASE_TOKEN'
   )),
-  'sdkwork.workflow.json must declare sdkwork-mail as a release dependency.',
+  'agent.workflow.json must declare sdkwork-mail as a release dependency.',
 );
 
 const dependencySurface = componentSpec.contracts?.dependencyApiSurfaces?.find(

@@ -25,7 +25,7 @@ function readRepoJson(...segments) {
 
 const packageJson = readJson('package.json');
 const releaseSources = readRepoJson('config', 'shared-sdk-release-sources.json');
-const workflow = readRepoJson('sdkwork.workflow.json');
+const workflow = readRepoJson('agent.workflow.json');
 const sharedSdkGitSource = readRepoText('scripts', 'dev', 'prepare-shared-sdk-git-sources.mjs');
 const releaseBuildSource = readRepoText('scripts', 'release', 'run-sdkwork-im-pc-release-build.mjs');
 const devRunnerSource = readRepoText('scripts', 'lib', 'im-pc-dev.mjs');
@@ -76,7 +76,7 @@ assert.ok(
 assert.equal(
   releaseSources.sources?.['sdkwork-community']?.ref,
   workflow.dependencies?.find((dependency) => dependency.id === 'sdkwork-community')?.ref,
-  'Shared SDK release config must use the same pinned sdkwork-community ref as sdkwork.workflow.json.',
+  'Shared SDK release config must use the same pinned sdkwork-community ref as agent.workflow.json.',
 );
 
 assert.match(
@@ -110,7 +110,7 @@ assert.ok(
       && dependency.refInput === 'SDKWORK_COMMUNITY_REF'
       && dependency.tokenSecret === 'SDKWORK_RELEASE_TOKEN'
   )),
-  'sdkwork.workflow.json must declare sdkwork-community as a release dependency.',
+  'agent.workflow.json must declare sdkwork-community as a release dependency.',
 );
 
 const dependencySurface = componentSpec.contracts?.dependencyApiSurfaces?.find(

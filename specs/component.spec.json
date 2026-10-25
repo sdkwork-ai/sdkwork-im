@@ -83,7 +83,7 @@
     {
       "file": "GITHUB_WORKFLOW_SPEC.md",
       "path": "../sdkwork-specs/GITHUB_WORKFLOW_SPEC.md",
-      "purpose": "sdkwork.workflow.json packaging, release, and GitHub Actions integration."
+      "purpose": "agent.workflow.json packaging, release, and GitHub Actions integration."
     },
     {
       "file": "DEPLOYMENT_SPEC.md",

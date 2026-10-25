@@ -687,11 +687,11 @@ assert.equal(
   false,
   'legacy copied release-package.yml must be removed after sdkwork-github-workflow integration',
 );
-assertFile('sdkwork.workflow.json');
+assertFile('agent.workflow.json');
 assertFile('.github/workflows/package.yml');
 
-const workflowConfig = JSON.parse(readText('sdkwork.workflow.json'));
-assert.equal(workflowConfig.schemaVersion, '2026-06-06.sdkwork.workflow.v1');
+const workflowConfig = JSON.parse(readText('agent.workflow.json'));
+assert.equal(workflowConfig.schemaVersion, '2026-06-06.agent.workflow.v1');
 assert.equal(workflowConfig.app?.id, 'sdkwork-im');
 assert.equal(workflowConfig.app?.repository, 'sdkwork-ai/sdkwork-im');
 assert.equal(workflowConfig.release?.artifactPrefix, 'sdkwork-im');
@@ -704,30 +704,30 @@ assert.equal(
 );
 assert.equal(workflowConfig.publish?.workflowArtifact, true);
 assert.equal(workflowConfig.security?.artifactAttestations, true);
-assert.equal(workflowConfig.security?.sbomRequired, true, 'sdkwork.workflow.json must require SBOM when agent.app.config.json does');
-assert.equal(workflowConfig.security?.signingRequired, true, 'sdkwork.workflow.json must require signing when agent.app.config.json does');
+assert.equal(workflowConfig.security?.sbomRequired, true, 'agent.workflow.json must require SBOM when agent.app.config.json does');
+assert.equal(workflowConfig.security?.signingRequired, true, 'agent.workflow.json must require signing when agent.app.config.json does');
 assert.ok(
   Array.isArray(workflowConfig.lifecycle?.sbom) && workflowConfig.lifecycle.sbom.length > 0,
-  'sdkwork.workflow.json lifecycle.sbom must declare at least one step',
+  'agent.workflow.json lifecycle.sbom must declare at least one step',
 );
 assert.ok(
   Array.isArray(workflowConfig.lifecycle?.sign) && workflowConfig.lifecycle.sign.length > 0,
-  'sdkwork.workflow.json lifecycle.sign must declare at least one step',
+  'agent.workflow.json lifecycle.sign must declare at least one step',
 );
 assert.match(
   workflowConfig.lifecycle?.sbom?.map((step) => step.run).join('\n') ?? '',
   /workflow-supply-chain-evidence\.mjs attest/u,
-  'sdkwork.workflow.json lifecycle.sbom must create byte-bound SBOM, provenance, and framework evidence',
+  'agent.workflow.json lifecycle.sbom must create byte-bound SBOM, provenance, and framework evidence',
 );
 assert.match(
   workflowConfig.lifecycle?.sign?.map((step) => step.run).join('\n') ?? '',
   /workflow-supply-chain-evidence\.mjs sign/u,
-  'sdkwork.workflow.json lifecycle.sign must invoke the real detached-signature producer',
+  'agent.workflow.json lifecycle.sign must invoke the real detached-signature producer',
 );
 assert.doesNotMatch(
   workflowConfig.lifecycle?.sbom?.map((step) => step.run).join('\n') ?? '',
   /SBOM generation is not required/u,
-  'sdkwork.workflow.json lifecycle.sbom must not contradict security.sbomRequired=true',
+  'agent.workflow.json lifecycle.sbom must not contradict security.sbomRequired=true',
 );
 
 const appManifest = JSON.parse(readText('agent.app.config.json'));
@@ -802,17 +802,17 @@ const sortedExpectedWorkflowTargetIds = [...expectedWorkflowTargetIds].sort();
 assert.deepEqual(
   workflowConfig.targets?.map((target) => target.id).sort(),
   sortedExpectedWorkflowTargetIds,
-  'sdkwork.workflow.json should expose canonical package ids for every implemented root release target',
+  'agent.workflow.json should expose canonical package ids for every implemented root release target',
 );
 assert.deepEqual(
   appManifest.artifacts?.installConfig?.packages?.map((releasePackage) => releasePackage.id).sort(),
   sortedExpectedWorkflowTargetIds,
-  'agent.app.config.json install packages should match sdkwork.workflow.json targets exactly',
+  'agent.app.config.json install packages should match agent.workflow.json targets exactly',
 );
 assert.deepEqual(
   appManifest.release?.notes?.find((note) => note.current === true)?.packageIds.sort(),
   sortedExpectedWorkflowTargetIds,
-  'agent.app.config.json current release note packageIds should match sdkwork.workflow.json targets exactly',
+  'agent.app.config.json current release note packageIds should match agent.workflow.json targets exactly',
 );
 const workflowTargetsById = new Map((workflowConfig.targets ?? []).map((target) => [target.id, target]));
 for (const releasePackage of appManifest.artifacts?.installConfig?.packages ?? []) {
@@ -844,7 +844,7 @@ for (const forbiddenText of [
   assert.doesNotMatch(
     workflowConfigText,
     new RegExp(forbiddenText.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'),
-    `sdkwork.workflow.json must not retain release package legacy marker: ${forbiddenText}`,
+    `agent.workflow.json must not retain release package legacy marker: ${forbiddenText}`,
   );
 }
 for (const [phase, expectedCommand] of Object.entries({
@@ -856,7 +856,7 @@ for (const [phase, expectedCommand] of Object.entries({
   assert.match(
     phaseScript,
     new RegExp(expectedCommand.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'),
-    `sdkwork.workflow.json lifecycle.${phase} must consume canonical SDKWORK_PACKAGE_ID directly`,
+    `agent.workflow.json lifecycle.${phase} must consume canonical SDKWORK_PACKAGE_ID directly`,
   );
 }
 for (const target of workflowConfig.targets ?? []) {
@@ -890,7 +890,7 @@ for (const expectedText of [
   'workflow_dispatch:',
   'push:',
   'release:',
-  'config_path: sdkwork.workflow.json',
+  'config_path: agent.workflow.json',
   "package_version: ${{ github.event.inputs.package_version || '' }}",
   'publish_release: false',
   'upload_artifact: true',

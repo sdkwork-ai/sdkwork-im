@@ -33,7 +33,7 @@ export const IM_COMMERCIAL_GATES_WORKFLOW_WATCH_REQUIREMENTS = [
     'im commercial gates workflow must watch the root workspace package because it owns the repository governance entrypoints',
   ),
   createWatchRequirement(
-    'sdkwork.workflow.json',
+    'agent.workflow.json',
     'im commercial gates workflow must watch SDKWork release dependency declarations',
   ),
   createWatchRequirement(

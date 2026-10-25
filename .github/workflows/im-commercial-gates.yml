@@ -12,7 +12,7 @@ on:
       - 'Cargo.lock'
       - 'config/shared-sdk-release-sources.json'
       - 'package.json'
-      - 'sdkwork.workflow.json'
+      - 'agent.workflow.json'
       - 'README.md'
       - 'adapters/**'
       - 'apps/sdkwork-im-pc/**'

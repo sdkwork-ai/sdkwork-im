@@ -83,7 +83,7 @@ test("the root declares its application manifests", () => {
   // points at it rather than duplicating it (`metadata.releaseAuthority`).
   assert.equal(
     appConfig.metadata.releaseAuthority,
-    "../../sdkwork.workflow.json",
+    "../../agent.workflow.json",
     "release authority must stay the repository-root workflow manifest",
   );
 });

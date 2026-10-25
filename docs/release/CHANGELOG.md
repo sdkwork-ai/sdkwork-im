@@ -48,7 +48,7 @@
 - step `release-package-matrix / commercial-readiness evidence hardening`
 - Release packaging now treats `web-universal-cloud-browser-zip` as a first-class cloud browser release target.
 - The release package matrix is aligned across:
-  - `sdkwork.workflow.json` targets;
+  - `agent.workflow.json` targets;
   - `scripts/release/plan-sdkwork-im-install-packages.mjs` generated plan;
   - `agent.app.config.json` `artifacts.installConfig.packages`;
   - current release note `packageIds`.

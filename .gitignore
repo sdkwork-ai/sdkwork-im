@@ -157,3 +157,14 @@ node_modules.__pre_repair_link*
 # repo-commit sweep; `*.tmp` does not match `.tmp-*.cjs` helper scripts.
 .tmp-*
 .tmp_*
+
+# ---- auto-audited: local artifacts that must never be committed ----
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+tmp/
+temp/
+*.temp
+.next/

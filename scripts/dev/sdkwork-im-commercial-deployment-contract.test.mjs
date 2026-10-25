@@ -13,7 +13,7 @@ const deployManifest = parseAllDocuments(
   fs.readFileSync(path.join(repoRoot, 'deployments', 'deploy.yaml'), 'utf8'),
 )[0].toJSON();
 const appManifest = JSON.parse(fs.readFileSync(path.join(repoRoot, 'agent.app.config.json'), 'utf8'));
-const workflow = JSON.parse(fs.readFileSync(path.join(repoRoot, 'sdkwork.workflow.json'), 'utf8'));
+const workflow = JSON.parse(fs.readFileSync(path.join(repoRoot, 'agent.workflow.json'), 'utf8'));
 
 assert.equal(
   rootPackageJson.scripts['deploy:validate:standalone'],

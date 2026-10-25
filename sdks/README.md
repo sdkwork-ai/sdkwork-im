@@ -264,7 +264,7 @@ Sdkwork IM consumes sibling SDK families through git materialization today; a pu
 
 Pin authorities:
 
-- CI workflow siblings: `sdkwork.workflow.json`
+- CI workflow siblings: `agent.workflow.json`
 - PC/shared SDK git refs: `config/shared-sdk-release-sources.json`
 
 Release status for generated families remains `not_published` until registry packages ship; see `artifacts/releases/sync-sdk-release-catalog.mjs`.
