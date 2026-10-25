@@ -45,7 +45,7 @@ pnpm build:container:check      # validate the build plan without building
 The packaging script assembles `dist/container-image-build/`:
 
 - `bin/sdkwork-api-im-standalone-gateway` — the Linux release binary
-- `sdkwork.app.config.json` — application identity manifest
+- `agent.app.config.json` — application identity manifest
 - `database/` — IM database module (manifest + migrations)
 - `web/sdkwork-im-pc/dist`, `web/sdkwork-im-h5/dist` — renderer static builds
   (built via `pnpm build`; PC renderer uses local gateway discovery at

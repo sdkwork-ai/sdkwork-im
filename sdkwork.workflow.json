@@ -6,7 +6,7 @@
     "name": "Sdkwork IM",
     "repository": "sdkwork-ai/sdkwork-im",
     "sourcePath": ".",
-    "configPath": "sdkwork.app.config.json"
+    "configPath": "agent.app.config.json"
   },
   "release": {
     "artifactPrefix": "sdkwork-im",

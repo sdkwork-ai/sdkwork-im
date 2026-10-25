@@ -13,7 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(__filename), '..', '..');
 const DEFAULT_PACKAGES_DIR = 'dist/release-packages';
 const DEFAULT_EVIDENCE_ROOT = 'dist/release-evidence';
-const DEFAULT_MANIFEST_PATH = 'sdkwork.app.config.json';
+const DEFAULT_MANIFEST_PATH = 'agent.app.config.json';
 
 const STORE_CONTROLLED_SOURCE_TYPES = new Set(['APP_STORE', 'MARKETPLACE', 'STORE']);
 const SIGNATURE_CANDIDATES = Object.freeze([
@@ -36,7 +36,7 @@ const PROVENANCE_CANDIDATES = Object.freeze([
 function printHelp() {
   console.log(`Usage: node scripts/release/sync-sdkwork-im-release-evidence.mjs [options]
 
-Synchronize sdkwork.app.config.json package evidence from real release artifacts.
+Synchronize agent.app.config.json package evidence from real release artifacts.
 
 Options:
   --package-id <id>      Restrict sync to one package id. May be repeated.
@@ -44,7 +44,7 @@ Options:
   --evidence-root <dir>  Release evidence root (default ${DEFAULT_EVIDENCE_ROOT}).
   --manifest-path <file> App manifest path (default ${DEFAULT_MANIFEST_PATH}).
   --check                Validate evidence without writing the manifest.
-  --write                Write sdkwork.app.config.json when all evidence is present.
+  --write                Write agent.app.config.json when all evidence is present.
   --json                 Print machine-readable JSON.
   -h, --help             Show this help.
 `);

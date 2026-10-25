@@ -23,7 +23,7 @@ export interface ImUploadDeclarationEntry {
   readonly uploadProfileCode: string;
 }
 
-/** This application's canonical appId, from `sdkwork.app.config.json` `backend.appId`. */
+/** This application's canonical appId, from `agent.app.config.json` `backend.appId`. */
 export const IM_H5_APP_ID = "sdkwork-im-h5" as const;
 
 /** The single call-origin label for every upload from this application. */

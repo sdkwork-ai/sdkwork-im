@@ -19,7 +19,7 @@ function readJson(relativePath, root = repoRoot) {
   return JSON.parse(read(relativePath, root));
 }
 
-const appManifest = readJson('sdkwork.app.config.json');
+const appManifest = readJson('agent.app.config.json');
 const bootstrapScope = appManifest.backend?.accessTokenPermissionScope ?? [];
 for (const forbidden of capabilitySpec.bootstrapAccessTokenScope.forbiddenCodes) {
   assert.equal(

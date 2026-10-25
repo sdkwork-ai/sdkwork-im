@@ -68,7 +68,7 @@ surfaces match exactly:
 
 - `sdkwork.workflow.json` target ids;
 - `scripts/release/plan-sdkwork-im-install-packages.mjs --json --check` output;
-- `sdkwork.app.config.json` `artifacts.installConfig.packages[].id`;
+- `agent.app.config.json` `artifacts.installConfig.packages[].id`;
 - current release note `packageIds`.
 
 Current `0.1.0` package targets:
@@ -118,7 +118,7 @@ Missing checksums, signatures, SBOMs, provenance, attestations, media assets, or
 ## Release Evidence Synchronization
 
 After real package archives are built under `dist/release-packages/`, synchronize
-package evidence into `sdkwork.app.config.json` through the explicit evidence
+package evidence into `agent.app.config.json` through the explicit evidence
 sync script:
 
 ```bash
@@ -144,7 +144,7 @@ Supported package evidence file names are based on the archive file name:
 `release:validate:evidence` is read-only and fails when any selected enabled
 direct distribution package lacks a real archive, adjacent manifest, signature,
 SBOM, or provenance/attestation file. `release:stage:evidence` writes
-`sdkwork.app.config.json` only after the evidence plan is complete. The script
+`agent.app.config.json` only after the evidence plan is complete. The script
 computes SHA-256 from the real archive bytes and keeps published package URLs
 unchanged. It does not generate signatures, SBOMs, provenance, attestations, or
 media assets.
@@ -154,7 +154,7 @@ media assets.
 Documentation must not state that SDKWork IM is commercially deliverable until:
 
 - `node scripts/release/commercial-readiness.mjs` exits `0`;
-- `sdkwork.app.config.json` and app-level manifests contain real required release evidence;
+- `agent.app.config.json` and app-level manifests contain real required release evidence;
 - no enabled package keeps null checksum/signature/SBOM evidence where the security policy requires it;
 - no enabled release media keeps `metadata.generatedPlaceholder=true`;
 - API, SDK, pagination, database, security, performance, and deployment gates relevant to the release have passed.

@@ -8,7 +8,7 @@
 #
 # Layout of the build context (dist/container-image-build):
 #   bin/sdkwork-api-im-standalone-gateway   compiled Linux release binary
-#   sdkwork.app.config.json                 application identity manifest
+#   agent.app.config.json                 application identity manifest
 #   database/                               IM database module (manifest + migrations)
 #   web/sdkwork-im-pc/dist/                 PC renderer static build
 #   web/sdkwork-im-h5/dist/                 H5 renderer static build

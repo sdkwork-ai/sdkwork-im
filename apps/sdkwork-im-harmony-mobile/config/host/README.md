@@ -12,5 +12,5 @@ Rules:
   route constants.
 - The bundle name in `harmony.*.example.json` must equal
   `AppScope/app.json5#app.bundleName` and
-  `sdkwork.app.config.json#app.identifiers.packageName`; the static contract test
+  `agent.app.config.json#app.identifiers.packageName`; the static contract test
   asserts all three stay equal.

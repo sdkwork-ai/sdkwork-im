@@ -14,7 +14,7 @@ one durable communication record, predictable realtime delivery, generated SDK i
 operable standalone or cloud deployment without duplicating identity, file, media, knowledge, or
 Agent execution authorities owned by sibling SDKWork applications.
 
-The application is pre-launch. `sdkwork.app.config.json` remains the release-state authority and
+The application is pre-launch. `agent.app.config.json` remains the release-state authority and
 currently declares a draft publication with disabled deferred artifacts. Documentation must not
 present planned package URLs or generated clients as evidence of a commercial release.
 

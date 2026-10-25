@@ -39,7 +39,7 @@ assert.ok(existsSync(appRoot), 'apps/sdkwork-im-flutter-mobile application root 
 for (const required of [
   '.sdkwork/README.md',
   'AGENTS.md',
-  'sdkwork.app.config.json',
+  'agent.app.config.json',
   'config/app/runtime-env.development.example.json',
   'config/host/flutter.development.example.json',
   'lib/main.dart',

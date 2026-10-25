@@ -58,7 +58,7 @@ function readJson(file) {
 test("the root declares its application manifests", () => {
   for (const file of [
     "package.json",
-    "sdkwork.app.config.json",
+    "agent.app.config.json",
     "project.config.json",
     "tsconfig.json",
     "AGENTS.md",
@@ -67,7 +67,7 @@ test("the root declares its application manifests", () => {
     assert.equal(existsSync(path.join(appRoot, file)), true, `${file} must exist`);
   }
 
-  const appConfig = readJson(path.join(appRoot, "sdkwork.app.config.json"));
+  const appConfig = readJson(path.join(appRoot, "agent.app.config.json"));
   assert.equal(appConfig.app.key, "sdkwork-im-mini-program");
   assert.equal(appConfig.runtime.family, "mini-program");
   assert.deepEqual(appConfig.runtime.clientArchitectures, ["mini-program"]);

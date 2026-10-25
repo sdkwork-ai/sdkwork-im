@@ -79,7 +79,7 @@ test('release evidence sync updates manifest only from existing artifacts and ev
   }
 });
 
-test('release evidence sync writes sdkwork.app.config.json only when the plan is complete', async () => {
+test('release evidence sync writes agent.app.config.json only when the plan is complete', async () => {
   const tempRepoRoot = await createReleaseEvidenceFixture({
     includeEvidence: true,
   });
@@ -93,7 +93,7 @@ test('release evidence sync writes sdkwork.app.config.json only when the plan is
     });
 
     assert.equal(result.written, true);
-    const manifestJson = JSON.parse(await readFile(path.join(tempRepoRoot, 'sdkwork.app.config.json'), 'utf8'));
+    const manifestJson = JSON.parse(await readFile(path.join(tempRepoRoot, 'agent.app.config.json'), 'utf8'));
     assert.equal(
       manifestJson.artifacts.installConfig.packages[0].checksum,
       plan.packages[0].archive.sha256,
@@ -192,7 +192,7 @@ async function createReleaseEvidenceFixture({ includeEvidence }) {
   }
 
   await writeFile(
-    path.join(tempRepoRoot, 'sdkwork.app.config.json'),
+    path.join(tempRepoRoot, 'agent.app.config.json'),
     JSON.stringify(createManifestFixture(packageId, archiveName), null, 2),
     'utf8',
   );

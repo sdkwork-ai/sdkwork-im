@@ -14,5 +14,5 @@ class ImFlutterChatImageUpload {
   static const String uploadProfileCode = 'image';
 }
 
-/// The application's canonical appId, from `sdkwork.app.config.json`.
+/// The application's canonical appId, from `agent.app.config.json`.
 const String imFlutterAppId = 'sdkwork-im-flutter-mobile';

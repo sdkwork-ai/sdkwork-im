@@ -26,7 +26,7 @@ export interface ImPcUploadDeclarationEntry {
   readonly uploadProfileCode: string;
 }
 
-/** This application's canonical appId, from `sdkwork.app.config.json` `backend.appId`. */
+/** This application's canonical appId, from `agent.app.config.json` `backend.appId`. */
 export const IM_PC_APP_ID = 'sdkwork-im-pc' as const;
 
 /** The single call-origin label for every upload from this application. */

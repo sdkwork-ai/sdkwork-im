@@ -35,7 +35,7 @@ Adopt `sdkwork-im` as the canonical product **and** app token, everywhere.
 | Layer | Current | Target |
 | --- | --- | --- |
 | Repository root / package.json name | `sdkwork-im` | `sdkwork-im` |
-| App key (sdkwork.app.config.json) | `chat` | `im` |
+| App key (agent.app.config.json) | `chat` | `im` |
 | Display name | `SDKWork Chat` / `Sdkwork IM` | `Sdkwork IM` |
 | PC app directory | `apps/sdkwork-chat-pc` | `apps/sdkwork-im-pc` |
 | PC app package scope | `@sdkwork/chat-pc` | `@sdkwork/im-pc` |

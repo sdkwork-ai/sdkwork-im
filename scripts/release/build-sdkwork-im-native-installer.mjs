@@ -127,7 +127,7 @@ const WINDOWS_MODULE_ROOT = 'sdkwork/im/modules';
 const MACOS_MODULE_ROOT = `${MACOS_SERVICE_ROOT}/modules`;
 
 const SERVER_BINARY_BASENAME = 'sdkwork-api-im-standalone-gateway';
-const APP_CONFIG_ARCHIVE_PATH = 'sdkwork.app.config.json';
+const APP_CONFIG_ARCHIVE_PATH = 'agent.app.config.json';
 const IM_DATABASE_MODULE_ARCHIVE_PATH = 'database';
 const INSTALL_MANIFEST_ARCHIVE_PATH = 'install-manifest.json';
 const DEB_INSTALL_MANIFEST_PATH = `${LINUX_NATIVE_SHARED_ROOT}/${INSTALL_MANIFEST_ARCHIVE_PATH}`;
@@ -446,7 +446,7 @@ async function collectPackageFileEntries(plan, { generatedAt }) {
 
   // Application identity manifest: IAM tenant provisioning resolves it via
   // SDKWORK_APP_ROOT (mirrors the container image payload).
-  const appConfigBytes = await readFile(path.join(repoRoot, 'sdkwork.app.config.json'));
+  const appConfigBytes = await readFile(path.join(repoRoot, 'agent.app.config.json'));
   files.push({
     path: APP_CONFIG_ARCHIVE_PATH,
     size: appConfigBytes.length,
@@ -1531,7 +1531,7 @@ function createWindowsNativeInstallLayout(packageItem) {
       web: '%ProgramFiles%\\sdkwork\\im\\web',
       documentation: '%ProgramFiles%\\sdkwork\\im\\doc\\INSTALL.md',
       installManifest: '%ProgramFiles%\\sdkwork\\im\\install-manifest.json',
-      appManifest: '%ProgramFiles%\\sdkwork\\im\\sdkwork.app.config.json',
+      appManifest: '%ProgramFiles%\\sdkwork\\im\\agent.app.config.json',
       configDir: '%ProgramData%\\sdkwork\\im',
       serviceEnvironment: '%ProgramData%\\sdkwork\\im\\server.env',
       configTemplates: '%ProgramData%\\sdkwork\\im\\*.example',
@@ -1632,7 +1632,7 @@ async function collectNativeInstallerSnapshot(plan) {
   // App manifest + IM database module + embedded modules are packaged from
   // source trees (not the staged dir); snapshot their file stats so changes
   // invalidate the cache.
-  const appConfigStat = await statFile(path.join(repoRoot, 'sdkwork.app.config.json'));
+  const appConfigStat = await statFile(path.join(repoRoot, 'agent.app.config.json'));
   entries.push({
     path: APP_CONFIG_ARCHIVE_PATH,
     size: appConfigStat.size,

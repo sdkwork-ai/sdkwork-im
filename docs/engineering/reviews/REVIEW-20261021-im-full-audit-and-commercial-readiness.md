@@ -1166,7 +1166,7 @@ demo 是公网可达的展示环境，不能沿用 test 的宽松姿态。
 | P1-R5 | SBOM 仅 1 个 file component；provenance 自述 | `workflow-supply-chain-evidence.mjs:100-150` | 供应链证据不可信 |
 | P1-R6 | 仅 5 条告警规则，无 Alertmanager/PagerDuty/DB/复制告警 | `prometheus-rules.yaml:1-55`；README 引用不存在告警 | 值班/DR 无支撑 |
 | P1-R7 | AGPL 与 `COMMERCIAL-LICENSE.md` 额外限制冲突 | `LICENSE:1`；`COMMERCIAL-LICENSE.md:1-12` | 采购法务阻断 |
-| P1-R8 | 清单断言已发布但 `publish.status=DRAFT`、0 个启用包 | `sdkwork.app.config.json:152,947-948` | 自相矛盾 |
+| P1-R8 | 清单断言已发布但 `publish.status=DRAFT`、0 个启用包 | `agent.app.config.json:152,947-948` | 自相矛盾 |
 | P1-R9 | 清单镜像 `:latest`+`Always`；README 服务数量与实际不符 | `deployments/kubernetes/cloud/*/deployment.yaml` | 直接 apply 不可复现 |
 | P1-R10 | 52/68 PC 测试脚本与 H5 套件未接入门禁 | `package.json`；`run-sdkwork-im-standards-verification.mjs` | 大量测试不设防 |
 | P1-R11 | SDK 生成顺序缺陷：`dist/` 不存在时把 facade import 写成 `generated/server-openapi/src/index`，随后 `assemble` 才构建 dist，导致 facade `tsc` 报 TS6059 | 复跑生成：首次 10 个 facade 变为 src import，`pnpm typecheck` 失败；构建 dist 后再次生成恢复 `dist/index.js` | clean checkout 上生成会产出不可编译的 SDK facade |

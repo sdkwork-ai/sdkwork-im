@@ -73,7 +73,7 @@ and the same value every other HarmonyOS root in the workspace declares
 | --- | --- |
 | `APP_MANIFEST_SPEC.md` §4 `PlusProjectType` (`app.appType`) | present (`APP_HARMONY`) |
 | `APP_MANIFEST_SPEC.md` §6.1 publish platform (`PLATFORM_VALUES`) | present (`APP_HARMONY`) |
-| `schemas/sdkwork.app.config.schema.v3.json` | present (`APP_HARMONY`) |
+| `schemas/agent.app.config.schema.v3.json` | present (`APP_HARMONY`) |
 | `check-app-manifest-standard.mjs` `APP_TYPES` | present (`APP_HARMONY`) |
 | backend `sdkwork-iam` `normalize_application_type` | **absent** — `api`/`h5`/`pc`/`flutter` only, so a template declaring `APP_HARMONY` still normalizes to `"other"` |
 

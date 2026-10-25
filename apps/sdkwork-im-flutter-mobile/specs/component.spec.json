@@ -16,7 +16,7 @@
     "generated": false,
     "manifests": [
       "pubspec.yaml",
-      "sdkwork.app.config.json"
+      "agent.app.config.json"
     ]
   },
   "canonicalSpecs": [
@@ -105,7 +105,7 @@
         }
       ],
       "bootstrapAccessTokenScope": {
-        "inheritFrom": "sdkwork.app.config.json#backend.accessTokenPermissionScope",
+        "inheritFrom": "agent.app.config.json#backend.accessTokenPermissionScope",
         "supplement": [],
         "overrideReplace": false
       },

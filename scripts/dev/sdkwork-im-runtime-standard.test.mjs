@@ -49,7 +49,7 @@ function shellSourceContainsGeneratedLine(source, text) {
   );
 }
 
-const manifest = readJson('sdkwork.app.config.json');
+const manifest = readJson('agent.app.config.json');
 assert.equal(manifest.app.key, 'chat', 'SDKWork app key must be the canonical app code chat');
 assert.equal(manifest.app.name, 'chat', 'platform_app identity name must be the stable app code chat');
 assert.equal(manifest.app.displayName, 'Sdkwork IM', 'display name may carry the product label');

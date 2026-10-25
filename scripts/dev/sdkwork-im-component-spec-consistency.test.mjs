@@ -212,7 +212,7 @@ for (const command of verificationCommands) {
 
 // --- 5. Application and workflow security declarations align ---------------
 
-const appManifest = readJson('sdkwork.app.config.json');
+const appManifest = readJson('agent.app.config.json');
 const workflowManifest = readJson('sdkwork.workflow.json');
 const appSecurity = appManifest.security ?? {};
 const workflowSecurity = workflowManifest.security ?? {};
@@ -220,14 +220,14 @@ if (appSecurity.sbomRequired === true) {
   assert.equal(
     workflowSecurity.sbomRequired,
     true,
-    'sdkwork.workflow.json security.sbomRequired must be true when sdkwork.app.config.json requires SBOM',
+    'sdkwork.workflow.json security.sbomRequired must be true when agent.app.config.json requires SBOM',
   );
 }
 if (appSecurity.signatureRequired === true) {
   assert.equal(
     workflowSecurity.signingRequired,
     true,
-    'sdkwork.workflow.json security.signingRequired must be true when sdkwork.app.config.json requires signatures',
+    'sdkwork.workflow.json security.signingRequired must be true when agent.app.config.json requires signatures',
   );
 }
 const lifecycle = workflowManifest.lifecycle ?? {};

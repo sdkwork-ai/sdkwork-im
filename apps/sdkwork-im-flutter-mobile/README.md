@@ -88,6 +88,6 @@ pnpm run test:sdkwork-im-flutter-mobile-architecture-standard
 ## Application identity
 
 - App ID: `sdkwork-im-flutter-mobile`
-- Manifest: `sdkwork.app.config.json`
+- Manifest: `agent.app.config.json`
 
 See [AGENTS.md](./AGENTS.md) for SDKWork agent entrypoint and spec index.

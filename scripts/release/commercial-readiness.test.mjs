@@ -576,7 +576,7 @@ test('release README documents the commercial readiness command and honest capac
   assert.match(releaseReadme, /release:stage:evidence/);
   assert.match(releaseReadme, /capacity-tier-evidence-index\.json/);
   assert.match(releaseReadme, /pre-release-tier-evidence-index\.json/);
-  assert.match(releaseReadme, /sdkwork\.app\.config\.json/);
+  assert.match(releaseReadme, /agent\.app\.config\.json/);
   assert.match(releaseReadme, /checksum/i);
   assert.match(releaseReadme, /generatedPlaceholder/);
   assert.match(releaseReadme, /Playwright/);

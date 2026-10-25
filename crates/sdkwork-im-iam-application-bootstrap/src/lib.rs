@@ -51,7 +51,7 @@ mod tests {
     #[test]
     fn im_repo_root_resolves_repository_manifest() {
         let root = resolve_im_repo_root();
-        assert!(root.join("sdkwork.app.config.json").is_file());
+        assert!(root.join("agent.app.config.json").is_file());
     }
 
     #[test]

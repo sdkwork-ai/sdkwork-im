@@ -9,7 +9,7 @@
     "manage": "Admin directory mutation remains on org_admin and backend-api surfaces."
   },
   "bootstrapAccessTokenScope": {
-    "source": "sdkwork.app.config.json#backend.accessTokenPermissionScope",
+    "source": "agent.app.config.json#backend.accessTokenPermissionScope",
     "allowedCodes": ["iam:self"],
     "forbiddenCodes": [
       "iam.users.read",

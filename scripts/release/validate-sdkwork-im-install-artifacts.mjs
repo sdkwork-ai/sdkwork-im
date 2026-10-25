@@ -286,7 +286,7 @@ function validateDebArtifact(packageItem, artifactBytes) {
     './usr/share/doc/sdkwork/im/INSTALL.md',
     './usr/share/sdkwork/im/install-manifest.json',
     './usr/lib/systemd/system/sdkwork-im.service',
-    './usr/lib/sdkwork/im/sdkwork.app.config.json',
+    './usr/lib/sdkwork/im/agent.app.config.json',
     './usr/lib/sdkwork/im/database/database.manifest.json',
   ];
   for (const requiredPath of requiredPaths) {

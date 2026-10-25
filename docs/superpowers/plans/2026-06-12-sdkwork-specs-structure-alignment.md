@@ -254,7 +254,7 @@ the existing JSX classes, layout, and visual styling intact; no generated SDK ou
 
 Implementation notes:
 
-- `sdkwork.app.config.json` and `apps/sdkwork-im-pc/sdkwork.app.config.json` now use
+- `agent.app.config.json` and `apps/sdkwork-im-pc/agent.app.config.json` now use
   `apps/sdkwork-im-pc` for the manifest path slots that describe the app workspace/source root.
 - `scripts/sdkwork-workspace-structure-standard.test.mjs` verifies both manifests and fails if the
   configured workspace/source roots do not resolve to an existing path.

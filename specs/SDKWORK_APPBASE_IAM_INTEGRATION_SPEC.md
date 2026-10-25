@@ -202,7 +202,7 @@ Rules:
 
 - Runtime app id for Sdkwork IM PC is `sdkwork-im-pc`. It must match the JWT `app_id` claim in dev bootstrap `SDKWORK_ACCESS_TOKEN` and the product IAM runtime `app.appId`.
 - Runtime app id for Sdkwork IM H5 is `sdkwork-im-h5`.
-- Application template key is `chat` from `sdkwork.app.config.json`; tenant provisioning uses tenant `100001`, organization `0`, and instance keys derived by `tenant_application_instance_key` (for example `sdkwork_im_pc_dev`, `sdkwork_im_h5_dev`).
+- Application template key is `chat` from `agent.app.config.json`; tenant provisioning uses tenant `100001`, organization `0`, and instance keys derived by `tenant_application_instance_key` (for example `sdkwork_im_pc_dev`, `sdkwork_im_h5_dev`).
 - Standalone gateway bootstraps IAM schema, then calls `ensure_im_tenant_application_runtime_from_env` before assembling the embedded IAM router.
 - IM `MUST` delegate manifest mapping, Postgres `search_path`, default subject seeding, and tenant-application reconcile/upsert to `sdkwork-iam-embedded-application-bootstrap`. The IM adapter crate only supplies PC/H5 runtime bindings.
 - Legacy databases may contain duplicate `iam_tenant_application` rows for the same `(tenant_id, organization_id, template_id)`. The shared framework reconciles those rows, ensures `uk_iam_tenant_application_org_template`, upserts by stable row id, and enables the tenant application.
@@ -528,7 +528,7 @@ Registered IM members use the IAM `app_user` role — not admin bootstrap scope.
 | --- | --- |
 | Self profile | `GET /iam/users/current` requires `iam:self`; profile mutations require `iam.profile.update` |
 | Directory browse | `iam.organizations.read`, `iam.memberships.read`, `iam.departments.read`, `iam.assignments.read` on session RBAC |
-| Bootstrap token | `sdkwork.app.config.json` `backend.accessTokenPermissionScope` is credential-entry only; keep minimal (`iam:self`) |
+| Bootstrap token | `agent.app.config.json` `backend.accessTokenPermissionScope` is credential-entry only; keep minimal (`iam:self`) |
 | Embedded knowledge | Tenant guard: JWT `tenant_id` must match `SDKWORK_KNOWLEDGEBASE_TENANT_ID` (default `100001`); app-api RBAC uses `knowledge.spaces.*` / `knowledge.documents.*` |
 | Embedded mail | App-api RBAC uses standard `mail.*` codes enforced from route manifest via web-framework |
 

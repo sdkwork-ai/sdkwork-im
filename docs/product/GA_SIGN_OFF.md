@@ -411,4 +411,4 @@ under section 9.3 before the phase is re-declared GA.
 - `etc/topology/` — Deployment topology profiles.
 - `specs/topology.spec.json` — Topology machine contract.
 - `deployments/observability/` — Prometheus, Grafana, and Alertmanager configuration.
-- `sdkwork.app.config.json` — IM application identity and capability metadata.
+- `agent.app.config.json` — IM application identity and capability metadata.

@@ -12,7 +12,7 @@
 
 ### Task 0: Resolve dictionaries, authority, and approval boundaries
 
-- [ ] Read and record evidence from `AGENTS.md`, `sdkwork.app.config.json`, `specs/README.md`, `specs/component.spec.json`, `specs/im-app-api-sdk-integration.spec.md`, `../sdkwork-specs/SOUL.md`, and the relevant `../sdkwork-specs/{CODE_STYLE,NAMING,RUST_CODE,RUST_RPC,API,WEB_FRAMEWORK,WEB_BACKEND,SDK,SDK_WORKSPACE_GENERATION,RPC,TEST,DATABASE,DATABASE_FRAMEWORK,SCHEMA_REGISTRY,MIGRATION,EVENT,IAM,SECURITY,PRIVACY}_SPEC.md` files as each phase becomes relevant.
+- [ ] Read and record evidence from `AGENTS.md`, `agent.app.config.json`, `specs/README.md`, `specs/component.spec.json`, `specs/im-app-api-sdk-integration.spec.md`, `../sdkwork-specs/SOUL.md`, and the relevant `../sdkwork-specs/{CODE_STYLE,NAMING,RUST_CODE,RUST_RPC,API,WEB_FRAMEWORK,WEB_BACKEND,SDK,SDK_WORKSPACE_GENERATION,RPC,TEST,DATABASE,DATABASE_FRAMEWORK,SCHEMA_REGISTRY,MIGRATION,EVENT,IAM,SECURITY,PRIVACY}_SPEC.md` files as each phase becomes relevant.
 - [x] Confirm the product decision from the preceding design discussion: every new group resolves at least one default agent target, while explicit group configuration may atomically replace it with `1..N` targets.
 - [x] Keep agent targets separate from IAM users, service accounts, credentials, `ConversationMember`, member roles, read cursors, inbox identities, presence, and notification recipients.
 - [ ] Obtain explicit review before public OpenAPI naming, database migrations, generated SDK ownership, IAM/auth behavior, or sibling repository edits.

@@ -11,7 +11,7 @@ The application is pre-launch and its manifest publication status remains `DRAFT
 - **Runtime family**: browser (H5)
 - **Framework**: react-vite
 - **Deployment profiles**: `cloud`, `standalone`
-- **Manifest**: [`sdkwork.app.config.json`](sdkwork.app.config.json)
+- **Manifest**: [`agent.app.config.json`](agent.app.config.json)
 - **Deployment config**: [`etc/sdkwork.deployment.config.json`](etc/sdkwork.deployment.config.json)
 
 ## Workspace Layout

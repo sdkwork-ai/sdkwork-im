@@ -17,7 +17,7 @@ identity (`bin/lib/module.sh`) and thin dispatches.
 | `config.sh` / `doctor.sh` / `backup.sh` | operations lifecycle (`OPERATIONS_SPEC.md` §3–§5) |
 
 Declared app types: `server,h5,desktop,flutter`. Default image tag comes from
-`sdkwork.app.config.json` → `release.currentVersion`.
+`agent.app.config.json` → `release.currentVersion`.
 
 ## Native installers (`apps-pkg-installer.sh`)
 

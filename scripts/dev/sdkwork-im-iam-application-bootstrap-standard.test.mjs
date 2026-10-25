@@ -17,9 +17,9 @@ const componentSpec = JSON.parse(
   read('crates/sdkwork-im-iam-application-bootstrap/specs/component.spec.json'),
 );
 const appManifests = [
-  ['apps/sdkwork-im-pc/sdkwork.app.config.json', 'sdkwork-im-pc'],
-  ['apps/sdkwork-im-h5/sdkwork.app.config.json', 'sdkwork-im-h5'],
-  ['apps/sdkwork-im-flutter-mobile/sdkwork.app.config.json', 'sdkwork-im-flutter-mobile'],
+  ['apps/sdkwork-im-pc/agent.app.config.json', 'sdkwork-im-pc'],
+  ['apps/sdkwork-im-h5/agent.app.config.json', 'sdkwork-im-h5'],
+  ['apps/sdkwork-im-flutter-mobile/agent.app.config.json', 'sdkwork-im-flutter-mobile'],
 ];
 const sharedBootstrapSource = read(
   'crates/sdkwork-iam-web-adapter/src/embedded_bootstrap.rs',

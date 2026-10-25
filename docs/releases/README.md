@@ -7,7 +7,7 @@ Owner: SDKWork IM maintainers
 ## Authority
 
 The repository-root `sdkwork.workflow.json` is the only release workflow authority. The root
-`sdkwork.app.config.json` is the package inventory and commercial readiness declaration. PC, H5,
+`agent.app.config.json` is the package inventory and commercial readiness declaration. PC, H5,
 and Flutter child manifests describe their application surfaces; they do not own competing release
 workflows.
 

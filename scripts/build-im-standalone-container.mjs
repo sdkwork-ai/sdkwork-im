@@ -5,7 +5,7 @@
  * Pipeline:
  *   1. verify staged prerequisites (Linux release gateway binary, PC/H5
  *      renderer dists, database modules, docker daemon)
- *   2. assemble dist/container-image-build (bin/, sdkwork.app.config.json,
+ *   2. assemble dist/container-image-build (bin/, agent.app.config.json,
  *      database/, web/, modules/)
  *   3. docker build -f deployments/docker/sdkwork-api-im-standalone-container.Dockerfile
  *      -t <imageTag> <build dir>
@@ -197,7 +197,7 @@ async function hashDir(root, relativeRoot = root) {
 async function snapshotInputs(settings) {
   const inputs = {
     binary: await hashFile(path.resolve(repoRoot, settings.binary)),
-    appConfig: await hashFile(path.join(repoRoot, 'sdkwork.app.config.json')),
+    appConfig: await hashFile(path.join(repoRoot, 'agent.app.config.json')),
     database: await hashDir(path.join(repoRoot, 'database')),
     pcDist: await hashDir(path.join(repoRoot, PC_DIST)),
     h5Dist: await hashDir(path.join(repoRoot, H5_DIST)),
@@ -252,7 +252,7 @@ async function assembleBuildContext(settings) {
   await mkdir(path.join(buildDir, 'modules'), { recursive: true });
 
   await cp(path.resolve(repoRoot, settings.binary), path.join(buildDir, 'bin', GATEWAY_BINARY_NAME));
-  await cp(path.join(repoRoot, 'sdkwork.app.config.json'), path.join(buildDir, 'sdkwork.app.config.json'));
+  await cp(path.join(repoRoot, 'agent.app.config.json'), path.join(buildDir, 'agent.app.config.json'));
   await cp(path.join(repoRoot, 'database'), path.join(buildDir, 'database'), { recursive: true });
   await cp(path.join(repoRoot, PC_DIST), path.join(buildDir, 'web', 'sdkwork-im-pc', 'dist'), { recursive: true });
   await cp(path.join(repoRoot, H5_DIST), path.join(buildDir, 'web', 'sdkwork-im-h5', 'dist'), { recursive: true });
@@ -310,7 +310,7 @@ async function main() {
   try {
     for (const [label, file] of [
       ['gateway binary', settings.binary],
-      ['app manifest', 'sdkwork.app.config.json'],
+      ['app manifest', 'agent.app.config.json'],
       ['IM database module', 'database'],
       ['PC renderer dist', PC_DIST],
       ['H5 renderer dist', H5_DIST],

@@ -12,7 +12,7 @@
   from `dist/release-packages/`, reads package security evidence from
   `dist/release-evidence/<package-id>/`, computes SHA-256 from archive bytes,
   and writes only verified checksum, size, artifact refs, signing refs, SBOM
-  refs, and provenance refs into `sdkwork.app.config.json`.
+  refs, and provenance refs into `agent.app.config.json`.
 - The sync workflow fails closed when any selected direct distribution package
   lacks:
   - an aggregate package archive entry;
@@ -50,7 +50,7 @@
 - The release package matrix is aligned across:
   - `sdkwork.workflow.json` targets;
   - `scripts/release/plan-sdkwork-im-install-packages.mjs` generated plan;
-  - `sdkwork.app.config.json` `artifacts.installConfig.packages`;
+  - `agent.app.config.json` `artifacts.installConfig.packages`;
   - current release note `packageIds`.
 - Current matrix contains 13 package targets:
   - one cloud browser web ZIP package;
@@ -92,7 +92,7 @@
   - `cargo fmt -p sdkwork-api-im-standalone-gateway` = `passed`
   - `pnpm.cmd check:commercial-readiness` = implementation checks passed through gateway tests, then blocked by `appReleaseAssessment` with `55` release-evidence blockers
 - remaining blockers:
-  - all 13 enabled direct distribution packages in `sdkwork.app.config.json` still lack real SHA-256 checksums;
+  - all 13 enabled direct distribution packages in `agent.app.config.json` still lack real SHA-256 checksums;
   - the same 13 packages still lack real signature evidence while `security.signatureRequired=true`;
   - the same 13 packages still lack real SBOM evidence while `security.sbomRequired=true`;
   - the same 13 packages still lack real provenance or attestation evidence while `security.sbomRequired=true`;
@@ -130,7 +130,7 @@
   - `pnpm.cmd --dir sdks\sdkwork-im-sdk\sdkwork-im-sdk-typescript run typecheck` = `passed`
   - `pnpm.cmd run check:commercial-readiness` = blocked at app release evidence assessment after implementation gates
 - remaining blockers:
-  - four enabled direct distribution packages in `sdkwork.app.config.json` still lack SHA-256 checksum, signature, SBOM, and provenance or attestation evidence
+  - four enabled direct distribution packages in `agent.app.config.json` still lack SHA-256 checksum, signature, SBOM, and provenance or attestation evidence
   - three catalog media assets still have `metadata.generatedPlaceholder=true`
   - `cargo fmt --all` is blocked by a sibling workspace reference to missing `<workspace-root>/sdkwork-course/crates/sdkwork-course-gateway-assembly/Cargo.toml`; package-level fmt for touched crates passed
   - several ad-hoc `scripts/dev/*.test.ts` service contract scripts are blocked by the current PC `tsx` runner plus React `.d.ts` path mapping; direct removal of that mapping breaks PC lint through duplicate React types and missing JSX runtime resolution in sibling packages

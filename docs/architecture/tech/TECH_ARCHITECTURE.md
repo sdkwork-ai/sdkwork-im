@@ -272,7 +272,7 @@ probe aliases are mounted.
 
 ## 10. Deployment And Runtime Topology
 
-`sdkwork.app.config.json` declares application identity and release state. `etc/` declares concrete
+`agent.app.config.json` declares application identity and release state. `etc/` declares concrete
 environment, topology, public origin, bind, and upstream configuration.
 
 - `standalone`: one application ingress assembles IM APIs and approved embedded dependency routes.

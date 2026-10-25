@@ -20,7 +20,7 @@ const activeScanRoots = [
   '.github/workflows',
   'Cargo.toml',
   'package.json',
-  'sdkwork.app.config.json',
+  'agent.app.config.json',
   'adapters',
   'apis',
   'apps',

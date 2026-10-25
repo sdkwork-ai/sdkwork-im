@@ -50,7 +50,7 @@ assert.ok(existsSync(appRoot), 'apps/sdkwork-im-h5 application root must exist')
 
 for (const required of [
   'AGENTS.md',
-  'sdkwork.app.config.json',
+  'agent.app.config.json',
   'specs/component.spec.json',
   'src/App.tsx',
   'src/AuthGate.tsx',

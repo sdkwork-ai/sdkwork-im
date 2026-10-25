@@ -10,7 +10,7 @@ import {
 } from '../../../sdkwork-iam/scripts/dev/create-dev-bootstrap-access-token-env.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const manifestPath = path.join(repoRoot, 'sdkwork.app.config.json');
+const manifestPath = path.join(repoRoot, 'agent.app.config.json');
 const defaultImPcAppId = 'sdkwork-im-pc';
 
 export function buildSdkworkImBootstrapAccessTokenEnv({ existingAccessToken } = {}) {

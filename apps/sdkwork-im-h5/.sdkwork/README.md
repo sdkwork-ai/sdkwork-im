@@ -11,7 +11,7 @@ Authoritative local entries:
 - `README.md`: purpose and ownership for this application metadata directory.
 - `skills/README.md`: application skill contribution guidance.
 - `plugins/README.md`: application plugin contribution guidance.
-- `sdkwork.app.config.json`: application identity and release metadata.
+- `agent.app.config.json`: application identity and release metadata.
 - `AGENTS.md`: application agent entrypoint.
 
 This directory is not runtime state. Do not store generated SDK transport output, secrets, local

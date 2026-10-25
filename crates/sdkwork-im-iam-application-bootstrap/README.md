@@ -18,9 +18,9 @@ Standalone IM embeds IAM locally, so the gateway calls `ensure_im_tenant_applica
 
 | Surface manifest | `backend.appId` |
 | --- | --- |
-| `apps/sdkwork-im-pc/sdkwork.app.config.json` | `sdkwork-im-pc` |
-| `apps/sdkwork-im-h5/sdkwork.app.config.json` | `sdkwork-im-h5` |
-| `apps/sdkwork-im-flutter-mobile/sdkwork.app.config.json` | `sdkwork-im-flutter-mobile` |
+| `apps/sdkwork-im-pc/agent.app.config.json` | `sdkwork-im-pc` |
+| `apps/sdkwork-im-h5/agent.app.config.json` | `sdkwork-im-h5` |
+| `apps/sdkwork-im-flutter-mobile/agent.app.config.json` | `sdkwork-im-flutter-mobile` |
 
 Runtime identities come only from application manifests. The IM adapter does not infer architecture suffixes or keep a hardcoded surface list.
 

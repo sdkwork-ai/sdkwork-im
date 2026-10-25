@@ -325,7 +325,7 @@ Maintenance: `pnpm migrate:topology-v2-baggage` re-applies archive vocabulary mi
 - Flutter: Android APK/AAB and iOS IPA
 - Cloud: digest-pinned Kubernetes deployment bundle (tar.gz)
 
-**Release packages:** [`sdkwork.app.config.json`](./sdkwork.app.config.json) is currently `DRAFT`.
+**Release packages:** [`agent.app.config.json`](./agent.app.config.json) is currently `DRAFT`.
 Its web, standalone server, desktop, Flutter, and cloud container package matrix is declared but
 disabled until real artifacts, checksums, signatures, SBOM, provenance, and immutable release
 evidence are materialized. Capacitor iOS/Android remain deferred because native host projects are not

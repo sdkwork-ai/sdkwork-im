@@ -7,9 +7,9 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 const readJson = (relativePath) => JSON.parse(readFileSync(path.join(repoRoot, relativePath), 'utf8'));
 const readText = (relativePath) => readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
-const authority = readJson('sdkwork.app.config.json');
-const pc = readJson('apps/sdkwork-im-pc/sdkwork.app.config.json');
-const h5 = readJson('apps/sdkwork-im-h5/sdkwork.app.config.json');
+const authority = readJson('agent.app.config.json');
+const pc = readJson('apps/sdkwork-im-pc/agent.app.config.json');
+const h5 = readJson('apps/sdkwork-im-h5/agent.app.config.json');
 const routing = readJson('specs/im-web-ingress-domain.spec.json');
 const apiDeployment = readJson('specs/im-api-deployment.spec.json');
 const topology = readJson('specs/topology.spec.json');
@@ -80,7 +80,7 @@ assert.equal(authority.environments, undefined);
 assert.equal(pc.environments, undefined);
 assert.equal(h5.environments, undefined);
 
-assert.equal(routing.authority.manifestPath, '../sdkwork.app.config.json');
+assert.equal(routing.authority.manifestPath, '../agent.app.config.json');
 assert.equal(
   routing.authority.deploymentConfigPath,
   '../etc/sdkwork.deployment.config.json',

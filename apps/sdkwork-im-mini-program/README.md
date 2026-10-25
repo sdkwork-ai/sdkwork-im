@@ -89,4 +89,4 @@ Gates that also cover this root run from the repository root: `pnpm check`.
 
 WeChat upload needs the WeChat DevTools CLI and a bound mini program appid. Both are operator-held
 and absent from the workspace, so release packaging is deferred and recorded in
-`sdkwork.app.config.json#artifacts.installConfig.metadata.releaseBuildDeferred`.
+`agent.app.config.json#artifacts.installConfig.metadata.releaseBuildDeferred`.

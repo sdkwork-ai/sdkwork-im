@@ -37,7 +37,7 @@ Message timeline, or a second Agent conversation/session model must not be used 
 
 Commercial release posture is resolved only from current machine contracts and fresh evidence:
 
-- `sdkwork.app.config.json` remains the application publication and artifact-policy authority.
+- `agent.app.config.json` remains the application publication and artifact-policy authority.
 - `database/contract/table-registry.json` and `database/contract/schema.yaml` define current IM
   persistence ownership and migration roots.
 - the authored OpenAPI documents under `apis/` define IM-owned HTTP operations.

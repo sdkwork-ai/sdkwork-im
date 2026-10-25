@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "kind": "sdkwork.im.api-deployment",
   "authority": {
-    "applicationManifestPath": "../sdkwork.app.config.json",
+    "applicationManifestPath": "../agent.app.config.json",
     "deploymentConfigPath": "../etc/sdkwork.deployment.config.json",
     "topologySpecPath": "topology.spec.json"
   },

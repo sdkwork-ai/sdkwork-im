@@ -33,7 +33,7 @@ const rootDictionaryFiles = [
   '.sdkwork/.gitignore',
   '.sdkwork/skills/README.md',
   '.sdkwork/plugins/README.md',
-  'sdkwork.app.config.json',
+  'agent.app.config.json',
   'specs/README.md',
   'specs/component.spec.json',
 ];
@@ -48,7 +48,7 @@ const pcAppDictionaryFiles = [
   '.sdkwork/.gitignore',
   '.sdkwork/skills/README.md',
   '.sdkwork/plugins/README.md',
-  'sdkwork.app.config.json',
+  'agent.app.config.json',
   'specs/README.md',
   'specs/component.spec.json',
   'package.json',
@@ -89,7 +89,7 @@ function readJson(relativePath) {
 }
 
 function assertAppManifestJsonWithoutBom() {
-  const manifestPaths = gitLsFiles('sdkwork.app.config.json');
+  const manifestPaths = gitLsFiles('agent.app.config.json');
   for (const relativePath of manifestPaths) {
     const bytes = fs.readFileSync(absolutePath(relativePath));
     const hasBom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
@@ -286,7 +286,7 @@ function assertPcAppRootDictionary() {
 }
 
 function assertAppManifestWorkspaceRoots() {
-  const rootManifestPath = 'sdkwork.app.config.json';
+  const rootManifestPath = 'agent.app.config.json';
   const rootManifest = readJson(rootManifestPath);
   assertManifestPathExists({
     manifestPath: rootManifestPath,
@@ -307,7 +307,7 @@ function assertAppManifestWorkspaceRoots() {
     expectedPath: pcAppRoot,
   });
 
-  const pcManifestPath = `${pcAppRoot}/sdkwork.app.config.json`;
+  const pcManifestPath = `${pcAppRoot}/agent.app.config.json`;
   const pcManifest = readJson(pcManifestPath);
   assertManifestPathExists({
     manifestPath: pcManifestPath,

@@ -704,8 +704,8 @@ assert.equal(
 );
 assert.equal(workflowConfig.publish?.workflowArtifact, true);
 assert.equal(workflowConfig.security?.artifactAttestations, true);
-assert.equal(workflowConfig.security?.sbomRequired, true, 'sdkwork.workflow.json must require SBOM when sdkwork.app.config.json does');
-assert.equal(workflowConfig.security?.signingRequired, true, 'sdkwork.workflow.json must require signing when sdkwork.app.config.json does');
+assert.equal(workflowConfig.security?.sbomRequired, true, 'sdkwork.workflow.json must require SBOM when agent.app.config.json does');
+assert.equal(workflowConfig.security?.signingRequired, true, 'sdkwork.workflow.json must require signing when agent.app.config.json does');
 assert.ok(
   Array.isArray(workflowConfig.lifecycle?.sbom) && workflowConfig.lifecycle.sbom.length > 0,
   'sdkwork.workflow.json lifecycle.sbom must declare at least one step',
@@ -730,10 +730,10 @@ assert.doesNotMatch(
   'sdkwork.workflow.json lifecycle.sbom must not contradict security.sbomRequired=true',
 );
 
-const appManifest = JSON.parse(readText('sdkwork.app.config.json'));
-assert.equal(appManifest.security?.sbomRequired, true, 'sdkwork.app.config.json must require SBOM evidence');
-assert.equal(appManifest.security?.signatureRequired, true, 'sdkwork.app.config.json must require release signatures');
-assert.equal(appManifest.security?.checksumRequired, true, 'sdkwork.app.config.json must require checksum evidence');
+const appManifest = JSON.parse(readText('agent.app.config.json'));
+assert.equal(appManifest.security?.sbomRequired, true, 'agent.app.config.json must require SBOM evidence');
+assert.equal(appManifest.security?.signatureRequired, true, 'agent.app.config.json must require release signatures');
+assert.equal(appManifest.security?.checksumRequired, true, 'agent.app.config.json must require checksum evidence');
 assert.match(
   workflowConfig.lifecycle?.install?.map((step) => step.run).join('\n') ?? '',
   /SDKWORK_SHARED_SDK_GITHUB_TOKEN/u,
@@ -807,12 +807,12 @@ assert.deepEqual(
 assert.deepEqual(
   appManifest.artifacts?.installConfig?.packages?.map((releasePackage) => releasePackage.id).sort(),
   sortedExpectedWorkflowTargetIds,
-  'sdkwork.app.config.json install packages should match sdkwork.workflow.json targets exactly',
+  'agent.app.config.json install packages should match sdkwork.workflow.json targets exactly',
 );
 assert.deepEqual(
   appManifest.release?.notes?.find((note) => note.current === true)?.packageIds.sort(),
   sortedExpectedWorkflowTargetIds,
-  'sdkwork.app.config.json current release note packageIds should match sdkwork.workflow.json targets exactly',
+  'agent.app.config.json current release note packageIds should match sdkwork.workflow.json targets exactly',
 );
 const workflowTargetsById = new Map((workflowConfig.targets ?? []).map((target) => [target.id, target]));
 for (const releasePackage of appManifest.artifacts?.installConfig?.packages ?? []) {

@@ -18,7 +18,7 @@ structure exposes gaps:
   `etc/`, and `tests/` are missing.
 - The repository root has `package.json` with `workspace:*` dependencies but no root
   `pnpm-workspace.yaml`.
-- `apps/sdkwork-chat-pc` is an independent application root with `sdkwork.app.config.json`, but it
+- `apps/sdkwork-chat-pc` is an independent application root with `agent.app.config.json`, but it
   does not yet have its own `AGENTS.md` or source-controlled `.sdkwork/` dictionary.
 - PC console and admin package names still use historical `sdkwork-clawchat-console-*` and
   `sdkwork-clawchat-admin-*` names rather than the target `sdkwork-clawchat-pc-console-*` and

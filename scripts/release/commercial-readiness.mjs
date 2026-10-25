@@ -647,7 +647,7 @@ export function resolvePreReleaseEvidenceIndexPath(repoRoot = resolveRepoRoot())
 }
 
 export function resolveAppManifestPath(repoRoot = resolveRepoRoot()) {
-  return path.join(repoRoot, 'sdkwork.app.config.json');
+  return path.join(repoRoot, 'agent.app.config.json');
 }
 
 function resolveStep11TierEvidenceIndexPath(repoRoot, tierId, fileName) {

@@ -66,7 +66,7 @@ apps/sdkwork-im-pc/
 ├─ scripts/             # app-local contract tests
 ├─ tsconfig.app.json    # lint/typecheck scope for IM-owned sources only
 ├─ types/stubs/         # lint-only module stubs for dynamically loaded sibling PC capabilities
-└─ sdkwork.app.config.json
+└─ agent.app.config.json
 ```
 
 ## Dependency composition (APP_COMPOSITION_SPEC)

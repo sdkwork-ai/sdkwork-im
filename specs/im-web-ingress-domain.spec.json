@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "kind": "sdkwork.im.web-ingress-domain",
   "authority": {
-    "manifestPath": "../sdkwork.app.config.json",
+    "manifestPath": "../agent.app.config.json",
     "deploymentConfigPath": "../etc/sdkwork.deployment.config.json",
     "environmentsField": "environments",
     "apiDeploymentSpecPath": "im-api-deployment.spec.json"
@@ -15,11 +15,11 @@
   ],
   "clients": {
     "pc": {
-      "manifestPath": "../apps/sdkwork-im-pc/sdkwork.app.config.json",
+      "manifestPath": "../apps/sdkwork-im-pc/agent.app.config.json",
       "clientArch": "pc"
     },
     "h5": {
-      "manifestPath": "../apps/sdkwork-im-h5/sdkwork.app.config.json",
+      "manifestPath": "../apps/sdkwork-im-h5/agent.app.config.json",
       "clientArch": "h5"
     }
   },
