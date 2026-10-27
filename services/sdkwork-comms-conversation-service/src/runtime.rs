@@ -30,8 +30,9 @@ use im_domain_core::conversation::{
     ConversationAgentAssignment, ConversationAgentAssignmentError, ConversationAgentAssignmentSet,
     ConversationAgentAssignmentSource, ConversationAggregateState, ConversationLifecycleState,
     ConversationMember, ConversationPolicy, ConversationReadCursor, ConversationReadCursorView,
-    ConversationRoster, LEGACY_GROUP_AGENT_DEFAULT_POLICY_ID,
-    LEGACY_GROUP_AGENT_DEFAULT_POLICY_VERSION, MembershipRole, MembershipState,
+    ConversationRoster, LEGACY_GROUP_AGENT_DEFAULT_ID, LEGACY_GROUP_AGENT_DEFAULT_POLICY_ID,
+    LEGACY_GROUP_AGENT_DEFAULT_POLICY_VERSION, LEGACY_GROUP_AGENT_DEFAULT_REVISION_ID,
+    MembershipRole, MembershipState,
     build_conversation_member_with_attributes, build_default_read_cursor,
     legacy_group_agent_assignment_set, member_episode_id, member_id,
 };
@@ -46,7 +47,7 @@ use im_domain_events::{AggregateType, CommitEnvelope, EventActor};
 pub use im_platform_contracts::{
     AGENT_MENTION_DISPATCH_EVENT_TYPE, AGENT_MENTION_DISPATCH_OUTBOX_AGGREGATE_TYPE,
     AGENT_MENTION_DISPATCH_PAYLOAD_SCHEMA, AGENT_MENTION_DISPATCH_SCHEMA_VERSION,
-    AgentMentionDispatchRequest, AgentMentionDispatchTarget,
+    AgentDispatchTrigger, AgentMentionDispatchRequest, AgentMentionDispatchTarget,
 };
 use im_time::utc_now_rfc3339_millis;
 use sdkwork_utils_rust::SdkWorkPageData;
@@ -2611,6 +2612,22 @@ fn validate_agent_dispatch_reply(
             "agent dispatch reply client message id is invalid".into(),
         ));
     }
+    // Direct chats never persist agent assignments (domain invariant); the
+    // reply target is validated against the synthetic system-agent assignment
+    // the dispatch was created with. Group conversations read the persisted
+    // assignment set on the aggregate.
+    if conversation.aggregate.conversation_type() == "direct" {
+        let assignment = agents::direct_system_agent_assignment();
+        if command.sender.id != assignment.agent_id
+            || completion.assignment_generation != agents::direct_system_agent_dispatch_generation()
+            || completion.agent_revision_ref != assignment.revision_id
+        {
+            return Err(RuntimeError::Conflict(
+                "agent dispatch reply assignment generation or revision is stale".into(),
+            ));
+        }
+        return Ok(());
+    }
     let assignments = conversation.aggregate.agent_assignments().ok_or_else(|| {
         RuntimeError::Conflict("agent dispatch reply conversation has no agent assignments".into())
     })?;
@@ -3966,11 +3983,34 @@ where
                     command.organization_id.as_str(),
                     command.conversation_id.as_str(),
                 )?;
-                self.hydrate_conversation_agent_metadata_if_missing(
-                    command.tenant_id.as_str(),
-                    command.organization_id.as_str(),
-                    command.conversation_id.as_str(),
-                )?;
+                // Direct chats never persist agent assignments (domain
+                // invariant); the reply target is validated against the
+                // synthetic system-agent assignment instead.
+                let conversation_type = {
+                    let state = read_runtime_state(
+                        &self.state,
+                        "conversation-runtime.state.agent_reply.conversation_type",
+                    );
+                    state
+                        .conversations
+                        .get(
+                            conversation_scope_key(
+                                command.tenant_id.as_str(),
+                                command.organization_id.as_str(),
+                                command.conversation_id.as_str(),
+                            )
+                            .as_str(),
+                        )
+                        .map(|conversation| conversation.aggregate.conversation_type().to_owned())
+                        .unwrap_or_default()
+                };
+                if conversation_type == "group" {
+                    self.hydrate_conversation_agent_metadata_if_missing(
+                        command.tenant_id.as_str(),
+                        command.organization_id.as_str(),
+                        command.conversation_id.as_str(),
+                    )?;
+                }
             }
             MessagePostPolicy::GenericPost | MessagePostPolicy::SystemChannelPublish => {
                 self.ensure_member_loaded(
@@ -4124,6 +4164,19 @@ where
                                 ));
                             }
                             Vec::new()
+                        } else if conversation.aggregate.conversation_type() == "direct" {
+                            // The system-agent direct chat (welcome chat)
+                            // dispatches every user message to the default
+                            // agent without a mention part; direct chats
+                            // without the system agent resolve nothing.
+                            agents::resolve_direct_system_agent_dispatch(
+                                conversation,
+                                sender_member.as_ref().ok_or_else(|| {
+                                    RuntimeError::Conflict(
+                                        "message post is missing an active sender member".into(),
+                                    )
+                                })?,
+                            )
                         } else {
                             agents::resolve_message_agent_mentions(
                                 conversation,
@@ -4264,14 +4317,30 @@ where
                                     )
                                 })?;
                             last_ordering_seq = dispatch_ordering_seq;
-                            if let Some(dispatch) = self.build_agent_mention_dispatch_artifacts(
-                                command.organization_id.as_str(),
-                                &message,
-                                event_id.as_str(),
-                                resolved_agent_mentions.as_slice(),
-                                dispatch_ordering_seq,
-                                retention_class.as_str(),
-                            )? {
+                            let direct_dispatch = conversation.aggregate.conversation_type()
+                                == "direct";
+                            let dispatch = if direct_dispatch {
+                                self.build_agent_dispatch_artifacts(
+                                    command.organization_id.as_str(),
+                                    &message,
+                                    event_id.as_str(),
+                                    resolved_agent_mentions.as_slice(),
+                                    dispatch_ordering_seq,
+                                    retention_class.as_str(),
+                                    AgentDispatchTrigger::DirectSystemAgent,
+                                    agents::direct_system_agent_dispatch_generation(),
+                                )?
+                            } else {
+                                self.build_agent_mention_dispatch_artifacts(
+                                    command.organization_id.as_str(),
+                                    &message,
+                                    event_id.as_str(),
+                                    resolved_agent_mentions.as_slice(),
+                                    dispatch_ordering_seq,
+                                    retention_class.as_str(),
+                                )?
+                            };
+                            if let Some(dispatch) = dispatch {
                                 agent_dispatch_request = Some(dispatch.request);
                                 if let Some(outbox) = dispatch.outbox {
                                     outboxes.push(outbox);

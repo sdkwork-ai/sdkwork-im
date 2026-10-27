@@ -13,3 +13,6 @@ sdkwork-im-contract-core = { workspace = true }
 im-domain-core = { path = "../im-domain-core" }
 im-time = { path = "../im-time" }
 serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

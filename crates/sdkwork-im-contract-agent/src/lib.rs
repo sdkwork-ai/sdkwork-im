@@ -19,6 +19,20 @@ pub const AGENT_MENTION_DISPATCH_PAYLOAD_SCHEMA: &str =
 pub const AGENT_MENTION_DISPATCH_OUTBOX_AGGREGATE_TYPE: &str = "conversation_agent_dispatch";
 pub const AGENT_MENTION_DISPATCH_SCHEMA_VERSION: u16 = 1;
 
+/// How a dispatch handoff was created.
+///
+/// `Mention` is the structured `@agent` handoff in group conversations.
+/// `DirectSystemAgent` is the automatic handoff for user messages in the
+/// canonical system-agent direct chat, where no mention part exists; the
+/// service resolves that chat to the legacy default agent assignment.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AgentDispatchTrigger {
+    #[default]
+    Mention,
+    DirectSystemAgent,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AgentMentionDispatchTarget {
@@ -47,6 +61,10 @@ pub struct AgentMentionDispatchRequest {
     pub sender_principal_kind: String,
     pub assignment_generation: u64,
     pub targets: Vec<AgentMentionDispatchTarget>,
+    /// Defaults to [`AgentDispatchTrigger::Mention`] so payloads recorded
+    /// before the trigger existed deserialize unchanged during journal replay.
+    #[serde(default)]
+    pub trigger: AgentDispatchTrigger,
     pub body: MessageBody,
     pub requested_at: String,
 }
@@ -124,18 +142,32 @@ impl AgentMentionDispatchRequest {
             .filter_map(ContentPart::as_mention)
             .map(|mention| mention.target_id.as_str())
             .collect::<HashSet<_>>();
-        if mentioned_ids != target_ids
-            || self
-                .body
-                .parts
-                .iter()
-                .filter_map(ContentPart::as_mention)
-                .any(|mention| mention.assignment_generation != self.assignment_generation)
-        {
-            return Err(ContractError::Invalid(
-                "agent mention dispatch targets do not match the structured message mentions"
-                    .into(),
-            ));
+        match self.trigger {
+            AgentDispatchTrigger::Mention => {
+                if mentioned_ids != target_ids
+                    || self
+                        .body
+                        .parts
+                        .iter()
+                        .filter_map(ContentPart::as_mention)
+                        .any(|mention| mention.assignment_generation != self.assignment_generation)
+                {
+                    return Err(ContractError::Invalid(
+                        "agent mention dispatch targets do not match the structured message mentions"
+                            .into(),
+                    ));
+                }
+            }
+            // The system-agent direct chat dispatches without a mention part;
+            // exactly one target (the resolved default agent) is required.
+            AgentDispatchTrigger::DirectSystemAgent => {
+                if !mentioned_ids.is_empty() || self.targets.len() != 1 {
+                    return Err(ContractError::Invalid(
+                        "system-agent direct chat dispatch must carry no mentions and exactly one target"
+                            .into(),
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -332,6 +364,7 @@ mod tests {
                 agent_id: "agent.im.writer".into(),
                 revision_id: Some("revision.im.writer.1".into()),
             }],
+            trigger: AgentDispatchTrigger::Mention,
             body: MessageBody {
                 summary: Some("write this".into()),
                 parts: vec![ContentPart::Mention(MentionPart {
@@ -386,6 +419,55 @@ mod tests {
             invalid_message_seq.validate(),
             Err(ContractError::Invalid(_))
         ));
+    }
+
+    #[test]
+    fn direct_system_agent_dispatch_requires_single_target_and_no_mentions() {
+        let mut direct = agent_mention_dispatch_request();
+        direct.trigger = AgentDispatchTrigger::DirectSystemAgent;
+        direct.targets[0] = AgentMentionDispatchTarget {
+            dispatch_id: "amd_direct_demo".into(),
+            agent_id: "agent.im.default".into(),
+            revision_id: Some("revision.im.default.1".into()),
+        };
+        direct.body.parts.clear();
+        direct.body.parts.push(ContentPart::text("hello agent"));
+        assert_eq!(direct.validate(), Ok(()));
+
+        let mut with_mention = direct.clone();
+        with_mention.body.parts.push(ContentPart::Mention(MentionPart {
+            target_kind: MentionTargetKind::Agent,
+            target_id: "agent.im.default".into(),
+            display_text: "@Agent".into(),
+            assignment_generation: direct.assignment_generation,
+        }));
+        assert!(matches!(
+            with_mention.validate(),
+            Err(ContractError::Invalid(_))
+        ));
+
+        let mut multiple_targets = direct;
+        multiple_targets.targets.push(AgentMentionDispatchTarget {
+            dispatch_id: "amd_direct_demo_2".into(),
+            agent_id: "agent.im.writer".into(),
+            revision_id: None,
+        });
+        assert!(matches!(
+            multiple_targets.validate(),
+            Err(ContractError::Invalid(_))
+        ));
+    }
+
+    #[test]
+    fn legacy_payloads_without_trigger_deserialize_as_mentions() {
+        let recorded = agent_mention_dispatch_request();
+        let json = serde_json::to_string(&recorded).expect("payload should serialize");
+        let stripped = json.replace("\"trigger\":\"mention\",", "");
+        assert_ne!(stripped, json, "fixture should carry the trigger field");
+        let replayed: AgentMentionDispatchRequest =
+            serde_json::from_str(&stripped).expect("legacy payload should deserialize");
+        assert_eq!(replayed.trigger, AgentDispatchTrigger::Mention);
+        assert_eq!(replayed, recorded);
     }
 
     #[test]

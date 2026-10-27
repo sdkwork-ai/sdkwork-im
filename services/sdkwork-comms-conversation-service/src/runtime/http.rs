@@ -1206,6 +1206,14 @@ fn build_test_runtime_for_app_state() -> ConversationRuntime<ConversationCommitJ
         .with_welcome_state_store(Arc::new(InMemoryWelcomeStateStore::default()))
 }
 
+/// Whether the process storage provider is PostgreSQL (the shared IM pool can
+/// be initialized from the environment). Dev deployments with PostgreSQL
+/// storage run the durable conversation runtime instead of the memory one so
+/// writes and the PostgreSQL-side readers agree on one store.
+fn conversation_postgres_storage_provider_configured() -> bool {
+    sdkwork_im_database_pool::ensure_im_process_postgres_r2d2_pool().is_ok()
+}
+
 fn build_server_group_knowledgebase_for_app_state()
 -> Result<Arc<GroupKnowledgebaseCoordinator>, RuntimeError> {
     let port = group_knowledgebase_port_for_server(
@@ -1260,20 +1268,21 @@ pub fn default_app_state() -> AppState {
 fn try_server_app_state_with_principal_directory(
     principal_directory: Arc<dyn PrincipalDirectory>,
 ) -> Result<AppState, RuntimeError> {
-    // The allow-all / header-only paths are development-and-test only. In that
-    // mode the coordinator uses the in-memory knowledgebase store and the
-    // in-memory journal; production always requires the shared PostgreSQL
-    // process pool and fails closed instead of degrading.
+    // Production requires the shared PostgreSQL process pool and fails closed
+    // instead of degrading. Development/test prefers the durable runtime too
+    // whenever the storage provider is PostgreSQL: the inbox authority and the
+    // agent dispatch worker in the same process read PostgreSQL, so an
+    // in-memory runtime would write conversations this process can never see.
     let dev_or_test = im_app_context::allows_header_only_app_context_fallback();
     let group_knowledgebase = if dev_or_test {
         build_test_group_knowledgebase_for_app_state()?
     } else {
         build_server_group_knowledgebase_for_app_state()?
     };
-    let runtime = if dev_or_test {
-        Arc::new(build_test_runtime_for_app_state())
-    } else {
+    let runtime = if !dev_or_test || conversation_postgres_storage_provider_configured() {
         Arc::new(build_server_runtime_for_app_state()?)
+    } else {
+        Arc::new(build_test_runtime_for_app_state())
     };
     let state = AppState {
         group_knowledgebase,

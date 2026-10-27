@@ -6,19 +6,21 @@ use std::time::Duration;
 use conversation_runtime::{
     AGENT_MENTION_DISPATCH_EVENT_TYPE, AGENT_MENTION_DISPATCH_PAYLOAD_SCHEMA,
     AcceptAgentHandoffCommand, AddConversationMemberCommand, AddMessageReactionCommand,
-    AgentHandoffStateView, AgentMentionDispatchRequest, ApplyConversationPolicyCommand,
-    ArchiveGroupConversationCommand, BindDirectChatConversationCommand,
-    ChangeAgentHandoffStatusView, ChangeConversationMemberRoleCommand, CloseAgentHandoffCommand,
-    ConversationBusinessBinding, ConversationCommitJournal, ConversationRuntime,
-    CreateAgentDialogCommand, CreateAgentHandoffCommand, CreateConversationCommand,
-    CreateGroupConversationCommand, CreateRoomCommand, CreateSystemChannelCommand,
-    CreateThreadConversationCommand, DirectMessageAccessGate, DurableConversationEventWriter,
-    DurableMessageMutationWriter, EditMessageCommand, LeaveConversationCommand,
-    MessageHistoryReadRequest, PinMessageCommand, PostMessageCommand, PostMessageDeliveryStatus,
-    PublishSystemChannelMessageCommand, RecallMessageCommand, RemoveConversationMemberCommand,
-    RemoveMessageReactionCommand, ReplaceConversationAgentsCommand, ResolveAgentHandoffCommand,
-    RuntimeError, SyncSharedChannelLinkedMemberCommand, TransferConversationOwnerCommand,
-    UnpinMessageCommand, UpdateReadCursorCommand,
+    AgentDispatchTrigger, AgentHandoffStateView, AgentMentionDispatchRequest,
+    ApplyConversationPolicyCommand, ArchiveGroupConversationCommand,
+    BindDirectChatConversationCommand, ChangeAgentHandoffStatusView,
+    ChangeConversationMemberRoleCommand, CloseAgentHandoffCommand, ConversationBusinessBinding,
+    ConversationCommitJournal, ConversationRuntime, CreateAgentDialogCommand,
+    CreateAgentHandoffCommand, CreateConversationCommand, CreateGroupConversationCommand,
+    CreateRoomCommand, CreateSystemChannelCommand, CreateThreadConversationCommand,
+    DirectMessageAccessGate, DurableConversationEventWriter, DurableMessageMutationWriter,
+    DurableMessagePostWriter, EditMessageCommand, LeaveConversationCommand,
+    MessageHistoryReadRequest, PinMessageCommand,
+    PostMessageCommand, PostMessageDeliveryStatus, PublishSystemChannelMessageCommand,
+    RecallMessageCommand, RemoveConversationMemberCommand, RemoveMessageReactionCommand,
+    ReplaceConversationAgentsCommand, ResolveAgentHandoffCommand, RuntimeError,
+    SyncSharedChannelLinkedMemberCommand, TransferConversationOwnerCommand, UnpinMessageCommand,
+    UpdateReadCursorCommand,
     conversation_state::{
         UpdateConversationPreferencesRequest, default_conversation_state_service,
     },
@@ -36,8 +38,8 @@ use im_domain_core::message::{
 };
 use im_domain_events::{AggregateType, CommitEnvelope, EventActor};
 use im_platform_contracts::{
-    CommitJournal, CommitJournalAggregateScope, CommitJournalReplayCursor, CommitJournalReplayPage,
-    CommitPosition, ContractError,
+    AgentDispatchReplyCompletion, CommitJournal, CommitJournalAggregateScope,
+    CommitJournalReplayCursor, CommitJournalReplayPage, CommitPosition, ContractError,
     ConversationAggregateState as PersistedConversationAggregateState, ConversationAggregateStore,
     ConversationMemberPage, ConversationMemberPageCursor, ConversationMemberRecord, IdGenerator,
     InMemoryWelcomeStateStore, MessageStore, MessageWindow,
@@ -5309,6 +5311,291 @@ fn test_group_agent_mentions_emit_one_durable_dispatch_event_and_replay_once() {
         .expect("same client message should replay idempotently");
     assert_eq!(replay.delivery_status, PostMessageDeliveryStatus::Replayed);
     assert_eq!(journal.recorded().len(), events_after_first.len());
+}
+
+/// 以 system:system ↔ user 的 canonical direct chat 形态绑定系统智能体会话。
+fn system_agent_direct_chat_command(
+    tenant_id: &str,
+    user_id: &str,
+) -> BindDirectChatConversationCommand {
+    BindDirectChatConversationCommand {
+        tenant_id: tenant_id.into(),
+        organization_id: "0".into(),
+        conversation_id: String::new(),
+        direct_chat_id: String::new(),
+        left_actor_id: user_id.into(),
+        left_actor_kind: "user".into(),
+        right_actor_id: "system".into(),
+        right_actor_kind: "system".into(),
+        bound_by: "svc_control".into(),
+    }
+}
+
+#[test]
+fn test_system_agent_direct_chat_dispatches_user_messages_without_mentions() {
+    let journal = InMemoryJournal::default();
+    let runtime = ConversationRuntime::new(journal.clone())
+        .with_id_generator(Arc::new(MessageMutationTestIdGenerator::default()))
+        .with_direct_message_access_gate(Arc::new(AllowAllDirectMessageAccessGate));
+    let bound = runtime
+        .bind_direct_chat_conversation_with_binder_kind(
+            system_agent_direct_chat_command("100001", "1001"),
+            "system",
+        )
+        .expect("system-agent direct chat should bind");
+    let conversation_id = bound.conversation_id.clone();
+
+    // 系统智能体自己的欢迎消息（sender system:system）不得再触发调度。
+    runtime
+        .post_message(PostMessageCommand {
+            tenant_id: "100001".into(),
+            organization_id: "0".into(),
+            conversation_id: conversation_id.clone(),
+            sender: Sender {
+                id: "system".into(),
+                kind: "system".into(),
+                member_id: None,
+                device_id: None,
+                session_id: None,
+                metadata: BTreeMap::new(),
+            },
+            client_msg_id: Some("welcome:1001".into()),
+            message_type: MessageType::System,
+            body: MessageBody {
+                summary: None,
+                parts: vec![ContentPart::text("欢迎使用 SDKWork 即时通讯！")],
+                render_hints: BTreeMap::new(),
+                reply_to: None,
+            },
+        })
+        .expect("welcome system message should post");
+    assert!(
+        journal
+            .recorded()
+            .iter()
+            .all(|event| event.event_type != AGENT_MENTION_DISPATCH_EVENT_TYPE),
+        "the welcome system message must not dispatch an agent turn"
+    );
+
+    // 用户普通文本消息（无 mention）→ 自动调度默认智能体。
+    let user_message = runtime
+        .post_message(PostMessageCommand {
+            tenant_id: "100001".into(),
+            organization_id: "0".into(),
+            conversation_id: conversation_id.clone(),
+            sender: Sender {
+                id: "1001".into(),
+                kind: "user".into(),
+                member_id: None,
+                device_id: None,
+                session_id: Some("session_user_1001".into()),
+                metadata: BTreeMap::new(),
+            },
+            client_msg_id: Some("client_direct_dispatch_once".into()),
+            message_type: MessageType::Standard,
+            body: MessageBody {
+                summary: Some("hello".into()),
+                parts: vec![ContentPart::text("你好，帮我写一份周报。")],
+                render_hints: BTreeMap::new(),
+                reply_to: None,
+            },
+        })
+        .expect("user message in the system-agent chat should post");
+    let dispatch_events = journal
+        .recorded()
+        .iter()
+        .filter(|event| event.event_type == AGENT_MENTION_DISPATCH_EVENT_TYPE)
+        .cloned()
+        .collect::<Vec<_>>();
+    assert_eq!(dispatch_events.len(), 1, "one dispatch per user message");
+    let dispatch_event = &dispatch_events[0];
+    assert_eq!(
+        dispatch_event.causation_id.as_deref(),
+        Some(user_message.event_id.as_str())
+    );
+    let request: AgentMentionDispatchRequest =
+        serde_json::from_str(dispatch_event.payload.as_str())
+            .expect("dispatch payload should decode");
+    assert_eq!(
+        request.trigger,
+        AgentDispatchTrigger::DirectSystemAgent,
+        "direct chats dispatch without a mention part"
+    );
+    assert_eq!(request.assignment_generation, 1);
+    assert_eq!(request.sender_principal_id, "1001");
+    assert_eq!(request.message_id, user_message.message_id);
+    assert_eq!(request.targets.len(), 1);
+    assert_eq!(request.targets[0].agent_id, "agent.im.default");
+    assert_eq!(
+        request.targets[0].revision_id.as_deref(),
+        Some("revision.im.default.1")
+    );
+
+    // 普通 用户↔用户 direct chat（无系统智能体成员）不调度。
+    let peer_chat = runtime
+        .bind_direct_chat_conversation_with_binder_kind(
+            canonical_bind_direct_chat_command("100001", "1001", "1002"),
+            "system",
+        )
+        .expect("peer direct chat should bind");
+    runtime
+        .post_message(PostMessageCommand {
+            tenant_id: "100001".into(),
+            organization_id: "0".into(),
+            conversation_id: peer_chat.conversation_id.clone(),
+            sender: Sender {
+                id: "1001".into(),
+                kind: "user".into(),
+                member_id: None,
+                device_id: None,
+                session_id: None,
+                metadata: BTreeMap::new(),
+            },
+            client_msg_id: Some("client_peer_direct".into()),
+            message_type: MessageType::Standard,
+            body: MessageBody {
+                summary: None,
+                parts: vec![ContentPart::text("hi peer")],
+                render_hints: BTreeMap::new(),
+                reply_to: None,
+            },
+        })
+        .expect("peer direct message should post");
+    assert_eq!(
+        journal
+            .recorded()
+            .iter()
+            .filter(|event| event.event_type == AGENT_MENTION_DISPATCH_EVENT_TYPE)
+            .count(),
+        1,
+        "only the system-agent chat dispatches"
+    );
+}
+
+/// 无 Postgres 的回复提交 double：回复校验通过后原子上墙成功。
+struct InMemoryAgentReplyPostWriter;
+
+impl DurableMessagePostWriter for InMemoryAgentReplyPostWriter {
+    fn persist_message_post_batch(
+        &self,
+        _envelopes: Vec<CommitEnvelope>,
+        _message: StoredMessageRecord,
+        _outboxes: Vec<OutboxEventRecord>,
+    ) -> Result<Vec<CommitPosition>, ContractError> {
+        Ok(vec![CommitPosition {
+            offset: 1,
+            partition: "p0".into(),
+        }])
+    }
+
+    fn persist_agent_reply_and_complete_dispatch(
+        &self,
+        _envelopes: Vec<CommitEnvelope>,
+        _message: StoredMessageRecord,
+        _outboxes: Vec<OutboxEventRecord>,
+        _completion: AgentDispatchReplyCompletion,
+    ) -> Result<Vec<CommitPosition>, ContractError> {
+        Ok(vec![CommitPosition {
+            offset: 1,
+            partition: "p0".into(),
+        }])
+    }
+}
+
+#[test]
+fn test_system_agent_direct_chat_accepts_agent_dispatch_replies() {
+    // 回复提交要求原子 durable writer；用 double 验证 direct 会话的
+    // 回复校验（合成默认 assignment）。
+    let runtime = ConversationRuntime::new(InMemoryJournal::default())
+        .with_id_generator(Arc::new(MessageMutationTestIdGenerator::default()))
+        .with_direct_message_access_gate(Arc::new(AllowAllDirectMessageAccessGate))
+        .with_durable_message_post_writer(Arc::new(InMemoryAgentReplyPostWriter));
+    let bound = runtime
+        .bind_direct_chat_conversation_with_binder_kind(
+            system_agent_direct_chat_command("100001", "1001"),
+            "system",
+        )
+        .expect("system-agent direct chat should bind");
+    let conversation_id = bound.conversation_id.clone();
+    let dispatch_id = "amd_direct_reply_test".to_owned();
+
+    let reply = runtime
+        .post_agent_dispatch_reply(
+            PostMessageCommand {
+                tenant_id: "100001".into(),
+                organization_id: "0".into(),
+                conversation_id: conversation_id.clone(),
+                sender: Sender {
+                    id: "agent.im.default".into(),
+                    kind: "agent".into(),
+                    member_id: None,
+                    device_id: None,
+                    session_id: Some("session.im.test".into()),
+                    metadata: BTreeMap::new(),
+                },
+                client_msg_id: Some(format!("agent-dispatch-reply:{dispatch_id}")),
+                message_type: MessageType::Standard,
+                body: MessageBody {
+                    summary: Some("reply".into()),
+                    parts: vec![ContentPart::text("好的，这是你的周报草稿。")],
+                    render_hints: BTreeMap::new(),
+                    reply_to: None,
+                },
+            },
+            AgentDispatchReplyCompletion {
+                tenant_id: 100001,
+                organization_id: 0,
+                conversation_id: conversation_id.clone(),
+                dispatch_id: dispatch_id.clone(),
+                lease_owner: "worker-under-test".into(),
+                agent_id: "agent.im.default".into(),
+                agent_revision_ref: Some("revision.im.default.1".into()),
+                assignment_generation: 1,
+                agents_session_id: "session.im.test".into(),
+                agents_turn_id: "turn-under-test".into(),
+            },
+        )
+        .expect("agent reply should post into the system-agent direct chat");
+    assert!(reply.reply_message_id > 0);
+    assert!(reply.reply_message_seq > 0);
+
+    // 回复过期 revision 被拒绝。
+    let stale = runtime.post_agent_dispatch_reply(
+        PostMessageCommand {
+            tenant_id: "100001".into(),
+            organization_id: "0".into(),
+            conversation_id: conversation_id.clone(),
+            sender: Sender {
+                id: "agent.im.default".into(),
+                kind: "agent".into(),
+                member_id: None,
+                device_id: None,
+                session_id: None,
+                metadata: BTreeMap::new(),
+            },
+            client_msg_id: Some(format!("agent-dispatch-reply:{dispatch_id}-stale")),
+            message_type: MessageType::Standard,
+            body: MessageBody {
+                summary: None,
+                parts: vec![ContentPart::text("stale")],
+                render_hints: BTreeMap::new(),
+                reply_to: None,
+            },
+        },
+        AgentDispatchReplyCompletion {
+            tenant_id: 100001,
+            organization_id: 0,
+            conversation_id: conversation_id.clone(),
+            dispatch_id: format!("{dispatch_id}-stale"),
+            lease_owner: "worker-under-test".into(),
+            agent_id: "agent.im.default".into(),
+            agent_revision_ref: Some("revision.im.default.2".into()),
+            assignment_generation: 1,
+            agents_session_id: "session.im.test".into(),
+            agents_turn_id: "turn-stale".into(),
+        },
+    );
+    assert!(matches!(stale, Err(RuntimeError::Conflict(_))));
 }
 
 #[test]

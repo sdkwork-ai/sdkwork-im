@@ -49,10 +49,10 @@ must not mirror this server schema or appear under this directory.
 
 The module uses `baseline-plus-migrations`:
 
-1. `ddl/baseline/postgres/0001_im_baseline.sql` is the current 60-table bootstrap snapshot.
-2. `migrations/postgres/` upgrades installed databases in version order and adds three
-   IM-to-Agents assignment, binding, and dispatch tables.
-3. Baseline plus migrations is the complete 63-table IM contract.
+1. `ddl/baseline/postgres/0001_im_baseline.sql` is the current 55-table bootstrap snapshot.
+2. `migrations/postgres/` upgrades installed databases in version order; migrations `0006`-`0008`
+   add the three Conversation member-preference, Conversation profile, and Message favorite tables.
+3. Baseline plus migrations is the complete 58-table IM contract.
 4. `lifecycle.autoMigrate` defaults to `false`; deployment runs an explicit, elected migration
    step before application traffic.
 
@@ -96,7 +96,7 @@ pnpm test:database-naming-standard
 
 `db:materialize:contract` deterministically composes the PostgreSQL baseline and ordered up
 migrations, then aligns the schema and table registry. `db:contract:check` verifies the same
-63-table contract without writing files.
+58-table contract without writing files.
 
 PostgreSQL repository and migration changes also require their focused live tests when a test
 database is available:
@@ -116,10 +116,10 @@ cargo test -p im-adapters-postgres-journal --test agent_integration_migration_li
 
 ## Initialization state
 
-This module is in **initialization state** for greenfield deployments:
+This module ships a composed `baseline-plus-migrations` lifecycle for greenfield deployments:
 
-1. **Baseline** — `database/ddl/baseline/{engine}/0001_im_baseline.sql` contains the full DDL snapshot.
-2. **Migrations** — `database/migrations/{engine}/` is reserved for post-GA incremental schema changes only. It is intentionally empty at initialization.
+1. **Baseline** — `database/ddl/baseline/{engine}/0001_im_baseline.sql` contains the 55-table bootstrap DDL snapshot.
+2. **Migrations** — `database/migrations/{engine}/` contains the ordered `0001`-`0012` PostgreSQL migrations (three of them add tables, completing the 58-table contract). They are not optional: the deployment migration step must apply them before application traffic.
 3. **Drift** — run `pnpm db:drift:check` before release.
 
 ## Commands

@@ -54,7 +54,7 @@ where c.tenant_id = $1 and c.organization_id = $2 and c.conversation_id = $3
 
 const LOAD_PROFILE_SQL: &str = r#"
 select
-    coalesce(p.display_name, g.group_name, ch.channel_name, c.conversation_id) as display_name,
+    coalesce(nullif(p.display_name, ''), g.group_name, ch.channel_name, c.conversation_id) as display_name,
     coalesce(p.avatar_url, g.avatar_url, '') as avatar_url,
     coalesce(p.notice, '') as notice,
     coalesce(p.updated_at, c.updated_at) as updated_at,
@@ -261,4 +261,24 @@ fn non_negative(value: i64, field: &'static str) -> Result<u64, ContractError> {
 
 fn format_timestamp(value: DateTime<Utc>) -> String {
     value.to_rfc3339_opts(SecondsFormat::Millis, true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LOAD_PROFILE_SQL;
+
+    #[test]
+    fn profile_read_falls_back_when_the_stored_display_name_is_empty() {
+        // `im_conversation_profiles.display_name` is `TEXT NOT NULL DEFAULT ''`, so a
+        // profile row created by an avatar-only update stores `''`. A plain coalesce
+        // would keep the empty string instead of falling back to the group/channel name.
+        assert!(
+            LOAD_PROFILE_SQL.contains("coalesce(nullif(p.display_name, ''), g.group_name"),
+            "profile read must ignore an empty stored display name before falling back"
+        );
+        assert!(
+            !LOAD_PROFILE_SQL.contains("coalesce(p.display_name"),
+            "plain coalesce cannot fall back from a NOT NULL DEFAULT '' column"
+        );
+    }
 }

@@ -13,8 +13,8 @@ use im_domain_events::{AggregateType, CommitEnvelope, EventActor};
 use im_platform_contracts::{AgentDispatchReplyCompletion, IdGenerator, StoredMessageRecord};
 use sdkwork_im_contract_agent::{
     AGENT_MENTION_DISPATCH_SCHEMA_VERSION, AgentAssignmentSource, AgentBindingStatus,
-    AgentIntegrationStore, AgentMentionDispatchRequest, AgentMentionDispatchTarget,
-    ConversationAgentAssignmentItem, ConversationAgentBindingRecord,
+    AgentDispatchTrigger, AgentIntegrationStore, AgentMentionDispatchRequest,
+    AgentMentionDispatchTarget, ConversationAgentAssignmentItem, ConversationAgentBindingRecord,
     ReplaceConversationAgentAssignments,
 };
 
@@ -100,6 +100,7 @@ async fn agent_assignments_binding_and_dispatch_are_idempotent_scoped_and_leased
             agent_id: agent_id.into(),
             revision_id: None,
         }],
+        trigger: AgentDispatchTrigger::Mention,
         body: MessageBody {
             summary: Some("run agent".into()),
             parts: vec![ContentPart::Mention(MentionPart {
@@ -365,6 +366,7 @@ async fn agent_reply_and_dispatch_completion_commit_and_rollback_atomically() {
             agent_id: agent_id.into(),
             revision_id: None,
         }],
+        trigger: AgentDispatchTrigger::Mention,
         body: source_body.clone(),
         requested_at: now_text.clone(),
     };

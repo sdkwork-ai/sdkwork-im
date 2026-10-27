@@ -101,7 +101,7 @@ with exhausted as materialized (
         updated_at = $4
     where tenant_id = $1 and organization_id = $2
       and status in (1, 2, 3) and lease_expires_at <= $4
-      and attempt_count > max_attempts
+      and attempt_count >= max_attempts
     returning id
 ), candidates as materialized (
     select id, status
@@ -111,7 +111,7 @@ with exhausted as materialized (
       and (
         (status in (0, 5) and attempt_count < max_attempts)
         or (status in (1, 2, 3) and lease_expires_at <= $4
-            and attempt_count <= max_attempts)
+            and attempt_count < max_attempts)
       )
       and (select count(*) from exhausted) >= 0
     order by next_attempt_at, lease_expires_at nulls first, id
@@ -145,7 +145,7 @@ with exhausted as materialized (
         last_error_detail = 'dispatch lease expired after the bounded reconciliation attempt',
         updated_at = $2
     where status in (1, 2, 3) and lease_expires_at <= $2
-      and attempt_count > max_attempts
+      and attempt_count >= max_attempts
     returning id
 ), candidates as materialized (
     select id, status
@@ -154,7 +154,7 @@ with exhausted as materialized (
       and (
         (status in (0, 5) and attempt_count < max_attempts)
         or (status in (1, 2, 3) and lease_expires_at <= $2
-            and attempt_count <= max_attempts)
+            and attempt_count < max_attempts)
       )
       and (select count(*) from exhausted) >= 0
     order by next_attempt_at, lease_expires_at nulls first, id
@@ -1149,5 +1149,32 @@ mod tests {
         assert!(validate_signed_id(0, "systemActorId", true).is_ok());
         assert!(validate_signed_id(0, "userActorId", false).is_err());
         assert!(validate_signed_id(0, "sourceAggregateVersion", true).is_ok());
+    }
+
+    #[test]
+    fn dispatch_claim_sql_reconciles_exhausted_stale_leases_at_the_attempt_cap() {
+        // `chk_im_agent_dispatch_attempts` caps `attempt_count <= max_attempts`, so the
+        // exhausted-lease reconciliation must detect the cap with `>=` (never `>`), and
+        // the stale-lease candidate branch must only reclaim rows strictly below the cap.
+        for sql in [CLAIM_DISPATCH_SQL, CLAIM_DISPATCH_GLOBAL_SQL] {
+            assert_eq!(
+                sql.matches("attempt_count >= max_attempts").count(),
+                1,
+                "exhausted-lease reconciliation must compare attempt_count >= max_attempts"
+            );
+            assert_eq!(
+                sql.matches("attempt_count < max_attempts").count(),
+                2,
+                "attempt-limited claim and stale-lease reclaim must both use attempt_count < max_attempts"
+            );
+            assert!(
+                !sql.contains("attempt_count > max_attempts"),
+                "the DDL forbids attempt_count > max_attempts, so the reconciliation would be unreachable"
+            );
+            assert!(
+                !sql.contains("attempt_count <= max_attempts"),
+                "stale leases at the attempt cap must not be reclaimed"
+            );
+        }
     }
 }

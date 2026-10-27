@@ -40,6 +40,7 @@ mod received_message_index;
 mod scope;
 mod summary_updates;
 mod timeline_cache;
+mod welcome_trigger;
 
 use event_apply::{
     AgentHandoffStatusChangedConversationStatePayload, ConversationMemberRoleChangedPayload,
@@ -89,6 +90,7 @@ pub use model::{
     TimelineWindowView, UpdateConversationPreferencesRequest, UpdateConversationProfileRequest,
 };
 pub use profile_resolver::{PostgresUserProfileResolver, ResolvedUserDisplay, UserProfileResolver};
+pub use welcome_trigger::{RuntimeWelcomeEnsureTrigger, UserWelcomeTrigger};
 
 pub const CONVERSATION_STATE_TIMELINE_DEFAULT_LIMIT: usize = 100;
 pub const CONVERSATION_STATE_TIMELINE_MAX_LIMIT: usize = 1000;
@@ -183,6 +185,9 @@ pub struct ConversationStateService {
     message_interaction_read_store: std::sync::OnceLock<
         std::sync::Arc<dyn im_platform_contracts::MessageInteractionReadStore>,
     >,
+    /// Explicit chat-open welcome trigger. When unset, the embedded
+    /// conversation runtime is resolved lazily (see `welcome_trigger`).
+    welcome_trigger: std::sync::OnceLock<std::sync::Arc<dyn UserWelcomeTrigger>>,
 }
 
 impl ConversationStateService {
@@ -199,6 +204,17 @@ impl ConversationStateService {
         store: std::sync::Arc<dyn im_platform_contracts::OutboxStore>,
     ) {
         let _ = self.conversation_event_outbox.set(store);
+    }
+
+    /// Pin the chat-open welcome trigger explicitly. Hosts that leave this
+    /// unset fall back to the embedded conversation runtime.
+    pub fn configure_welcome_trigger(&self, trigger: std::sync::Arc<dyn UserWelcomeTrigger>) {
+        let _ = self.welcome_trigger.set(trigger);
+    }
+
+    /// The effective welcome trigger for this process.
+    pub(crate) fn welcome_trigger(&self) -> Option<std::sync::Arc<dyn UserWelcomeTrigger>> {
+        welcome_trigger::resolve_process_welcome_trigger(self.welcome_trigger.get())
     }
 
     pub fn configure_agent_integration_store(

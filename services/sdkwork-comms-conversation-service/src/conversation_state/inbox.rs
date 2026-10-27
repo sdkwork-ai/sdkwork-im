@@ -365,7 +365,14 @@ impl ConversationStateService {
                 conversation_type,
                 search_query,
             )
-            .map_err(ConversationStateError::StoreFailure)?;
+            .map_err(|error| {
+                tracing::warn!(
+                    error = ?error,
+                    principal_id = query.principal_id,
+                    "inbox authority read failed"
+                );
+                ConversationStateError::StoreFailure(error)
+            })?;
         let mut items = Vec::with_capacity(page.items.len());
         for record in page.items {
             let entry = inbox_entry_from_authority_record(record);

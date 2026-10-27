@@ -110,6 +110,46 @@ pub(super) fn message_has_agent_mentions(body: &MessageBody) -> bool {
         .any(|part| matches!(part, ContentPart::Mention(_)))
 }
 
+/// Assignment generation for system-agent direct chat dispatches.
+///
+/// Direct conversations never persist agent assignments (the domain allows
+/// them on groups only), so the dispatch carries the legacy default policy
+/// generation the group path also starts from.
+pub(super) fn direct_system_agent_dispatch_generation() -> u64 {
+    u64::from(LEGACY_GROUP_AGENT_DEFAULT_POLICY_VERSION)
+}
+
+/// Legacy default agent every system-agent direct chat dispatches to.
+pub(super) fn direct_system_agent_assignment() -> ConversationAgentAssignment {
+    ConversationAgentAssignment::new(
+        LEGACY_GROUP_AGENT_DEFAULT_ID.to_owned(),
+        Some(LEGACY_GROUP_AGENT_DEFAULT_REVISION_ID.to_owned()),
+    )
+}
+
+/// Resolve the automatic dispatch for a message posted in a direct chat with
+/// the system agent (`system:system`, the welcome chat).
+///
+/// Only an active `user` sender triggers the dispatch; the system agent's own
+/// welcome message and agent replies never dispatch. Direct chats without the
+/// system agent member dispatch nothing. The returned assignment is the
+/// legacy default set — see `direct_system_agent_dispatch_generation`.
+pub(super) fn resolve_direct_system_agent_dispatch(
+    conversation: &ConversationState,
+    sender_member: &ConversationMember,
+) -> Vec<ConversationAgentAssignment> {
+    if conversation.aggregate.conversation_type() != "direct"
+        || sender_member.principal_kind != "user"
+        || conversation
+            .roster
+            .resolve_active_member_with_kind(SYSTEM_AGENT_ACTOR_ID, SYSTEM_AGENT_ACTOR_KIND)
+            .is_none()
+    {
+        return Vec::new();
+    }
+    vec![direct_system_agent_assignment()]
+}
+
 pub(super) fn resolve_message_agent_mentions(
     conversation: &ConversationState,
     sender_member: &ConversationMember,

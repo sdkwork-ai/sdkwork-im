@@ -106,10 +106,16 @@ left join im_chat_channels ch
   on ch.tenant_id = c.tenant_id
  and ch.organization_id = c.organization_id
  and ch.conversation_id = c.conversation_id
+-- Only direct conversations resolve a peer. The guard is repeated INSIDE the
+-- lateral so group/channel rows filter their member tuples before the sort
+-- instead of ranking every member of a large roster just to have the join
+-- condition discard the result. The `on` condition below still rejects
+-- non-direct rows, so the join output is unchanged.
 left join lateral (
     select om.principal_kind, om.principal_id
     from im_conversation_members om
-    where om.tenant_id = c.tenant_id
+    where c.conversation_type = 'direct'
+      and om.tenant_id = c.tenant_id
       and om.organization_id = c.organization_id
       and om.conversation_id = c.conversation_id
       and om.membership_state in ('joined', 'linked')
@@ -474,11 +480,11 @@ fn inbox_record_from_row(row: &postgres::Row) -> Result<ConversationInboxRecord,
         postgres_row_get(row, 14, "conversation inbox", "last_message_id")?;
     let last_message_seq: i64 =
         postgres_row_get(row, 15, "conversation inbox", "last_message_seq")?;
-    let unread_count: i64 = postgres_row_get(row, 20, "conversation inbox", "unread_count")?;
+    let unread_count: i64 = postgres_row_get(row, 19, "conversation inbox", "unread_count")?;
     let last_activity_at: DateTime<Utc> =
-        postgres_row_get(row, 21, "conversation inbox", "last_activity_at")?;
+        postgres_row_get(row, 20, "conversation inbox", "last_activity_at")?;
     let preferences_updated_at: Option<DateTime<Utc>> =
-        postgres_row_get(row, 26, "conversation inbox", "preferences_updated_at")?;
+        postgres_row_get(row, 25, "conversation inbox", "preferences_updated_at")?;
 
     let tenant_id: String = postgres_row_get(row, 0, "conversation inbox", "tenant_id")?;
     let organization_id: String =
@@ -494,14 +500,14 @@ fn inbox_record_from_row(row: &postgres::Row) -> Result<ConversationInboxRecord,
         conversation_id: conversation_id.clone(),
         principal_kind: principal_kind.clone(),
         principal_id: principal_id.clone(),
-        is_pinned: postgres_row_get(row, 22, "conversation inbox", "is_pinned")?,
-        is_muted: postgres_row_get(row, 23, "conversation inbox", "is_muted")?,
-        is_marked_unread: postgres_row_get(row, 24, "conversation inbox", "is_marked_unread")?,
-        is_hidden: postgres_row_get(row, 25, "conversation inbox", "is_hidden")?,
+        is_pinned: postgres_row_get(row, 21, "conversation inbox", "is_pinned")?,
+        is_muted: postgres_row_get(row, 22, "conversation inbox", "is_muted")?,
+        is_marked_unread: postgres_row_get(row, 23, "conversation inbox", "is_marked_unread")?,
+        is_hidden: postgres_row_get(row, 24, "conversation inbox", "is_hidden")?,
         updated_at: preferences_updated_at.map_or_else(String::new, format_timestamp),
     };
 
-    let handoff = handoff_from_row(row, 27)?;
+    let handoff = handoff_from_row(row, 26)?;
 
     Ok(ConversationInboxRecord {
         tenant_id,
@@ -639,4 +645,69 @@ fn non_negative(value: i64, field: &'static str) -> Result<u64, ContractError> {
 
 fn format_timestamp(value: DateTime<Utc>) -> String {
     value.to_rfc3339_opts(SecondsFormat::Millis, true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Extracts the `im_conversation_members` lateral body (everything between
+    /// `left join lateral (` and the closing `) peer on ...`).
+    fn peer_lateral_body(sql: &str) -> String {
+        let normalized = sql.to_ascii_lowercase();
+        let lateral_start = normalized
+            .rfind("left join lateral (")
+            .expect("inbox SQL must keep the peer lateral join");
+        let lateral_end = normalized[lateral_start..]
+            .find(") peer on")
+            .expect("peer lateral must be closed by `) peer on ...`");
+        let body = normalized[lateral_start..lateral_start + lateral_end].to_owned();
+        assert!(
+            body.contains("from im_conversation_members om"),
+            "the last lateral must be the peer member lookup"
+        );
+        body
+    }
+
+    #[test]
+    fn list_inbox_guards_peer_lateral_on_direct_conversations_inside_the_subquery() {
+        let body = peer_lateral_body(LIST_INBOX_SQL);
+        // The guard must be part of the lateral's own WHERE clause, i.e. it
+        // must precede the closing paren of `) peer on ...`.
+        assert!(
+            body.contains("where c.conversation_type = 'direct'"),
+            "the direct-conversation guard must be the lateral's first predicate"
+        );
+        // Ordering and single-row semantics of the direct-chat peer contract
+        // must be untouched.
+        assert!(body.contains("order by om.joined_at asc"));
+        assert!(body.contains("limit 1"));
+        assert!(body.contains("om.membership_state in ('joined', 'linked')"));
+        assert!(body.contains(
+            "not (om.principal_kind = m.principal_kind and om.principal_id = m.principal_id)"
+        ));
+    }
+
+    #[test]
+    fn list_inbox_keeps_peer_join_condition_that_discards_non_direct_rows() {
+        let normalized = LIST_INBOX_SQL.to_ascii_lowercase();
+        assert!(
+            normalized.contains(") peer on c.conversation_type = 'direct'"),
+            "the LEFT JOIN condition must keep rejecting non-direct peer rows"
+        );
+    }
+
+    #[test]
+    fn list_inbox_unread_count_stays_exact_per_row() {
+        // The correlated count is deliberately NOT capped: a bounded subquery
+        // would change the reported unread number whenever the backlog exceeds
+        // the cap. Guard the shape so a silent truncation cannot be introduced.
+        let normalized = LIST_INBOX_SQL.to_ascii_lowercase();
+        assert!(normalized.contains("(select count(*)"));
+        assert!(normalized.contains("msg.message_seq > coalesce(rc.read_seq, 0)"));
+        assert!(
+            !normalized.contains("least(("),
+            "unread_count must stay exact; do not cap it in SQL"
+        );
+    }
 }

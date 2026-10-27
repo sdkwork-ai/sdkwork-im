@@ -122,7 +122,7 @@ set attempt_count = attempt_count + 1,
     end,
     available_at = case
         when attempt_count + 1 >= $4 then available_at
-        else $5 + make_interval(secs => LEAST(300, POWER(2, LEAST(attempt_count, 8)::int))::int)
+        else $5::timestamptz + make_interval(secs => LEAST(300, POWER(2, LEAST(attempt_count, 8)::int))::int)
     end,
     failure_reason = $6,
     updated_at = $5
@@ -576,8 +576,10 @@ on conflict do nothing
         let dispatched_at = optional_timestamptz(task.dispatched_at.as_deref())?;
         let updated_at = postgres_timestamptz(record.updated_at.as_str(), "updated_at")?;
         let created_at = postgres_timestamptz(now_rfc3339().as_str(), "created_at")?;
-        // `attempt_count` is a bounded u32 contract field; i64 conversion is infallible.
-        let attempt_count = i64::from(record.attempt_count);
+        // `attempt_count` is a bounded u32 contract field (enqueue rejects
+        // values above the store maximum); the column is integer.
+        let attempt_count = i32::try_from(record.attempt_count)
+            .map_err(|_| ContractError::Invalid("notification attempt count exceeds int32".into()))?;
         let available_at = postgres_timestamptz(record.available_at.as_str(), "available_at")?;
         transaction
             .execute(

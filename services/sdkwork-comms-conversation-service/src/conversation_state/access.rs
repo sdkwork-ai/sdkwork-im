@@ -757,6 +757,19 @@ impl ConversationStateService {
         conversation_type: Option<&str>,
         search_query: Option<&str>,
     ) -> Result<super::InboxWindowView, ConversationStateAccessError> {
+        // Opening the chat surface lazily delivers the system-agent welcome
+        // message so a newly registered user always finds a conversation.
+        // The ensure path is idempotent and best-effort; failures are logged
+        // inside the trigger and must not fail the inbox read.
+        if auth.actor_kind == "user"
+            && let Some(trigger) = self.welcome_trigger()
+        {
+            trigger.ensure_user_welcome(
+                auth.tenant_id.as_str(),
+                Self::auth_organization_id(auth).as_str(),
+                auth.actor_id.as_str(),
+            );
+        }
         let limit = validate_list_limit(limit)?;
         let list_cursor = parse_inbox_list_cursor(cursor)?;
         let organization_id = Self::auth_organization_id(auth);

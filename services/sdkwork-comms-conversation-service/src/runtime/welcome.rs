@@ -37,8 +37,17 @@ pub const SYSTEM_AGENT_ACTOR_KIND: &str = "system";
 
 const WELCOME_MESSAGE_TEXT_ENV: &str = "SDKWORK_IM_CONVERSATION_WELCOME_MESSAGE_TEXT";
 const WELCOME_MESSAGE_VERSION_ENV: &str = "SDKWORK_IM_CONVERSATION_WELCOME_MESSAGE_VERSION";
-const WELCOME_DEFAULT_VERSION: &str = "v1";
-const WELCOME_DEFAULT_TEXT: &str = "欢迎使用 SDKWork 即时通讯！我是系统智能体，随时为你提供帮助。如有任何问题，可以直接在对话中向我提问。";
+const WELCOME_DEFAULT_VERSION: &str = "v2";
+/// Default welcome copy: greeting plus the getting-started tutorial. The
+/// system agent answers follow-ups in this chat through the RIG-backed
+/// backend agent, so the tutorial teaches the free-conversation flow first.
+const WELCOME_DEFAULT_TEXT: &str = "欢迎使用 SDKWork 即时通讯！我是系统智能体，随时为你提供帮助。\n\
+使用教程：\n\
+1. 自由对话：直接在本会话输入任何问题（例如「帮我写一份周报」），我会以智能体身份回复；\n\
+2. 群聊协作：创建群聊后，群里会自动加入默认智能体，@它 即可让它参与；\n\
+3. 消息能力：支持表情回应、引用回复、置顶与收藏消息，会话支持已读状态和历史搜索；\n\
+4. 实时会话：可以通过房间发起音视频沟通。\n\
+有任何问题，随时直接问我！";
 
 /// Welcome 投递结果。
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -492,7 +501,10 @@ mod tests {
         );
         let default = resolve_welcome_message_text(None);
         assert!(!default.is_empty());
-        assert_eq!(resolve_welcome_version(), "v1");
+        // 默认文案必须包含使用教程（ greeting + 教程条目）。
+        assert!(default.contains("使用教程"), "welcome text must teach usage");
+        assert!(default.contains("1."), "tutorial must enumerate steps");
+        assert_eq!(resolve_welcome_version(), "v2");
     }
 
     #[test]

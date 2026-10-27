@@ -6,8 +6,8 @@ use im_domain_events::normalize_commit_organization_id;
 use im_platform_contracts::{
     AGENT_MENTION_DISPATCH_EVENT_TYPE, AGENT_MENTION_DISPATCH_OUTBOX_AGGREGATE_TYPE,
     AGENT_MENTION_DISPATCH_PAYLOAD_SCHEMA, AGENT_MENTION_DISPATCH_SCHEMA_VERSION,
-    AgentMentionDispatchRequest, AgentMentionDispatchTarget, CommitJournal, OutboxEventRecord,
-    OutboxPublishStatus,
+    AgentDispatchTrigger, AgentMentionDispatchRequest, AgentMentionDispatchTarget, CommitJournal,
+    OutboxEventRecord, OutboxPublishStatus,
 };
 
 use super::*;
@@ -33,10 +33,6 @@ where
         ordering_seq: u64,
         retention_class: &str,
     ) -> Result<Option<AgentMentionDispatchArtifacts>, RuntimeError> {
-        if assignments.is_empty() {
-            return Ok(None);
-        }
-        let organization_id = normalize_commit_organization_id(organization_id);
         let assignment_generation = message
             .body
             .parts
@@ -49,6 +45,38 @@ where
                     "resolved agent mentions are missing a structured mention part".into(),
                 )
             })?;
+        self.build_agent_dispatch_artifacts(
+            organization_id,
+            message,
+            causation_event_id,
+            assignments,
+            ordering_seq,
+            retention_class,
+            AgentDispatchTrigger::Mention,
+            assignment_generation,
+        )
+    }
+
+    /// Build the durable dispatch handoff for one committed source message.
+    ///
+    /// `assignment_generation` is authoritative for the targets: the mention
+    /// path derives it from the structured mention part, the system-agent
+    /// direct chat path passes the legacy default policy generation.
+    pub(super) fn build_agent_dispatch_artifacts(
+        &self,
+        organization_id: &str,
+        message: &Message,
+        causation_event_id: &str,
+        assignments: &[ConversationAgentAssignment],
+        ordering_seq: u64,
+        retention_class: &str,
+        trigger: AgentDispatchTrigger,
+        assignment_generation: u64,
+    ) -> Result<Option<AgentMentionDispatchArtifacts>, RuntimeError> {
+        if assignments.is_empty() {
+            return Ok(None);
+        }
+        let organization_id = normalize_commit_organization_id(organization_id);
         let targets = assignments
             .iter()
             .map(|assignment| AgentMentionDispatchTarget {
@@ -74,6 +102,7 @@ where
             sender_principal_kind: message.sender.kind.clone(),
             assignment_generation,
             targets,
+            trigger,
             body: message.body.clone(),
             requested_at: message.occurred_at.clone(),
         };

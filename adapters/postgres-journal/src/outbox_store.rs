@@ -142,7 +142,7 @@ order by candidate.available_at, candidate.outbox_id
 const MARK_PUBLISHED_SQL: &str = r#"
 update im_outbox_events
 set publish_status = 'published', published_at = $5, updated_at = $5,
-    retention_until = $5 + make_interval(secs => $6)
+    retention_until = $5::timestamptz + make_interval(secs => $6)
 where tenant_id = $1 and organization_id = $2 and outbox_id = $3
     and publish_status = 'pending' and available_at = $4
 "#;
@@ -150,7 +150,7 @@ where tenant_id = $1 and organization_id = $2 and outbox_id = $3
 const MARK_PUBLISHED_DIRECT_SQL: &str = r#"
 update im_outbox_events
 set publish_status = 'published', published_at = $4, updated_at = $4,
-    retention_until = $4 + make_interval(secs => $5)
+    retention_until = $4::timestamptz + make_interval(secs => $5)
 where tenant_id = $1 and organization_id = $2 and outbox_id = $3
     and publish_status = 'pending'
 "#;
@@ -165,10 +165,10 @@ SET
     END,
     available_at = CASE
         WHEN attempt_count + 1 >= $6 THEN available_at
-        ELSE $5 + make_interval(secs => LEAST(300, POWER(2, LEAST(attempt_count, 8)::int))::int)
+        ELSE $5::timestamptz + make_interval(secs => LEAST(300, POWER(2, LEAST(attempt_count, 8)::int))::int)
     END,
     retention_until = CASE
-        WHEN attempt_count + 1 >= $6 THEN $5 + make_interval(secs => $7)
+        WHEN attempt_count + 1 >= $6 THEN $5::timestamptz + make_interval(secs => $7)
         ELSE retention_until
     END,
     updated_at = $5,
@@ -382,7 +382,7 @@ impl OutboxStore for PostgresOutboxStore {
         let lease_expires_at =
             postgres_timestamptz(claim.lease_expires_at.as_str(), "lease_expires_at")?;
         let now = postgres_timestamptz(&now_rfc3339(), "now")?;
-        let retention_secs = resolve_outbox_published_retention_secs();
+        let retention_secs = f64::from(resolve_outbox_published_retention_secs());
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "mark_published")?;
             let affected_rows = client
@@ -415,7 +415,7 @@ impl OutboxStore for PostgresOutboxStore {
         let now = postgres_timestamptz(&now_rfc3339(), "now")?;
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "mark_published_direct")?;
-            let retention_secs = resolve_outbox_published_retention_secs();
+            let retention_secs = f64::from(resolve_outbox_published_retention_secs());
             let affected_rows = client
                 .execute(
                     MARK_PUBLISHED_DIRECT_SQL,
@@ -448,7 +448,7 @@ impl OutboxStore for PostgresOutboxStore {
         let now = postgres_timestamptz(&now_rfc3339(), "now")?;
         let last_error = bounded_failure_reason(reason);
         let max_attempts = resolve_outbox_max_attempts();
-        let retention_secs = resolve_outbox_failed_retention_secs();
+        let retention_secs = f64::from(resolve_outbox_failed_retention_secs());
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "mark_failed")?;
             let affected_rows = client
@@ -653,21 +653,21 @@ mod tests {
 
         assert!(sql.contains("publish_status = 'pending'"));
         assert!(sql.contains("available_at = $4"));
-        assert!(sql.contains("retention_until = $5 + make_interval(secs => $6)"));
+        assert!(sql.contains("retention_until = $5::timestamptz + make_interval(secs => $6)"));
     }
 
     #[test]
     fn direct_publish_sets_row_retention() {
         let sql = normalized_sql(MARK_PUBLISHED_DIRECT_SQL);
 
-        assert!(sql.contains("retention_until = $4 + make_interval(secs => $5)"));
+        assert!(sql.contains("retention_until = $4::timestamptz + make_interval(secs => $5)"));
     }
 
     #[test]
     fn terminal_failure_sets_row_retention() {
         let sql = normalized_sql(MARK_FAILED_SQL);
 
-        assert!(sql.contains("when attempt_count + 1 >= $6 then $5 + make_interval(secs => $7)"));
+        assert!(sql.contains("when attempt_count + 1 >= $6 then $5::timestamptz + make_interval(secs => $7)"));
     }
 
     #[test]
