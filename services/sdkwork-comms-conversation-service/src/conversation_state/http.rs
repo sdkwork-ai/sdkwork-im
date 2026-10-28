@@ -651,7 +651,6 @@ async fn get_inbox(
     query: Result<Query<InboxQuery>, QueryRejection>,
     State(service): State<Arc<ConversationStateService>>,
 ) -> Response {
-    tracing::info!("inbox handler entered");
     if let Some(response) = reject_non_standard_list_query(&ctx, &uri) {
         return response;
     }

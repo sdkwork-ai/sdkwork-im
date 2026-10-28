@@ -12,8 +12,8 @@ use im_platform_contracts::{
 };
 use sdkwork_agents_runtime_facade::{
     AgentsSessionActor, AgentsSessionEntrySurface, AgentsSessionFacade, AgentsSessionKind,
-    AgentsTurnSnapshot, AgentsTurnStatus, CompleteAgentsTurnRequest,
-    GetAgentsTurnByIdempotencyRequest, ResolveAgentsSessionRequest,
+    AgentsSessionRuntimeBindingDescriptor, AgentsTurnSnapshot, AgentsTurnStatus,
+    CompleteAgentsTurnRequest, GetAgentsTurnByIdempotencyRequest, ResolveAgentsSessionRequest,
 };
 use sdkwork_im_contract_message::CommitJournal;
 use sdkwork_utils_rust::sha256_hash;
@@ -711,6 +711,14 @@ impl AgentDispatchWorker {
             return Ok(binding);
         }
         let session_id = deterministic_agents_session_id(dispatch);
+        // The system-agent direct chat dispatch carries the default RIG
+        // runtime binding descriptor explicitly: it mirrors the agents
+        // service's own default binding identity, and carrying it lets the
+        // session resolve without an agents-side agent registry record (the
+        // dev embedded registry does not register IM agent labels). Group
+        // dispatches keep `None` and resolve their own bindings agents-side.
+        let runtime_binding = (dispatch.agent_id == super::agents::DIRECT_SYSTEM_AGENT_DISPATCH_AGENT_ID)
+            .then(|| direct_system_agent_rig_descriptor(&session_id));
         let resolved = self
             .agents
             .resolve_or_create_session(ResolveAgentsSessionRequest {
@@ -730,7 +738,7 @@ impl AgentDispatchWorker {
                 title: format!("IM {}", dispatch.conversation_id),
                 idempotency_key: binding.idempotency_key.clone(),
                 payload_hash: binding.payload_hash.clone(),
-                runtime_binding: None,
+                runtime_binding,
                 actor: trusted_actor(),
                 requested_at: now.to_owned(),
             })
@@ -749,6 +757,30 @@ fn trusted_actor() -> AgentsSessionActor {
     AgentsSessionActor {
         subject_id: "service.sdkwork-im.agent-dispatch".into(),
         roles: vec!["ai.agents.manage".into()],
+    }
+}
+
+/// The default RIG runtime binding descriptor for system-agent direct chat
+/// sessions. Mirrors the agents service's own default binding identity
+/// (`binding.rig` / `provider.rig-rust` / `rig.default-chat`, host mode
+/// `local`) so a descriptor-carrying resolve produces exactly the binding the
+/// agents service would create for itself.
+fn direct_system_agent_rig_descriptor(
+    session_id: &str,
+) -> AgentsSessionRuntimeBindingDescriptor {
+    AgentsSessionRuntimeBindingDescriptor {
+        runtime_binding_id: format!("runtime_binding.rig.{session_id}"),
+        runtime_location_id: None,
+        host_mode: "local".into(),
+        transport_kind: "rig".into(),
+        provider_binding_id: "binding.rig".into(),
+        model_id: "rig.default-chat".into(),
+        provider_id: "provider.rig-rust".into(),
+        provider_session_id: None,
+        provider_session_tree_id: None,
+        provider_parent_session_id: None,
+        provider_forked_from_session_id: None,
+        provider_directory: None,
     }
 }
 

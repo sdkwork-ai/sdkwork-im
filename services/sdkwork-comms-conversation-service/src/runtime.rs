@@ -30,9 +30,8 @@ use im_domain_core::conversation::{
     ConversationAgentAssignment, ConversationAgentAssignmentError, ConversationAgentAssignmentSet,
     ConversationAgentAssignmentSource, ConversationAggregateState, ConversationLifecycleState,
     ConversationMember, ConversationPolicy, ConversationReadCursor, ConversationReadCursorView,
-    ConversationRoster, LEGACY_GROUP_AGENT_DEFAULT_ID, LEGACY_GROUP_AGENT_DEFAULT_POLICY_ID,
-    LEGACY_GROUP_AGENT_DEFAULT_POLICY_VERSION, LEGACY_GROUP_AGENT_DEFAULT_REVISION_ID,
-    MembershipRole, MembershipState,
+    ConversationRoster, LEGACY_GROUP_AGENT_DEFAULT_POLICY_ID,
+    LEGACY_GROUP_AGENT_DEFAULT_POLICY_VERSION, MembershipRole, MembershipState,
     build_conversation_member_with_attributes, build_default_read_cursor,
     legacy_group_agent_assignment_set, member_episode_id, member_id,
 };
@@ -4029,6 +4028,40 @@ where
                 command.conversation_id.as_str(),
             )?;
         }
+        // Hydrate the system agent member for direct chats OUTSIDE the state
+        // write lock below: `ensure_member_loaded` takes the write lock itself,
+        // and the system-agent dispatch resolution inside the mutation block
+        // reads the hydrated roster. Hydration failure means the conversation
+        // is not a system-agent chat, so no dispatch resolves.
+        if policy == MessagePostPolicy::GenericPost {
+            let conversation_type = {
+                let state = read_runtime_state(
+                    &self.state,
+                    "conversation-runtime.state.post_message.conversation_type",
+                );
+                state
+                    .conversations
+                    .get(
+                        conversation_scope_key(
+                            command.tenant_id.as_str(),
+                            command.organization_id.as_str(),
+                            command.conversation_id.as_str(),
+                        )
+                        .as_str(),
+                    )
+                    .map(|conversation| conversation.aggregate.conversation_type().to_owned())
+                    .unwrap_or_default()
+            };
+            if conversation_type == "direct" {
+                let _ = self.ensure_member_loaded(
+                    command.tenant_id.as_str(),
+                    command.organization_id.as_str(),
+                    command.conversation_id.as_str(),
+                    SYSTEM_AGENT_ACTOR_KIND,
+                    SYSTEM_AGENT_ACTOR_ID,
+                );
+            }
+        }
         let request_key = post_message_request_key(&command);
         let scope_key = conversation_scope_key(
             command.tenant_id.as_str(),
@@ -4168,7 +4201,9 @@ where
                             // The system-agent direct chat (welcome chat)
                             // dispatches every user message to the default
                             // agent without a mention part; direct chats
-                            // without the system agent resolve nothing.
+                            // without the system agent resolve nothing. The
+                            // system agent member was hydrated before this
+                            // mutation block took the state write lock.
                             agents::resolve_direct_system_agent_dispatch(
                                 conversation,
                                 sender_member.as_ref().ok_or_else(|| {

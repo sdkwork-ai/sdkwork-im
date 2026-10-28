@@ -5425,10 +5425,10 @@ fn test_system_agent_direct_chat_dispatches_user_messages_without_mentions() {
     assert_eq!(request.sender_principal_id, "1001");
     assert_eq!(request.message_id, user_message.message_id);
     assert_eq!(request.targets.len(), 1);
-    assert_eq!(request.targets[0].agent_id, "agent.im.default");
+    assert_eq!(request.targets[0].agent_id, "agent.rig-general");
     assert_eq!(
         request.targets[0].revision_id.as_deref(),
-        Some("revision.im.default.1")
+        Some("revision.rig-general.1")
     );
 
     // 普通 用户↔用户 direct chat（无系统智能体成员）不调度。
@@ -5526,7 +5526,7 @@ fn test_system_agent_direct_chat_accepts_agent_dispatch_replies() {
                 organization_id: "0".into(),
                 conversation_id: conversation_id.clone(),
                 sender: Sender {
-                    id: "agent.im.default".into(),
+                    id: "agent.rig-general".into(),
                     kind: "agent".into(),
                     member_id: None,
                     device_id: None,
@@ -5548,8 +5548,8 @@ fn test_system_agent_direct_chat_accepts_agent_dispatch_replies() {
                 conversation_id: conversation_id.clone(),
                 dispatch_id: dispatch_id.clone(),
                 lease_owner: "worker-under-test".into(),
-                agent_id: "agent.im.default".into(),
-                agent_revision_ref: Some("revision.im.default.1".into()),
+                agent_id: "agent.rig-general".into(),
+                agent_revision_ref: Some("revision.rig-general.1".into()),
                 assignment_generation: 1,
                 agents_session_id: "session.im.test".into(),
                 agents_turn_id: "turn-under-test".into(),
@@ -5566,7 +5566,7 @@ fn test_system_agent_direct_chat_accepts_agent_dispatch_replies() {
             organization_id: "0".into(),
             conversation_id: conversation_id.clone(),
             sender: Sender {
-                id: "agent.im.default".into(),
+                id: "agent.rig-general".into(),
                 kind: "agent".into(),
                 member_id: None,
                 device_id: None,
@@ -5588,8 +5588,8 @@ fn test_system_agent_direct_chat_accepts_agent_dispatch_replies() {
             conversation_id: conversation_id.clone(),
             dispatch_id: format!("{dispatch_id}-stale"),
             lease_owner: "worker-under-test".into(),
-            agent_id: "agent.im.default".into(),
-            agent_revision_ref: Some("revision.im.default.2".into()),
+            agent_id: "agent.rig-general".into(),
+            agent_revision_ref: Some("revision.rig-general.2".into()),
             assignment_generation: 1,
             agents_session_id: "session.im.test".into(),
             agents_turn_id: "turn-stale".into(),

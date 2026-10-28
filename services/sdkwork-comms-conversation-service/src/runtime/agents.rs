@@ -119,11 +119,21 @@ pub(super) fn direct_system_agent_dispatch_generation() -> u64 {
     u64::from(LEGACY_GROUP_AGENT_DEFAULT_POLICY_VERSION)
 }
 
+/// Agents-side general-chat agent the system-agent direct chat dispatches to.
+///
+/// `agent.rig-general` is the canonical rig engine agent
+/// (`agent_engine_agent_id("rig")`); sessions created for it resolve the rig
+/// engine identity and default to the rig runtime binding (`binding.rig` /
+/// `provider.rig-rust` / `rig.default-chat`). IM-local labels such as
+/// `agent.im.default` have no agents-side engine identity.
+pub(super) const DIRECT_SYSTEM_AGENT_DISPATCH_AGENT_ID: &str = "agent.rig-general";
+pub(super) const DIRECT_SYSTEM_AGENT_DISPATCH_REVISION_ID: &str = "revision.rig-general.1";
+
 /// Legacy default agent every system-agent direct chat dispatches to.
 pub(super) fn direct_system_agent_assignment() -> ConversationAgentAssignment {
     ConversationAgentAssignment::new(
-        LEGACY_GROUP_AGENT_DEFAULT_ID.to_owned(),
-        Some(LEGACY_GROUP_AGENT_DEFAULT_REVISION_ID.to_owned()),
+        DIRECT_SYSTEM_AGENT_DISPATCH_AGENT_ID.to_owned(),
+        Some(DIRECT_SYSTEM_AGENT_DISPATCH_REVISION_ID.to_owned()),
     )
 }
 
