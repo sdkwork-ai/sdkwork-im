@@ -221,6 +221,11 @@ export function mountSurface(container: HTMLElement, options: ImPcEmbedMountOpti
   host.className = 'im-embed';
   host.style.height = '100%';
   host.style.minHeight = '0';
+  // Host containers may be flex rows (the BirdCoder chat pane is one); without
+  // an explicit width the surface would size from its content instead of
+  // filling the pane the host gave it.
+  host.style.width = '100%';
+  host.style.minWidth = '0';
   const shadow = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
   style.textContent = css;
@@ -232,6 +237,7 @@ export function mountSurface(container: HTMLElement, options: ImPcEmbedMountOpti
   mountPoint.className = options.colorScheme === 'light' ? 'im-embed-root' : 'im-embed-root dark';
   mountPoint.style.height = '100%';
   mountPoint.style.minHeight = '0';
+  mountPoint.style.width = '100%';
   shadow.appendChild(mountPoint);
   container.appendChild(host);
 
