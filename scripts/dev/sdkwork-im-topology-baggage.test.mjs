@@ -29,7 +29,7 @@ const scanRoots = [
   'sdks',
   'README.md',
   'AGENTS.md',
-  '.env.postgres.example',
+  'config/host/postgres.env.example',
 ];
 
 const skipPathFragments = [
@@ -165,16 +165,16 @@ assert.equal(
   'sdks/sdkwork-rtc-sdk must not exist in sdkwork-im; RTC SDK authority lives in sibling ../sdkwork-rtc',
 );
 
-const postgresEnvExample = fs.readFileSync(path.join(repoRoot, '.env.postgres.example'), 'utf8');
+const postgresEnvExample = fs.readFileSync(path.join(repoRoot, 'config/host/postgres.env.example'), 'utf8');
 assert.doesNotMatch(
   postgresEnvExample,
   /local-minimal|local-default|\.runtime\/local-/u,
-  '.env.postgres.example must use topology v2 runtime paths only',
+  'config/host/postgres.env.example must use topology v2 runtime paths only',
 );
 assert.match(
   postgresEnvExample,
   /SDKWORK_IM_RUNTIME_DIR=\.\/\.runtime\/standalone\.development/u,
-  '.env.postgres.example must document the default dev profile runtime directory',
+  'config/host/postgres.env.example must document the default dev profile runtime directory',
 );
 
 const rootReadme = fs.readFileSync(path.join(repoRoot, 'README.md'), 'utf8');

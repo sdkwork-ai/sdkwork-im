@@ -8,7 +8,7 @@ coverage/
 # Local environment overrides (gitignored per CONFIG_SPEC).
 .env.local
 .env.*.local
-.env.postgres
+config/host/postgres.env
 .env.release.local
 
 # Local config overrides.

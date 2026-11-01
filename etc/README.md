@@ -19,7 +19,7 @@ SDKWork IM maintainers.
 
 ## Forbidden Content
 
-- Host-local overrides such as `.env.local`, `.env.postgres`, or `*.local.toml`.
+- Host-local overrides such as `.env.local`, `config/host/postgres.env`, or `*.local.toml`.
 - Browser renderer config owned by PC/H5 deployable roots, which belongs in each app's `etc/`.
 - Secrets, tokens, private keys, database credentials, Redis credentials, runtime state, logs, or
   caches.

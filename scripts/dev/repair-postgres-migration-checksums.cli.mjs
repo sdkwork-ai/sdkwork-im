@@ -11,7 +11,7 @@ const repoRoot = path.resolve(path.dirname(__filename), '..', '..');
 const config = parsePostgresConfig({
   configPath: process.argv.includes('--config')
     ? process.argv[process.argv.indexOf('--config') + 1]
-    : '.env.postgres',
+    : 'config/host/postgres.env',
   repoRoot,
 });
 const result = await repairPostgresMigrationChecksums({

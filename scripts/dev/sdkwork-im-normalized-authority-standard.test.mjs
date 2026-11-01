@@ -16,7 +16,7 @@ const forbiddenContracts = [
 ];
 
 const activeScanRoots = [
-  '.env.postgres.example',
+  'config/host/postgres.env.example',
   '.github/workflows',
   'Cargo.toml',
   'package.json',
@@ -225,13 +225,13 @@ assert.ok(
   'journal current-state recovery module must remain deleted',
 );
 
-const envExample = read('.env.postgres.example');
+const envExample = read('config/host/postgres.env.example');
 for (const key of [
   'SDKWORK_IM_CONVERSATION_STATE_CURSOR_HS256_SECRET=',
   'SDKWORK_IM_FRIEND_REQUEST_CURSOR_HS256_SECRET=',
   'SDKWORK_IM_MESSAGE_HISTORY_CURSOR_HS256_SECRET=',
 ]) {
-  assert.ok(envExample.includes(key), `.env.postgres.example must document ${key}`);
+  assert.ok(envExample.includes(key), `config/host/postgres.env.example must document ${key}`);
 }
 
 const packageManifest = JSON.parse(read('package.json'));

@@ -30,7 +30,7 @@ function normalizeText(value) {
 function parseArgs(argv) {
   const settings = {
     environment: DEFAULT_ENVIRONMENT,
-    devEnvFile: '.env.postgres',
+    devEnvFile: 'config/host/postgres.env',
     release: false,
     dryRun: false,
     help: false,
@@ -73,7 +73,7 @@ Cloud profiles start clients only and consume the configured remote platform API
 Options:
   --environment <development|test|staging|production>
                                           Config profile (default: development)
-  --dev-env-file <path>                   Env file for IAM/database (default: .env.postgres)
+  --dev-env-file <path>                   Env file for IAM/database (default: config/host/postgres.env)
   --release                               Build/run release profile
   --dry-run                               Print command without executing
   --help, -h                              Show this help
@@ -85,15 +85,15 @@ Environment overrides:
 }
 
 function resolveDevEnvFilePath(devEnvFile) {
-  const normalized = normalizeText(devEnvFile) ?? '.env.postgres';
+  const normalized = normalizeText(devEnvFile) ?? 'config/host/postgres.env';
   const explicitPath = path.isAbsolute(normalized)
     ? normalized
     : path.resolve(repoRoot, normalized);
   if (fs.existsSync(explicitPath)) {
     return explicitPath;
   }
-  if (normalized === '.env.postgres') {
-    const examplePath = path.resolve(repoRoot, '.env.postgres.example');
+  if (normalized === 'config/host/postgres.env') {
+    const examplePath = path.resolve(repoRoot, 'config/host/postgres.env.example');
     if (fs.existsSync(examplePath)) {
       return examplePath;
     }
@@ -123,7 +123,7 @@ async function main() {
     {
       onInject: ({ key }) => {
         console.log(
-          `[sdkwork-api-im-standalone-gateway] using development default for ${key} (set explicitly in .env.postgres for production-like clusters)`,
+          `[sdkwork-api-im-standalone-gateway] using development default for ${key} (set explicitly in config/host/postgres.env for production-like clusters)`,
         );
       },
     },

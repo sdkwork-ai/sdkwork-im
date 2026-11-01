@@ -15,7 +15,7 @@ function readExists(relativePath) {
   return fs.readFileSync(absolutePath, 'utf8');
 }
 
-const envExample = read('.env.postgres.example');
+const envExample = read('config/host/postgres.env.example');
 for (const required of [
   'SDKWORK_IM_RETENTION_PURGE_SCHEDULER_ENABLED=true',
   'SDKWORK_IM_RETENTION_PURGE_INTERVAL_SECONDS=3600',
@@ -24,7 +24,7 @@ for (const required of [
   'SDKWORK_IM_SHARED_CHANNEL_SYNC_STALE_RECLAIM_SCHEDULER_ENABLED=true',
   'SDKWORK_IM_SHARED_CHANNEL_SYNC_STALE_RECLAIM_INTERVAL_SECONDS=60',
 ]) {
-  assert.ok(envExample.includes(required), `.env.postgres.example must document ${required}`);
+  assert.ok(envExample.includes(required), `config/host/postgres.env.example must document ${required}`);
 }
 
 const schedulerSpawnSites = [

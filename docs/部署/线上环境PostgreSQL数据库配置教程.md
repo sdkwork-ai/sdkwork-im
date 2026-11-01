@@ -1,6 +1,6 @@
 # 线上环境 PostgreSQL 数据库配置教程
 
-本文说明 SDKWork Chat server 在线上环境如何配置 PostgreSQL。生产环境不得使用仓库根目录的 `.env.postgres`，不得把数据库密码提交到 Git、安装包、进程命令行或日志。
+本文说明 SDKWork Chat server 在线上环境如何配置 PostgreSQL。生产环境不得使用仓库根目录的 `config/host/postgres.env`，不得把数据库密码提交到 Git、安装包、进程命令行或日志。
 
 ## 应用与数据库标识
 

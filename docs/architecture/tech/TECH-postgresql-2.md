@@ -3,7 +3,7 @@
 
 # 线上环境 PostgreSQL 数据库配置教程
 
-本文说明 SDKWork Chat server 在线上环境如何配置 PostgreSQL。线上环境不要使用仓库根目录 `.env.postgres`，不要把数据库密码提交到 Git、安装包、进程命令行或日志。
+本文说明 SDKWork Chat server 在线上环境如何配置 PostgreSQL。线上环境不要使用仓库根目录 `config/host/postgres.env`，不要把数据库密码提交到 Git、安装包、进程命令行或日志。
 
 ## 应用标识
 
@@ -248,4 +248,4 @@ Windows Service 使用 `install-service-server.ps1` 安装并注册 `SdkworkImSe
 - 密码文件不得进入 Git、安装包或日志。
 - 连接池配置需与 PostgreSQL `max_connections` 和容器资源上限匹配。
 - 公网 API 与 WebSocket 使用 HTTPS/WSS。
-- 线上环境不要复用单个配置文件；线上不要复用 `.env.postgres` 作为生产配置。
+- 线上环境不要复用单个配置文件；线上不要复用 `config/host/postgres.env` 作为生产配置。

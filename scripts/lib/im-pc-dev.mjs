@@ -400,7 +400,7 @@ function resolveEnvFilePath(envFile, root) {
 }
 
 function resolveDefaultPostgresEnvFile(root) {
-  return path.resolve(root, '.env.postgres');
+  return path.resolve(root, 'config/host/postgres.env');
 }
 
 export function loadSdkworkChatPcDevEnvFile(envFile, {

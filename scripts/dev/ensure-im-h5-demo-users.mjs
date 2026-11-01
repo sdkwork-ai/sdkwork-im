@@ -116,7 +116,7 @@ async function main() {
 
   // Read the local PostgreSQL credentials so existing accounts can be
   // detected without touching the IAM write path.
-  const envText = fs.readFileSync(path.join(REPO_ROOT, '.env.postgres'), 'utf8');
+  const envText = fs.readFileSync(path.join(REPO_ROOT, 'config/host/postgres.env'), 'utf8');
   const env = Object.fromEntries(
     envText
       .split(/\r?\n/u)

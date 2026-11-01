@@ -102,7 +102,7 @@ const imPlatformContractsCargoSource = fs.readFileSync(
   'utf8',
 );
 const postgresEnvExampleSource = fs.readFileSync(
-  path.join(repoRoot, '.env.postgres.example'),
+  path.join(repoRoot, 'config/host/postgres.env.example'),
   'utf8',
 );
 const postgresDatabaseConfigIndexSource = readDeploymentDoc('postgresql-database-configuration.md');
@@ -941,7 +941,7 @@ for (const requiredName of [
 ]) {
   assert.ok(
     postgresEnvExampleSource.includes(requiredName),
-    `.env.postgres.example must document ${requiredName}`,
+    `config/host/postgres.env.example must document ${requiredName}`,
   );
 }
 assert.ok(
@@ -962,11 +962,11 @@ assert.ok(
     && postgresDevelopmentGuideSource.includes('pnpm dev:desktop')
     && postgresDevelopmentGuideSource.includes('pnpm dev:browser:postgres')
     && postgresDevelopmentGuideSource.includes('pnpm dev:desktop:postgres')
-    && postgresDevelopmentGuideSource.includes('.env.postgres')
+    && postgresDevelopmentGuideSource.includes('config/host/postgres.env')
     && postgresDevelopmentGuideSource.includes('SDKWORK_DATABASE_ENGINE=postgresql')
     && postgresDevelopmentGuideSource.includes('SDKWORK_DATABASE_SSL_MODE=disable')
     && postgresDevelopmentGuideSource.includes('pnpm dev:desktop 默认使用 PostgreSQL')
-    && postgresDevelopmentGuideSource.includes('Copy-Item .env.postgres.example .env.postgres'),
+    && postgresDevelopmentGuideSource.includes('Copy-Item config/host/postgres.env.example config/host/postgres.env'),
   'development PostgreSQL guide must document local env profile setup and both dev startup commands',
 );
 assert.ok(

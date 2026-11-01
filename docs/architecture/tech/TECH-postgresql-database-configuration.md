@@ -26,11 +26,11 @@ depend on a server-side SQL database.
   - Copy-paste workflow for Ubuntu and WSL Ubuntu.
   - Covers PostgreSQL installation, `sdkwork_ai_dev` database/schema/user creation, grants, and migration SQL execution.
   - Covers `listen_addresses`, `pg_hba.conf`, UFW, WSL2 NAT, mirrored networking, and `netsh interface portproxy`.
-  - Supports repository-owned `pnpm db:postgres:plan`, `pnpm db:postgres:init`, and `pnpm db:postgres:migrate` commands after `.env.postgres` is configured.
+  - Supports repository-owned `pnpm db:postgres:plan`, `pnpm db:postgres:init`, and `pnpm db:postgres:migrate` commands after `config/host/postgres.env` is configured.
 
 - [开发环境PostgreSQL数据库配置教程](./开发环境PostgreSQL数据库配置教程.md)
   - Local developer PostgreSQL workflow.
-  - Uses `.env.postgres` copied from `.env.postgres.example`.
+  - Uses `config/host/postgres.env` copied from `config/host/postgres.env.example`.
   - Uses the unified `SDKWORK_DATABASE_*` workspace profile and `SDKWORK_DATABASE_ADMIN_PASSWORD` for bootstrap.
   - `pnpm dev` and `pnpm dev:browser` use PostgreSQL for integrated browser/server development.
   - `pnpm dev:desktop` uses PostgreSQL for standalone desktop development orchestration.

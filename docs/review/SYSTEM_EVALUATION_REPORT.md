@@ -94,7 +94,7 @@
 
 #### 问题
 1. ⚠️ **Redis单节点部署**
-   - 位置: `.env.postgres.example`
+   - 位置: `config/host/postgres.env.example`
    - 影响: Redis故障导致全局服务不可用
    - 风险等级: 🔴 高
    - 改进方案: 部署Redis Cluster (3主3从)
@@ -141,7 +141,7 @@
 
 **问题1: JWT签名验证可选 🔴 高风险**
 ```
-位置: .env.postgres.example
+位置: config/host/postgres.env.example
 配置: SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE=false
 风险: 生产环境可能使用无签名验证，导致令牌伪造
 影响: 认证完全失效，攻击者可伪造任意用户身份
@@ -360,7 +360,7 @@ fn encrypt_message(plaintext: &str, recipient_pub_key: &PublicKey) -> EncryptedM
 
 **问题5: 数据库连接池默认值偏低 🟡 中风险**
 ```
-位置: .env.postgres.example
+位置: config/host/postgres.env.example
 配置: SDKWORK_DATABASE_MAX_CONNECTIONS=10
 风险: 高并发场景连接池耗尽，请求排队或超时
 影响: 
@@ -1398,7 +1398,7 @@ gantt
 #### 1. 强制JWT签名验证
 ```bash
 # 任务清单
-- [ ] 修改 .env.postgres.example 默认值为 true
+- [ ] 修改 config/host/postgres.env.example 默认值为 true
 - [ ] 实现启动时配置验证
 - [ ] 添加部署检查清单
 - [ ] 更新文档说明

@@ -1,6 +1,6 @@
 # SDKWork IM 高风险问题立即修复行动计划
 
-**状态（2026-06-30）**：关键发布门禁已对齐并回归通过：`pnpm verify`、`pnpm test:workflow-commercial-gates`、`pnpm check:agent-workflow-standard` 均已通过；web-framework 路由包装边界、会话线程创建幂等 requestKey、PC dev lockfile 治理均已修复。生产拓扑 profile 默认 `SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE=true`；本地 `.env.postgres.example` 保留 dev 默认 `false` 仅供开发。权威现状见 `docs/product/prd/PRD.md` §8 与 `pnpm run test:production-security-standard`。
+**状态（2026-06-30）**：关键发布门禁已对齐并回归通过：`pnpm verify`、`pnpm test:workflow-commercial-gates`、`pnpm check:agent-workflow-standard` 均已通过；web-framework 路由包装边界、会话线程创建幂等 requestKey、PC dev lockfile 治理均已修复。生产拓扑 profile 默认 `SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE=true`；本地 `config/host/postgres.env.example` 保留 dev 默认 `false` 仅供开发。权威现状见 `docs/product/prd/PRD.md` §8 与 `pnpm run test:production-security-standard`。
 
 **创建日期**: 2026-06-30  
 **优先级**: 🔴 高风险立即修复  
@@ -14,7 +14,7 @@
 ### 🔴 问题1: JWT签名验证可选
 
 #### 问题描述
-- **位置**: `.env.postgres.example`配置文件
+- **位置**: `config/host/postgres.env.example`配置文件
 - **当前配置**: `SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE=false`
 - **风险等级**: 🔴 **严重**
 - **影响范围**: 认证安全完全失效，攻击者可伪造任意用户身份
@@ -23,7 +23,7 @@
 
 **Step 1: 修改默认配置 (预计工时: 30分钟)**
 ```bash
-# 文件: .env.postgres.example
+# 文件: config/host/postgres.env.example
 # 修改前
 SDKWORK_IM_APP_CONTEXT_REQUIRE_SIGNATURE=false
 
@@ -1139,7 +1139,7 @@ gantt
 ### 完成验收标准
 
 #### 问题1验收标准
-- [ ] `.env.postgres.example`默认值改为`true`
+- [ ] `config/host/postgres.env.example`默认值改为`true`
 - [ ] 启动时配置验证拒绝不安全配置
 - [ ] 检查脚本通过
 - [ ] 部署文档已更新

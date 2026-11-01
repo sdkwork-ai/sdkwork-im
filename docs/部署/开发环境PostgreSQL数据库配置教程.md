@@ -35,17 +35,17 @@ pnpm dev:desktop:postgres
 
 ## 2. 配置文件位置
 
-开发 PostgreSQL 使用仓库根目录 `.env.postgres`。仓库只提交模板 `.env.postgres.example`，本机真实配置不提交 Git。
+开发 PostgreSQL 使用仓库根目录 `config/host/postgres.env`。仓库只提交模板 `config/host/postgres.env.example`，本机真实配置不提交 Git。
 
 创建本机配置：
 
 ```powershell
-Copy-Item .env.postgres.example .env.postgres
+Copy-Item config/host/postgres.env.example config/host/postgres.env
 ```
 
 ## 3. 标准 PostgreSQL 配置
 
-`.env.postgres` 使用拆分字段维护数据库连接，不把 host、database、username、password 混在一条长 URL 中。
+`config/host/postgres.env` 使用拆分字段维护数据库连接，不把 host、database、username、password 混在一条长 URL 中。
 
 ```env
 SDKWORK_IM_DEPLOYMENT_PROFILE=standalone
@@ -114,7 +114,7 @@ database/ddl/baseline/postgres/0001_im_baseline.sql
 
 ## 5. Windows 应用访问 WSL Ubuntu PostgreSQL
 
-如果 SDKWork Chat 的 `pnpm` 在 Windows PowerShell 中运行，而 PostgreSQL 安装在 WSL Ubuntu 中，`.env.postgres` 的 host 必须填写 Windows 能访问到的 TCP 地址。优先使用：
+如果 SDKWork Chat 的 `pnpm` 在 Windows PowerShell 中运行，而 PostgreSQL 安装在 WSL Ubuntu 中，`config/host/postgres.env` 的 host 必须填写 Windows 能访问到的 TCP 地址。优先使用：
 
 ```env
 SDKWORK_DATABASE_HOST=127.0.0.1
@@ -148,4 +148,4 @@ SELECT current_database(), current_user, current_schema();
 
 ## 7. 与 production 的边界
 
-`.env.postgres` 仅用于本地开发和集成测试。server 发布包使用 `/etc/sdkwork/im/config.toml`、`/etc/sdkwork/im/server.env`、`/etc/sdkwork/im/postgresql.yaml` 与 `/etc/sdkwork/database/database.secret`。desktop 发布包和安装运行时本地用户数据不依赖 PostgreSQL,使用浏览器本地存储(IndexedDB / localStorage)。
+`config/host/postgres.env` 仅用于本地开发和集成测试。server 发布包使用 `/etc/sdkwork/im/config.toml`、`/etc/sdkwork/im/server.env`、`/etc/sdkwork/im/postgresql.yaml` 与 `/etc/sdkwork/database/database.secret`。desktop 发布包和安装运行时本地用户数据不依赖 PostgreSQL,使用浏览器本地存储(IndexedDB / localStorage)。

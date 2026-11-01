@@ -64,7 +64,7 @@
 
 ### 文档残留
 30. `OPERATIONS_MANUAL.md`：退役 split-services 部署路径、18080 端口、错误 docker-compose 路径
-31. `.env.postgres.example`：补 `SDKWORK_IM_RUNTIME_DIR` 文档
+31. `config/host/postgres.env.example`：补 `SDKWORK_IM_RUNTIME_DIR` 文档
 32. 部署参考更新为 `deployments/kubernetes/cloud/` 与 `deployments/docker/docker-compose.yml`
 
 ## 第二轮修复（同日期续作）

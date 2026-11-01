@@ -137,7 +137,7 @@ const conversationDeployment = fs.readFileSync(
   'utf8',
 );
 const localPostgresExample = fs.readFileSync(
-  path.join(repoRoot, '.env.postgres.example'),
+  path.join(repoRoot, 'config/host/postgres.env.example'),
   'utf8',
 );
 
@@ -163,7 +163,7 @@ for (const [key, value] of Object.entries(conversationCacheLimits)) {
   assert.match(
     localPostgresExample,
     new RegExp('^' + key + '=' + value + '$', 'mu'),
-    '.env.postgres.example must declare ' + key + '=' + value,
+    'config/host/postgres.env.example must declare ' + key + '=' + value,
   );
   assert.match(
     conversationConfigMap,

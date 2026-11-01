@@ -21,7 +21,7 @@ function readJson(relativePath) {
 }
 
 const packageJson = readJson('package.json');
-const envExample = read('.env.postgres.example');
+const envExample = read('config/host/postgres.env.example');
 const configIndex = readDeploymentDoc(repoRoot, DEPLOYMENT_DOC_FILES.postgresqlIndex);
 const ubuntuWslGuide = readDeploymentDoc(repoRoot, DEPLOYMENT_DOC_FILES.ubuntuWslGuide);
 const devGuide = readDeploymentDoc(repoRoot, DEPLOYMENT_DOC_FILES.developmentGuide);
@@ -74,22 +74,22 @@ if (fs.existsSync(appbaseIamCrateMigrationPath)) {
 
 assert.equal(
   packageJson.scripts['db:postgres:plan'],
-  'node scripts/dev/sdkwork-im-postgres-db.mjs --mode plan --config .env.postgres --dry-run',
+  'node scripts/dev/sdkwork-im-postgres-db.mjs --mode plan --config config/host/postgres.env --dry-run',
   'root pnpm db:postgres:plan must print the audited PostgreSQL initialization and migration plan',
 );
 assert.equal(
   packageJson.scripts['db:postgres:init'],
-  'node scripts/dev/sdkwork-im-postgres-db.mjs --mode init --config .env.postgres',
-  'root pnpm db:postgres:init must initialize role/database/schema/grants from .env.postgres',
+  'node scripts/dev/sdkwork-im-postgres-db.mjs --mode init --config config/host/postgres.env',
+  'root pnpm db:postgres:init must initialize role/database/schema/grants from config/host/postgres.env',
 );
 assert.equal(
   packageJson.scripts['db:postgres:migrate'],
-  'node scripts/dev/sdkwork-im-postgres-db.mjs --mode migrate --config .env.postgres',
-  'root pnpm db:postgres:migrate must run PostgreSQL migrations from .env.postgres',
+  'node scripts/dev/sdkwork-im-postgres-db.mjs --mode migrate --config config/host/postgres.env',
+  'root pnpm db:postgres:migrate must run PostgreSQL migrations from config/host/postgres.env',
 );
 assert.equal(
   packageJson.scripts['db:postgres:repair'],
-  'node scripts/dev/repair-postgres-migration-checksums.cli.mjs --config .env.postgres',
+  'node scripts/dev/repair-postgres-migration-checksums.cli.mjs --config config/host/postgres.env',
   'root pnpm db:postgres:repair must reconcile local PostgreSQL migration checksum drift',
 );
 
@@ -168,7 +168,7 @@ const parsedSplitConfig = parsePostgresConfig({
     'SDKWORK_DATABASE_ADMIN_DATABASE=postgres',
     '',
   ].join('\n'),
-  configPath: '.env.postgres',
+  configPath: 'config/host/postgres.env',
 });
 assert.equal(parsedSplitConfig.database.host, '127.0.0.1');
 assert.equal(parsedSplitConfig.database.port, '15432');
@@ -199,7 +199,7 @@ const parsedUrlConfig = parsePostgresConfig({
     'SDKWORK_DATABASE_ADMIN_URL=postgresql://postgres:admin_pass@db.internal:5432/postgres?sslmode=require',
     '',
   ].join('\n'),
-  configPath: '.env.postgres',
+  configPath: 'config/host/postgres.env',
 });
 assert.equal(parsedUrlConfig.database.host, 'db.internal');
 assert.equal(parsedUrlConfig.database.database, 'sdkwork_ai_prod');
@@ -226,7 +226,7 @@ const parsedWslPsqlConfig = parsePostgresConfig({
     'SDKWORK_DATABASE_PSQL_PATH_STYLE=wsl',
     '',
   ].join('\n'),
-  configPath: '.env.postgres',
+  configPath: 'config/host/postgres.env',
 });
 assert.equal(parsedWslPsqlConfig.psql.command, 'wsl.exe');
 assert.deepEqual(parsedWslPsqlConfig.psql.args, ['-d', 'Ubuntu-22.04', '--', 'psql']);
@@ -264,7 +264,7 @@ assert.throws(
       'SDKWORK_DATABASE_USERNAME=sdkwork_ai_dev',
       '',
     ].join('\n'),
-    configPath: '.env.postgres',
+    configPath: 'config/host/postgres.env',
   }),
   /SDKWORK_DATABASE_PASSWORD/u,
   'PostgreSQL DB script must reject incomplete app connection config before invoking psql',
@@ -419,7 +419,7 @@ for (const required of [
   'SDKWORK_DATABASE_ADMIN_DATABASE=postgres',
   'SDKWORK_DATABASE_ADMIN_SSL_MODE=disable',
 ]) {
-  assert.ok(envExample.includes(required), `.env.postgres.example must document ${required}`);
+  assert.ok(envExample.includes(required), `config/host/postgres.env.example must document ${required}`);
 }
 
 for (const doc of [configIndex, ubuntuWslGuide, devGuide]) {

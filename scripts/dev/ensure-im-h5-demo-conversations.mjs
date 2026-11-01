@@ -373,7 +373,7 @@ async function ensureFavorite({ baseUrl, session, conversationId, spec }) {
 
 async function resolveDemoUserIds() {
   // Resolve IM principals from IAM users by login name (read-only lookup).
-  const envText = fs.readFileSync(path.join(__dirname, '..', '..', '.env.postgres'), 'utf8');
+  const envText = fs.readFileSync(path.join(__dirname, '..', '..', 'config/host/postgres.env'), 'utf8');
   const env = Object.fromEntries(
     envText
       .split(/\r?\n/u)
@@ -416,7 +416,7 @@ async function resetDemoConversations() {
   // but group conversations get a server-derived canonical `g_...` id that the
   // script cannot compute. Every demo group carries `demo-msg-...` message
   // idempotency keys in the journal, which exposes the group id reliably.
-  const envText = fs.readFileSync(path.join(__dirname, '..', '..', '.env.postgres'), 'utf8');
+  const envText = fs.readFileSync(path.join(__dirname, '..', '..', 'config/host/postgres.env'), 'utf8');
   const env = Object.fromEntries(
     envText
       .split(/\r?\n/u)

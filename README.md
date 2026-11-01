@@ -243,7 +243,7 @@ Index: [sdks/README.md](./sdks/README.md), [docs/sites/sdk/index.md](./docs/site
 
 ```bash
 pnpm install
-cp .env.postgres.example .env.postgres   # optional; pnpm dev falls back to the example file
+cp config/host/postgres.env.example config/host/postgres.env   # optional; pnpm dev falls back to the example file
 pnpm sdk:ensure:im-generated-transport  # builds @sdkwork/im-sdk-generated when dist is missing
 pnpm dev
 ```

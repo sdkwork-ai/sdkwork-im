@@ -342,7 +342,7 @@ const DEFAULT_POOL_MAX_SIZE: u32 = 50;
 const DEFAULT_POOL_MIN_IDLE: u32 = 10;
 ```
 
-更新配置文件 `.env.postgres.example`：
+更新配置文件 `config/host/postgres.env.example`：
 
 ```bash
 # Production recommendation: 50-100 connections depending on database server capacity
@@ -368,7 +368,7 @@ SDKWORK_DATABASE_CONNECT_TIMEOUT_SECONDS=10
 ### 2.1 已完成的P2问题
 
 #### 示例配置密码清理
-- **文件**: `.env.postgres.example`
+- **文件**: `config/host/postgres.env.example`
 - **改动**: 将硬编码密码替换为 `<GENERATE_STRONG_PASSWORD>` 占位符
 - **影响**: 防止开发者直接复制示例配置
 

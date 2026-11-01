@@ -27,7 +27,7 @@ export async function ensurePostgresDevDatabaseReady({
     runMigrations: async (profile) => {
       stdout.write('[sdkwork-im-db] applying IM database migrations via sdkwork-database-cli\n');
       return runPostgresDbCli({
-        argv: ['--mode', 'migrate', '--config', '.env.postgres'],
+        argv: ['--mode', 'migrate', '--config', 'config/host/postgres.env'],
         env: profile.env,
         repoRoot,
         stdout,

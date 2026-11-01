@@ -22,7 +22,7 @@ Grafana operations dashboard: [grafana-dashboard.json](./grafana-dashboard.json)
 | IM domain counters | `im_*` metrics | Session gateway, social sync, retention purge expose Prometheus text at `/metrics` where enabled |
 | Structured logs | stdout/stderr | JSON/text via `init_im_service_tracing_from_env()`; target `sdkwork.im` for domain events |
 
-Configure OpenTelemetry export with `OTEL_EXPORTER_OTLP_ENDPOINT` (see `.env.postgres.example`).
+Configure OpenTelemetry export with `OTEL_EXPORTER_OTLP_ENDPOINT` (see `config/host/postgres.env.example`).
 
 ## Alert Response
 

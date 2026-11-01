@@ -33,7 +33,7 @@ Default surfaces when using `pnpm dev` (standalone unified topology — IAM and 
 Database profiles:
 
 ```bash
-pnpm dev:browser:postgres     # PostgreSQL via .env.postgres
+pnpm dev:browser:postgres     # PostgreSQL via config/host/postgres.env
 pnpm dev:browser              # local browser user data
 ```
 

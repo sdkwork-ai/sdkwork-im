@@ -24,7 +24,7 @@ function withTempRepo(testFn) {
 }
 
 withTempRepo((tempRoot) => {
-  const examplePath = path.join(tempRoot, '.env.postgres.example');
+  const examplePath = path.join(tempRoot, 'config/host/postgres.env.example');
   fs.writeFileSync(examplePath, [
     'SDKWORK_DATABASE_ENGINE=postgresql',
     'SDKWORK_DATABASE_HOST=127.0.0.1',
@@ -41,7 +41,7 @@ withTempRepo((tempRoot) => {
 
 assert.equal(
   resolvePostgresDevEnvExamplePath(repoRoot),
-  path.join(repoRoot, '.env.postgres.example'),
+  path.join(repoRoot, 'config/host/postgres.env.example'),
 );
 
 const merged = mergePostgresDevRuntimeEnv({

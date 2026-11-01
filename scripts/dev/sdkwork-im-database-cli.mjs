@@ -34,7 +34,7 @@ function resolveMergedEnv(env = process.env) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(
-      `[sdkwork-im-db] warning: failed to merge .env.postgres profile: ${message}\n`,
+      `[sdkwork-im-db] warning: failed to merge config/host/postgres.env profile: ${message}\n`,
     );
     return env;
   }

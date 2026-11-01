@@ -354,7 +354,7 @@ function validateAdminExecutionConfig(admin) {
 }
 
 export function parsePostgresConfig({
-  configPath = '.env.postgres',
+  configPath = 'config/host/postgres.env',
   configText,
   repoRoot = defaultRepoRoot,
 } = {}) {
@@ -707,7 +707,7 @@ export function createPostgresDbPlan({
 
 function parseArgs(argv) {
   const result = {
-    configPath: '.env.postgres',
+    configPath: 'config/host/postgres.env',
     dryRun: false,
     migrationsDir: defaultMigrationsDir,
     mode: 'plan',
@@ -773,9 +773,9 @@ export function formatPostgresDbPlan(plan) {
 function helpText() {
   return [
     'Usage:',
-    '  node scripts/dev/sdkwork-im-postgres-db.mjs --mode plan --config .env.postgres --dry-run',
-    '  node scripts/dev/sdkwork-im-postgres-db.mjs --mode init --config .env.postgres',
-    '  node scripts/dev/sdkwork-im-postgres-db.mjs --mode migrate --config .env.postgres',
+    '  node scripts/dev/sdkwork-im-postgres-db.mjs --mode plan --config config/host/postgres.env --dry-run',
+    '  node scripts/dev/sdkwork-im-postgres-db.mjs --mode init --config config/host/postgres.env',
+    '  node scripts/dev/sdkwork-im-postgres-db.mjs --mode migrate --config config/host/postgres.env',
     '',
     'Modes:',
     '  plan      Print initialization and migration actions without touching the database.',
@@ -783,7 +783,7 @@ function helpText() {
     '  migrate   Bootstrap IM schema via sdkwork-database-cli (database/ lifecycle).',
     '',
     'Config:',
-    '  .env.postgres is the single source of truth for app startup and db:* commands.',
+    '  config/host/postgres.env is the single source of truth for app startup and db:* commands.',
     '  Windows init uses node/pg by default; set SDKWORK_DATABASE_PSQL_COMMAND for psql/WSL.',
     '',
   ].join('\n');

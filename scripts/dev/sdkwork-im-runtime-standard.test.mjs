@@ -61,7 +61,7 @@ assert.equal(manifest.artifacts.installConfig.installCommand, 'sdkwork install c
 assert.equal(manifest.artifacts.installConfig.launchCommand, 'sdkwork open chat');
 assert.equal(manifest.artifacts.installConfig.uninstallCommand, 'sdkwork uninstall chat');
 
-const envExample = read('.env.postgres.example');
+const envExample = read('config/host/postgres.env.example');
 for (const required of [
   'SDKWORK_DATABASE_ENGINE=postgresql',
   'SDKWORK_DATABASE_HOST=127.0.0.1',
@@ -75,7 +75,7 @@ for (const required of [
   'SDKWORK_DATABASE_ADMIN_DATABASE=postgres',
   'SDKWORK_DATABASE_ADMIN_SSL_MODE=disable',
 ]) {
-  assert.ok(envExample.includes(required), `.env.postgres.example must document ${required}`);
+  assert.ok(envExample.includes(required), `config/host/postgres.env.example must document ${required}`);
 }
 for (const required of [
   'SDKWORK_DATABASE_NAME=sdkwork_ai_dev',
@@ -87,7 +87,7 @@ for (const required of [
   'SDKWORK_IM_REDIS_TLS=false',
   'SDKWORK_DATABASE_MAX_CONNECTIONS=10',
 ]) {
-  assert.ok(envExample.includes(required), `.env.postgres.example must document ${required}`);
+  assert.ok(envExample.includes(required), `config/host/postgres.env.example must document ${required}`);
 }
 assert.doesNotMatch(
   envExample,

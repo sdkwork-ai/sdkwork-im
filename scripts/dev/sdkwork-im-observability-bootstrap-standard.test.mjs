@@ -68,10 +68,10 @@ assert.match(
   'sdkwork-im-web-bootstrap must enable sdkwork-web-bootstrap otel feature',
 );
 
-const envExample = read('.env.postgres.example');
+const envExample = read('config/host/postgres.env.example');
 assert.ok(
   envExample.includes('OTEL_EXPORTER_OTLP_ENDPOINT'),
-  '.env.postgres.example must document optional OTEL_EXPORTER_OTLP_ENDPOINT',
+  'config/host/postgres.env.example must document optional OTEL_EXPORTER_OTLP_ENDPOINT',
 );
 
 process.stdout.write('sdkwork-im observability bootstrap standard passed\n');

@@ -96,12 +96,12 @@ Test-NetConnection 127.0.0.1 -Port 5432
 wsl hostname -I
 ```
 
-## 4. 配置 .env.postgres
+## 4. 配置 config/host/postgres.env
 
 仓库根目录复制模板：
 
 ```powershell
-Copy-Item .env.postgres.example .env.postgres
+Copy-Item config/host/postgres.env.example config/host/postgres.env
 ```
 
 标准字段：
@@ -226,7 +226,7 @@ DROP TABLE sdkwork_ai_dev.__manual_smoke_check;
 
 ## 9. 生产配置参考
 
-生产 server 不使用 `.env.postgres`。使用 `/etc/sdkwork/im/config.toml`、`/etc/sdkwork/im/server.env`、`/etc/sdkwork/im/postgresql.yaml`、`/etc/sdkwork/database/database.secret`。
+生产 server 不使用 `config/host/postgres.env`。使用 `/etc/sdkwork/im/config.toml`、`/etc/sdkwork/im/server.env`、`/etc/sdkwork/im/postgresql.yaml`、`/etc/sdkwork/database/database.secret`。
 
 `postgresql.yaml` 生产字段示例：
 

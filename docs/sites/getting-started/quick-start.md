@@ -17,12 +17,12 @@ pnpm install
 ## 2. Configure Local PostgreSQL (recommended)
 
 ```bash
-cp .env.postgres.example .env.postgres
+cp config/host/postgres.env.example config/host/postgres.env
 ```
 
 Edit database credentials if needed. Redis is enabled by default for realtime checkpoints and event windows.
 To enable Redis-backed route store or cluster bus, uncomment the optional realtime variables in
-`.env.postgres` and set `SDKWORK_IM_REALTIME_NODE_ID` plus `SDKWORK_IM_REALTIME_CLUSTER_BUS_SECRET`.
+`config/host/postgres.env` and set `SDKWORK_IM_REALTIME_NODE_ID` plus `SDKWORK_IM_REALTIME_CLUSTER_BUS_SECRET`.
 When those URLs are set in development, `pnpm dev` and `gateway:run:standalone` inject safe local
 defaults for the node id and cluster bus secret if they are missing.
 
