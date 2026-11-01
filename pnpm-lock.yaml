@@ -954,6 +954,15 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
 
+  ../sdkwork-comments/sdks/sdkwork-comments-app-sdk/sdkwork-comments-app-sdk-typescript:
+    dependencies:
+      '@sdkwork/sdk-common':
+        specifier: workspace:*
+        version: link:../../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript
+      '@sdkwork/utils':
+        specifier: workspace:*
+        version: link:../../../../sdkwork-utils/packages/sdkwork-utils-typescript
+
   ../sdkwork-community/apps/sdkwork-community-common/packages/sdkwork-community-contracts: {}
 
   ../sdkwork-community/apps/sdkwork-community-common/packages/sdkwork-community-mobile-react-community:
@@ -1282,9 +1291,15 @@ importers:
 
   ../sdkwork-course/apps/sdkwork-course-common/packages/sdkwork-course-mobile-react-courses:
     dependencies:
+      '@sdkwork/comments-app-sdk':
+        specifier: workspace:*
+        version: link:../../../../../sdkwork-comments/sdks/sdkwork-comments-app-sdk/sdkwork-comments-app-sdk-typescript
       '@sdkwork/course-sdk-ports':
         specifier: workspace:*
         version: link:../sdkwork-course-sdk-ports
+      '@sdkwork/sdk-common':
+        specifier: workspace:*
+        version: link:../../../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript
       '@sdkwork/ui-mobile-react':
         specifier: workspace:*
         version: link:../../../../../sdkwork-ui/sdkwork-ui-mobile-react
@@ -1383,6 +1398,9 @@ importers:
       '@sdkwork/sdk-common':
         specifier: workspace:*
         version: link:../../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript
+      '@sdkwork/utils':
+        specifier: workspace:*
+        version: link:../../../../sdkwork-utils/packages/sdkwork-utils-typescript
 
   ../sdkwork-drive/apps/sdkwork-drive-common/packages/sdkwork-drive-mobile-react-drive:
     dependencies:
@@ -1654,6 +1672,9 @@ importers:
       '@sdkwork/iam-backend-sdk':
         specifier: workspace:*
         version: link:../../../../sdks/sdkwork-iam-backend-sdk/sdkwork-iam-backend-sdk-typescript
+      '@sdkwork/iam-credential-entry':
+        specifier: workspace:*
+        version: link:../sdkwork-iam-credential-entry
       '@sdkwork/iam-sdk-adapter':
         specifier: workspace:*
         version: link:../sdkwork-iam-sdk-adapter
