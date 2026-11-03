@@ -20,6 +20,7 @@
     "topology:audit-env-inheritance": "node ../sdkwork-specs/tools/audit-env-inheritance-workspace.mjs --workspace ..",
     "topology:audit-app-access-tokens": "node ../sdkwork-specs/tools/audit-app-access-token-workspace.mjs --workspace ..",
     "topology:audit-env-standard": "node ../sdkwork-specs/tools/audit-env-standard-workspace.mjs --workspace ..",
+    "topology:audit-client-tokens": "node ../sdkwork-specs/tools/audit-client-surface-token-matrix.mjs --workspace ..",
     "topology:adopt-app-access-token": "node ../sdkwork-specs/tools/adopt-app-access-token.mjs --workspace ..",
     "topology:adopt-app-access-token-files": "node ../sdkwork-specs/tools/adopt-app-access-token-files.mjs --workspace ..",
     "topology:validate-access-token-files": "node ../sdkwork-specs/tools/validate-access-token-files.mjs --workspace .. --check",
