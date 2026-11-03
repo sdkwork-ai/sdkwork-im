@@ -237,7 +237,7 @@ for (const field of [
 ]) {
   assert.match(offlineScopeSource, new RegExp(`scope\\.${field}`, 'u'));
 }
-assert.match(offlineScopeSource, /VITE_SDKWORK_IM_DEPLOYMENT_PROFILE/u);
+assert.match(offlineScopeSource, /VITE_SDKWORK_DEPLOYMENT_PROFILE/u);
 assert.match(offlineScopeSource, /resolveImApiBaseUrl\(\)/u);
 assert.doesNotMatch(offlineScopeSource, /organizationId\s*\?\?\s*['"]0['"]/u);
 

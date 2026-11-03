@@ -109,6 +109,41 @@ for (const [key, expected] of Object.entries({
   }
 }
 
+// Public application access token: SaaS isolation material, not a secret.
+// APP_ACCESS_TOKEN_SPEC.md requires it in every profile and fails the build
+// when it is missing or does not belong to this app/profile.
+const accessToken = String(runtimeConfig.SDKWORK_ACCESS_TOKEN ?? "").trim();
+if (!accessToken) {
+  throw new Error(
+    `${runtimeConfigPath} is missing SDKWORK_ACCESS_TOKEN; ` +
+      "run `pnpm workflow:materialize-client-env` from the repository root.",
+  );
+}
+const tokenParts = accessToken.split(".");
+if (tokenParts.length !== 3) {
+  throw new Error(`${runtimeConfigPath} SDKWORK_ACCESS_TOKEN must be a three-part JWT.`);
+}
+let tokenPayload;
+try {
+  tokenPayload = JSON.parse(Buffer.from(tokenParts[1], "base64url").toString("utf8"));
+} catch {
+  throw new Error(`${runtimeConfigPath} SDKWORK_ACCESS_TOKEN payload is not valid JSON.`);
+}
+for (const [claim, expected] of Object.entries({
+  app_id: "sdkwork-im-mini-program",
+  organization_id: "0",
+  environment,
+  deployment_profile: deploymentProfile,
+  runtime_target: RUNTIME_TARGET,
+})) {
+  if (String(tokenPayload[claim] ?? "") !== expected) {
+    throw new Error(
+      `${runtimeConfigPath} SDKWORK_ACCESS_TOKEN claim ${claim} must be ${JSON.stringify(expected)}; ` +
+        `received ${JSON.stringify(tokenPayload[claim] ?? null)}`,
+    );
+  }
+}
+
 const runtimeDir = path.join(appRoot, "src", "runtime");
 mkdirSync(runtimeDir, { recursive: true });
 const bundlePath = path.join(runtimeDir, "im-app.js");

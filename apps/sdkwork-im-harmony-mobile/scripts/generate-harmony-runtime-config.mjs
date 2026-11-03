@@ -78,6 +78,9 @@ function readSourceDocuments() {
         fail(`${file}: identity key ${key} is required`);
       }
     }
+    if (typeof document.SDKWORK_ACCESS_TOKEN !== 'string' || document.SDKWORK_ACCESS_TOKEN.trim().length === 0) {
+      fail(`${file}: SDKWORK_ACCESS_TOKEN is required (public application access token, APP_ACCESS_TOKEN_SPEC.md)`);
+    }
     if (document.runtimeTarget !== RUNTIME_TARGET) {
       fail(`${file}: runtimeTarget must be ${RUNTIME_TARGET}, found ${document.runtimeTarget}`);
     }
@@ -146,6 +149,7 @@ function render(documents) {
     lines.push(`    deploymentProfile: ${JSON.stringify(document.deploymentProfile)},`);
     lines.push(`    profileId: ${JSON.stringify(document.profileId)},`);
     lines.push(`    runtimeTarget: ${JSON.stringify(document.runtimeTarget)},`);
+    lines.push(`    accessToken: ${JSON.stringify(document.SDKWORK_ACCESS_TOKEN)},`);
     lines.push(...renderEndpointObject('    ', 'im', document.im));
     lines.push(...renderEndpointObject('    ', 'appbase', document.appbase));
     lines.push('  },');

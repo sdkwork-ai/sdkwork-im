@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -13,8 +14,15 @@ import {
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = path.resolve(appRoot, '..', '..');
+const ENV_CONFIG_GENERATOR = path.resolve(
+  repositoryRoot,
+  '..',
+  'sdkwork-specs',
+  'tools',
+  'generate-app-env-config.mjs',
+);
 const SUPPORTED_TARGETS = new Set(['android', 'ios']);
-const PROFILE_ID = /^(?:standalone|cloud)\.(?:development|test|staging|production)$/u;
+const PROFILE_ID = /^(?:standalone|cloud)\.(?:development|test|staging|demo|production)$/u;
 const DEVICE_ID = /^[A-Za-z0-9._:-]+$/u;
 
 function option(args, name) {
@@ -26,6 +34,25 @@ function requiredEnv(env, key) {
   const value = String(env[key] ?? '').trim();
   if (!value) throw new Error(`${key} is required from the selected topology profile`);
   return value;
+}
+
+function readCommittedAccessToken(root, profileId) {
+  const profilePath = path.join(root, 'env', `sdkwork.${profileId}.json`);
+  let values;
+  try {
+    values = JSON.parse(readFileSync(profilePath, 'utf8'));
+  } catch (error) {
+    throw new Error(
+      `SDKWORK_ACCESS_TOKEN profile file is unreadable: ${profilePath} (run node ../../../sdkwork-specs/tools/materialize-client-env.mjs --root ../../..)`,
+    );
+  }
+  const token = String(values?.SDKWORK_ACCESS_TOKEN ?? '').trim();
+  if (!token) {
+    throw new Error(
+      `SDKWORK_ACCESS_TOKEN is missing in ${profilePath}; run node ../../../sdkwork-specs/tools/materialize-client-env.mjs --root ../../..`,
+    );
+  }
+  return token;
 }
 
 export function createFlutterDefineConfig(env = process.env) {
@@ -60,6 +87,7 @@ export function createFlutterDefineConfig(env = process.env) {
 }
 
 export function createFlutterDevPlan({
+  accessToken = '',
   args = [],
   env = process.env,
   repoRoot = repositoryRoot,
@@ -70,6 +98,8 @@ export function createFlutterDevPlan({
   if (!SUPPORTED_TARGETS.has(target)) throw new Error('--target must be android or ios');
   const profileId = requiredEnv(env, 'SDKWORK_IM_PROFILE_ID');
   if (!PROFILE_ID.test(profileId)) throw new Error('SDKWORK_IM_PROFILE_ID must be a canonical profile id');
+  const resolvedAccessToken = String(accessToken || env.SDKWORK_ACCESS_TOKEN || '').trim()
+    || readCommittedAccessToken(root, profileId);
   const flutterArgs = ['run'];
   const deviceId = String(env.SDKWORK_FLUTTER_DEVICE_ID ?? '').trim();
   if (deviceId && !DEVICE_ID.test(deviceId)) {
@@ -78,6 +108,7 @@ export function createFlutterDevPlan({
   if (deviceId) flutterArgs.push('--device-id', deviceId);
   const runtimeTarget = target === 'ios' ? 'flutter-ios' : 'flutter-android';
   const config = createFlutterDefineConfig(env);
+  config.SDKWORK_ACCESS_TOKEN = resolvedAccessToken;
   config.SDKWORK_RUNTIME_TARGET = runtimeTarget;
   config.SDKWORK_IM_RUNTIME_TARGET = runtimeTarget;
   const configPath = resolveImTemporaryFilePath({
@@ -93,6 +124,7 @@ export function createFlutterDevPlan({
     config,
     configPath,
     flutterArgs,
+    profileId,
     repoRoot,
     root,
     runtimeStateOptions,
@@ -118,9 +150,35 @@ export function runFlutterDevelopment(plan, { spawn = spawnSync } = {}) {
   }
 }
 
+export function generateFlutterEnvConfig(profileId, { spawn = spawnSync } = {}) {
+  const result = spawn(process.execPath, [
+    ENV_CONFIG_GENERATOR,
+    '--root', appRoot,
+    '--profile', profileId,
+    '--format', 'dart',
+    '--output', 'lib/generated/env_config.dart',
+    '--app-id', 'sdkwork-im-flutter-mobile',
+  ], {
+    cwd: appRoot,
+    stdio: 'inherit',
+    windowsHide: true,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`EnvConfig generation failed with code ${result.status ?? 1}`);
+  }
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    runFlutterDevelopment(createFlutterDevPlan({ args: process.argv.slice(2) }));
+    const plan = createFlutterDevPlan({ args: process.argv.slice(2) });
+    generateFlutterEnvConfig(plan.profileId);
+    try {
+      runFlutterDevelopment(plan);
+    } finally {
+      // Keep the committed generated default stable after a dev session.
+      generateFlutterEnvConfig('standalone.development');
+    }
   } catch (error) {
     console.error(`[sdkwork-im-flutter-dev] ${error.message}`);
     process.exitCode = 1;

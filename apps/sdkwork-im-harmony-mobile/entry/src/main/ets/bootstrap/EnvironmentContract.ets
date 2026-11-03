@@ -43,6 +43,8 @@ export interface ImHarmonyRuntimeEnvDocument {
   readonly deploymentProfile: string;
   readonly profileId: string;
   readonly runtimeTarget: string;
+  /** Public application access token used for SaaS isolation before login. */
+  readonly accessToken: string;
   readonly im: ImHarmonyImEndpoints;
   readonly appbase: ImHarmonyAppbaseEndpoints;
 }

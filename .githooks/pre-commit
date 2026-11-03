@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+
+# Fail fast before committing when a release/test/demo profile has no valid
+# public application access token.
+node ../sdkwork-specs/tools/check-release-access-token-env.mjs --root .

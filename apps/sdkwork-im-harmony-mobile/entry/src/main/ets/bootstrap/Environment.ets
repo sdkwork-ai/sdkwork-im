@@ -33,6 +33,7 @@ export interface ImHarmonyEnvironment {
   readonly deploymentProfile: string;
   readonly profileId: string;
   readonly runtimeTarget: string;
+  readonly accessToken: string;
   readonly imApiBaseUrl: string;
   readonly imPlatformApiGatewayHttpUrl: string;
   readonly imApplicationPublicHttpUrl: string;
@@ -148,6 +149,7 @@ export function createImHarmonyEnvironment(
     deploymentProfile,
     profileId,
     runtimeTarget,
+    accessToken: requireNonEmpty(document.accessToken, 'accessToken'),
     imApiBaseUrl: normalizeOriginFamily(im.apiBaseUrl, 'im.apiBaseUrl', HTTP_SCHEMES),
     imPlatformApiGatewayHttpUrl: normalizeOriginFamily(
       im.platformApiGatewayHttpUrl,

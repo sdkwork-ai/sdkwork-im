@@ -6,7 +6,7 @@ import { createSdkworkCredentialEntryBootstrapVitePlugin } from '../../../sdkwor
 import react from '@vitejs/plugin-react';
 import { createRequire } from 'node:module';
 import path from 'path';
-import {defineConfig, type Plugin} from 'vite';
+import {defineConfig, loadEnv, type Plugin} from 'vite';
 import { handleSdkworkChatLocalApiRequest } from './local-api';
 
 const repoRoot = path.resolve(__dirname, '../..');
@@ -263,7 +263,42 @@ function sdkworkChatLocalApiPlugin(): Plugin {
   };
 }
 
+function publicApplicationAccessTokenPlugin(accessToken: string): Plugin {
+  const serialized = JSON.stringify(accessToken)
+    .replaceAll('<', '\\u003c')
+    .replaceAll('>', '\\u003e')
+    .replaceAll('&', '\\u0026');
+  return {
+    name: 'sdkwork-public-application-access-token',
+    transformIndexHtml: {
+      order: 'pre',
+      handler: (html) => ({
+        html,
+        tags: [{
+          tag: 'script',
+          children: `globalThis.__SDKWORK_CREDENTIAL_ENTRY_BOOTSTRAP_ACCESS_TOKEN__ = ${serialized};`,
+          injectTo: 'head-prepend',
+        }],
+      }),
+    },
+  };
+}
+
 export default defineConfig(({mode}) => {
+  const explicitProfileId = String(
+    process.env.SDKWORK_IM_PROFILE_ID ?? process.env.SDKWORK_PROFILE_ID ?? '',
+  ).trim();
+  const envProfileId = /^(?:standalone|cloud)\.(?:development|test|staging|demo|production)$/u.test(mode)
+    ? mode
+    : explicitProfileId
+      || `${String(process.env.SDKWORK_IM_DEPLOYMENT_PROFILE ?? process.env.SDKWORK_DEPLOYMENT_PROFILE ?? 'standalone').trim()}.${mode}`;
+  const profileEnv = loadEnv(envProfileId, __dirname, '');
+  const publicApplicationAccessToken = String(profileEnv.SDKWORK_ACCESS_TOKEN ?? '').trim();
+  if (!publicApplicationAccessToken) {
+    throw new Error(
+      `SDKWORK_ACCESS_TOKEN is missing for ${envProfileId} in ${__dirname}; run node ../sdkwork-specs/tools/materialize-client-env.mjs --root <repository>.`,
+    );
+  }
   return {
     // Keep the dependency cache outside `node_modules`: the workspace's
     // node_modules donor/junction machinery (`ensureLocalNodeModules` renames
@@ -275,8 +310,9 @@ export default defineConfig(({mode}) => {
     // stale (410 Gone) whenever the request is routed to another renderer.
     cacheDir: path.resolve(__dirname, '.vite'),
     plugins: [
+      publicApplicationAccessTokenPlugin(publicApplicationAccessToken),
       createSdkworkCredentialEntryBootstrapVitePlugin({
-      accessToken: process.env.SDKWORK_ACCESS_TOKEN,
+      accessToken: publicApplicationAccessToken,
       environment: resolveViteEnvironment(mode, process.env),
       }),
       sdkworkChatLocalApiPlugin(),

@@ -33,3 +33,14 @@ Consequences, stated so nothing is silently assumed:
   derived from `../../../etc/topology/<profile-id>.env` through the same
   resolution the mini program's materialized documents use, and the test
   asserts that equality rather than trusting the copy.
+
+## Inherited env overlay
+
+Optional application env layers merge after the repository topology layers
+(`ENVIRONMENT_SPEC.md` §5.1.7.1):
+
+- `etc/env.base.env` - application-wide defaults
+- `etc/env.<deployment-profile>.<environment>.env` - application/profile delta
+
+Do not put `SDKWORK_ACCESS_TOKEN` here; the public application token is generated
+per application and profile.

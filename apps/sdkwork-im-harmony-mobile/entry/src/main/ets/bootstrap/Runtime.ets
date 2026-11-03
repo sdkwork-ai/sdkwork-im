@@ -68,7 +68,7 @@ export function bootstrapImHarmonyApp(
   const environment: ImHarmonyEnvironment = resolveImHarmonyEnvironment(profileId);
 
   const sdk: ImHarmonySdkClients = createImHarmonySdkClients();
-  sdk.initialize(environment);
+  sdk.initialize(environment, environment.accessToken);
 
   const routes: ImHarmonyRouteRegistration[] = createImHarmonyRoutes();
   registerImHarmonyHostAdapters();

@@ -14,6 +14,7 @@ import {
   VITE_SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL,
 } from './topologyEnvKeys';
 import { readDiscoveredDevGatewayHttpUrl } from './devGatewayDiscoveryCache';
+import { readImPcEnvValue } from './envConfig';
 import { readImPcEmbedEnvironment } from './embedHost';
 
 /**
@@ -88,12 +89,11 @@ export function resolveBrowserBaseUrl(value: string): string {
 }
 
 export function readSdkBaseUrlEnvValue(key: string): string | undefined {
-  const value = readRuntimeImportMetaEnv()[key];
-  if (typeof value !== 'string' || value.trim().length === 0) {
+  const value = readImPcEnvValue(key);
+  if (!value) {
     return undefined;
   }
-  const normalized = value.trim();
-  return resolveBrowserBaseUrl(normalized);
+  return resolveBrowserBaseUrl(value);
 }
 
 function readNodeEnvValue(key: string): string | undefined {

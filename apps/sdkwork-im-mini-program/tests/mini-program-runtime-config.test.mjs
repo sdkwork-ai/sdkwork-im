@@ -105,7 +105,16 @@ test("every profile declares a consistent runtime identity", () => {
 
 test("no profile carries a secret-bearing key", () => {
   for (const profileId of EXPECTED_PROFILE_IDS) {
-    for (const key of Object.keys(readProfile(profileId))) {
+    const values = readProfile(profileId);
+    // The public application access token is SaaS-isolation material, not a
+    // secret (APP_ACCESS_TOKEN_SPEC.md); everything else matching the secret
+    // pattern must stay out of the client profile.
+    assert.equal(typeof values.SDKWORK_ACCESS_TOKEN, "string");
+    assert.match(values.SDKWORK_ACCESS_TOKEN, /^[^.]+[.][^.]+[.][^.]+$/u);
+    for (const key of Object.keys(values)) {
+      if (key === "SDKWORK_ACCESS_TOKEN") {
+        continue;
+      }
       assert.doesNotMatch(
         key,
         SECRET_KEY_PATTERN,

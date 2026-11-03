@@ -14,6 +14,7 @@ import {
   syncImSessionToAiotPc,
 } from './aiotPcIntegration';
 import { resetAppSdkClient, getAppSdkClient, resolveAppSdkBaseUrl } from './appSdkClient';
+import { readImPcEnvValue } from './envConfig';
 import { resetAgentAppSdkClient, getAgentAppSdkClient } from './agentAppSdkClient';
 import { resetAppbaseAppSdkClient } from './appbaseAppSdkClient';
 import {
@@ -80,17 +81,12 @@ const SDKWORK_IM_VERIFICATION_POLICY = {
 let sdkworkChatIamRuntimeComposition: SdkworkAppbasePcAuthRuntimeComposition | null = null;
 
 function readEnvValue(...keys: string[]): string | undefined {
-  const meta = import.meta as ImportMeta & {
-    env?: Record<string, string | boolean | undefined>;
-  };
-
   for (const key of keys) {
-    const value = meta.env?.[key];
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return value.trim();
+    const value = readImPcEnvValue(key);
+    if (value) {
+      return value;
     }
   }
-
   return undefined;
 }
 

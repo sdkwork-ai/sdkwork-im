@@ -18,6 +18,39 @@ Platform standard: [../../sdkwork-specs/APP_RUNTIME_TOPOLOGY_ADOPTION.md](../../
 | `cloud.production.env` | `cloud.production` | Cloud production |
 | `cloud.demo.env` | `cloud.demo` | Cloud independent demo deployment |
 
+## Inherited layers
+
+`etc/topology/<profile-id>.env` is a **generated resolved file**. Do not edit it.
+Edit the layer that owns the value (`ENVIRONMENT_SPEC.md` §5.1.7.1):
+
+| Order | Layer | Purpose |
+| --- | --- | --- |
+| 1 | `etc/topology/base.env` | defaults shared by every profile |
+| 2 | `etc/topology/environments/<environment>.base.env` | defaults shared by standalone and cloud for one environment |
+| 3 | `etc/topology/<deployment-profile>.base.env` | defaults shared by one deployment profile |
+| 4 | `etc/topology/overrides/<profile-id>.env` | the profile delta; optional when the profile only inherits defaults |
+
+Application surfaces may add an app-wide and app/profile overlay, merged after
+the repository layers:
+
+| Order | Layer | Purpose |
+| --- | --- | --- |
+| 5 | `apps/<app>/etc/env.base.env` | application-wide defaults |
+| 6 | `apps/<app>/etc/env.<profile-id>.env` | application/profile delta |
+
+Commands:
+
+```bash
+node ../sdkwork-specs/tools/materialize-topology-env.mjs --root .
+node ../sdkwork-specs/tools/materialize-topology-env.mjs --root . --check
+node ../sdkwork-specs/tools/materialize-client-env.mjs --root .
+node ../sdkwork-specs/tools/materialize-client-env.mjs --root . --check
+```
+
+Base layers must not contain credentials or secrets. A `${KEY}` reference is
+expanded after the merge. The per-application public access token is generated
+after the merge and is never inherited.
+
 ## Standalone gateway
 
 Standalone profiles embed IAM and IM application ingress through `sdkwork-api-im-standalone-gateway`
@@ -197,6 +230,8 @@ The process database pool (`SDKWORK_DATABASE_*`) enables `resolve_iam_auth_pool_
 
 ```bash
 node ../sdkwork-app-topology/scripts/sdkwork-topology.mjs validate --root ../.. --spec specs/topology.spec.json
+node ../../../sdkwork-specs/tools/materialize-topology-env.mjs --root ../.. --check
+node ../../../sdkwork-specs/tools/materialize-client-env.mjs --root ../.. --check
 pnpm test:topology-baggage
 pnpm test:sdkwork-im-pc-dev-command
 node scripts/dev/sdkwork-im-topology-env-lint.test.mjs

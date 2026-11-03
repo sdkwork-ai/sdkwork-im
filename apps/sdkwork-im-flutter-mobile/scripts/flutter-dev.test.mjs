@@ -33,6 +33,7 @@ test('creates a profile-scoped local dart-define plan', () => {
   const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'sdkwork-im-flutter-state-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sdkwork-im-flutter-app-'));
   const plan = createFlutterDevPlan({
+    accessToken: 'test.jwt.token',
     args: ['--target', 'android'],
     env: { ...cloudEnv, SDKWORK_FLUTTER_DEVICE_ID: 'emulator-5554' },
     repoRoot: root,
@@ -59,6 +60,7 @@ test('removes the private dart-define file after Flutter success and failure', (
     const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'sdkwork-im-flutter-state-'));
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sdkwork-im-flutter-app-'));
     const plan = createFlutterDevPlan({
+      accessToken: 'test.jwt.token',
       args: ['--target', 'android'],
       env: cloudEnv,
       repoRoot: root,
@@ -81,6 +83,7 @@ test('removes the private dart-define file after Flutter success and failure', (
 
 test('projects an iOS runtime target into the selected profile', () => {
   const plan = createFlutterDevPlan({
+    accessToken: 'test.jwt.token',
     args: ['--target', 'ios'],
     env: cloudEnv,
   });

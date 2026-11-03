@@ -1,15 +1,12 @@
 {
+  "SDKWORK_ACCESS_TOKEN": "eyJhbGciOiJub25lIiwia2lkIjoicHVibGljLWFwcC10b2tlbiIsInR5cCI6IkpXVCJ9.eyJhcHBfaWQiOiJzZGt3b3JrLWltLW1pbmktcHJvZ3JhbSIsImF1ZCI6InNka3dvcmstaW0tbWluaS1wcm9ncmFtIiwiZGVwbG95bWVudF9tb2RlIjoic2FhcyIsImRlcGxveW1lbnRfcHJvZmlsZSI6ImNsb3VkIiwiZW52aXJvbm1lbnQiOiJkZXZlbG9wbWVudCIsImV4cCI6NDEwMjQ0NDgwMCwiaWF0IjoxNzY3MjI1NjAwLCJpc3MiOiJzZGt3b3JrLWlhbS1wdWJsaWMiLCJsb2dpbl9zY29wZSI6IlRFTkFOVCIsIm9yZ2FuaXphdGlvbl9pZCI6IjAiLCJwZXJtaXNzaW9uX3Njb3BlIjpbImlhbTpzZWxmIl0sInJ1bnRpbWVfdGFyZ2V0IjoibWluaS1wcm9ncmFtIiwic2Vzc2lvbl9pZCI6ImJvb3RzdHJhcC1wdWJsaWMtc2Rrd29yay1pbS1taW5pLXByb2dyYW0tY2xvdWQuZGV2ZWxvcG1lbnQiLCJ0ZW5hbnRfaWQiOiIxMDAwMDEiLCJ0b2tlbl9jbGFzcyI6ImFwcGxpY2F0aW9uIiwidG9rZW5fdHlwZSI6ImFjY2VzcyIsInRva2VuX3ZlcnNpb24iOjEsInVzZXJfaWQiOiIwIn0.public",
   "SDKWORK_DEPLOYMENT_PROFILE": "cloud",
   "SDKWORK_ENVIRONMENT": "development",
   "SDKWORK_IAM_APP_API_BASE_URL": "http://127.0.0.1:3900",
   "SDKWORK_IM_API_BASE_URL": "http://127.0.0.1:3900",
   "SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL": "http://im-dev.sdkwork.com:3801",
   "SDKWORK_IM_APPLICATION_PUBLIC_WEBSOCKET_URL": "wss://api-dev.sdkwork.com",
-  "SDKWORK_IM_DEPLOYMENT_PROFILE": "cloud",
-  "SDKWORK_IM_ENVIRONMENT": "development",
   "SDKWORK_IM_PLATFORM_API_GATEWAY_HTTP_URL": "http://127.0.0.1:3900",
-  "SDKWORK_IM_PROFILE_ID": "cloud.development",
-  "SDKWORK_IM_RUNTIME_TARGET": "mini-program",
   "SDKWORK_PROFILE_ID": "cloud.development",
   "SDKWORK_RUNTIME_TARGET": "mini-program"
 }

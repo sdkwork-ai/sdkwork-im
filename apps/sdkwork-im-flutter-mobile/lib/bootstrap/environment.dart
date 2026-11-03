@@ -1,83 +1,29 @@
+import '../generated/env_config.dart';
+
 class ImEnvironment {
-
   final String applicationPublicHttpUrl;
-
   final String applicationPublicWebSocketUrl;
-
   final String appbaseLoginUrl;
-
-
+  final String accessToken;
 
   const ImEnvironment({
-
     required this.applicationPublicHttpUrl,
-
     required this.applicationPublicWebSocketUrl,
-
     required this.appbaseLoginUrl,
-
+    required this.accessToken,
   });
-
 }
 
-
-
-String _normalizeBaseUrl(String value, String fallback) {
-
-  final normalized = value.trim();
-
-  return normalized.isEmpty ? fallback : normalized;
-
-}
-
-
-
+/// Resolves the selected profile from the build-generated [AppEnvConfig].
+///
+/// `APP_RUNTIME_ENV_SPEC.md` §3.1: runtime code reads the generated typed
+/// `EnvConfig`, not raw JSON or per-key `String.fromEnvironment` calls. The
+/// build regenerates `lib/generated/env_config.dart` for the selected profile.
 ImEnvironment resolveEnvironment() {
-
-  const applicationPublicHttpUrl = String.fromEnvironment(
-
-    'SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL',
-
-    defaultValue: 'http://127.0.0.1:18079',
-
-  );
-
-  const applicationPublicWebSocketUrl = String.fromEnvironment(
-
-    'SDKWORK_IM_APPLICATION_PUBLIC_WEBSOCKET_URL',
-
-    defaultValue: 'ws://127.0.0.1:18079',
-
-  );
-
-
-
   return ImEnvironment(
-
-    applicationPublicHttpUrl: _normalizeBaseUrl(
-
-      const String.fromEnvironment('SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL'),
-
-      applicationPublicHttpUrl,
-
-    ),
-
-    applicationPublicWebSocketUrl: _normalizeBaseUrl(
-
-      const String.fromEnvironment('SDKWORK_IM_APPLICATION_PUBLIC_WEBSOCKET_URL'),
-
-      applicationPublicWebSocketUrl,
-
-    ),
-
-    appbaseLoginUrl: _normalizeBaseUrl(
-
-      const String.fromEnvironment('SDKWORK_IAM_APP_API_BASE_URL'),
-
-      _normalizeBaseUrl(applicationPublicHttpUrl, 'http://127.0.0.1:18079'),
-
-    ),
-
+    applicationPublicHttpUrl: AppEnvConfig.applicationPublicHttpUrl,
+    applicationPublicWebSocketUrl: AppEnvConfig.applicationPublicWebSocketUrl,
+    appbaseLoginUrl: AppEnvConfig.iamAppApiBaseUrl,
+    accessToken: AppEnvConfig.accessToken,
   );
-
 }

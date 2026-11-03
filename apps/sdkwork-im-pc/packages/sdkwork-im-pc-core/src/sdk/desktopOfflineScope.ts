@@ -107,7 +107,7 @@ export function resolveDesktopOfflinePrincipalScope(
 ): DesktopOfflinePrincipalScope | undefined {
   const environment = normalizeEnvironment(resolveAppSdkEnvironment(session));
   const deploymentProfile = normalizeDeploymentProfile(
-    readRuntimeValue('VITE_SDKWORK_IM_DEPLOYMENT_PROFILE'),
+    readRuntimeValue('VITE_SDKWORK_DEPLOYMENT_PROFILE'),
   );
   const deploymentMode = normalizeDeploymentMode(resolveAppSdkDeploymentMode(session));
   const apiOrigin = normalizeApiOrigin(resolveImApiBaseUrl());

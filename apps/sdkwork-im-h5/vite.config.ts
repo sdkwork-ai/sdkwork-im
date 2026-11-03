@@ -15,7 +15,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { createSdkworkCredentialEntryBootstrapVitePlugin } from '@sdkwork/iam-credential-entry/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { wechatCssCompatPlugin } from './scripts/dev/wechat-css-compat.mjs';
 import { wechatJsCompatPlugin } from './scripts/dev/wechat-js-compat.mjs';
 
@@ -59,7 +59,43 @@ const sdkCommonSourceRoot = path.resolve(
   '../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript/src',
 );
 
-export default defineConfig(({ mode }) => ({
+function publicApplicationAccessTokenPlugin(accessToken: string): Plugin {
+  const serialized = JSON.stringify(accessToken)
+    .replaceAll('<', '\\u003c')
+    .replaceAll('>', '\\u003e')
+    .replaceAll('&', '\\u0026');
+  return {
+    name: 'sdkwork-public-application-access-token',
+    transformIndexHtml: {
+      order: 'pre',
+      handler: (html) => ({
+        html,
+        tags: [{
+          tag: 'script',
+          children: `globalThis.__SDKWORK_CREDENTIAL_ENTRY_BOOTSTRAP_ACCESS_TOKEN__ = ${serialized};`,
+          injectTo: 'head-prepend',
+        }],
+      }),
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  const explicitProfileId = String(
+    process.env.SDKWORK_IM_PROFILE_ID ?? process.env.SDKWORK_PROFILE_ID ?? '',
+  ).trim();
+  const envProfileId = /^(?:standalone|cloud)\.(?:development|test|staging|demo|production)$/u.test(mode)
+    ? mode
+    : explicitProfileId
+      || `${String(process.env.SDKWORK_IM_DEPLOYMENT_PROFILE ?? process.env.SDKWORK_DEPLOYMENT_PROFILE ?? 'standalone').trim()}.${mode}`;
+  const profileEnv = loadEnv(envProfileId, __dirname, '');
+  const publicApplicationAccessToken = String(profileEnv.SDKWORK_ACCESS_TOKEN ?? '').trim();
+  if (!publicApplicationAccessToken) {
+    throw new Error(
+      `SDKWORK_ACCESS_TOKEN is missing for ${envProfileId} in ${__dirname}; run node ../sdkwork-specs/tools/materialize-client-env.mjs --root <repository>.`,
+    );
+  }
+  return ({
   // Keep the dependency cache outside `node_modules`: the workspace's
   // node_modules donor/junction machinery (`ensureLocalNodeModules` renames
   // node_modules wholesale to `*.__stale__donor*`) and pnpm reinstalls would
@@ -70,8 +106,9 @@ export default defineConfig(({ mode }) => ({
   // stale (410 Gone) whenever the request is routed to another renderer.
   cacheDir: path.resolve(__dirname, '.vite'),
   plugins: [
+    publicApplicationAccessTokenPlugin(publicApplicationAccessToken),
     createSdkworkCredentialEntryBootstrapVitePlugin({
-      accessToken: process.env.SDKWORK_ACCESS_TOKEN,
+      accessToken: publicApplicationAccessToken,
       environment: resolveViteEnvironment(mode, process.env),
     }),
     wechatJsCompatPlugin(),
@@ -79,9 +116,6 @@ export default defineConfig(({ mode }) => ({
     tailwindcss(),
     wechatCssCompatPlugin(),
   ],
-  define: {
-    // Replaced define to avoid passing server secrets to client.
-  },
   esbuild: {
     // Dev esbuild defaults to target `esnext`. Combined with
     // `useDefineForClassFields: false` (injected for SDK sources without a
@@ -429,4 +463,5 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-}));
+  });
+});

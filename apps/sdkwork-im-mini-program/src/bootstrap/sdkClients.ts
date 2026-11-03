@@ -65,6 +65,10 @@ export function initImMpSdkClients(
 
   const { socketFactory } = getImMpHostAdapters();
   const tokenManager = createTokenManager();
+  if (environment.accessToken) {
+    // Public application access token: SaaS isolation before interactive login.
+    tokenManager.setAccessToken(environment.accessToken);
+  }
 
   const imSdkClient = initImSdkClient(
     createImSdkClientConfig(environment.imApiBaseUrl, {

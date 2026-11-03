@@ -62,6 +62,8 @@ export interface ImMpRuntimeEnvironment {
   readonly iamApiBaseUrl: string;
   /** IAM OAuth mini-program surface code; absent when the deployment omits it. */
   readonly iamMiniProgramSurfaceCode?: string;
+  /** Public application access token used for SaaS isolation before login. */
+  readonly accessToken?: string;
   /** Host language, or `undefined` so the caller picks the default locale. */
   readonly hostLanguage?: string;
   readonly defaultLocale: string;
@@ -204,6 +206,7 @@ export function resolveImMpRuntimeEnvironment(): ImMpRuntimeEnvironment {
   }
 
   const surfaceCode = readEnv("SDKWORK_IM_IAM_MINI_PROGRAM_SURFACE_CODE");
+  const accessToken = readEnv("SDKWORK_ACCESS_TOKEN");
 
   cachedEnvironment = {
     appKey: readEnv("SDKWORK_APP_KEY") ?? DEFAULT_APP_KEY,
@@ -222,6 +225,7 @@ export function resolveImMpRuntimeEnvironment(): ImMpRuntimeEnvironment {
       "SDKWORK_IAM_APP_API_BASE_URL",
     ),
     ...(surfaceCode ? { iamMiniProgramSurfaceCode: surfaceCode } : {}),
+    ...(accessToken ? { accessToken } : {}),
     ...(hostLanguage ? { hostLanguage } : {}),
     defaultLocale: DEFAULT_LOCALE,
   };

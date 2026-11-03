@@ -20,9 +20,9 @@
     "clean": "pnpm exec sdkwork-app clean",
     "_sdkwork:client:android": "node scripts/flutter-dev.mjs --target android",
     "_sdkwork:client:ios": "node scripts/flutter-dev.mjs --target ios",
-    "_sdkwork:build": "flutter build appbundle",
+    "_sdkwork:build": "node ../../../sdkwork-specs/tools/check-app-access-token-env.mjs --root ../.. && node scripts/build-flutter-release.mjs",
     "_sdkwork:test": "flutter test",
-    "_sdkwork:check": "node ../../../sdkwork-specs/tools/check-app-manifest-standard.mjs --root . && node ../../../sdkwork-specs/tools/check-source-config-standard.mjs --root . && node --test scripts/flutter-dev.test.mjs && flutter analyze",
+    "_sdkwork:check": "node ../../../sdkwork-specs/tools/check-app-manifest-standard.mjs --root . && node ../../../sdkwork-specs/tools/check-source-config-standard.mjs --root . && node ../../../sdkwork-specs/tools/check-app-access-token-env.mjs --root ../.. && node ../../../sdkwork-specs/tools/generate-app-env-config.mjs --root . --profile standalone.development --format dart --app-id sdkwork-im-flutter-mobile --check && node --test scripts/flutter-dev.test.mjs && flutter analyze",
     "_sdkwork:verify": "pnpm run _sdkwork:check && pnpm run _sdkwork:test",
     "_sdkwork:clean": "flutter clean"
   },

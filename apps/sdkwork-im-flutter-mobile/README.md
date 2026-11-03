@@ -72,6 +72,11 @@ OS/CI temporary JSON file for `--dart-define-from-file`. The file is created wit
 permissions and removed after Flutter exits. Set `SDKWORK_FLUTTER_DEVICE_ID` when Flutter cannot
 select the intended device automatically.
 
+Runtime code reads the typed `AppEnvConfig` in `lib/generated/env_config.dart`, not the raw JSON or
+per-key `String.fromEnvironment` calls. `pnpm dev`/`pnpm build` regenerate that file for the selected
+profile (`APP_RUNTIME_ENV_SPEC.md` §3.1); the committed file is the `standalone.development`
+default used by `flutter analyze`.
+
 Architecture-local examples remain under:
 
 - `config/app/runtime-env.development.example.json`
