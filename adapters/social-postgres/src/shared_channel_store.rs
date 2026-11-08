@@ -6,7 +6,8 @@ use im_platform_contracts::ContractError;
 use r2d2::Pool;
 
 use crate::{
-    SocialPostgresConnectionManager, postgres_pool_client, postgres_unavailable, run_postgres_io,
+    SocialPostgresConnectionManager, postgres_pool_client, postgres_timestamptz,
+    postgres_unavailable, run_postgres_io,
 };
 
 /// Shared channel policy record for database storage.
@@ -72,7 +73,7 @@ INSERT INTO im_shared_channel_policies (
     tenant_id, organization_id, policy_id, connection_id, channel_id,
     conversation_id, policy_version, history_visibility, status,
     applied_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz, $11::timestamptz)
 ON CONFLICT (tenant_id, organization_id, policy_id) DO NOTHING
 "#;
 
@@ -105,13 +106,13 @@ LIMIT $5
 
 const UPDATE_STATUS_SQL: &str = r#"
 UPDATE im_shared_channel_policies
-SET status = $4, updated_at = $5
+SET status = $4, updated_at = $5::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND policy_id = $3
 "#;
 
 const UPDATE_VERSION_SQL: &str = r#"
 UPDATE im_shared_channel_policies
-SET policy_version = $4, updated_at = $5
+SET policy_version = $4, updated_at = $5::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND policy_id = $3
 "#;
 
@@ -149,6 +150,8 @@ impl SharedChannelPolicyStore for PostgresSharedChannelPolicyStore {
         let r = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "insert_shared_channel_policy")?;
+            let applied_at = postgres_timestamptz(r.applied_at.as_str(), "applied_at")?;
+            let updated_at = postgres_timestamptz(r.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     INSERT_SQL,
@@ -162,8 +165,8 @@ impl SharedChannelPolicyStore for PostgresSharedChannelPolicyStore {
                         &r.policy_version,
                         &r.history_visibility,
                         &r.status,
-                        &r.applied_at,
-                        &r.updated_at,
+                        &applied_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("insert_shared_channel_policy", e))?;
@@ -251,6 +254,7 @@ impl SharedChannelPolicyStore for PostgresSharedChannelPolicyStore {
         let ua = updated_at.to_string();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "update_shared_channel_policy_status")?;
+            let ua = postgres_timestamptz(ua.as_str(), "updated_at")?;
             client
                 .execute(UPDATE_STATUS_SQL, &[&tid, &oid, &policy_id, &st, &ua])
                 .map_err(|e| postgres_unavailable("update_shared_channel_policy_status", e))?;
@@ -272,6 +276,7 @@ impl SharedChannelPolicyStore for PostgresSharedChannelPolicyStore {
         let ua = updated_at.to_string();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "update_shared_channel_policy_version")?;
+            let ua = postgres_timestamptz(ua.as_str(), "updated_at")?;
             client
                 .execute(UPDATE_VERSION_SQL, &[&tid, &oid, &policy_id, &version, &ua])
                 .map_err(|e| postgres_unavailable("update_shared_channel_policy_version", e))?;

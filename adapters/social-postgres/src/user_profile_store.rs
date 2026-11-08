@@ -6,7 +6,8 @@ use im_platform_contracts::ContractError;
 use r2d2::Pool;
 
 use crate::{
-    SocialPostgresConnectionManager, postgres_pool_client, postgres_unavailable, run_postgres_io,
+    SocialPostgresConnectionManager, optional_postgres_timestamptz, postgres_pool_client,
+    postgres_timestamptz, postgres_unavailable, run_postgres_io,
 };
 
 /// User profile record for database storage.
@@ -106,6 +107,10 @@ impl UserProfileStore for PostgresUserProfileStore {
         let r = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "upsert_user_profile")?;
+            let last_active_at =
+                optional_postgres_timestamptz(r.last_active_at.as_deref(), "last_active_at")?;
+            let created_at = postgres_timestamptz(r.created_at.as_str(), "created_at")?;
+            let updated_at = postgres_timestamptz(r.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     UPSERT_PROFILE_SQL,
@@ -117,9 +122,9 @@ impl UserProfileStore for PostgresUserProfileStore {
                         &r.im_avatar_url,
                         &r.im_status_message,
                         &r.im_online_status,
-                        &r.last_active_at,
-                        &r.created_at,
-                        &r.updated_at,
+                        &last_active_at,
+                        &created_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("upsert_user_profile", e))?;

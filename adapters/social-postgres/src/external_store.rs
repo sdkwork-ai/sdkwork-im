@@ -6,7 +6,8 @@ use im_platform_contracts::ContractError;
 use r2d2::Pool;
 
 use crate::{
-    SocialPostgresConnectionManager, postgres_pool_client, postgres_unavailable, run_postgres_io,
+    SocialPostgresConnectionManager, postgres_pool_client, postgres_timestamptz,
+    postgres_unavailable, run_postgres_io,
 };
 
 /// External connection record for database storage.
@@ -88,7 +89,7 @@ const EC_INSERT_SQL: &str = r#"
 INSERT INTO im_external_connections (
     tenant_id, organization_id, connection_id, external_tenant_id,
     external_org_name, connection_kind, status, established_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9::timestamptz)
 ON CONFLICT (tenant_id, organization_id, connection_id) DO NOTHING
 "#;
 
@@ -113,7 +114,7 @@ INSERT INTO im_external_member_links (
     tenant_id, organization_id, link_id, connection_id,
     local_actor_kind, local_actor_id, external_member_id,
     external_display_name, status, linked_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz, $11::timestamptz)
 ON CONFLICT (tenant_id, organization_id, link_id) DO NOTHING
 "#;
 
@@ -193,6 +194,8 @@ impl ExternalConnectionStore for PostgresExternalConnectionStore {
         let r = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "insert_external_connection")?;
+            let established_at = postgres_timestamptz(r.established_at.as_str(), "established_at")?;
+            let updated_at = postgres_timestamptz(r.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     EC_INSERT_SQL,
@@ -204,8 +207,8 @@ impl ExternalConnectionStore for PostgresExternalConnectionStore {
                         &r.external_org_name,
                         &r.connection_kind,
                         &r.status,
-                        &r.established_at,
-                        &r.updated_at,
+                        &established_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("insert_external_connection", e))?;
@@ -269,6 +272,8 @@ impl ExternalMemberLinkStore for PostgresExternalMemberLinkStore {
         let r = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "insert_external_member_link")?;
+            let linked_at = postgres_timestamptz(r.linked_at.as_str(), "linked_at")?;
+            let updated_at = postgres_timestamptz(r.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     EML_INSERT_SQL,
@@ -282,8 +287,8 @@ impl ExternalMemberLinkStore for PostgresExternalMemberLinkStore {
                         &r.external_member_id,
                         &r.external_display_name,
                         &r.status,
-                        &r.linked_at,
-                        &r.updated_at,
+                        &linked_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("insert_external_member_link", e))?;

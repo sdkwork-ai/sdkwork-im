@@ -8,7 +8,8 @@ use r2d2::Pool;
 use serde_json::Value;
 
 use crate::{
-    SocialPostgresConnectionManager, postgres_pool_client, postgres_unavailable, run_postgres_io,
+    SocialPostgresConnectionManager, postgres_pool_client, postgres_timestamptz,
+    postgres_unavailable, run_postgres_io,
 };
 
 /// Trait for user settings persistence.
@@ -101,6 +102,7 @@ impl UserSettingsStore for PostgresUserSettingsStore {
         let updated_at = updated_at.to_string();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "upsert_user_settings")?;
+            let updated_at = postgres_timestamptz(updated_at.as_str(), "updated_at")?;
             for (key, value) in entries {
                 client
                     .execute(

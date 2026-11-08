@@ -11,7 +11,7 @@ use r2d2::Pool;
 use crate::member_capacity::MemberInsertOutcome;
 use crate::{
     SocialPostgresConnectionManager, optional_postgres_timestamptz, postgres_pool_client,
-    postgres_unavailable, run_postgres_io,
+    postgres_timestamptz, postgres_unavailable, run_postgres_io,
 };
 
 // ---------------------------------------------------------------------------
@@ -80,7 +80,7 @@ pub trait SpaceMemberStore: Send + Sync {
 const SPACE_MEMBER_INSERT_SQL: &str = r#"
 INSERT INTO im_space_members (
     tenant_id, organization_id, space_id, user_id, role, nickname, joined_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz)
 ON CONFLICT (tenant_id, organization_id, space_id, user_id) DO NOTHING
 "#;
 
@@ -122,7 +122,7 @@ WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3
 
 const SPACE_MEMBER_UPDATE_SQL: &str = r#"
 UPDATE im_space_members
-SET role = $5, nickname = $6, updated_at = $7
+SET role = $5, nickname = $6, updated_at = $7::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND user_id = $4
 "#;
 
@@ -169,6 +169,8 @@ impl SpaceMemberStore for PostgresSpaceMemberStore {
         let record = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "insert_space_member")?;
+            let joined_at = postgres_timestamptz(record.joined_at.as_str(), "joined_at")?;
+            let updated_at = postgres_timestamptz(record.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     SPACE_MEMBER_INSERT_SQL,
@@ -179,8 +181,8 @@ impl SpaceMemberStore for PostgresSpaceMemberStore {
                         &record.user_id,
                         &record.role,
                         &record.nickname,
-                        &record.joined_at,
-                        &record.updated_at,
+                        &joined_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|error| postgres_unavailable("insert_space_member", error))?;
@@ -326,6 +328,8 @@ impl SpaceMemberStore for PostgresSpaceMemberStore {
                 return Ok(MemberInsertOutcome::CapacityFull);
             }
 
+            let joined_at = postgres_timestamptz(record.joined_at.as_str(), "joined_at")?;
+            let updated_at = postgres_timestamptz(record.updated_at.as_str(), "updated_at")?;
             transaction
                 .execute(
                     SPACE_MEMBER_INSERT_SQL,
@@ -336,8 +340,8 @@ impl SpaceMemberStore for PostgresSpaceMemberStore {
                         &record.user_id,
                         &record.role,
                         &record.nickname,
-                        &record.joined_at,
-                        &record.updated_at,
+                        &joined_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|error| {
@@ -355,6 +359,7 @@ impl SpaceMemberStore for PostgresSpaceMemberStore {
         let record = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "update_space_member")?;
+            let updated_at = postgres_timestamptz(record.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     SPACE_MEMBER_UPDATE_SQL,
@@ -365,7 +370,7 @@ impl SpaceMemberStore for PostgresSpaceMemberStore {
                         &record.user_id,
                         &record.role,
                         &record.nickname,
-                        &record.updated_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|error| postgres_unavailable("update_space_member", error))?;
@@ -481,7 +486,7 @@ INSERT INTO im_invitations (
     invitee_user_id, invitee_email, invitee_phone,
     target_type, target_id, role, status, message, expires_at, accepted_at,
     created_at, updated_at, retention_until
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::timestamptz, $14::timestamptz, $15::timestamptz, $16::timestamptz, $17::timestamptz)
 "#;
 
 const INVITATION_GET_SQL: &str = r#"
@@ -511,7 +516,7 @@ LIMIT $8
 
 const INVITATION_UPDATE_SQL: &str = r#"
 UPDATE im_invitations
-SET status = $4, accepted_at = $5, updated_at = $6
+SET status = $4, accepted_at = $5::timestamptz, updated_at = $6::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND invitation_id = $3
 "#;
 
@@ -554,6 +559,16 @@ impl InvitationStore for PostgresInvitationStore {
         let record = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "insert_invitation")?;
+            let expires_at =
+                optional_postgres_timestamptz(record.expires_at.as_deref(), "expires_at")?;
+            let accepted_at =
+                optional_postgres_timestamptz(record.accepted_at.as_deref(), "accepted_at")?;
+            let created_at = postgres_timestamptz(record.created_at.as_str(), "created_at")?;
+            let updated_at = postgres_timestamptz(record.updated_at.as_str(), "updated_at")?;
+            let retention_until = optional_postgres_timestamptz(
+                record.retention_until.as_deref(),
+                "retention_until",
+            )?;
             client
                 .execute(
                     INVITATION_INSERT_SQL,
@@ -570,11 +585,11 @@ impl InvitationStore for PostgresInvitationStore {
                         &record.role,
                         &record.status,
                         &record.message,
-                        &record.expires_at,
-                        &record.accepted_at,
-                        &record.created_at,
-                        &record.updated_at,
-                        &record.retention_until,
+                        &expires_at,
+                        &accepted_at,
+                        &created_at,
+                        &updated_at,
+                        &retention_until,
                     ],
                 )
                 .map_err(|error| postgres_unavailable("insert_invitation", error))?;
@@ -646,6 +661,9 @@ impl InvitationStore for PostgresInvitationStore {
         let record = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "update_invitation")?;
+            let accepted_at =
+                optional_postgres_timestamptz(record.accepted_at.as_deref(), "accepted_at")?;
+            let updated_at = postgres_timestamptz(record.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     INVITATION_UPDATE_SQL,
@@ -654,8 +672,8 @@ impl InvitationStore for PostgresInvitationStore {
                         &record.organization_id,
                         &record.invitation_id,
                         &record.status,
-                        &record.accepted_at,
-                        &record.updated_at,
+                        &accepted_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|error| postgres_unavailable("update_invitation", error))?;
@@ -718,7 +736,7 @@ INSERT INTO im_ban_records (
     tenant_id, organization_id, ban_id, target_type, target_id,
     banned_user_id, banned_by_user_id, reason, expires_at,
     unbanned_at, unbanned_by_user_id, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::timestamptz, $10::timestamptz, $11, $12::timestamptz, $13::timestamptz)
 "#;
 
 const BAN_GET_ACTIVE_SQL: &str = r#"
@@ -752,7 +770,7 @@ LIMIT $7
 
 const BAN_UPDATE_SQL: &str = r#"
 UPDATE im_ban_records
-SET unbanned_at = $4, unbanned_by_user_id = $5, updated_at = $6
+SET unbanned_at = $4::timestamptz, unbanned_by_user_id = $5, updated_at = $6::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND ban_id = $3
 "#;
 
@@ -791,6 +809,12 @@ impl BanStore for PostgresBanStore {
         let record = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "insert_ban")?;
+            let expires_at =
+                optional_postgres_timestamptz(record.expires_at.as_deref(), "expires_at")?;
+            let unbanned_at =
+                optional_postgres_timestamptz(record.unbanned_at.as_deref(), "unbanned_at")?;
+            let created_at = postgres_timestamptz(record.created_at.as_str(), "created_at")?;
+            let updated_at = postgres_timestamptz(record.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     BAN_INSERT_SQL,
@@ -803,11 +827,11 @@ impl BanStore for PostgresBanStore {
                         &record.banned_user_id,
                         &record.banned_by_user_id,
                         &record.reason,
-                        &record.expires_at,
-                        &record.unbanned_at,
+                        &expires_at,
+                        &unbanned_at,
                         &record.unbanned_by_user_id,
-                        &record.created_at,
-                        &record.updated_at,
+                        &created_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|error| postgres_unavailable("insert_ban", error))?;
@@ -890,6 +914,9 @@ impl BanStore for PostgresBanStore {
         let record = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "update_ban")?;
+            let unbanned_at =
+                optional_postgres_timestamptz(record.unbanned_at.as_deref(), "unbanned_at")?;
+            let updated_at = postgres_timestamptz(record.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     BAN_UPDATE_SQL,
@@ -897,9 +924,9 @@ impl BanStore for PostgresBanStore {
                         &record.tenant_id,
                         &record.organization_id,
                         &record.ban_id,
-                        &record.unbanned_at,
+                        &unbanned_at,
                         &record.unbanned_by_user_id,
-                        &record.updated_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|error| postgres_unavailable("update_ban", error))?;
@@ -959,6 +986,12 @@ fn materialize_ban_created(
 ) -> Result<(), String> {
     let payload: SpaceBanCreatedPayload = serde_json::from_str(commit.payload.as_str())
         .map_err(|error| format!("invalid space.ban.created payload: {error}"))?;
+    let expires_at =
+        governance_materialize_optional_timestamptz(payload.expires_at.as_deref(), "expires_at")?;
+    let created_at =
+        governance_materialize_timestamptz(payload.created_at.as_str(), "created_at")?;
+    let updated_at =
+        governance_materialize_timestamptz(payload.updated_at.as_str(), "updated_at")?;
     txn.execute(
         BAN_INSERT_SQL,
         &[
@@ -970,11 +1003,11 @@ fn materialize_ban_created(
             &payload.banned_user_id,
             &payload.banned_by_user_id,
             &payload.reason,
-            &payload.expires_at,
+            &expires_at,
+            &None::<chrono::DateTime<chrono::Utc>>,
             &None::<String>,
-            &None::<String>,
-            &payload.created_at,
-            &payload.updated_at,
+            &created_at,
+            &updated_at,
         ],
     )
     .map_err(|error| format!("space ban insert failed: {error}"))
@@ -987,6 +1020,10 @@ fn materialize_ban_lifted(
 ) -> Result<(), String> {
     let payload: SpaceBanLiftedPayload = serde_json::from_str(commit.payload.as_str())
         .map_err(|error| format!("invalid space.ban.lifted payload: {error}"))?;
+    let unbanned_at =
+        governance_materialize_timestamptz(payload.unbanned_at.as_str(), "unbanned_at")?;
+    let updated_at =
+        governance_materialize_timestamptz(payload.updated_at.as_str(), "updated_at")?;
     let updated_rows = txn
         .execute(
             BAN_UPDATE_SQL,
@@ -994,9 +1031,9 @@ fn materialize_ban_lifted(
                 &commit.tenant_id,
                 &commit.organization_id,
                 &governance_entity_id(payload.ban_id.as_str())?,
-                &payload.unbanned_at,
+                &unbanned_at,
                 &payload.unbanned_by_user_id,
-                &payload.updated_at,
+                &updated_at,
             ],
         )
         .map_err(|error| format!("space ban lift update failed: {error}"))?;
@@ -1015,6 +1052,16 @@ fn materialize_invitation_created(
 ) -> Result<(), String> {
     let payload: SpaceInvitationCreatedPayload = serde_json::from_str(commit.payload.as_str())
         .map_err(|error| format!("invalid space.invitation.created payload: {error}"))?;
+    let expires_at =
+        governance_materialize_optional_timestamptz(payload.expires_at.as_deref(), "expires_at")?;
+    let created_at =
+        governance_materialize_timestamptz(payload.created_at.as_str(), "created_at")?;
+    let updated_at =
+        governance_materialize_timestamptz(payload.updated_at.as_str(), "updated_at")?;
+    let retention_until = governance_materialize_optional_timestamptz(
+        payload.retention_until.as_deref(),
+        "retention_until",
+    )?;
     txn.execute(
         INVITATION_INSERT_SQL,
         &[
@@ -1030,11 +1077,11 @@ fn materialize_invitation_created(
             &payload.role,
             &payload.status,
             &payload.message,
-            &payload.expires_at,
-            &None::<String>,
-            &payload.created_at,
-            &payload.updated_at,
-            &payload.retention_until,
+            &expires_at,
+            &None::<chrono::DateTime<chrono::Utc>>,
+            &created_at,
+            &updated_at,
+            &retention_until,
         ],
     )
     .map_err(|error| format!("space invitation insert failed: {error}"))
@@ -1045,6 +1092,20 @@ fn governance_entity_id(value: &str) -> Result<i64, String> {
     value
         .parse::<i64>()
         .map_err(|_| format!("governance entity id {value:?} is not a PostgreSQL bigint"))
+}
+
+fn governance_materialize_timestamptz(
+    value: &str,
+    field: &'static str,
+) -> Result<chrono::DateTime<chrono::Utc>, String> {
+    postgres_timestamptz(value, field).map_err(|error| format!("{error:?}"))
+}
+
+fn governance_materialize_optional_timestamptz(
+    value: Option<&str>,
+    field: &'static str,
+) -> Result<Option<chrono::DateTime<chrono::Utc>>, String> {
+    optional_postgres_timestamptz(value, field).map_err(|error| format!("{error:?}"))
 }
 
 // ---------------------------------------------------------------------------
@@ -1108,7 +1169,7 @@ const ACCESS_RULE_INSERT_SQL: &str = r#"
 INSERT INTO im_channel_access_rules (
     tenant_id, organization_id, rule_id, channel_id,
     rule_type, principal_kind, principal_id, permission, created_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::timestamptz)
 "#;
 
 const ACCESS_RULE_LIST_SQL: &str = r#"
@@ -1173,6 +1234,7 @@ impl ChannelAccessRuleStore for PostgresChannelAccessRuleStore {
         let record = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "insert_channel_access_rule")?;
+            let created_at = postgres_timestamptz(record.created_at.as_str(), "created_at")?;
             client
                 .execute(
                     ACCESS_RULE_INSERT_SQL,
@@ -1185,7 +1247,7 @@ impl ChannelAccessRuleStore for PostgresChannelAccessRuleStore {
                         &record.principal_kind,
                         &record.principal_id,
                         &record.permission,
-                        &record.created_at,
+                        &created_at,
                     ],
                 )
                 .map_err(|error| postgres_unavailable("insert_channel_access_rule", error))?;

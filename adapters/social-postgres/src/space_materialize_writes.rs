@@ -11,9 +11,24 @@ use im_platform_contracts::CommitEnvelope;
 use crate::governance_store::SpaceMemberRecord;
 use crate::organization_store::{GroupMemberRecord, GroupRecord, SpaceRecord};
 use crate::wire_id::parse_social_entity_id;
+use crate::{optional_postgres_timestamptz, postgres_timestamptz};
 
 fn space_entity_id(value: &str) -> Result<i64, String> {
     parse_social_entity_id(value).map_err(|error| format!("{error:?}"))
+}
+
+fn space_materialize_timestamptz(
+    value: &str,
+    field: &'static str,
+) -> Result<chrono::DateTime<chrono::Utc>, String> {
+    postgres_timestamptz(value, field).map_err(|error| format!("{error:?}"))
+}
+
+fn space_materialize_optional_timestamptz(
+    value: Option<&str>,
+    field: &'static str,
+) -> Result<Option<chrono::DateTime<chrono::Utc>>, String> {
+    optional_postgres_timestamptz(value, field).map_err(|error| format!("{error:?}"))
 }
 
 const SPACE_MEMBER_CAPACITY_FULL: &str = "space member capacity full during materialization";
@@ -38,7 +53,7 @@ impl std::error::Error for SpaceMaterializationError {}
 
 const SPACE_INSERT_SQL: &str = r#"
 INSERT INTO im_spaces (tenant_id, organization_id, space_id, space_name, space_type, owner_user_id, description, avatar_url, max_members, settings_json, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::timestamptz)
 ON CONFLICT (tenant_id, organization_id, space_id) DO NOTHING
 "#;
 
@@ -48,7 +63,7 @@ FROM im_spaces WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3
 "#;
 
 const SPACE_UPDATE_SQL: &str = r#"
-UPDATE im_spaces SET space_name = $4, description = $5, avatar_url = $6, max_members = $7, settings_json = $8, updated_at = $9
+UPDATE im_spaces SET space_name = $4, description = $5, avatar_url = $6, max_members = $7, settings_json = $8, updated_at = $9::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3
 "#;
 
@@ -59,7 +74,7 @@ DELETE FROM im_spaces WHERE tenant_id = $1 AND organization_id = $2 AND space_id
 const SPACE_MEMBER_INSERT_SQL: &str = r#"
 INSERT INTO im_space_members (
     tenant_id, organization_id, space_id, user_id, role, nickname, joined_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz)
 ON CONFLICT (tenant_id, organization_id, space_id, user_id) DO NOTHING
 "#;
 
@@ -84,7 +99,7 @@ WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND user_id = $4
 
 const SPACE_MEMBER_UPDATE_SQL: &str = r#"
 UPDATE im_space_members
-SET role = $5, nickname = $6, updated_at = $7
+SET role = $5, nickname = $6, updated_at = $7::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND user_id = $4
 "#;
 
@@ -95,7 +110,7 @@ WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND user_id = $4
 
 const GROUP_INSERT_SQL: &str = r#"
 INSERT INTO im_chat_groups (tenant_id, organization_id, group_id, space_id, group_name, group_type, owner_user_id, conversation_id, max_members, description, avatar_url, announcement, settings_json, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::timestamptz, $15::timestamptz)
 ON CONFLICT (tenant_id, organization_id, group_id) DO NOTHING
 "#;
 
@@ -105,7 +120,7 @@ FROM im_chat_groups WHERE tenant_id = $1 AND organization_id = $2 AND group_id =
 "#;
 
 const GROUP_UPDATE_SQL: &str = r#"
-UPDATE im_chat_groups SET group_name = $4, description = $5, avatar_url = $6, announcement = $7, max_members = $8, settings_json = $9, updated_at = $10
+UPDATE im_chat_groups SET group_name = $4, description = $5, avatar_url = $6, announcement = $7, max_members = $8, settings_json = $9, updated_at = $10::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND group_id = $3
 "#;
 
@@ -115,26 +130,26 @@ DELETE FROM im_chat_groups WHERE tenant_id = $1 AND organization_id = $2 AND gro
 
 const GROUP_TRANSFER_OWNER_SQL: &str = r#"
 UPDATE im_chat_groups
-SET owner_user_id = $4, updated_at = $5
+SET owner_user_id = $4, updated_at = $5::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND group_id = $3 AND owner_user_id = $6
 "#;
 
 const GROUP_MEMBER_DEMOTE_OWNER_SQL: &str = r#"
 UPDATE im_group_members
-SET role = 'admin', updated_at = $5
+SET role = 'admin', updated_at = $5::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND group_id = $3 AND user_id = $4 AND role = 'owner'
 "#;
 
 const GROUP_MEMBER_PROMOTE_OWNER_SQL: &str = r#"
 UPDATE im_group_members
-SET role = 'owner', updated_at = $5
+SET role = 'owner', updated_at = $5::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND group_id = $3 AND user_id = $4
 "#;
 
 const GROUP_MEMBER_INSERT_SQL: &str = r#"
 INSERT INTO im_group_members (
     tenant_id, organization_id, group_id, user_id, role, nickname, mute_until, joined_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9::timestamptz)
 ON CONFLICT (tenant_id, organization_id, group_id, user_id) DO NOTHING
 "#;
 
@@ -159,7 +174,7 @@ WHERE tenant_id = $1 AND organization_id = $2 AND group_id = $3 AND user_id = $4
 
 const GROUP_MEMBER_UPDATE_SQL: &str = r#"
 UPDATE im_group_members
-SET role = $5, nickname = $6, mute_until = $7, updated_at = $8
+SET role = $5, nickname = $6, mute_until = $7::timestamptz, updated_at = $8::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND group_id = $3 AND user_id = $4
 "#;
 
@@ -216,6 +231,10 @@ fn materialize_space_created(
 ) -> Result<(), String> {
     let payload: SpaceCreatedPayload = serde_json::from_str(commit.payload.as_str())
         .map_err(|error| format!("invalid space.created payload: {error}"))?;
+    let created_at =
+        space_materialize_timestamptz(payload.created_at.as_str(), "created_at")?;
+    let updated_at =
+        space_materialize_timestamptz(payload.updated_at.as_str(), "updated_at")?;
     txn.execute(
         SPACE_INSERT_SQL,
         &[
@@ -229,8 +248,8 @@ fn materialize_space_created(
             &payload.avatar_url,
             &payload.max_members,
             &payload.settings_json,
-            &payload.created_at,
-            &payload.updated_at,
+            &created_at,
+            &updated_at,
         ],
     )
     .map_err(|error| format!("space insert failed: {error}"))
@@ -244,6 +263,8 @@ fn materialize_space_updated(
     let payload: SpaceUpdatedPayload = serde_json::from_str(commit.payload.as_str())
         .map_err(|error| format!("invalid space.updated payload: {error}"))?;
     let space_id = space_entity_id(payload.space_id.as_str())?;
+    let updated_at =
+        space_materialize_timestamptz(payload.updated_at.as_str(), "updated_at")?;
     let existing = load_space(
         txn,
         commit.tenant_id.as_str(),
@@ -261,7 +282,7 @@ fn materialize_space_updated(
             &payload.avatar_url,
             &payload.max_members,
             &payload.settings_json,
-            &payload.updated_at,
+            &updated_at,
         ],
     )
     .map_err(|error| format!("space update failed: {error}"))?;
@@ -313,6 +334,8 @@ fn materialize_space_member_updated(
     let payload: SpaceMemberUpdatedPayload = serde_json::from_str(commit.payload.as_str())
         .map_err(|error| format!("invalid space.member_updated payload: {error}"))?;
     let space_id = space_entity_id(payload.space_id.as_str())?;
+    let updated_at =
+        space_materialize_timestamptz(payload.updated_at.as_str(), "updated_at")?;
     let _existing = load_space_member(
         txn,
         commit.tenant_id.as_str(),
@@ -329,7 +352,7 @@ fn materialize_space_member_updated(
             &payload.user_id,
             &payload.role,
             &payload.nickname,
-            &payload.updated_at,
+            &updated_at,
         ],
     )
     .map_err(|error| format!("space member update failed: {error}"))
@@ -367,6 +390,10 @@ fn materialize_group_created(
         .as_deref()
         .map(space_entity_id)
         .transpose()?;
+    let created_at =
+        space_materialize_timestamptz(payload.created_at.as_str(), "created_at")?;
+    let updated_at =
+        space_materialize_timestamptz(payload.updated_at.as_str(), "updated_at")?;
     txn.execute(
         GROUP_INSERT_SQL,
         &[
@@ -383,8 +410,8 @@ fn materialize_group_created(
             &payload.avatar_url,
             &payload.announcement,
             &payload.settings_json,
-            &payload.created_at,
-            &payload.updated_at,
+            &created_at,
+            &updated_at,
         ],
     )
     .map_err(|error| format!("group insert failed: {error}"))?;
@@ -397,9 +424,9 @@ fn materialize_group_created(
             &payload.owner_user_id,
             &"owner".to_string(),
             &None::<String>,
-            &None::<String>,
-            &payload.created_at,
-            &payload.updated_at,
+            &None::<chrono::DateTime<chrono::Utc>>,
+            &created_at,
+            &updated_at,
         ],
     )
     .map_err(|error| format!("group owner member insert failed: {error}"))
@@ -413,6 +440,8 @@ fn materialize_group_updated(
     let payload: GroupUpdatedPayload = serde_json::from_str(commit.payload.as_str())
         .map_err(|error| format!("invalid group.updated payload: {error}"))?;
     let group_id = space_entity_id(payload.group_id.as_str())?;
+    let updated_at =
+        space_materialize_timestamptz(payload.updated_at.as_str(), "updated_at")?;
     let _existing = load_group(
         txn,
         commit.tenant_id.as_str(),
@@ -431,7 +460,7 @@ fn materialize_group_updated(
             &payload.announcement,
             &payload.max_members,
             &payload.settings_json,
-            &payload.updated_at,
+            &updated_at,
         ],
     )
     .map_err(|error| format!("group update failed: {error}"))
@@ -483,6 +512,10 @@ fn materialize_group_member_updated(
     let payload: GroupMemberUpdatedPayload = serde_json::from_str(commit.payload.as_str())
         .map_err(|error| format!("invalid group.member_updated payload: {error}"))?;
     let group_id = space_entity_id(payload.group_id.as_str())?;
+    let mute_until =
+        space_materialize_optional_timestamptz(payload.mute_until.as_deref(), "mute_until")?;
+    let updated_at =
+        space_materialize_timestamptz(payload.updated_at.as_str(), "updated_at")?;
     let _existing = load_group_member(
         txn,
         commit.tenant_id.as_str(),
@@ -499,8 +532,8 @@ fn materialize_group_member_updated(
             &payload.user_id,
             &payload.role,
             &payload.nickname,
-            &payload.mute_until,
-            &payload.updated_at,
+            &mute_until,
+            &updated_at,
         ],
     )
     .map_err(|error| format!("group member update failed: {error}"))
@@ -533,6 +566,8 @@ fn materialize_group_owner_transferred(
     let payload: GroupOwnerTransferredPayload = serde_json::from_str(commit.payload.as_str())
         .map_err(|error| format!("invalid group.owner_transferred payload: {error}"))?;
     let group_id = space_entity_id(payload.group_id.as_str())?;
+    let transferred_at =
+        space_materialize_timestamptz(payload.transferred_at.as_str(), "transferred_at")?;
     let updated_rows = txn
         .execute(
             GROUP_TRANSFER_OWNER_SQL,
@@ -541,7 +576,7 @@ fn materialize_group_owner_transferred(
                 &commit.organization_id,
                 &group_id,
                 &payload.new_owner_user_id,
-                &payload.transferred_at,
+                &transferred_at,
                 &payload.current_owner_user_id,
             ],
         )
@@ -556,7 +591,7 @@ fn materialize_group_owner_transferred(
             &commit.organization_id,
             &group_id,
             &payload.current_owner_user_id,
-            &payload.transferred_at,
+            &transferred_at,
         ],
     )
     .map_err(|error| format!("group owner demote failed: {error}"))?;
@@ -568,7 +603,7 @@ fn materialize_group_owner_transferred(
                 &commit.organization_id,
                 &group_id,
                 &payload.new_owner_user_id,
-                &payload.transferred_at,
+                &transferred_at,
             ],
         )
         .map_err(|error| format!("group owner promote failed: {error}"))?;
@@ -730,6 +765,10 @@ fn insert_space_member_within_capacity(
     if current_count >= i64::from(space_max) {
         return Err(SPACE_MEMBER_CAPACITY_FULL.to_owned());
     }
+    let joined_at =
+        space_materialize_timestamptz(record.joined_at.as_str(), "joined_at")?;
+    let updated_at =
+        space_materialize_timestamptz(record.updated_at.as_str(), "updated_at")?;
     txn.execute(
         SPACE_MEMBER_INSERT_SQL,
         &[
@@ -739,8 +778,8 @@ fn insert_space_member_within_capacity(
             &record.user_id,
             &record.role,
             &record.nickname,
-            &record.joined_at,
-            &record.updated_at,
+            &joined_at,
+            &updated_at,
         ],
     )
     .map_err(|error| format!("space member insert failed: {error}"))
@@ -785,6 +824,12 @@ fn insert_group_member_within_capacity(
     if current_count >= i64::from(group_max) {
         return Err(GROUP_MEMBER_CAPACITY_FULL.to_owned());
     }
+    let mute_until =
+        space_materialize_optional_timestamptz(record.mute_until.as_deref(), "mute_until")?;
+    let joined_at =
+        space_materialize_timestamptz(record.joined_at.as_str(), "joined_at")?;
+    let updated_at =
+        space_materialize_timestamptz(record.updated_at.as_str(), "updated_at")?;
     txn.execute(
         GROUP_MEMBER_INSERT_SQL,
         &[
@@ -794,9 +839,9 @@ fn insert_group_member_within_capacity(
             &record.user_id,
             &record.role,
             &record.nickname,
-            &record.mute_until,
-            &record.joined_at,
-            &record.updated_at,
+            &mute_until,
+            &joined_at,
+            &updated_at,
         ],
     )
     .map_err(|error| format!("group member insert failed: {error}"))

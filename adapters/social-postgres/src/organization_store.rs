@@ -9,7 +9,7 @@ use r2d2::Pool;
 use crate::member_capacity::MemberInsertOutcome;
 use crate::{
     SocialPostgresConnectionManager, optional_postgres_timestamptz, postgres_pool_client,
-    postgres_unavailable, run_postgres_io,
+    postgres_timestamptz, postgres_unavailable, run_postgres_io,
 };
 
 // ---------------------------------------------------------------------------
@@ -175,7 +175,7 @@ pub trait SpaceStore: Send + Sync {
 
 const SPACE_INSERT_SQL: &str = r#"
 INSERT INTO im_spaces (tenant_id, organization_id, space_id, space_name, space_type, owner_user_id, description, avatar_url, max_members, settings_json, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::timestamptz)
 ON CONFLICT (tenant_id, organization_id, space_id) DO NOTHING
 "#;
 
@@ -208,7 +208,7 @@ LIMIT $6
 "#;
 
 const SPACE_UPDATE_SQL: &str = r#"
-UPDATE im_spaces SET space_name = $4, description = $5, avatar_url = $6, max_members = $7, settings_json = $8, updated_at = $9
+UPDATE im_spaces SET space_name = $4, description = $5, avatar_url = $6, max_members = $7, settings_json = $8, updated_at = $9::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3
 "#;
 
@@ -251,6 +251,8 @@ impl SpaceStore for PostgresSpaceStore {
         let r = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "insert_space")?;
+            let created_at = postgres_timestamptz(r.created_at.as_str(), "created_at")?;
+            let updated_at = postgres_timestamptz(r.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     SPACE_INSERT_SQL,
@@ -265,8 +267,8 @@ impl SpaceStore for PostgresSpaceStore {
                         &r.avatar_url,
                         &r.max_members,
                         &r.settings_json,
-                        &r.created_at,
-                        &r.updated_at,
+                        &created_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("insert_space", e))?;
@@ -357,6 +359,7 @@ impl SpaceStore for PostgresSpaceStore {
         let r = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "update_space")?;
+            let updated_at = postgres_timestamptz(r.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     SPACE_UPDATE_SQL,
@@ -369,7 +372,7 @@ impl SpaceStore for PostgresSpaceStore {
                         &r.avatar_url,
                         &r.max_members,
                         &r.settings_json,
-                        &r.updated_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("update_space", e))?;
@@ -439,7 +442,7 @@ pub trait GroupStore: Send + Sync {
 
 const GROUP_INSERT_SQL: &str = r#"
 INSERT INTO im_chat_groups (tenant_id, organization_id, group_id, space_id, group_name, group_type, owner_user_id, conversation_id, max_members, description, avatar_url, announcement, settings_json, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::timestamptz, $15::timestamptz)
 ON CONFLICT (tenant_id, organization_id, group_id) DO NOTHING
 "#;
 
@@ -461,25 +464,25 @@ FROM im_chat_groups WHERE tenant_id = $1 AND organization_id = $2 AND owner_user
 "#;
 
 const GROUP_UPDATE_SQL: &str = r#"
-UPDATE im_chat_groups SET group_name = $4, description = $5, avatar_url = $6, announcement = $7, max_members = $8, settings_json = $9, updated_at = $10
+UPDATE im_chat_groups SET group_name = $4, description = $5, avatar_url = $6, announcement = $7, max_members = $8, settings_json = $9, updated_at = $10::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND group_id = $3
 "#;
 
 const GROUP_TRANSFER_OWNER_SQL: &str = r#"
 UPDATE im_chat_groups
-SET owner_user_id = $4, updated_at = $5
+SET owner_user_id = $4, updated_at = $5::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND group_id = $3 AND owner_user_id = $6
 "#;
 
 const GROUP_MEMBER_DEMOTE_OWNER_SQL: &str = r#"
 UPDATE im_group_members
-SET role = 'admin', updated_at = $5
+SET role = 'admin', updated_at = $5::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND group_id = $3 AND user_id = $4 AND role = 'owner'
 "#;
 
 const GROUP_MEMBER_PROMOTE_OWNER_SQL: &str = r#"
 UPDATE im_group_members
-SET role = 'owner', updated_at = $5
+SET role = 'owner', updated_at = $5::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND group_id = $3 AND user_id = $4
 "#;
 
@@ -530,6 +533,8 @@ impl GroupStore for PostgresGroupStore {
         let r = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "insert_group")?;
+            let created_at = postgres_timestamptz(r.created_at.as_str(), "created_at")?;
+            let updated_at = postgres_timestamptz(r.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     GROUP_INSERT_SQL,
@@ -547,8 +552,8 @@ impl GroupStore for PostgresGroupStore {
                         &r.avatar_url,
                         &r.announcement,
                         &r.settings_json,
-                        &r.created_at,
-                        &r.updated_at,
+                        &created_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("insert_group", e))?;
@@ -566,6 +571,18 @@ impl GroupStore for PostgresGroupStore {
         let member_record = owner_member.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "insert_group_with_owner")?;
+            let group_created_at =
+                postgres_timestamptz(group_record.created_at.as_str(), "created_at")?;
+            let group_updated_at =
+                postgres_timestamptz(group_record.updated_at.as_str(), "updated_at")?;
+            let member_mute_until = optional_postgres_timestamptz(
+                member_record.mute_until.as_deref(),
+                "mute_until",
+            )?;
+            let member_joined_at =
+                postgres_timestamptz(member_record.joined_at.as_str(), "joined_at")?;
+            let member_updated_at =
+                postgres_timestamptz(member_record.updated_at.as_str(), "updated_at")?;
             let mut transaction = client
                 .transaction()
                 .map_err(|e| postgres_unavailable("insert_group_with_owner_begin", e))?;
@@ -586,8 +603,8 @@ impl GroupStore for PostgresGroupStore {
                         &group_record.avatar_url,
                         &group_record.announcement,
                         &group_record.settings_json,
-                        &group_record.created_at,
-                        &group_record.updated_at,
+                        &group_created_at,
+                        &group_updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("insert_group_with_owner_group", e))?;
@@ -601,9 +618,9 @@ impl GroupStore for PostgresGroupStore {
                         &member_record.user_id,
                         &member_record.role,
                         &member_record.nickname,
-                        &member_record.mute_until,
-                        &member_record.joined_at,
-                        &member_record.updated_at,
+                        &member_mute_until,
+                        &member_joined_at,
+                        &member_updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("insert_group_with_owner_member", e))?;
@@ -696,6 +713,7 @@ impl GroupStore for PostgresGroupStore {
         let r = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "update_group")?;
+            let updated_at = postgres_timestamptz(r.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     GROUP_UPDATE_SQL,
@@ -709,7 +727,7 @@ impl GroupStore for PostgresGroupStore {
                         &r.announcement,
                         &r.max_members,
                         &r.settings_json,
-                        &r.updated_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("update_group", e))?;
@@ -734,6 +752,7 @@ impl GroupStore for PostgresGroupStore {
         let updated = updated_at.to_string();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "transfer_group_owner")?;
+            let updated = postgres_timestamptz(updated.as_str(), "updated_at")?;
             let mut transaction = client
                 .transaction()
                 .map_err(|e| postgres_unavailable("transfer_group_owner_begin", e))?;
@@ -828,7 +847,7 @@ pub trait ChannelStore: Send + Sync {
 
 const CHANNEL_INSERT_SQL: &str = r#"
 INSERT INTO im_chat_channels (tenant_id, organization_id, channel_id, space_id, channel_name, channel_type, description, conversation_id, position, is_nsfw, is_pinned, topic, settings_json, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::timestamptz, $15::timestamptz)
 ON CONFLICT (tenant_id, organization_id, channel_id) DO NOTHING
 "#;
 
@@ -845,7 +864,7 @@ ORDER BY created_at DESC, channel_id DESC LIMIT $6
 "#;
 
 const CHANNEL_UPDATE_SQL: &str = r#"
-UPDATE im_chat_channels SET channel_name = $4, description = $5, position = $6, is_nsfw = $7, is_pinned = $8, topic = $9, settings_json = $10, updated_at = $11
+UPDATE im_chat_channels SET channel_name = $4, description = $5, position = $6, is_nsfw = $7, is_pinned = $8, topic = $9, settings_json = $10, updated_at = $11::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND channel_id = $3
 "#;
 
@@ -891,6 +910,8 @@ impl ChannelStore for PostgresChannelStore {
         let r = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "insert_channel")?;
+            let created_at = postgres_timestamptz(r.created_at.as_str(), "created_at")?;
+            let updated_at = postgres_timestamptz(r.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     CHANNEL_INSERT_SQL,
@@ -908,8 +929,8 @@ impl ChannelStore for PostgresChannelStore {
                         &r.is_pinned,
                         &r.topic,
                         &r.settings_json,
-                        &r.created_at,
-                        &r.updated_at,
+                        &created_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("insert_channel", e))?;
@@ -979,6 +1000,7 @@ impl ChannelStore for PostgresChannelStore {
         let r = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "update_channel")?;
+            let updated_at = postgres_timestamptz(r.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     CHANNEL_UPDATE_SQL,
@@ -993,7 +1015,7 @@ impl ChannelStore for PostgresChannelStore {
                         &r.is_pinned,
                         &r.topic,
                         &r.settings_json,
-                        &r.updated_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("update_channel", e))?;
@@ -1074,7 +1096,7 @@ pub trait GroupMemberStore: Send + Sync {
 const GROUP_MEMBER_INSERT_SQL: &str = r#"
 INSERT INTO im_group_members (
     tenant_id, organization_id, group_id, user_id, role, nickname, mute_until, joined_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9::timestamptz)
 ON CONFLICT (tenant_id, organization_id, group_id, user_id) DO NOTHING
 "#;
 
@@ -1116,7 +1138,7 @@ WHERE tenant_id = $1 AND organization_id = $2 AND group_id = $3
 
 const GROUP_MEMBER_UPDATE_SQL: &str = r#"
 UPDATE im_group_members
-SET role = $5, nickname = $6, mute_until = $7, updated_at = $8
+SET role = $5, nickname = $6, mute_until = $7::timestamptz, updated_at = $8::timestamptz
 WHERE tenant_id = $1 AND organization_id = $2 AND group_id = $3 AND user_id = $4
 "#;
 
@@ -1156,6 +1178,9 @@ impl GroupMemberStore for PostgresGroupMemberStore {
         let r = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "insert_group_member")?;
+            let mute_until = optional_postgres_timestamptz(r.mute_until.as_deref(), "mute_until")?;
+            let joined_at = postgres_timestamptz(r.joined_at.as_str(), "joined_at")?;
+            let updated_at = postgres_timestamptz(r.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     GROUP_MEMBER_INSERT_SQL,
@@ -1166,9 +1191,9 @@ impl GroupMemberStore for PostgresGroupMemberStore {
                         &r.user_id,
                         &r.role,
                         &r.nickname,
-                        &r.mute_until,
-                        &r.joined_at,
-                        &r.updated_at,
+                        &mute_until,
+                        &joined_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("insert_group_member", e))?;
@@ -1311,6 +1336,10 @@ impl GroupMemberStore for PostgresGroupMemberStore {
                 return Ok(MemberInsertOutcome::CapacityFull);
             }
 
+            let mute_until =
+                optional_postgres_timestamptz(record.mute_until.as_deref(), "mute_until")?;
+            let joined_at = postgres_timestamptz(record.joined_at.as_str(), "joined_at")?;
+            let updated_at = postgres_timestamptz(record.updated_at.as_str(), "updated_at")?;
             transaction
                 .execute(
                     GROUP_MEMBER_INSERT_SQL,
@@ -1321,9 +1350,9 @@ impl GroupMemberStore for PostgresGroupMemberStore {
                         &record.user_id,
                         &record.role,
                         &record.nickname,
-                        &record.mute_until,
-                        &record.joined_at,
-                        &record.updated_at,
+                        &mute_until,
+                        &joined_at,
+                        &updated_at,
                     ],
                 )
                 .map_err(|error| {
@@ -1341,6 +1370,8 @@ impl GroupMemberStore for PostgresGroupMemberStore {
         let r = record.clone();
         run_postgres_io(move || {
             let mut client = postgres_pool_client(&pool, "update_group_member")?;
+            let mute_until = optional_postgres_timestamptz(r.mute_until.as_deref(), "mute_until")?;
+            let updated_at = postgres_timestamptz(r.updated_at.as_str(), "updated_at")?;
             client
                 .execute(
                     GROUP_MEMBER_UPDATE_SQL,
@@ -1351,8 +1382,8 @@ impl GroupMemberStore for PostgresGroupMemberStore {
                         &r.user_id,
                         &r.role,
                         &r.nickname,
-                        &r.mute_until,
-                        &r.updated_at,
+                        &mute_until,
+                        &updated_at,
                     ],
                 )
                 .map_err(|e| postgres_unavailable("update_group_member", e))?;
