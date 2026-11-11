@@ -1,0 +1,9 @@
+{
+  "comment": "Deliberate exceptions to MODULE_SPEC.md §4.2 (Backend Module Call Boundary, In-Process First). The IM module reaches its siblings in-process; the entry below is a browser-shell reverse proxy, not a backend-to-backend data call.",
+  "allow": [
+    {
+      "file": "crates/sdkwork-api-product-runtime/src/lib.rs",
+      "reason": "Edge/client reverse proxy, not a module-to-module data call (MODULE_SPEC.md §4.2.3). This crate is the product shell runtime (desktop host and the standalone gateway's shell router): it forwards /backend/v3/api/admin/* to the operator-configured SDKWORK_ADMIN_PROXY_TARGET and /api/agent/* to SDKWORK_IM_PC_API_UPSTREAM, and returns a structured 503 when the admin target is unset. No shipped topology sets SDKWORK_ADMIN_PROXY_TARGET, and the admin/manager surface is not composed into this process (the standalone gateway composes only the im and iam assemblies), so no sibling module is addressed by default."
+    }
+  ]
+}

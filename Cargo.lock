@@ -6587,6 +6587,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -7365,6 +7366,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdkwork-content-news-service"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "sqlx",
+ "uuid",
+]
+
+[[package]]
 name = "sdkwork-contract-service"
 version = "0.1.0"
 
@@ -7607,6 +7618,7 @@ dependencies = [
 name = "sdkwork-drive-object-runtime"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "sdkwork-drive-storage-contract",
  "sdkwork-drive-storage-local",
  "sdkwork-drive-storage-s3",
@@ -7762,6 +7774,7 @@ dependencies = [
  "sdkwork-database-sqlx",
  "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -7771,8 +7784,12 @@ dependencies = [
  "async-trait",
  "reqwest 0.12.28",
  "sdkwork-content-feeds-service",
+ "sdkwork-content-news-service",
+ "sdkwork-database-sqlx",
  "serde",
  "serde_json",
+ "sqlx",
+ "tokio",
 ]
 
 [[package]]
@@ -8973,6 +8990,7 @@ version = "0.1.0"
 dependencies = [
  "reqwest 0.12.28",
  "sdkwork-communication-mail-service",
+ "sdkwork-drive-workspace-service",
  "sdkwork-mail-adapter-imap",
  "sdkwork-mail-adapter-smtp",
  "sdkwork-routes-mail-app-api",
@@ -8980,6 +8998,7 @@ dependencies = [
  "sdkwork-utils-rust",
  "serde",
  "serde_json",
+ "sqlx",
  "tokio",
  "uuid",
 ]
