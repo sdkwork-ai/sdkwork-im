@@ -7,6 +7,7 @@ use std::{
 use url::Url;
 
 const DEFAULT_RUNTIME_BIND_ADDR: &str = "127.0.0.1:0";
+const DEFAULT_PORTAL_API_BASE_URL: &str = "http://127.0.0.1:18079";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StandaloneConfig {
@@ -58,19 +59,27 @@ fn resolve_admin_proxy_target() -> Result<String> {
     }
 }
 
+/// Resolve the portal App API origin handed to the browser runtime.
+///
+/// The portal App API is not a sibling module call: `sdkwork-api-im-assembly`
+/// mounts `portal-service` through `sdkwork-routes-im-portal-app-api` on this
+/// process's own listener (`MODULE_SPEC.md` §4.2: in-process route composition,
+/// not a backend-to-backend HTTP call), and the browser shell it is injected
+/// into always calls that same origin. `sdkwork-api-im-standalone-gateway`
+/// additionally overwrites the resolved value with its own listener origin, so
+/// only this process's self-published public URL (and the ingress bind it
+/// derives from) can describe it. A sibling module endpoint variable must not
+/// be consulted here.
 fn resolve_portal_api_base_url() -> Result<String> {
-    for key in [
-        "SDKWORK_IM_PORTAL_API_BASE_URL",
-        "SDKWORK_PORTAL_API_BASE_URL",
-        "SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL",
-    ] {
-        if let Some(value) = env::var(key)
-            .ok()
-            .map(|value| value.trim().to_owned())
-            .filter(|value| !value.is_empty())
-        {
-            return normalize_explicit_portal_api_base_url(key, value.as_str());
-        }
+    if let Some(value) = env::var("SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL")
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+    {
+        return normalize_explicit_portal_api_base_url(
+            "SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL",
+            value.as_str(),
+        );
     }
 
     if let Some(value) = env::var("SDKWORK_IM_APPLICATION_PUBLIC_INGRESS_BIND")
@@ -84,7 +93,7 @@ fn resolve_portal_api_base_url() -> Result<String> {
         );
     }
 
-    Ok("http://127.0.0.1:18079".to_owned())
+    Ok(DEFAULT_PORTAL_API_BASE_URL.to_owned())
 }
 
 fn normalize_upstream_url(value: &str) -> Result<String> {
@@ -247,46 +256,18 @@ mod tests {
     }
 
     #[test]
-    fn resolve_portal_api_base_url_prefers_explicit_url_and_falls_back_to_ingress_bind() {
+    fn resolve_portal_api_base_url_uses_self_published_url_and_falls_back_to_ingress_bind() {
         let _guard = env_guard();
-        let _explicit = ScopedEnvVar::set(
-            "SDKWORK_IM_PORTAL_API_BASE_URL",
-            " https://portal-api.example.com/runtime-edge/ ",
+        let _application_public_http = ScopedEnvVar::set(
+            "SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL",
+            " https://im.example.com/api-edge/ ",
         );
-        let _application_public_http =
-            ScopedEnvVar::remove("SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL");
         let _bind = ScopedEnvVar::set(
             "SDKWORK_IM_APPLICATION_PUBLIC_INGRESS_BIND",
             "127.0.0.1:19990",
         );
         assert_eq!(
-            resolve_portal_api_base_url().expect("explicit portal api base url should resolve"),
-            "https://portal-api.example.com/runtime-edge"
-        );
-
-        unsafe {
-            env::remove_var("SDKWORK_IM_PORTAL_API_BASE_URL");
-            env::set_var(
-                "SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL",
-                " https://im.example.com/ ",
-            );
-        }
-        assert_eq!(
-            resolve_portal_api_base_url()
-                .expect("application public HTTP URL should resolve as public portal api fallback"),
-            "https://im.example.com"
-        );
-
-        unsafe {
-            env::remove_var("SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL");
-            env::set_var(
-                "SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL",
-                " https://im.example.com/api-edge/ ",
-            );
-        }
-        assert_eq!(
-            resolve_portal_api_base_url()
-                .expect("application public HTTP URL should resolve as public portal api fallback"),
+            resolve_portal_api_base_url().expect("self-published public HTTP URL should resolve"),
             "https://im.example.com/api-edge"
         );
 
@@ -321,25 +302,14 @@ mod tests {
     #[test]
     fn resolve_portal_api_base_url_rejects_unspecified_explicit_public_url() {
         let _guard = env_guard();
-        let _explicit = ScopedEnvVar::set("SDKWORK_IM_PORTAL_API_BASE_URL", "http://0.0.0.0:18079");
-        let _application_public_http =
-            ScopedEnvVar::remove("SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL");
+        let _application_public_http = ScopedEnvVar::set(
+            "SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL",
+            "http://0.0.0.0:18079",
+        );
         let _bind = ScopedEnvVar::remove("SDKWORK_IM_APPLICATION_PUBLIC_INGRESS_BIND");
 
         let error = resolve_portal_api_base_url()
             .expect_err("unspecified explicit public url should be rejected");
-        assert!(error.to_string().contains("SDKWORK_IM_PORTAL_API_BASE_URL"));
-
-        unsafe {
-            env::remove_var("SDKWORK_IM_PORTAL_API_BASE_URL");
-            env::set_var(
-                "SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL",
-                "http://0.0.0.0:18079",
-            );
-        }
-
-        let error = resolve_portal_api_base_url()
-            .expect_err("unspecified application public HTTP URL should be rejected");
         assert!(error
             .to_string()
             .contains("SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL"));

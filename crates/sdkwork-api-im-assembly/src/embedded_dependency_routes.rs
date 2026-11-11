@@ -65,28 +65,21 @@ pub fn apply_embedded_dependency_env() -> Result<(), String> {
     apply_knowledgebase_runtime_env_from_im_shared_profile()?;
     apply_agents_runtime_env_from_im_shared_profile()?;
     apply_embedded_dependency_app_roots();
-    apply_embedded_feeds_env();
+    apply_embedded_tenant_defaults();
     Ok(())
 }
 
-/// Point the feeds community source adapter and the anonymous community/feeds
-/// read surfaces at this collapsed single-ingress with the seeded demo tenant
-/// when the topology does not configure them explicitly.
-fn apply_embedded_feeds_env() {
-    let gateway_public_url = std::env::var("SDKWORK_IM_APPLICATION_PUBLIC_HTTP_URL")
-        .ok()
-        .filter(|value| !value.trim().is_empty());
-    if let Some(url) = gateway_public_url.as_deref() {
-        // The feeds community adapter pulls circle content from the community
-        // open surface served in-process by this gateway.
-        if std::env::var("SDKWORK_FEEDS_COMMUNITY_OPEN_API_BASE_URL")
-            .ok()
-            .map(|value| value.trim().is_empty())
-            .unwrap_or(true)
-        {
-            set_env_var("SDKWORK_FEEDS_COMMUNITY_OPEN_API_BASE_URL", url);
-        }
-    }
+/// Seed the anonymous community/feeds read surfaces with the demo tenant when
+/// the topology does not configure one explicitly.
+///
+/// Deliberately no sibling endpoint default is published here. The feeds
+/// community source adapter is composed in-process on the shared pool
+/// (`EmbeddedCommunitySourceAdapter`, registered in
+/// `bootstrap_embedded_feeds_contribution`), so the feeds HTTP adapter variable
+/// (`SDKWORK_FEEDS_COMMUNITY_OPEN_API_BASE_URL`) is neither read nor written by
+/// this process: the community module is reached through its own service port
+/// (`MODULE_SPEC.md` §4.2), never through this gateway's own listener.
+fn apply_embedded_tenant_defaults() {
     // Anonymous public reads (community feed.list, feeds streams) resolve the
     // seeded demo tenant when no IAM context is present.
     if std::env::var("COMMUNITY_DEFAULT_TENANT_ID")
@@ -105,11 +98,8 @@ fn apply_embedded_feeds_env() {
     }
 }
 
-/// Point the community commerce integration (tier publishing + order payment
-/// verification) at this collapsed single-ingress when no external
-/// membership/order backend is configured. The standalone gateway serves the
-/// membership/order backend business surfaces in-process, so the community
-/// service reaches them through the gateway's own public origin.
+/// Require the single workspace PostgreSQL profile every embedded dependency
+/// module shares in the collapsed single-ingress topology.
 fn validate_workspace_server_database_env() -> Result<(), String> {
     let config = sdkwork_database_config::DatabaseConfig::from_env("IM")
         .map_err(|error| format!("resolve workspace database profile failed: {error}"))?;

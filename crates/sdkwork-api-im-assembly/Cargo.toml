@@ -79,7 +79,6 @@ sdkwork-community-feeds-community-embedded.workspace = true
 sdkwork-api-feeds-assembly.workspace = true
 sdkwork-feeds-service-host.workspace = true
 sdkwork-feeds-database-host.workspace = true
-sdkwork-feeds-source-community.workspace = true
 sdkwork-feeds-source-news.workspace = true
 sdkwork-api-company-assembly.workspace = true
 sdkwork-company-database-host.workspace = true
