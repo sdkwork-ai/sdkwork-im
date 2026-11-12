@@ -51,6 +51,7 @@
     "test:workspace": "pnpm run test:workspace-workbench && pnpm run test:workspace-service",
     "test:workspace-workbench": "node scripts/workspace-workbench-contract.test.mjs",
     "test:workspace-service": "node ../../scripts/dev/run-tsx-cli.mjs --tsconfig scripts/workspace-service-test.tsconfig.json scripts/workspace-service-contract.test.ts",
+      "test:account-scope": "node --test scripts/im-account-scope-contract.test.mjs",
     "test:e2e": "playwright test",
     "dev:browser:postgres:standalone": "pnpm exec sdkwork-app dev --root ../.. --runtime-target browser --deployment-profile standalone",
     "dev:desktop:postgres:standalone": "pnpm exec sdkwork-app dev --root ../.. --runtime-target desktop --deployment-profile standalone",

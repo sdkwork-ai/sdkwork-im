@@ -7,6 +7,7 @@ import type {
 import { getImSdkClientWithSession } from '@sdkwork/im-pc-core/sdk/imSdkClient';
 import {
   readAppSdkSessionTokens,
+  SDKWORK_IM_SESSION_CHANGED_EVENT,
   type SdkworkChatSession,
 } from '@sdkwork/im-pc-core/sdk/session';
 import {
@@ -16,6 +17,18 @@ import {
   subscribePcRealtimeScope,
 } from '@sdkwork/im-pc-core/sdk/pcRealtimeConnectionManager';
 import { resolveSdkworkChatPcClientId } from './ClientIdentityService';
+import {
+  clearImScopedStorageForScope,
+  hasImAccountScopeSwitched,
+  imAccountScopeKey,
+  isImSessionAuthenticated,
+  readImScopedStorageValue,
+  removeImScopedStorageValue,
+  resolveImSessionAccountScope,
+  resolveImSessionAccountScopeKey,
+  writeImScopedStorageValue,
+  type ImAccountScope,
+} from './imAccountScope';
 import {
   resolveRtcMediaPublishKinds,
   rtcMediaService,
@@ -263,6 +276,8 @@ function isNotFoundHttpError(error: unknown): boolean {
 }
 
 // --- 活跃通话持久化（用于页面刷新后恢复） ---
+// 账号切换后不得恢复上一账号的通话：key 按 <base>:<tenantId>:<userId> 隔离，
+// 旧的无作用域 key 不再读取，并在首次访问时清除。
 const ACTIVE_CALL_STORAGE_KEY = 'sdkwork-im-pc:active-call:v1';
 
 interface PersistedActiveCall {
@@ -273,12 +288,16 @@ interface PersistedActiveCall {
   type?: SdkworkCallType;
 }
 
-function readPersistedActiveCall(): PersistedActiveCall | null {
+function resolveActiveCallStorage() {
   if (typeof window === 'undefined') {
-    return null;
+    return undefined;
   }
+  return window.localStorage;
+}
+
+function readPersistedActiveCall(scope: ImAccountScope | null): PersistedActiveCall | null {
   try {
-    const raw = window.localStorage.getItem(ACTIVE_CALL_STORAGE_KEY);
+    const raw = readImScopedStorageValue(resolveActiveCallStorage(), ACTIVE_CALL_STORAGE_KEY, scope);
     if (!raw) {
       return null;
     }
@@ -292,19 +311,17 @@ function readPersistedActiveCall(): PersistedActiveCall | null {
   }
 }
 
-function writePersistedActiveCall(call: PersistedActiveCall | null): void {
-  if (typeof window === 'undefined') {
+function writePersistedActiveCall(
+  scope: ImAccountScope | null,
+  call: PersistedActiveCall | null,
+): void {
+  const storage = resolveActiveCallStorage();
+  if (!call) {
+    removeImScopedStorageValue(storage, ACTIVE_CALL_STORAGE_KEY, scope);
     return;
   }
-  try {
-    if (call) {
-      window.localStorage.setItem(ACTIVE_CALL_STORAGE_KEY, JSON.stringify(call));
-    } else {
-      window.localStorage.removeItem(ACTIVE_CALL_STORAGE_KEY);
-    }
-  } catch {
-    // localStorage 不可用时静默降级，不影响通话功能。
-  }
+  // localStorage 不可用或账号作用域未知时静默降级，不影响通话功能。
+  writeImScopedStorageValue(storage, ACTIVE_CALL_STORAGE_KEY, scope, JSON.stringify(call));
 }
 
 class SdkworkImCallService implements CallService {
@@ -328,12 +345,81 @@ class SdkworkImCallService implements CallService {
   private snapshot: SdkworkCallSnapshot = createIdleSnapshot();
   private sequence = 0;
   private watchGeneration = 0;
+  private activeCallScope: ImAccountScope | null = null;
+  private activeCallScopeKey = '';
 
   constructor(dependencies: SdkworkCallServiceDependencies = {}) {
     this.getClient = dependencies.getClient ?? ((session) => getImSdkClientWithSession(session));
     this.readSession = dependencies.readSession ?? readAppSdkSessionTokens;
     this.rtcMediaService = dependencies.rtcMediaService ?? rtcMediaService;
+    // Never adopt the legacy unscoped record: it may belong to another account.
+    removeImScopedStorageValue(resolveActiveCallStorage(), ACTIVE_CALL_STORAGE_KEY, null);
+    this.activeCallScope = this.resolveActiveCallStorageScope();
+    this.activeCallScopeKey = imAccountScopeKey(this.activeCallScope);
     this.configureRealtimeConnectionManager();
+    if (typeof window !== 'undefined') {
+      window.addEventListener(SDKWORK_IM_SESSION_CHANGED_EVENT, this.handleAuthSessionChanged);
+    }
+  }
+
+  private resolveActiveCallStorageScope(): ImAccountScope | null {
+    try {
+      return resolveImSessionAccountScope(this.readSession());
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * On account switch/sign-out the previous account's persisted call must be
+   * dropped and the in-memory call UI reset so the next account never recovers
+   * (or joins) another account's call session.
+   */
+  private readonly handleAuthSessionChanged = (): void => {
+    const previousScope = this.activeCallScope;
+    const previousScopeKey = this.activeCallScopeKey;
+    let nextSession: SdkworkChatSession | null = null;
+    try {
+      nextSession = this.readSession();
+    } catch {
+      nextSession = null;
+    }
+    const authenticated = isImSessionAuthenticated(nextSession);
+    // Still signed in but without identity claims (e.g. a token refresh that
+    // only carries tokens) is not an account switch: keep the previous scope.
+    const nextScope = authenticated
+      ? resolveImSessionAccountScope(nextSession) ?? previousScope
+      : null;
+    const nextScopeKey = resolveImSessionAccountScopeKey(nextSession, previousScopeKey);
+    this.activeCallScope = nextScope;
+    this.activeCallScopeKey = nextScopeKey;
+
+    if (!hasImAccountScopeSwitched(previousScopeKey, nextScopeKey)) {
+      return;
+    }
+
+    clearImScopedStorageForScope(
+      resolveActiveCallStorage(),
+      [ACTIVE_CALL_STORAGE_KEY],
+      previousScope,
+    );
+    this.resetCallStateForAccountSwitch();
+  };
+
+  private resetCallStateForAccountSwitch(): void {
+    this.watchGeneration += 1;
+    this.sequence += 1;
+    this.incomingSubscription?.();
+    this.incomingSubscription = undefined;
+    this.incomingScopeSubscription?.();
+    this.incomingScopeSubscription = undefined;
+    this.incomingConnectionLease?.();
+    this.incomingConnectionLease = undefined;
+    this.participantCredential = undefined;
+    this.participantCredentialRequest = undefined;
+    this.mediaReadyRequest = undefined;
+    this.activeMediaRtcSessionId = undefined;
+    this.applySnapshot({ ...createIdleSnapshot() });
   }
 
   getSnapshot(): SdkworkCallSnapshot {
@@ -821,7 +907,13 @@ class SdkworkImCallService implements CallService {
   }
 
   async recoverActiveCall(): Promise<RecoverActiveCallResult> {
-    const persisted = readPersistedActiveCall();
+    // Recovery is account-scoped: a record written by another account is never
+    // visible here, and an unknown account scope disables recovery entirely.
+    const scope = this.resolveActiveCallStorageScope();
+    if (!scope) {
+      return { recovered: false, snapshot: this.getSnapshot() };
+    }
+    const persisted = readPersistedActiveCall(scope);
     if (!persisted) {
       return { recovered: false, snapshot: this.getSnapshot() };
     }
@@ -836,7 +928,7 @@ class SdkworkImCallService implements CallService {
       });
       // 如果恢复后发现会话已结束（404 或 retrieve 返回终态），清除持久化。
       if (snapshot.state === 'ended' || snapshot.state === 'rejected' || snapshot.state === 'errored') {
-        writePersistedActiveCall(null);
+        writePersistedActiveCall(scope, null);
         return { recovered: false, snapshot };
       }
       // 恢复方向信息（recoverRtcSession 使用 snapshot.direction，初始为 undefined）
@@ -849,7 +941,7 @@ class SdkworkImCallService implements CallService {
       }
       return { recovered: true, snapshot: this.getSnapshot() };
     } catch {
-      writePersistedActiveCall(null);
+      writePersistedActiveCall(scope, null);
       return { recovered: false, snapshot: this.getSnapshot() };
     }
   }
@@ -1151,16 +1243,19 @@ class SdkworkImCallService implements CallService {
   }
 
   private persistActiveCall(): void {
+    const scope = this.resolveActiveCallStorageScope();
+    this.activeCallScope = scope;
+    this.activeCallScopeKey = imAccountScopeKey(scope);
     const s = this.snapshot;
     const isTerminal = s.state === 'idle'
       || s.state === 'ended'
       || s.state === 'rejected'
       || s.state === 'errored';
     if (!s.rtcSessionId || isTerminal) {
-      writePersistedActiveCall(null);
+      writePersistedActiveCall(scope, null);
       return;
     }
-    writePersistedActiveCall({
+    writePersistedActiveCall(scope, {
       rtcSessionId: s.rtcSessionId,
       conversationId: s.conversationId,
       direction: s.direction,

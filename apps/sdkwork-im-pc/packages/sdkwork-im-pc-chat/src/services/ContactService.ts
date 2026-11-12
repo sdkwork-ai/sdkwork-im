@@ -31,6 +31,10 @@ import {
   type OrganizationDirectoryService,
 } from './OrganizationDirectoryService';
 import { createDefaultAvatar } from './DefaultAvatarService';
+import {
+  hasImAccountScopeSwitched,
+  resolveImSessionAccountScopeKey,
+} from './imAccountScope';
 
 export interface OrgDepartment {
   id: string;
@@ -313,40 +317,46 @@ class SdkworkContactService implements ContactService {
   private pendingFriendRequestRefreshListener?: () => void;
   private pendingFriendRequestRealtimeUnsub?: () => void;
   private pendingFriendRequestRealtimeUserId?: string;
-  private lastKnownSessionUserId?: string;
+  /**
+   * `tenantId:organizationId:userId` of the last session. Comparing the full
+   * account scope (not just `userId`) keeps caches from leaking when two tenants
+   * happen to use the same user id (e.g. the default `1`).
+   */
+  private lastKnownSessionScopeKey = '';
   private friendRequestsListSync?: Promise<FriendRequest[]>;
   // In-flight dedup for getUserById: collapses concurrent calls for the same
   // id (e.g. Sidebar mount + session-changed event) onto one promise so only
   // one /social/users request is issued.
   private readonly getUserByIdInFlight = new Map<string, Promise<User | null>>();
   private readonly handleAuthSessionChanged = (event?: Event): void => {
-    // Determine whether the session change is a real user switch (or logout)
+    // Determine whether the session change is a real account switch (or logout)
     // vs an incremental profile refresh (e.g. chatId hydration). Only clear
     // user-scoped caches on a real switch; profile refreshes must not evict
     // the very cache that was just populated (which caused a feedback loop).
     type SessionDetail = {
       session: {
-        context?: { userId?: string | number };
+        accessToken?: string;
+        authToken?: string;
+        context?: { organizationId?: string | number; tenantId?: string | number; userId?: string | number };
         user?: { id?: string | number; userId?: string | number };
       } | null;
     } | undefined;
     const detail = (event as CustomEvent<SessionDetail> | undefined)?.detail;
     const currentSession = readAppSdkSessionTokens();
-    const nextUserId = pickString(
-      detail?.session?.user?.userId,
-      detail?.session?.user?.id,
-      detail?.session?.context?.userId,
-      currentSession?.user?.userId,
-      currentSession?.user?.id,
-      currentSession?.context?.userId,
+    const nextSession = detail?.session ?? currentSession;
+    // A token refresh that only carries tokens (no identity claims) keeps the
+    // previous scope instead of being treated as a switch and evicting caches.
+    const nextScopeKey = resolveImSessionAccountScopeKey(
+      nextSession,
+      this.lastKnownSessionScopeKey,
     );
-    const isUserSwitch = !nextUserId || !this.lastKnownSessionUserId || String(nextUserId) !== String(this.lastKnownSessionUserId);
-    this.lastKnownSessionUserId = nextUserId ? String(nextUserId) : undefined;
+    const isUserSwitch = hasImAccountScopeSwitched(this.lastKnownSessionScopeKey, nextScopeKey);
+    this.lastKnownSessionScopeKey = nextScopeKey;
 
     if (!isUserSwitch) {
-      // Same user, profile-only update: keep caches, only stop the friend
+      // Same account, profile-only update: keep caches, only stop the friend
       // request loop if the session is no longer authenticated.
-      if (!nextUserId) {
+      if (!nextScopeKey) {
         this.stopPendingFriendRequestRefreshLoop();
       }
       return;
