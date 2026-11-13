@@ -121,9 +121,9 @@ impl SecurityContext {
 
     /// Check if user has a specific permission.
     pub fn has_permission(&self, permission: &str) -> bool {
-        self.permission_scope
-            .iter()
-            .any(|p| p == permission || p == "*")
+        // Wildcard-aware (AUTHORIZATION_STATE_SPEC 3.5): `*`, `{domain}.*`, and
+        // `*.{action}` grants must authorize without re-login or re-expansion.
+        sdkwork_iam_context_service::has_permission_in_scope(&self.permission_scope, permission)
     }
 
     /// Check if this is a platform/admin context.
