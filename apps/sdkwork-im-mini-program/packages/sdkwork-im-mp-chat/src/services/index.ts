@@ -47,3 +47,15 @@ export {
   type ImMpChatGroupProfile,
   type ImMpChatGroupService,
 } from "./chatGroupService";
+
+export {
+  createImMpNotificationsService,
+  mergeImMpNotificationPages,
+  toImMpNotificationItem,
+  type ImMpNotificationItem,
+  type ImMpNotificationPage,
+  type ImMpNotificationQuery,
+  type ImMpNotificationsClientResolver,
+  type ImMpNotificationsPort,
+  type ImMpNotificationsService,
+} from "./notificationsService";
