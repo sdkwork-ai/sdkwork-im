@@ -112,6 +112,23 @@ for (const [key, expected] of Object.entries({
 // Public application access token: SaaS isolation material, not a secret.
 // APP_ACCESS_TOKEN_SPEC.md requires it in every profile and fails the build
 // when it is missing or does not belong to this app/profile.
+const DEPLOY_APPLICATION_ID_ENV = "SDKWORK_DEPLOY_APPLICATION_ID";
+// Committed profiles of a repository cannot carry an installation's anchor, so a
+// source checkout materializes this placeholder instead (APP_ACCESS_TOKEN_SPEC
+// section 3.1.1). A packaging build sets the real anchor and materializes with it.
+const PENDING_DEPLOY_APPLICATION_ID = "__SDKWORK_DEPLOY_APPLICATION_ID__";
+
+/**
+ * IAM makes the deploy application the identity of every access token
+ * (`app_id`/`aud`), so the expected claim is this installation's anchor, never
+ * the repository-owned runtime id this surface used to compile in.
+ * @returns the anchor when the build host sets it, else the committed placeholder.
+ */
+function expectedDeployApplicationId() {
+  const anchor = String(process.env[DEPLOY_APPLICATION_ID_ENV] ?? "").trim();
+  return anchor || PENDING_DEPLOY_APPLICATION_ID;
+}
+
 const accessToken = String(runtimeConfig.SDKWORK_ACCESS_TOKEN ?? "").trim();
 if (!accessToken) {
   throw new Error(
@@ -130,7 +147,7 @@ try {
   throw new Error(`${runtimeConfigPath} SDKWORK_ACCESS_TOKEN payload is not valid JSON.`);
 }
 for (const [claim, expected] of Object.entries({
-  app_id: "sdkwork-im-mini-program",
+  app_id: expectedDeployApplicationId(),
   organization_id: "0",
   environment,
   deployment_profile: deploymentProfile,
