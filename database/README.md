@@ -116,10 +116,10 @@ cargo test -p im-adapters-postgres-journal --test agent_integration_migration_li
 
 ## Initialization state
 
-This module ships a composed `baseline-plus-migrations` lifecycle for greenfield deployments:
+This module is in **initialization state** for greenfield deployments:
 
-1. **Baseline** — `database/ddl/baseline/{engine}/0001_im_baseline.sql` contains the 55-table bootstrap DDL snapshot.
-2. **Migrations** — `database/migrations/{engine}/` contains the ordered `0001`-`0012` PostgreSQL migrations (three of them add tables, completing the 58-table contract). They are not optional: the deployment migration step must apply them before application traffic.
+1. **Baseline** — `database/ddl/baseline/{engine}/0001_im_baseline.sql` contains the full DDL snapshot.
+2. **Migrations** — `database/migrations/{engine}/` is reserved for post-GA incremental schema changes only. It is intentionally empty at initialization.
 3. **Drift** — run `pnpm db:drift:check` before release.
 
 ## Commands
