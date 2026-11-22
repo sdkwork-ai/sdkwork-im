@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { SdkworkIamH5AuthRoutes } from '@sdkwork/iam-h5-auth';
+import { IAM_H5_AUTH_ROUTES, SdkworkIamH5AuthRoutes } from '@sdkwork/iam-h5-auth';
 import { useAppStore, type ImH5SessionUser } from '@sdkwork/im-h5-core';
 import {
   getImAppAuthRuntime,
@@ -32,7 +32,11 @@ interface AuthGateProps {
 }
 
 function isAuthRoute(pathname: string): boolean {
-  return pathname === AUTH_BASE_PATH || pathname.startsWith(`${AUTH_BASE_PATH}/`);
+  return pathname === AUTH_BASE_PATH
+    || pathname.startsWith(`${AUTH_BASE_PATH}/`)
+    // The provider callback is an OAuth hop, not an account page: the gate must
+    // still render the shared auth brick there so the code exchange runs.
+    || pathname === IAM_H5_AUTH_ROUTES.callbackPath;
 }
 
 function resolveRedirectTarget(pathname: string, search: string, hash: string): string {

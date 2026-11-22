@@ -12,6 +12,8 @@
  * Both sources are validated as internal app targets (open-redirect guard).
  */
 
+import { IAM_H5_AUTH_ROUTES } from '@sdkwork/iam-h5-auth';
+
 export const AUTH_HOME_PATH = '/';
 export const IM_H5_AUTH_REDIRECT_STORAGE_KEY = 'sdkwork:im:h5:auth:redirect';
 
@@ -50,7 +52,11 @@ export function isSafeInternalTarget(target: string): boolean {
 }
 
 function isAuthPathname(pathname: string): boolean {
-  return pathname === '/auth' || pathname.startsWith('/auth/');
+  return pathname === '/auth'
+    || pathname.startsWith('/auth/')
+    // The provider callback is an OAuth hop, not an account page, so it is not
+    // a return target either.
+    || pathname === IAM_H5_AUTH_ROUTES.callbackPath;
 }
 
 /**

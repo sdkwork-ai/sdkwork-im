@@ -7,6 +7,7 @@ import {
   SdkworkIamAuthRoutes,
 } from '@sdkwork/auth-pc-react';
 import {
+  IAM_H5_AUTH_ROUTES,
   SdkworkIamH5AuthRoutes,
   isSdkworkMobileAuthViewport,
 } from '@sdkwork/iam-h5-auth';
@@ -38,7 +39,11 @@ function isAuthenticatedSession(session: SdkworkChatSession | null): boolean {
 }
 
 function isAuthRoute(pathname: string): boolean {
-  return pathname === AUTH_BASE_PATH || pathname.startsWith(`${AUTH_BASE_PATH}/`);
+  return pathname === AUTH_BASE_PATH
+    || pathname.startsWith(`${AUTH_BASE_PATH}/`)
+    // The provider callback is an OAuth hop, not an account page: the gate must
+    // still render the shared auth brick there so the code exchange runs.
+    || pathname === IAM_H5_AUTH_ROUTES.callbackPath;
 }
 
 function resolveRedirectTarget(locationPathname: string, locationSearch: string, locationHash: string): string {
