@@ -227,12 +227,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "as-any"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0f477b951e452a0b6b4a10b53ccd569042d1d01729b519e02074a9c0958a063"
-
-[[package]]
 name = "asn1-rs"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -611,7 +605,7 @@ dependencies = [
  "lru",
  "percent-encoding",
  "regex-lite",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "tracing",
  "url",
 ]
@@ -714,7 +708,7 @@ dependencies = [
  "http 1.5.0",
  "p256",
  "percent-encoding",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "subtle",
  "time",
  "tracing",
@@ -749,7 +743,7 @@ dependencies = [
  "md-5 0.11.0",
  "pin-project-lite",
  "sha1 0.11.0",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "tracing",
 ]
 
@@ -2077,17 +2071,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eventsource-stream"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74fef4569247a5f429d9156b9d0a2599914385dd189c539334c625d8099d90ab"
-dependencies = [
- "futures-core",
- "nom 7.1.3",
- "pin-project-lite",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3286,6 +3269,8 @@ checksum = "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
 dependencies = [
  "equivalent",
  "hashbrown 0.17.1",
+ "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -4840,7 +4825,7 @@ dependencies = [
  "md-5 0.11.0",
  "memchr",
  "rand 0.10.2",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "stringprep",
 ]
 
@@ -5561,36 +5546,81 @@ dependencies = [
 
 [[package]]
 name = "rig-core"
-version = "0.42.0"
+version = "0.47.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "432d83e0facf16749f91fe729cbffca84437e8062d2f4e92f4f12e903693922d"
+checksum = "d5b60ad1761accbb5ef3ef97a038903345d60768d7a5a5a09e01e16dfac0f699"
 dependencies = [
- "as-any",
  "async-stream",
- "base64 0.22.1",
+ "base64 0.23.1",
  "bytes",
- "eventsource-stream",
  "fastrand",
  "futures",
- "futures-timer",
  "glob",
  "http 1.5.0",
+ "httpdate",
  "indexmap 2.14.2",
  "mime",
  "mime_guess",
  "ordered-float",
- "pin-project-lite",
- "reqwest 0.13.1",
+ "rig-http",
+ "rig-reqwest",
+ "rig-tungstenite",
  "schemars",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "serde_path_to_error",
+ "sha2 0.11.1",
+ "thiserror 2.0.20",
+ "tracing",
+ "url",
+ "uuid",
+ "web-time",
+]
+
+[[package]]
+name = "rig-http"
+version = "0.47.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "041fa0a6e1d1236cbc502516e3fa71ac3dddbd91c3594a81436c6bee9c8acc41"
+dependencies = [
+ "bytes",
+ "futures",
+ "futures-timer",
+ "http 1.5.0",
+ "mime",
+ "thiserror 2.0.20",
+ "tokio",
+ "url",
+]
+
+[[package]]
+name = "rig-reqwest"
+version = "0.47.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dab589224b5831dba19bc22784cd083aa5b7424d7068db515e631878da6f5309"
+dependencies = [
+ "bytes",
+ "futures",
+ "http 1.5.0",
+ "reqwest 0.13.1",
+ "rig-http",
+ "thiserror 2.0.20",
+ "tracing",
+ "url",
+ "webpki-root-certs",
+]
+
+[[package]]
+name = "rig-tungstenite"
+version = "0.47.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13cbbd312d5646eb98e129ee39b8bca6adaa5b216f4643dda0e3c18d5fe4dd1c"
+dependencies = [
+ "futures",
+ "rig-http",
  "thiserror 2.0.20",
  "tokio",
  "tokio-tungstenite 0.29.0",
- "tracing",
- "tracing-futures",
- "url",
 ]
 
 [[package]]
@@ -6892,6 +6922,7 @@ dependencies = [
  "sdkwork-database-spi",
  "sdkwork-database-sqlx",
  "sdkwork-order-database-host",
+ "sdkwork-order-repository-sqlx",
  "sdkwork-order-service-host",
  "sdkwork-routes-order-app-api",
  "sdkwork-routes-order-backend-api",
@@ -6900,6 +6931,7 @@ dependencies = [
  "sdkwork-web-core",
  "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -7329,6 +7361,7 @@ name = "sdkwork-content-course-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "sdkwork-utils-rust",
  "serde",
  "serde_json",
  "sqlx",
@@ -7888,6 +7921,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdkwork-iam-directory-repository-sqlx"
+version = "0.1.0"
+dependencies = [
+ "sdkwork-database-config",
+ "sdkwork-iam-context-service",
+ "sqlx",
+]
+
+[[package]]
 name = "sdkwork-iam-embedded-application-bootstrap"
 version = "0.1.0"
 dependencies = [
@@ -8366,6 +8408,7 @@ dependencies = [
  "sdkwork-drive-uploader-service",
  "sdkwork-drive-workspace-service",
  "sdkwork-generations-mcp-service",
+ "sdkwork-iam-context-service",
  "sdkwork-intelligence-prompts-ai-contract",
  "sdkwork-utils-rust",
  "sdkwork-web-core",
@@ -8424,7 +8467,7 @@ dependencies = [
  "sdkwork-utils-rust",
  "serde",
  "serde_json",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "sqlx",
  "thiserror 2.0.20",
  "time",
@@ -8464,7 +8507,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sha1 0.11.0",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "thiserror 2.0.20",
  "time",
  "tokio",
@@ -8520,7 +8563,7 @@ dependencies = [
  "sdkwork-utils-rust",
  "serde",
  "serde_json",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "thiserror 2.0.20",
  "tokio",
  "tracing",
@@ -8569,6 +8612,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "uuid",
 ]
 
 [[package]]
@@ -8764,7 +8808,7 @@ dependencies = [
  "sdkwork-utils-rust",
  "serde",
  "serde_json",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "tracing",
  "zeroize",
 ]
@@ -8781,7 +8825,7 @@ dependencies = [
  "sdkwork-utils-rust",
  "serde",
  "serde_json",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "tracing",
  "zeroize",
 ]
@@ -8813,7 +8857,7 @@ dependencies = [
  "sdkwork-utils-rust",
  "serde",
  "serde_json",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "tracing",
  "zeroize",
 ]
@@ -9026,6 +9070,7 @@ dependencies = [
  "sdkwork-contract-service",
  "sdkwork-database-config",
  "sdkwork-database-sqlx",
+ "sdkwork-iam-directory-repository-sqlx",
  "sdkwork-utils-rust",
  "serde",
  "serde_json",
@@ -9358,6 +9403,7 @@ dependencies = [
 name = "sdkwork-order-integration-partner"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "sdkwork-commerce-partner-repository-sqlx",
  "sdkwork-commerce-partner-service",
  "sdkwork-contract-service",
@@ -9392,7 +9438,6 @@ dependencies = [
  "sdkwork-commerce-money",
  "sdkwork-contract-service",
  "sdkwork-database-config",
- "sdkwork-database-history",
  "sdkwork-database-id",
  "sdkwork-database-sqlx",
  "sdkwork-merchandise-repository-sqlx",
@@ -9422,6 +9467,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "sdkwork-contract-service",
+ "sdkwork-order-integration-partner",
  "sdkwork-order-service",
  "sdkwork-payment-repository-sqlx",
  "sdkwork-payment-service",
@@ -9468,6 +9514,7 @@ dependencies = [
  "sdkwork-order-service",
  "sdkwork-payment-providers",
  "sdkwork-payment-repository-sqlx",
+ "sdkwork-utils-rust",
  "sdkwork-web-bootstrap",
  "sdkwork-web-core",
  "sqlx",
@@ -9506,7 +9553,6 @@ name = "sdkwork-payment-providers"
 version = "0.1.0"
 dependencies = [
  "aes-gcm 0.11.1",
- "async-trait",
  "base64 0.22.1",
  "chrono",
  "hmac 0.12.1",
@@ -9563,6 +9609,7 @@ dependencies = [
  "sdkwork-payment-database-host",
  "sdkwork-payment-providers",
  "sdkwork-payment-repository-sqlx",
+ "sdkwork-utils-rust",
  "sdkwork-web-bootstrap",
  "sdkwork-web-core",
  "tokio",
@@ -10732,6 +10779,7 @@ name = "sdkwork-routes-payment-backend-api"
 version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
+ "chrono",
  "sdkwork-contract-service",
  "sdkwork-database-sqlx",
  "sdkwork-iam-context-service",
@@ -11002,7 +11050,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "urlencoding",
  "uuid",
 ]
@@ -11415,9 +11463,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "446ba717509524cb3f22f17ecc096f10f4822d76ab5c0b9822c5f9c284e825f4"
+checksum = "47d7069beb7d6ac7b9acd1039986e73443f24234f41074da099d6f994ac9ad19"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.3.1",
@@ -11764,7 +11812,7 @@ dependencies = [
  "percent-encoding",
  "serde",
  "sha1 0.11.0",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "sqlx-core",
  "thiserror 2.0.20",
  "time",
@@ -11801,7 +11849,7 @@ dependencies = [
  "rand 0.10.2",
  "serde",
  "serde_json",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "smallvec",
  "sqlx-core",
  "stringprep",
@@ -12053,7 +12101,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -12591,18 +12639,6 @@ checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 dependencies = [
  "once_cell",
  "valuable",
-]
-
-[[package]]
-name = "tracing-futures"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97d095ae15e245a057c8e8451bab9b3ee1e1f68e9ba2b4fbc18d0ac5237835f2"
-dependencies = [
- "futures",
- "futures-task",
- "pin-project",
- "tracing",
 ]
 
 [[package]]
