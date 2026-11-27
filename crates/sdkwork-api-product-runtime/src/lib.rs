@@ -871,6 +871,9 @@ fn websocket_origin_for_url(url: &Url) -> Option<String> {
     }
 }
 
+// identity:service pure-proxy — a transparent reverse proxy. Every inbound
+// header (including the caller's `Authorization` / `Access-Token`) is copied onto
+// the upstream request, so identity reaches the destination unchanged.
 async fn proxy_admin_request(
     State(state): State<RuntimeProxyState>,
     method: Method,
@@ -891,7 +894,13 @@ async fn proxy_admin_request(
 
     let upstream_url = format!(
         "{}{}",
-        state.admin_proxy_target,
+        // APP_SDK_INTEGRATION_SPEC.md §5.2.2: the admin backend is another
+        // SDKWork surface; resolve through the shared registry component with
+        // the configured proxy target as the degradation tier.
+        sdkwork_utils_rust::service_base_url::registry_base_url_or(
+            "sdkwork-api-cloud-gateway",
+            state.admin_proxy_target.trim_end_matches('/'),
+        ),
         admin_proxy_path_and_query(&uri),
     );
     let mut request_builder = state.client.request(method, upstream_url);

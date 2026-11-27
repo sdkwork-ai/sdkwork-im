@@ -2948,6 +2948,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "if-addrs"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0a05c691e1fae256cf7013d99dad472dc52d5543322761f83ec8d47eab40d2b"
+dependencies = [
+ "libc",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "im-adapter-object-storage-s3"
 version = "0.1.0"
 dependencies = [
@@ -6649,9 +6659,10 @@ dependencies = [
  "async-trait",
  "axum 0.8.9",
  "chrono",
- "sdkwork-api-assets-assembly",
  "sdkwork-database-sqlx",
+ "sdkwork-discovery-client",
  "sdkwork-generations-database-host",
+ "sdkwork-generations-delivery-adapter",
  "sdkwork-generations-provider-adapter",
  "sdkwork-iam-database-host",
  "sdkwork-iam-embedded-application-bootstrap",
@@ -6985,6 +6996,17 @@ dependencies = [
  "sdkwork-web-bootstrap",
  "sdkwork-web-core",
  "tokio",
+]
+
+[[package]]
+name = "sdkwork-assets-app-sdk-generated-rust"
+version = "0.1.0"
+dependencies = [
+ "http 1.5.0",
+ "reqwest 0.13.1",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -7575,6 +7597,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdkwork-discovery-client"
+version = "0.1.0"
+dependencies = [
+ "if-addrs",
+ "reqwest 0.12.28",
+ "sdkwork-utils-rust",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "sdkwork-discovery-rpc-proto"
 version = "0.1.0"
 dependencies = [
@@ -7821,6 +7859,7 @@ dependencies = [
  "sdkwork-content-feeds-service",
  "sdkwork-content-news-service",
  "sdkwork-database-sqlx",
+ "sdkwork-utils-rust",
  "serde",
  "serde_json",
  "sqlx",
@@ -7834,6 +7873,21 @@ dependencies = [
  "dotenvy",
  "sdkwork-database-config",
  "sdkwork-database-sqlx",
+]
+
+[[package]]
+name = "sdkwork-generations-delivery-adapter"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "reqwest 0.13.1",
+ "sdkwork-assets-app-sdk-generated-rust",
+ "sdkwork-intelligence-generations-service",
+ "sdkwork-utils-rust",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -7866,6 +7920,7 @@ dependencies = [
  "sdkwork-utils-rust",
  "serde",
  "serde_json",
+ "thiserror 1.0.69",
  "tracing",
  "uuid",
 ]
@@ -12101,7 +12156,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
